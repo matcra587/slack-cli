@@ -1,0 +1,608 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"slices"
+	"strconv"
+	"strings"
+
+	"charm.land/huh/v2"
+	clib "github.com/gechr/clib/cli/cobra"
+	clibtheme "github.com/gechr/clib/theme"
+	"github.com/matcra587/slack-cli/internal/config"
+	"github.com/spf13/cobra"
+)
+
+type configInitOptions struct {
+	Profile          string
+	DefaultChannel   string
+	AgentAttribution bool
+	AgentLabel       string
+	AgentEmoji       string
+	AgentMessage     string
+	Force            bool
+}
+
+type configInitData struct {
+	Path      string `json:"path"`
+	Profile   string `json:"profile"`
+	Workspace string `json:"workspace"`
+	Written   bool   `json:"written"`
+}
+
+type configPathData struct {
+	Path   string `json:"path"`
+	Exists bool   `json:"exists"`
+}
+
+type configEntry struct {
+	Key         string `json:"key"`
+	Value       string `json:"value"`
+	Description string `json:"description,omitempty"`
+}
+
+type configListData struct {
+	Path             string        `json:"path"`
+	DefaultWorkspace string        `json:"default_workspace"`
+	Settings         []configEntry `json:"settings"`
+}
+
+type configGetData struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type configMutationData struct {
+	Path  string `json:"path"`
+	Key   string `json:"key"`
+	Value string `json:"value,omitempty"`
+}
+
+var slackConfigKeys = []string{
+	"default_workspace",
+	"workspaces.<profile>.default_channel",
+	"workspaces.<profile>.agent_attribution",
+	"workspaces.<profile>.agent_label",
+	"workspaces.<profile>.agent_emoji",
+	"workspaces.<profile>.agent_message",
+	"workspaces.<profile>.attribution.label",
+	"workspaces.<profile>.attribution.emoji",
+	"workspaces.<profile>.attribution.message",
+}
+
+var slackConfigDescriptions = map[string]string{
+	"default_workspace":                        "Default workspace profile name",
+	"workspaces.<profile>.default_channel":     "Default channel ID or alias",
+	"workspaces.<profile>.agent_attribution":   "Enable automated attribution by default",
+	"workspaces.<profile>.agent_label":         "Legacy attribution label override",
+	"workspaces.<profile>.agent_emoji":         "Legacy attribution emoji override",
+	"workspaces.<profile>.agent_message":       "Legacy attribution message override",
+	"workspaces.<profile>.attribution.label":   "Attribution label override",
+	"workspaces.<profile>.attribution.emoji":   "Attribution emoji override",
+	"workspaces.<profile>.attribution.message": "Attribution message override",
+}
+
+func newConfigCommand(runtime *RootRuntime) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:          "config",
+		Short:        "Manage slack configuration",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return cmd.Help()
+		},
+	}
+	cmd.AddCommand(newConfigInitCommand(runtime))
+	cmd.AddCommand(newConfigPathCommand(runtime))
+	cmd.AddCommand(newConfigListCommand(runtime))
+	cmd.AddCommand(newConfigGetCommand(runtime))
+	cmd.AddCommand(newConfigSetCommand(runtime))
+	cmd.AddCommand(newConfigUnsetCommand(runtime))
+	return cmd
+}
+
+func newConfigInitCommand(runtime *RootRuntime) *cobra.Command {
+	opts := configInitOptions{
+		Profile:          "default",
+		AgentAttribution: true,
+	}
+	cmd := &cobra.Command{
+		Use:          "init",
+		Short:        "First-run config setup",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runConfigInit(cmd, runtime, opts)
+		},
+	}
+	cmd.Flags().StringVar(&opts.Profile, "profile", opts.Profile, "Local workspace profile name")
+	cmd.Flags().StringVar(&opts.DefaultChannel, "default-channel", "", "Default channel ID or alias")
+	cmd.Flags().BoolVar(&opts.AgentAttribution, "agent-attribution", opts.AgentAttribution, "Enable automated attribution by default")
+	cmd.Flags().StringVar(&opts.AgentLabel, "agent-label", "", "Attribution label")
+	cmd.Flags().StringVar(&opts.AgentEmoji, "agent-emoji", "", "Attribution emoji")
+	cmd.Flags().StringVar(&opts.AgentMessage, "agent-message", "", "Attribution message")
+	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite an existing config")
+	extendConfigInitFlags(cmd)
+	return cmd
+}
+
+func runConfigInit(cmd *cobra.Command, runtime *RootRuntime, opts configInitOptions) error {
+	ctx := localConfigContext(cmd, runtime)
+	path := runtime.ConfigPath
+	if strings.TrimSpace(path) == "" {
+		return writeCommandError(ctx, validationCLIError("config path is unavailable"))
+	}
+	if _, err := os.Stat(path); err == nil && !opts.Force {
+		if !runtime.IsTTY {
+			return writeCommandError(ctx, validationCLIError("config already exists; rerun with --force to overwrite"))
+		}
+		overwrite, err := confirmConfigOverwrite(runtime, path)
+		if err != nil {
+			return writeCommandError(ctx, validationCLIError(err.Error()))
+		}
+		if !overwrite {
+			return ctx.WriteResult("config.init", configInitData{Path: path, Profile: opts.Profile, Workspace: opts.Profile, Written: false})
+		}
+	} else if err != nil && !os.IsNotExist(err) {
+		return writeCommandError(ctx, validationCLIError(err.Error()))
+	}
+
+	if runtime.IsTTY && shouldPromptConfigInit(cmd) {
+		if err := runConfigInitForm(runtime, &opts); err != nil {
+			return writeCommandError(ctx, validationCLIError(err.Error()))
+		}
+	}
+	profile, err := configProfileFromInitOptions(opts)
+	if err != nil {
+		return writeCommandError(ctx, validationCLIError(err.Error()))
+	}
+	cfg := &config.Config{
+		SchemaVersion:    config.SchemaVersion,
+		DefaultWorkspace: profile.Name,
+		Workspaces: map[string]config.WorkspaceProfile{
+			profile.Name: profile,
+		},
+	}
+	if err := config.SaveFile(path, cfg); err != nil {
+		return writeCommandError(ctx, validationCLIError(err.Error()))
+	}
+	runtime.Config = cfg
+	return ctx.WriteResult("config.init", configInitData{Path: path, Profile: profile.Name, Workspace: profile.Name, Written: true})
+}
+
+func shouldPromptConfigInit(cmd *cobra.Command) bool {
+	flags := cmd.Flags()
+	for _, name := range []string{"profile", "default-channel", "agent-attribution", "agent-label", "agent-emoji", "agent-message"} {
+		if flags.Changed(name) {
+			return false
+		}
+	}
+	return true
+}
+
+func confirmConfigOverwrite(runtime *RootRuntime, path string) (bool, error) {
+	overwrite := false
+	confirm := huh.NewConfirm().
+		Title("Overwrite existing config?").
+		Description(path).
+		Affirmative("Overwrite").
+		Negative("Keep existing").
+		Value(&overwrite)
+	if err := runConfigForm(runtime, huh.NewForm(huh.NewGroup(confirm))); err != nil {
+		return false, err
+	}
+	return overwrite, nil
+}
+
+func runConfigInitForm(runtime *RootRuntime, opts *configInitOptions) error {
+	help := configInitFieldHelp()
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Profile name").
+				Description(help["profile"]).
+				Placeholder("default").
+				Value(&opts.Profile).
+				Validate(requiredField("profile name")),
+			huh.NewInput().
+				Title("Default channel").
+				Description(help["default_channel"]).
+				Placeholder("C7N2Q8L4P").
+				Value(&opts.DefaultChannel),
+			huh.NewConfirm().
+				Title("Enable agent attribution?").
+				Description(help["agent_attribution"]).
+				Value(&opts.AgentAttribution),
+			huh.NewInput().
+				Title("Attribution emoji").
+				Description(help["agent_emoji"]).
+				Placeholder(":robot_face:").
+				Value(&opts.AgentEmoji),
+			huh.NewInput().
+				Title("Attribution message").
+				Description(help["agent_message"]).
+				Placeholder("Sent via slack-cli (agent mode)").
+				Value(&opts.AgentMessage),
+		),
+	)
+	return runConfigForm(runtime, form)
+}
+
+func runConfigForm(runtime *RootRuntime, form *huh.Form) error {
+	form = form.
+		WithTheme(authLoginHuhTheme(clibtheme.Default())).
+		WithInput(runtime.Stdin).
+		WithOutput(runtime.Stderr)
+	if !usesTerminalFiles(runtime) {
+		form.WithAccessible(true)
+	}
+	return form.Run()
+}
+
+func configInitFieldHelp() map[string]string {
+	return map[string]string{
+		"profile":           "Local Slack CLI profile. Select it later with --workspace; use default if you only need one profile.",
+		"default_channel":   "Optional default channel ID or alias for commands that support defaults.",
+		"agent_attribution": "Default on. Sent messages include visible Block Kit attribution when agent mode is detected.",
+		"agent_emoji":       "Optional emoji override for the attribution context block.",
+		"agent_message":     "Optional custom attribution text shown in the Block Kit context block.",
+	}
+}
+
+func configProfileFromInitOptions(opts configInitOptions) (config.WorkspaceProfile, error) {
+	name := strings.TrimSpace(opts.Profile)
+	if name == "" {
+		return config.WorkspaceProfile{}, errors.New("profile is required")
+	}
+	agentAttribution := opts.AgentAttribution
+	return config.WorkspaceProfile{
+		Name:             name,
+		DefaultChannel:   strings.TrimSpace(opts.DefaultChannel),
+		AgentAttribution: &agentAttribution,
+		Attribution: config.AttributionConfig{
+			Label:   strings.TrimSpace(opts.AgentLabel),
+			Emoji:   strings.TrimSpace(opts.AgentEmoji),
+			Message: strings.TrimSpace(opts.AgentMessage),
+		},
+	}, nil
+}
+
+func newConfigPathCommand(runtime *RootRuntime) *cobra.Command {
+	return &cobra.Command{
+		Use:          "path",
+		Short:        "Print the config file path",
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := localConfigContext(cmd, runtime)
+			_, statErr := os.Stat(runtime.ConfigPath)
+			return ctx.WriteResult("config.path", configPathData{Path: runtime.ConfigPath, Exists: statErr == nil})
+		},
+	}
+}
+
+func newConfigListCommand(runtime *RootRuntime) *cobra.Command {
+	return &cobra.Command{
+		Use:          "list",
+		Aliases:      []string{"ls"},
+		Short:        "Show current settings",
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := localConfigContext(cmd, runtime)
+			cfg, err := loadConfigForConfigCommand(runtime)
+			if err != nil {
+				return writeCommandError(ctx, validationCLIError(err.Error()))
+			}
+			return ctx.WriteResult("config.list", configListData{
+				Path:             runtime.ConfigPath,
+				DefaultWorkspace: cfg.DefaultWorkspace,
+				Settings:         configEntries(cfg),
+			})
+		},
+	}
+}
+
+func newConfigGetCommand(runtime *RootRuntime) *cobra.Command {
+	return &cobra.Command{
+		Use:               "get <key>",
+		Short:             "Show a configuration value",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeSlackConfigKeys,
+		SilenceUsage:      true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := localConfigContext(cmd, runtime)
+			cfg, err := loadConfigForConfigCommand(runtime)
+			if err != nil {
+				return writeCommandError(ctx, validationCLIError(err.Error()))
+			}
+			value, err := getConfigValue(cfg, args[0])
+			if err != nil {
+				return writeCommandError(ctx, validationCLIError(err.Error()))
+			}
+			return ctx.WriteResult("config.get", configGetData{Key: args[0], Value: value})
+		},
+	}
+}
+
+func newConfigSetCommand(runtime *RootRuntime) *cobra.Command {
+	return &cobra.Command{
+		Use:               "set <key> <value>",
+		Short:             "Add or update a setting",
+		Args:              cobra.ExactArgs(2),
+		ValidArgsFunction: completeSlackConfigKeys,
+		SilenceUsage:      true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := localConfigContext(cmd, runtime)
+			cfg, err := loadConfigForConfigCommand(runtime)
+			if err != nil {
+				return writeCommandError(ctx, validationCLIError(err.Error()))
+			}
+			if err := setConfigValue(cfg, args[0], args[1]); err != nil {
+				return writeCommandError(ctx, validationCLIError(err.Error()))
+			}
+			if err := config.SaveFile(runtime.ConfigPath, cfg); err != nil {
+				return writeCommandError(ctx, validationCLIError(err.Error()))
+			}
+			runtime.Config = cfg
+			return ctx.WriteResult("config.set", configMutationData{Path: runtime.ConfigPath, Key: args[0], Value: args[1]})
+		},
+	}
+}
+
+func newConfigUnsetCommand(runtime *RootRuntime) *cobra.Command {
+	return &cobra.Command{
+		Use:               "unset <key>",
+		Aliases:           []string{"rm", "remove"},
+		Short:             "Remove a setting",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeSlackConfigKeys,
+		SilenceUsage:      true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := localConfigContext(cmd, runtime)
+			cfg, err := loadConfigForConfigCommand(runtime)
+			if err != nil {
+				return writeCommandError(ctx, validationCLIError(err.Error()))
+			}
+			if err := unsetConfigValue(cfg, args[0]); err != nil {
+				return writeCommandError(ctx, validationCLIError(err.Error()))
+			}
+			if err := config.SaveFile(runtime.ConfigPath, cfg); err != nil {
+				return writeCommandError(ctx, validationCLIError(err.Error()))
+			}
+			runtime.Config = cfg
+			return ctx.WriteResult("config.unset", configMutationData{Path: runtime.ConfigPath, Key: args[0]})
+		},
+	}
+}
+
+func localConfigContext(cmd *cobra.Command, runtime *RootRuntime) *CommandContext {
+	opts := rootOptionsFromCommand(cmd, runtime)
+	return &CommandContext{
+		Workspace: "config",
+		Mode:      opts.Output.Resolve(runtime.IsTTY, DetectAgentMode(opts.Agent).Enabled),
+		Stdout:    runtime.Stdout,
+		Stderr:    runtime.Stderr,
+		Now:       runtime.Now,
+		RequestID: runtime.RequestID,
+	}
+}
+
+func loadConfigForConfigCommand(runtime *RootRuntime) (*config.Config, error) {
+	if runtime.Config != nil {
+		return runtime.Config, nil
+	}
+	if runtime.ConfigPath == "" {
+		return nil, errors.New("config path is unavailable")
+	}
+	return config.LoadFile(runtime.ConfigPath)
+}
+
+func configEntries(cfg *config.Config) []configEntry {
+	var entries []configEntry
+	entries = append(entries, configEntry{
+		Key:         "default_workspace",
+		Value:       cfg.DefaultWorkspace,
+		Description: slackConfigDescriptions["default_workspace"],
+	})
+	for _, name := range sortedWorkspaceNames(cfg) {
+		workspace := cfg.Workspaces[name]
+		prefix := "workspaces." + name + "."
+		entries = append(entries,
+			configEntry{Key: prefix + "default_channel", Value: workspace.DefaultChannel, Description: slackConfigDescriptions["workspaces.<profile>.default_channel"]},
+			configEntry{Key: prefix + "agent_attribution", Value: boolPtrString(workspace.AgentAttribution), Description: slackConfigDescriptions["workspaces.<profile>.agent_attribution"]},
+			configEntry{Key: prefix + "attribution.label", Value: workspace.Attribution.Label, Description: slackConfigDescriptions["workspaces.<profile>.attribution.label"]},
+			configEntry{Key: prefix + "attribution.emoji", Value: workspace.Attribution.Emoji, Description: slackConfigDescriptions["workspaces.<profile>.attribution.emoji"]},
+			configEntry{Key: prefix + "attribution.message", Value: workspace.Attribution.Message, Description: slackConfigDescriptions["workspaces.<profile>.attribution.message"]},
+		)
+	}
+	return entries
+}
+
+func sortedWorkspaceNames(cfg *config.Config) []string {
+	names := make([]string, 0, len(cfg.Workspaces))
+	for name := range cfg.Workspaces {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
+}
+
+func boolPtrString(value *bool) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.FormatBool(*value)
+}
+
+func getConfigValue(cfg *config.Config, key string) (string, error) {
+	if key == "default_workspace" {
+		return cfg.DefaultWorkspace, nil
+	}
+	workspaceName, field, err := parseWorkspaceConfigKey(key)
+	if err != nil {
+		return "", err
+	}
+	workspace, ok := cfg.Workspaces[workspaceName]
+	if !ok {
+		return "", fmt.Errorf("workspace %q not found", workspaceName)
+	}
+	switch field {
+	case "default_channel":
+		return workspace.DefaultChannel, nil
+	case "agent_attribution":
+		return boolPtrString(workspace.AgentAttribution), nil
+	case "agent_label":
+		return workspace.AgentLabel, nil
+	case "agent_emoji":
+		return workspace.AgentEmoji, nil
+	case "agent_message":
+		return workspace.AgentMessage, nil
+	case "attribution.label":
+		return workspace.Attribution.Label, nil
+	case "attribution.emoji":
+		return workspace.Attribution.Emoji, nil
+	case "attribution.message":
+		return workspace.Attribution.Message, nil
+	default:
+		if configAuthOwnedField(field) {
+			return "", authOwnedConfigKey(field)
+		}
+		return "", unknownConfigKey(key)
+	}
+}
+
+func setConfigValue(cfg *config.Config, key string, value string) error {
+	if key == "default_workspace" {
+		if _, ok := cfg.Workspaces[value]; !ok {
+			return fmt.Errorf("workspace %q not found", value)
+		}
+		cfg.DefaultWorkspace = value
+		return nil
+	}
+	workspaceName, field, err := parseWorkspaceConfigKey(key)
+	if err != nil {
+		return err
+	}
+	workspace, ok := cfg.Workspaces[workspaceName]
+	if !ok {
+		return fmt.Errorf("workspace %q not found", workspaceName)
+	}
+	switch field {
+	case "default_channel":
+		workspace.DefaultChannel = value
+	case "agent_attribution":
+		parsed, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("agent_attribution must be true or false: %w", err)
+		}
+		workspace.AgentAttribution = &parsed
+	case "agent_label":
+		workspace.AgentLabel = value
+	case "agent_emoji":
+		workspace.AgentEmoji = value
+	case "agent_message":
+		workspace.AgentMessage = value
+	case "attribution.label":
+		workspace.Attribution.Label = value
+	case "attribution.emoji":
+		workspace.Attribution.Emoji = value
+	case "attribution.message":
+		workspace.Attribution.Message = value
+	default:
+		if configAuthOwnedField(field) {
+			return authOwnedConfigKey(field)
+		}
+		return unknownConfigKey(key)
+	}
+	cfg.Workspaces[workspaceName] = workspace
+	return cfg.Validate()
+}
+
+func unsetConfigValue(cfg *config.Config, key string) error {
+	if key == "default_workspace" {
+		return errors.New("default_workspace cannot be unset")
+	}
+	workspaceName, field, err := parseWorkspaceConfigKey(key)
+	if err != nil {
+		return err
+	}
+	workspace, ok := cfg.Workspaces[workspaceName]
+	if !ok {
+		return fmt.Errorf("workspace %q not found", workspaceName)
+	}
+	switch field {
+	case "default_channel":
+		workspace.DefaultChannel = ""
+	case "agent_attribution":
+		workspace.AgentAttribution = nil
+	case "agent_label":
+		workspace.AgentLabel = ""
+	case "agent_emoji":
+		workspace.AgentEmoji = ""
+	case "agent_message":
+		workspace.AgentMessage = ""
+	case "attribution.label":
+		workspace.Attribution.Label = ""
+	case "attribution.emoji":
+		workspace.Attribution.Emoji = ""
+	case "attribution.message":
+		workspace.Attribution.Message = ""
+	default:
+		if configAuthOwnedField(field) {
+			return authOwnedConfigKey(field)
+		}
+		return unknownConfigKey(key)
+	}
+	cfg.Workspaces[workspaceName] = workspace
+	return cfg.Validate()
+}
+
+func parseWorkspaceConfigKey(key string) (string, string, error) {
+	parts := strings.Split(key, ".")
+	if len(parts) < 3 || parts[0] != "workspaces" {
+		return "", "", unknownConfigKey(key)
+	}
+	workspace := parts[1]
+	field := strings.Join(parts[2:], ".")
+	if workspace == "" || field == "" {
+		return "", "", unknownConfigKey(key)
+	}
+	return workspace, field, nil
+}
+
+func configAuthOwnedField(field string) bool {
+	switch field {
+	case "team_id", "team_name", "token_type", "token":
+		return true
+	default:
+		return false
+	}
+}
+
+func authOwnedConfigKey(field string) error {
+	return fmt.Errorf("%s is auth-owned; auth settings are managed by slack auth", field)
+}
+
+func unknownConfigKey(key string) error {
+	return fmt.Errorf("unknown config key %s - run 'slack config list' to see all keys", key)
+}
+
+func completeSlackConfigKeys(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+	completions := make([]string, 0, len(slackConfigKeys))
+	for _, key := range slackConfigKeys {
+		completions = append(completions, key+"\t"+slackConfigDescriptions[key])
+	}
+	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
+func extendConfigInitFlags(cmd *cobra.Command) {
+	f := cmd.Flags()
+	clib.Extend(f.Lookup("profile"), clib.FlagExtra{Group: "Profile", Placeholder: "NAME", Terse: "profile name"})
+	clib.Extend(f.Lookup("default-channel"), clib.FlagExtra{Group: "Profile", Placeholder: "C7N2Q8L4P", Terse: "default channel"})
+	clib.Extend(f.Lookup("agent-attribution"), clib.FlagExtra{Group: "Attribution", Terse: "agent attribution"})
+	clib.Extend(f.Lookup("agent-label"), clib.FlagExtra{Group: "Attribution", Placeholder: "LABEL", Terse: "agent label"})
+	clib.Extend(f.Lookup("agent-emoji"), clib.FlagExtra{Group: "Attribution", Placeholder: ":robot_face:", Terse: "agent emoji"})
+	clib.Extend(f.Lookup("agent-message"), clib.FlagExtra{Group: "Attribution", Placeholder: "TEXT", Terse: "agent message"})
+	clib.Extend(f.Lookup("force"), clib.FlagExtra{Group: "Safety", Terse: "overwrite config"})
+}

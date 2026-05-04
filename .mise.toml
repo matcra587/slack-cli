@@ -1,0 +1,16 @@
+[tools]
+go = "1.26.2"
+task = "3.49.1"
+goreleaser = "2.15.2"
+actionlint = "1.7.12"
+cosign = "3.0.6"
+hk = "1.44.3"
+rumdl = "0.1.86"
+zizmor = "1.24.1"
+
+[env]
+HK_MISE = 1
+DO_NOT_TRACK = 1
+
+[hooks]
+postinstall = "hk install --mise"

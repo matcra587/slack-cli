@@ -1,0 +1,55 @@
+amends "package://github.com/jdx/hk/releases/download/v1.44.3/hk@1.44.3#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.44.3/hk@1.44.3#/Builtins.pkl"
+
+min_hk_version = "1.44.0"
+
+local gofumpt = (Builtins.go_fumpt) {
+    check = "test -z \"$(go tool gofumpt -l {{ files }})\""
+    fix = "go tool gofumpt -w {{ files }}"
+}
+
+local golangciLint = (Builtins.golangci_lint) {
+    check = "cd {{workspace}} && go tool golangci-lint run --fix=false ./..."
+    fix = "cd {{workspace}} && go tool golangci-lint run --fix ./..."
+    depends = List("gofumpt")
+}
+
+local govulncheck = (Builtins.go_vuln_check) {
+    check = "cd {{workspace}} && go tool govulncheck ./..."
+}
+
+local linters = new Mapping<String, Step> {
+    ["gofumpt"] = gofumpt
+    ["go-vet"] = Builtins.go_vet
+    ["golangci-lint"] = golangciLint
+    ["rumdl"] = Builtins.rumdl
+    ["actionlint"] = Builtins.actionlint
+    ["zizmor"] = Builtins.zizmor
+}
+
+local linters_with_security = (linters) {
+    ["govulncheck"] = (govulncheck) { exclusive = true }
+}
+
+hooks {
+    ["pre-commit"] {
+        fix = true
+        stash = "git"
+        steps = linters
+    }
+    ["pre-push"] {
+        steps = linters_with_security
+    }
+    ["check"] {
+        steps = linters_with_security
+    }
+    ["fix"] {
+        fix = true
+        steps = linters
+    }
+    ["commit-msg"] {
+        steps {
+            ["conventional"] = Builtins.check_conventional_commit
+        }
+    }
+}

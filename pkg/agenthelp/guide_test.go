@@ -56,6 +56,47 @@ func TestGuideDocumentsSafeTokenSourcesOnly(t *testing.T) {
 	}
 }
 
+func TestGuideDocumentsCoreContract(t *testing.T) {
+	guide := agenthelp.GetGuideSection("core_contract")
+	for _, fragment := range []string{
+		"stdout is command data only",
+		"stderr is diagnostics",
+		"--json",
+		"--plain",
+		"--compact",
+		"--raw",
+		"mutually exclusive",
+		"Exit codes",
+		"errors[0].type",
+	} {
+		if !strings.Contains(guide, fragment) {
+			t.Fatalf("core_contract guide missing %q:\n%s", fragment, guide)
+		}
+	}
+}
+
+func TestGuideDocumentsPromotedReplyAndReactCommands(t *testing.T) {
+	react := agenthelp.GetGuideSection("react")
+	for _, fragment := range []string{"slack react add", "slack react remove", "slack react list", "react.add", "react.remove", "react.list"} {
+		if !strings.Contains(react, fragment) {
+			t.Fatalf("react guide missing %q:\n%s", fragment, react)
+		}
+	}
+	if strings.Contains(react, "slack reaction") || strings.Contains(react, "probationary") {
+		t.Fatalf("react guide documents legacy/probationary command:\n%s", react)
+	}
+
+	reply := agenthelp.GetGuideSection("reply")
+	for _, fragment := range []string{"slack reply", "--parent", "thread_ts", "Command metadata uses `reply`"} {
+		if !strings.Contains(reply, fragment) {
+			t.Fatalf("reply guide missing %q:\n%s", fragment, reply)
+		}
+	}
+	if strings.Contains(reply, "slack thread reply") || strings.Contains(reply, "probationary") {
+		t.Fatalf("reply guide documents legacy/probationary command:\n%s", reply)
+	}
+}
+
 func TestGuideDocumentsSlackDecidedBotDMBehavior(t *testing.T) {
 	guide := agenthelp.GetGuideSection("send_dm")
 	for _, fragment := range []string{"slack message send --user", "Slack decides", "bot-token", "structured error"} {

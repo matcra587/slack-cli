@@ -228,6 +228,21 @@ func TestValidateRawBlocksRejectsRequiredFieldsAndLimits(t *testing.T) {
 			want: "rich_text_section element 0 text is required",
 		},
 		{
+			name: "rich text date timestamp must be numeric",
+			blocks: []map[string]any{{
+				"type": "rich_text",
+				"elements": []any{map[string]any{
+					"type": "rich_text_section",
+					"elements": []any{map[string]any{
+						"type":      "date",
+						"timestamp": "1777978707",
+						"format":    "{date_short_pretty}",
+					}},
+				}},
+			}},
+			want: "rich_text_section element 0 timestamp must be numeric",
+		},
+		{
 			name: "table rich text cell elements required",
 			blocks: []map[string]any{{
 				"type": "table",

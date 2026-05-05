@@ -27,8 +27,19 @@ func TestAgentSchemaCompactOutputsCommandTreeForAgents(t *testing.T) {
 	if !compactSchemaHasCommand(schema.Commands, "message", "send") {
 		t.Fatalf("schema commands = %#v, want message send", schema.Commands)
 	}
+	if !compactSchemaHasCommand(schema.Commands, "reply") {
+		t.Fatalf("schema commands = %#v, want public reply command", schema.Commands)
+	}
+	if !compactSchemaHasCommand(schema.Commands, "react", "add") ||
+		!compactSchemaHasCommand(schema.Commands, "react", "remove") ||
+		!compactSchemaHasCommand(schema.Commands, "react", "list") {
+		t.Fatalf("schema commands = %#v, want public react add/remove/list commands", schema.Commands)
+	}
 	if compactSchemaHasCommand(schema.Commands, "reaction") {
-		t.Fatalf("schema commands = %#v, reaction command should be hidden for now", schema.Commands)
+		t.Fatalf("schema commands = %#v, legacy reaction command should not exist", schema.Commands)
+	}
+	if compactSchemaHasCommand(schema.Commands, "thread") {
+		t.Fatalf("schema commands = %#v, legacy thread command should not exist", schema.Commands)
 	}
 	if compactSchemaHasCommand(schema.Commands, "dm") {
 		t.Fatalf("schema commands = %#v, dm command should not be exposed; use message send --user", schema.Commands)
@@ -205,13 +216,13 @@ func TestAgentGuideOutputsNamedWorkflowInstructions(t *testing.T) {
 }
 
 func TestAgentGuideOutputsReactionInstructions(t *testing.T) {
-	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "guide", "react_emoji"})
+	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "guide", "react"})
 	if err != nil {
 		t.Fatalf("agent guide returned error: %v\nstderr=%s", err, stderr)
 	}
 	for _, fragment := range []string{
-		"## react_emoji",
-		"slack reaction add",
+		"## react",
+		"slack react add",
 		"--timestamp",
 		":thumbsup:",
 	} {
@@ -229,10 +240,11 @@ func TestAgentGuideHelpShowsAvailableWorkflows(t *testing.T) {
 	for _, fragment := range []string{
 		"Available workflows:",
 		"send_msg",
-		"react_emoji",
-		"reply_thread",
+		"react",
+		"reply",
 		"auth_setup",
 		"config_prefs",
+		"core_contract",
 		"discover_destination",
 		"inspect_schema",
 		"safe_mutation",
@@ -250,7 +262,8 @@ func TestAgentGuideHelpShowsWorkflowsAlphabetically(t *testing.T) {
 	}
 	assertBefore(t, stdout, "auth_setup", "delete_msg")
 	assertBefore(t, stdout, "auth_setup", "config_prefs")
-	assertBefore(t, stdout, "config_prefs", "delete_msg")
+	assertBefore(t, stdout, "config_prefs", "core_contract")
+	assertBefore(t, stdout, "core_contract", "delete_msg")
 	assertBefore(t, stdout, "delete_msg", "discover_destination")
 	assertBefore(t, stdout, "discover_destination", "edit_msg")
 	assertBefore(t, stdout, "edit_msg", "lookup_user")
@@ -274,9 +287,16 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 			"preferences",
 			"auth commands",
 		},
-		"reply_thread": {
-			"## reply_thread",
-			"slack thread reply",
+		"core_contract": {
+			"## core_contract",
+			"stdout is command data only",
+			"stderr is diagnostics",
+			"mutually exclusive",
+			"Exit codes",
+		},
+		"reply": {
+			"## reply",
+			"slack reply",
 			"--parent",
 			"parent message timestamp",
 		},

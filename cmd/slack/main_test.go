@@ -60,13 +60,27 @@ func TestNewRootCommandUsesLookupForDiscovery(t *testing.T) {
 
 func TestNewRootCommandHidesDeferredCommandSurfaces(t *testing.T) {
 	cmd := NewRootCommand()
-	for _, name := range []string{"file", "reaction", "thread"} {
+	for _, name := range []string{"react", "reply"} {
+		child := findDirectChild(cmd, name)
+		if child == nil {
+			t.Fatalf("root command missing promoted command %q", name)
+		}
+		if child.Hidden {
+			t.Fatalf("root command %q is hidden; it should be public", name)
+		}
+	}
+	for _, name := range []string{"file"} {
 		child := findDirectChild(cmd, name)
 		if child == nil {
 			t.Fatalf("root command missing hidden command %q", name)
 		}
 		if !child.Hidden {
 			t.Fatalf("root command %q is visible; it should stay hidden for now", name)
+		}
+	}
+	for _, name := range []string{"reaction", "thread"} {
+		if child := findDirectChild(cmd, name); child != nil {
+			t.Fatalf("root command exposes legacy %q; use slack react or slack reply", child.CommandPath())
 		}
 	}
 	if search := findDirectChild(cmd, "search"); search != nil {

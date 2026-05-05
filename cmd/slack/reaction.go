@@ -14,17 +14,16 @@ type reactionCommandData struct {
 	Target    reactionTarget       `json:"target"`
 }
 
-func newReactionCommand(runtime *RootRuntime) *cobra.Command {
-	reactionCmd := &cobra.Command{
-		Use:    "reaction",
-		Short:  "Manage Slack reactions",
-		Hidden: true,
+func newReactCommand(runtime *RootRuntime) *cobra.Command {
+	reactCmd := &cobra.Command{
+		Use:   "react",
+		Short: "Manage Slack reactions",
 	}
 
-	reactionCmd.AddCommand(newReactionMutationCommand(runtime, "add"))
-	reactionCmd.AddCommand(newReactionMutationCommand(runtime, "remove"))
-	reactionCmd.AddCommand(newReactionListCommand(runtime))
-	return reactionCmd
+	reactCmd.AddCommand(newReactionMutationCommand(runtime, "add"))
+	reactCmd.AddCommand(newReactionMutationCommand(runtime, "remove"))
+	reactCmd.AddCommand(newReactionListCommand(runtime))
+	return reactCmd
 }
 
 func newReactionMutationCommand(runtime *RootRuntime, action string) *cobra.Command {
@@ -78,7 +77,7 @@ func runReactionMutation(cmd *cobra.Command, runtime *RootRuntime, action string
 	if dryRun {
 		result.DryRun = true
 		result.Removed = action == "remove"
-		return ctx.WriteResult("reaction."+action, reactionCommandData{Reaction: &result, Target: target})
+		return ctx.WriteResult("react."+action, reactionCommandData{Reaction: &result, Target: target})
 	}
 	client, err := slackClient(cmd, profile, runtime)
 	if err != nil {
@@ -97,7 +96,7 @@ func runReactionMutation(cmd *cobra.Command, runtime *RootRuntime, action string
 	if err != nil {
 		return writeCommandError(ctx, cliErrorFromSlack(err))
 	}
-	return ctx.WriteResult("reaction."+action, reactionCommandData{Reaction: &result, Target: target})
+	return ctx.WriteResult("react."+action, reactionCommandData{Reaction: &result, Target: target})
 }
 
 func runReactionList(cmd *cobra.Command, runtime *RootRuntime) error {
@@ -121,7 +120,7 @@ func runReactionList(cmd *cobra.Command, runtime *RootRuntime) error {
 	if err != nil {
 		return writeCommandError(ctx, cliErrorFromSlack(err))
 	}
-	return ctx.WriteResult("reaction.list", reactionCommandData{Reactions: cliReactionsFromSlack(item.Reactions), Target: target})
+	return ctx.WriteResult("react.list", reactionCommandData{Reactions: cliReactionsFromSlack(item.Reactions), Target: target})
 }
 
 func reactionTargetFromFlags(cmd *cobra.Command) (reactionTarget, error) {

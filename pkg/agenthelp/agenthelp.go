@@ -128,6 +128,10 @@ func GenerateSchema(root *cobra.Command) Schema {
 func inputShapes() map[string][]string {
 	return map[string][]string{
 		"message.send":   {"--channel <id|alias>", "--user <id|alias>", "--channel and --user are mutually exclusive", "--message <markdown>", "--file <path|->", "stdin markdown when --file -", "source-preserving Markdown fallback for unsupported block-level constructs", "--blocks Block Kit JSON array", "--blocks validates Slack Block Kit JSON rules"},
+		"reply":          {"--channel <id|alias>", "--parent <slack-ts>", "--message <markdown>", "--file <path|->", "--blocks Block Kit JSON array", "--dry-run"},
+		"react.add":      {"--channel <id|alias>", "--timestamp <slack-ts>", "--emoji <name|:name:>", "--dry-run"},
+		"react.remove":   {"--channel <id|alias>", "--timestamp <slack-ts>", "--emoji <name|:name:>", "--dry-run"},
+		"react.list":     {"--channel <id|alias>", "--timestamp <slack-ts>"},
 		"lookup.channel": {"--channel <id|alias> for one conversation", "--types <public_channel,private_channel,im,mpim>", "--max-items <n>", "--filter <text>"},
 		"lookup.user":    {"--user <id|alias> for one user", "--max-items <n>", "--filter <text>", "--presence"},
 		"history.list":   {"--channel <id|alias>", "--max-items <n>", "--since <slack-ts>", "--until <slack-ts>", "--user <id>", "--thread <ts>"},
@@ -159,6 +163,8 @@ func exitCodes() map[string]int {
 func examples() map[string][]string {
 	return map[string][]string{
 		"message":  {"echo 'Deploy complete' | slack message send --channel '#alerts' --file -", "slack message send --user U123 --message 'Need review'", "slack message send --channel C123 --blocks --file blocks.json"},
+		"reply":    {"slack reply --channel C123 --parent 1746284582.123456 --message 'Investigating'", "echo 'details' | slack reply --channel C123 --parent 1746284582.123456 --file -"},
+		"react":    {"slack react add --channel C123 --timestamp 1746284582.123456 --emoji eyes", "slack react remove --channel C123 --timestamp 1746284582.123456 --emoji eyes", "slack react list --channel C123 --timestamp 1746284582.123456"},
 		"history":  {"slack history list --channel C123 --max-items 50"},
 		"lookup":   {"slack lookup channel --max-items 20", "slack lookup channel --types im", "slack lookup user --presence", "slack lookup user --user U123"},
 		"file":     {"probationary, not promoted: tar czf - build/ | slack file upload --channel C123 --file - --filename build.tgz"},

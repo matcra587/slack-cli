@@ -23,15 +23,15 @@ func TestReactionCommandAddRemoveAndList(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true}`)
 		},
 		"reactions.get": func(testutil.SlackRequest) testutil.SlackResponse {
-			return testutil.JSONResponse(`{"ok":true,"message":{"reactions":[{"name":"thumbsup","count":1,"users":["U1"]}]}}`)
+			return testutil.JSONResponse(`{"ok":true,"type":"message","channel":"C123","message":{"reactions":[{"name":"thumbsup","count":1,"users":["U1"]}]}}`)
 		},
 	})
 	defer server.Close()
 
 	for _, args := range [][]string{
-		{"reaction", "add", "--channel", "C123", "--timestamp", "1746284582.123456", "--emoji", ":thumbsup:"},
-		{"reaction", "remove", "--channel", "C123", "--timestamp", "1746284582.123456", "--emoji", "thumbsup"},
-		{"reaction", "list", "--channel", "C123", "--timestamp", "1746284582.123456"},
+		{"react", "add", "--channel", "C123", "--timestamp", "1746284582.123456", "--emoji", ":thumbsup:"},
+		{"react", "remove", "--channel", "C123", "--timestamp", "1746284582.123456", "--emoji", "thumbsup"},
+		{"react", "list", "--channel", "C123", "--timestamp", "1746284582.123456"},
 	} {
 		stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "", args)
 		if err != nil {
@@ -59,7 +59,7 @@ func TestReactionCommandDryRunSkipsMutation(t *testing.T) {
 
 			stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 				"",
-				[]string{"reaction", tt.action, "--channel", "C123", "--timestamp", "1746284582.123456", "--emoji", "thumbsup", "--dry-run"},
+				[]string{"react", tt.action, "--channel", "C123", "--timestamp", "1746284582.123456", "--emoji", "thumbsup", "--dry-run"},
 			)
 			if err != nil {
 				t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
@@ -71,5 +71,21 @@ func TestReactionCommandDryRunSkipsMutation(t *testing.T) {
 				t.Fatalf("stdout = %s, want dry_run true and %s", stdout, tt.want)
 			}
 		})
+	}
+}
+
+func TestReactionCommandIsNotRegistered(t *testing.T) {
+	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"reaction", "add", "--help"})
+	if err == nil {
+		t.Fatal("Execute returned nil error, want unknown legacy command")
+	}
+	if stdout != "" {
+		t.Fatalf("stdout = %q, want empty", stdout)
+	}
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
+	}
+	if !strings.Contains(err.Error(), `unknown command "reaction"`) {
+		t.Fatalf("err = %v, want unknown legacy command", err)
 	}
 }

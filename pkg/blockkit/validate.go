@@ -1,6 +1,7 @@
 package blockkit
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -381,8 +382,12 @@ func validateRawRichTextSectionChild(index int, label string, childIndex int, ch
 	case "broadcast":
 		requiredField = "range"
 	case "date":
-		if _, ok := child["timestamp"]; !ok {
+		timestamp, ok := child["timestamp"]
+		if !ok {
 			return fmt.Errorf("block %d %s element %d timestamp is required", index, label, childIndex)
+		}
+		if !isNumericTimestamp(timestamp) {
+			return fmt.Errorf("block %d %s element %d timestamp must be numeric", index, label, childIndex)
 		}
 		requiredField = "format"
 	case "team":
@@ -396,6 +401,18 @@ func validateRawRichTextSectionChild(index int, label string, childIndex int, ch
 		return fmt.Errorf("block %d %s element %d %s is required", index, label, childIndex, requiredField)
 	}
 	return nil
+}
+
+func isNumericTimestamp(value any) bool {
+	switch value.(type) {
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64,
+		json.Number:
+		return true
+	default:
+		return false
+	}
 }
 
 func validateRawTextObject(index int, label string, text map[string]any, maxLength int) error {

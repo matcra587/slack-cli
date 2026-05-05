@@ -27,7 +27,7 @@ func TestThreadReplyCommandPostsNestedReply(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"thread", "reply", "--channel", "C123", "--parent", "1746284582.123456", "--message", "reply"},
+		[]string{"reply", "--channel", "C123", "--parent", "1746284582.123456", "--message", "reply"},
 	)
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
@@ -37,8 +37,8 @@ func TestThreadReplyCommandPostsNestedReply(t *testing.T) {
 	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
 		t.Fatalf("stdout is not JSON: %v\n%s", err, stdout)
 	}
-	if envelope["meta"].(map[string]any)["command"] != "thread.reply" {
-		t.Fatalf("meta.command = %q, want thread.reply", envelope["meta"].(map[string]any)["command"])
+	if envelope["meta"].(map[string]any)["command"] != "reply" {
+		t.Fatalf("meta.command = %q, want reply", envelope["meta"].(map[string]any)["command"])
 	}
 	data := envelope["data"].(map[string]any)
 	if data["attribution"] != true {
@@ -56,7 +56,7 @@ func TestThreadReplyCommandMapsInvalidParentToNotFound(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"thread", "reply", "--channel", "C123", "--parent", "1746284582.123456", "--message", "reply"},
+		[]string{"reply", "--channel", "C123", "--parent", "1746284582.123456", "--message", "reply"},
 	)
 	if err == nil {
 		t.Fatal("Execute returned nil error, want not-found error")
@@ -97,7 +97,7 @@ func TestThreadReplyCommandSupportsBlockInput(t *testing.T) {
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"thread", "reply", "--channel", "C123", "--parent", "1746284582.123456", "--blocks", "--message", `[{"type":"section","text":{"type":"mrkdwn","text":"thread block"}}]`},
+		[]string{"reply", "--channel", "C123", "--parent", "1746284582.123456", "--blocks", "--message", `[{"type":"section","text":{"type":"mrkdwn","text":"thread block"}}]`},
 	)
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
@@ -110,7 +110,7 @@ func TestThreadReplyCommandRejectsMalformedBlockInput(t *testing.T) {
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"thread", "reply", "--channel", "C123", "--parent", "1746284582.123456", "--blocks", "--message", `not-json`},
+		[]string{"reply", "--channel", "C123", "--parent", "1746284582.123456", "--blocks", "--message", `not-json`},
 	)
 	if err == nil {
 		t.Fatal("Execute returned nil error, want malformed block validation error")
@@ -143,7 +143,7 @@ func TestThreadReplyCommandPreservesUnsupportedMarkdownSourceFallback(t *testing
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"thread", "reply", "--channel", "C123", "--parent", "1746284582.123456", "--message", "> threaded context\n"},
+		[]string{"reply", "--channel", "C123", "--parent", "1746284582.123456", "--message", "> threaded context\n"},
 	)
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
@@ -156,7 +156,7 @@ func TestThreadReplyCommandRejectsInvalidRawBlockRequiredFieldsBeforeSlackReques
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"thread", "reply", "--channel", "C123", "--parent", "1746284582.123456", "--blocks", "--message", `[{"type":"context","elements":[]}]`},
+		[]string{"reply", "--channel", "C123", "--parent", "1746284582.123456", "--blocks", "--message", `[{"type":"context","elements":[]}]`},
 	)
 	if err == nil {
 		t.Fatal("Execute returned nil error, want raw block validation error")
@@ -178,7 +178,7 @@ func TestThreadReplyCommandDryRunSkipsSlackMutation(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"thread", "reply", "--channel", "C123", "--parent", "1746284582.123456", "--message", "preview", "--dry-run"},
+		[]string{"reply", "--channel", "C123", "--parent", "1746284582.123456", "--message", "preview", "--dry-run"},
 	)
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
@@ -188,5 +188,21 @@ func TestThreadReplyCommandDryRunSkipsSlackMutation(t *testing.T) {
 	}
 	if !strings.Contains(stdout, `"dry_run":true`) || !strings.Contains(stdout, `"thread_ts":"1746284582.123456"`) {
 		t.Fatalf("stdout = %s, want dry-run threaded reply preview", stdout)
+	}
+}
+
+func TestThreadCommandIsNotRegistered(t *testing.T) {
+	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"thread", "reply", "--help"})
+	if err == nil {
+		t.Fatal("Execute returned nil error, want unknown legacy command")
+	}
+	if stdout != "" {
+		t.Fatalf("stdout = %q, want empty", stdout)
+	}
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
+	}
+	if !strings.Contains(err.Error(), `unknown command "thread"`) {
+		t.Fatalf("err = %v, want unknown legacy command", err)
 	}
 }

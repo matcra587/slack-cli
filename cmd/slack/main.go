@@ -431,8 +431,8 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 
 	root.AddCommand(newMessageCommand(runtime))
 	root.AddCommand(newHistoryCommand(runtime))
-	root.AddCommand(newThreadCommand(runtime))
-	root.AddCommand(newReactionCommand(runtime))
+	root.AddCommand(newReplyCommand(runtime))
+	root.AddCommand(newReactCommand(runtime))
 	root.AddCommand(newLookupCommand(runtime))
 	root.AddCommand(newFileCommand(runtime))
 	root.AddCommand(newManifestCommand(runtime))

@@ -8,13 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newThreadCommand(runtime *RootRuntime) *cobra.Command {
-	threadCmd := &cobra.Command{
-		Use:    "thread",
-		Short:  "Manage Slack threads",
-		Hidden: true,
-	}
-
+func newReplyCommand(runtime *RootRuntime) *cobra.Command {
 	var source messageSource
 	var dryRun bool
 	replyCmd := &cobra.Command{
@@ -31,9 +25,7 @@ func newThreadCommand(runtime *RootRuntime) *cobra.Command {
 	replyCmd.Flags().StringVar(&source.File, "file", "", "Read message body from file or - for stdin")
 	replyCmd.Flags().BoolVar(&source.Blocks, "blocks", false, "Treat message source as raw Block Kit JSON")
 	replyCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without sending")
-	threadCmd.AddCommand(replyCmd)
-
-	return threadCmd
+	return replyCmd
 }
 
 func runThreadReply(cmd *cobra.Command, runtime *RootRuntime, source messageSource, dryRun bool) error {
@@ -81,5 +73,5 @@ func runThreadReply(cmd *cobra.Command, runtime *RootRuntime, source messageSour
 		result.Permalink = permalink(context.Background(), client, respChannel, ts)
 	}
 
-	return writeSendResult(ctx, "thread.reply", result)
+	return writeSendResult(ctx, "reply", result)
 }

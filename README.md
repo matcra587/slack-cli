@@ -222,22 +222,20 @@ map to the fixed error contract: `missing_scope` and `no_permission` are
 
 ## Mutate Safely
 
-`thread reply` and `reaction` are probationary. They are implemented and covered
-by mock tests, but the commands remain hidden from help and shell completion.
-Agent schema and workflow guidance may mention them only as probationary and not
-promoted until the remaining promotion evidence, including live Slack smoke, is
-complete.
-
 ```sh
-slack thread reply \
+slack reply \
   --channel C1234567890 \
   --parent 1746284582.123456 \
   --message "Investigating"
 
-slack reaction add \
+slack react add \
   --channel C1234567890 \
   --timestamp 1746284582.123456 \
   --emoji :thumbsup:
+
+slack react list \
+  --channel C1234567890 \
+  --timestamp 1746284582.123456
 
 slack message edit \
   --channel C1234567890 \
@@ -298,4 +296,4 @@ slack agent guide send_msg
 ```
 
 `agent guide --help` lists workflows such as `auth_setup`, `send_msg`,
-`react_emoji`, `read_history`, `discover_destination`, and `safe_mutation`.
+`reply`, `react`, `read_history`, `discover_destination`, and `safe_mutation`.

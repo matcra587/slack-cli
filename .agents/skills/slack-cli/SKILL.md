@@ -1,0 +1,1 @@
+../../../.claude/skills/slack-cli/SKILL.md

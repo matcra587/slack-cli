@@ -190,11 +190,15 @@ agents usually miss.
 - Use ` + "`slack history list --channel <channel-id> --max-items <n>`" + ` for parent messages.
 - Use ` + "`slack history list --channel <channel-id> --thread <parent-ts> --max-items <n>`" + ` for thread replies.
 - Use ` + "`--since`" + `, ` + "`--until`" + `, and ` + "`--user`" + ` to filter.
+- Use history to discover message timestamps before replying, reacting, editing, or deleting.
 - Parent history includes reply counts and fetches full thread replies only when ` + "`--thread`" + ` or bounded ` + "`--include-replies`" + ` is used.
 - Plain mode renders history as a table for humans. JSON mode preserves the envelope and full metadata for agents.
 - Bound every read with ` + "`--max-items`" + ` in automation.
 - Pagination appears under ` + "`meta.pagination`" + `. Keep ` + "`cursor`" + ` and ` + "`has_more`" + ` if you need another page.
 - Use ` + "`--since`" + ` and ` + "`--until`" + ` with Slack timestamp strings, not local time strings, unless the command help explicitly says otherwise.
+- Parse parent and reply timestamps from ` + "`data.messages[].ts`" + `.
+- Use the parent message ` + "`ts`" + ` with ` + "`slack reply --parent`" + `.
+- Use any message or reply ` + "`ts`" + ` with ` + "`slack react add --timestamp`" + `, ` + "`slack message edit --timestamp`" + `, or ` + "`slack message delete --timestamp`" + `.
 - JSON messages include ` + "`text`" + `, ` + "`blocks`" + ` when available, metadata such as ` + "`reply_count`" + `, and ` + "`permalink`" + ` when fetched.
 - Do not assume history text preserves display formatting exactly; use ` + "`blocks`" + ` when you need Slack-native structure.
 
@@ -259,8 +263,10 @@ agents usually miss.
 
 ## lookup_user
 - Use ` + "`slack lookup user --max-items <n>`" + ` to find candidate users.
+- Use ` + "`slack lookup user --filter ansible --max-items 20`" + ` to narrow the list by name when you know the human or bot label.
 - Use ` + "`slack lookup user --user <user-id>`" + ` to fetch profile, presence, custom status, and timezone.
 - Prefer user IDs such as ` + "`U123...`" + ` in commands.
+- Pass the selected ` + "`data.users[].id`" + ` to ` + "`slack message send --user <user-id>`" + ` for DM workflows.
 - Check timezone before paging or scheduling humans.
 - Use ` + "`--filter`" + ` for local narrowing when listing, and ` + "`--user`" + ` for exact lookup.
 - Presence and custom status depend on token scopes and Slack workspace policy. Missing fields are not always an error.

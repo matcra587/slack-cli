@@ -132,3 +132,28 @@ func TestGuideDocumentsLookupSurface(t *testing.T) {
 		t.Fatalf("lookup_user guide documents removed user commands:\n%s", user)
 	}
 }
+
+func TestGuideDocumentsUserLookupDMAndTimestampWorkflows(t *testing.T) {
+	lookup := agenthelp.GetGuideSection("lookup_user")
+	for _, fragment := range []string{
+		"slack lookup user --filter ansible --max-items 20",
+		"data.users[].id",
+		"slack message send --user <user-id>",
+	} {
+		if !strings.Contains(lookup, fragment) {
+			t.Fatalf("lookup_user guide missing %q:\n%s", fragment, lookup)
+		}
+	}
+
+	history := agenthelp.GetGuideSection("read_history")
+	for _, fragment := range []string{
+		"Use history to discover message timestamps",
+		"data.messages[].ts",
+		"Use the parent message `ts` with `slack reply --parent`",
+		"Use any message or reply `ts` with `slack react add --timestamp`",
+	} {
+		if !strings.Contains(history, fragment) {
+			t.Fatalf("read_history guide missing %q:\n%s", fragment, history)
+		}
+	}
+}

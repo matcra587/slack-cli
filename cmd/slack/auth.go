@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"image/color"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -42,13 +43,16 @@ func newAuthCommand(runtime *RootRuntime) *cobra.Command {
 	authCmd := &cobra.Command{Use: "auth", Short: "Manage Slack authentication"}
 
 	var workspaceName string
-	var token string
+	var tokenStdin bool
+	var tokenFile string
+	var tokenEnv string
 	var teamID string
 	var teamName string
 	var authMethod string
 	var clientID string
 	var oauthRedirectURL string
 	var oauthCallbackPort string
+	var force bool
 	loginCmd := &cobra.Command{
 		Use:          "login",
 		Short:        "Create a workspace profile",
@@ -59,23 +63,34 @@ func newAuthCommand(runtime *RootRuntime) *cobra.Command {
 			}
 			return runAuthLogin(cmd, runtime, authLoginInput{
 				WorkspaceName: workspaceName,
-				Token:         token,
+				TokenStdin:    tokenStdin,
+				TokenFile:     tokenFile,
+				TokenEnv:      tokenEnv,
 				TeamID:        teamID,
 				TeamName:      teamName,
 				AuthMethod:    authMethod,
 				ClientID:      clientID,
 				OAuthRedirect: oauthRedirectURL,
+				Force:         force,
 			})
 		},
 	}
 	loginCmd.Flags().StringVar(&workspaceName, "workspace-name", "", "Workspace profile name")
-	loginCmd.Flags().StringVar(&token, "token", "", "Slack token")
+	loginCmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read Slack token from stdin")
+	loginCmd.Flags().StringVar(&tokenFile, "token-file", "", "Read Slack token from file")
+	loginCmd.Flags().StringVar(&tokenEnv, "token-env", "", "Read Slack token from named environment variable")
 	loginCmd.Flags().StringVar(&teamID, "team-id", "", "Slack workspace ID")
 	loginCmd.Flags().StringVar(&teamName, "team-name", "", "Slack workspace display name")
+	loginCmd.Flags().StringVar(&authMethod, "method", "", "Auth mechanism: oauth or token")
 	loginCmd.Flags().StringVar(&authMethod, "auth-method", "", "Auth mechanism: oauth or token")
+	loginCmd.Flags().StringVar(&clientID, "oauth-client-id", "", "Slack OAuth client ID")
 	loginCmd.Flags().StringVar(&clientID, "client-id", "", "Slack OAuth client ID")
 	loginCmd.Flags().StringVar(&oauthRedirectURL, "oauth-redirect-url", defaultOAuthRedirectURL(), "Slack OAuth redirect URL configured on the app")
 	loginCmd.Flags().StringVar(&oauthCallbackPort, "oauth-callback-port", "", "Local OAuth callback port; use 0 for an OS-assigned port")
+	loginCmd.Flags().BoolVar(&force, "force", false, "Overwrite an existing authenticated profile")
+	_ = loginCmd.Flags().MarkHidden("workspace-name")
+	_ = loginCmd.Flags().MarkHidden("auth-method")
+	_ = loginCmd.Flags().MarkHidden("client-id")
 
 	statusCmd := &cobra.Command{
 		Use:          "status",
@@ -111,9 +126,12 @@ func newAuthCommand(runtime *RootRuntime) *cobra.Command {
 }
 
 func runAuthLogin(cmd *cobra.Command, runtime *RootRuntime, input authLoginInput) error {
+	opts := rootOptionsFromCommand(cmd, runtime)
+	if input.WorkspaceName == "" {
+		input.WorkspaceName = opts.Workspace
+	}
 	ctx, _, _, err := commandContext(cmd, runtime)
 	if err != nil {
-		opts := rootOptionsFromCommand(cmd, runtime)
 		ctx = &CommandContext{
 			Workspace: "default",
 			Mode:      opts.Output.Resolve(runtime.IsTTY, false),
@@ -123,7 +141,7 @@ func runAuthLogin(cmd *cobra.Command, runtime *RootRuntime, input authLoginInput
 			RequestID: runtime.RequestID,
 		}
 	}
-	interactive := runtime.IsTTY && input.WorkspaceName == "" && input.Token == "" && input.AuthMethod == ""
+	interactive := runtime.IsTTY && input.WorkspaceName == "" && !input.HasTokenSource() && input.AuthMethod == ""
 	if interactive {
 		if err := runAuthLoginForm(ctx, runtime, &input); err != nil {
 			return writeCommandError(ctx, validationCLIError(err.Error()))
@@ -139,14 +157,14 @@ func runAuthLogin(cmd *cobra.Command, runtime *RootRuntime, input authLoginInput
 	case "oauth":
 		complete, err := completeOAuthLogin(ctx, runtime, &input)
 		if err != nil {
-			return writeCommandError(ctx, authCLIError(err.Error()))
+			return writeCommandError(ctx, authCLIErrorFromError(err))
 		}
 		if !complete {
 			return nil
 		}
 	case "token":
-		if input.Token == "" {
-			return writeCommandError(ctx, validationCLIError("token is required"))
+		if err := resolveLoginTokenSource(runtime, &input); err != nil {
+			return writeCommandError(ctx, validationCLIError(err.Error()))
 		}
 		auth, err := validateLoginToken(runtime, input.Token)
 		if err != nil {
@@ -175,6 +193,9 @@ func runAuthLogin(cmd *cobra.Command, runtime *RootRuntime, input authLoginInput
 	}
 	if input.TeamName == "" {
 		input.TeamName = profileName
+	}
+	if existing, ok := cfg.Workspaces[profileName]; ok && workspaceHasAuth(existing) && !input.Force {
+		return writeCommandError(ctx, validationCLIError("workspace profile is already authenticated; rerun with --force to overwrite auth fields"))
 	}
 	secret, err := encodeLoginCredential(ctx, input)
 	if err != nil {
@@ -212,9 +233,16 @@ func canonicalProfileName(cfg *config.Config, name string) string {
 	return name
 }
 
+func workspaceHasAuth(profile config.WorkspaceProfile) bool {
+	return profile.TeamID != "" || profile.TeamName != "" || profile.TokenType != "" || profile.TokenRef != ""
+}
+
 type authLoginInput struct {
 	WorkspaceName string
 	Token         string
+	TokenStdin    bool
+	TokenFile     string
+	TokenEnv      string
 	TokenType     config.TokenType
 	TeamID        string
 	TeamName      string
@@ -223,6 +251,11 @@ type authLoginInput struct {
 	OAuthRedirect string
 	RefreshToken  string
 	ExpiresIn     int
+	Force         bool
+}
+
+func (input authLoginInput) HasTokenSource() bool {
+	return input.Token != "" || input.TokenStdin || input.TokenFile != "" || input.TokenEnv != ""
 }
 
 func (input authLoginInput) resolvedTokenType() config.TokenType {
@@ -230,6 +263,67 @@ func (input authLoginInput) resolvedTokenType() config.TokenType {
 		return input.TokenType
 	}
 	return tokenType(input.Token)
+}
+
+func resolveLoginTokenSource(runtime *RootRuntime, input *authLoginInput) error {
+	sourceCount := 0
+	if input.TokenStdin {
+		sourceCount++
+	}
+	if input.TokenFile != "" {
+		sourceCount++
+	}
+	if input.TokenEnv != "" {
+		sourceCount++
+	}
+	if sourceCount > 1 {
+		return errors.New("token source flags are mutually exclusive")
+	}
+	if input.Token == "" {
+		switch {
+		case input.TokenStdin:
+			raw, err := io.ReadAll(runtime.Stdin)
+			if err != nil {
+				return fmt.Errorf("reading token from stdin: %w", err)
+			}
+			input.Token = trimTokenSource(raw)
+		case input.TokenFile != "":
+			raw, err := os.ReadFile(input.TokenFile)
+			if err != nil {
+				return fmt.Errorf("reading token file: %w", err)
+			}
+			input.Token = trimTokenSource(raw)
+		case input.TokenEnv != "":
+			name := strings.TrimSpace(input.TokenEnv)
+			if name == "" {
+				return errors.New("token-env is required")
+			}
+			input.Token = strings.TrimSpace(os.Getenv(name))
+			if input.Token == "" {
+				return fmt.Errorf("token environment variable %s is empty", name)
+			}
+		default:
+			return errors.New("token source is required; use --token-stdin, --token-file, --token-env, or interactive login")
+		}
+	}
+	return validateLoginTokenContent(input.Token)
+}
+
+func trimTokenSource(raw []byte) string {
+	return strings.TrimRight(string(raw), "\r\n")
+}
+
+func validateLoginTokenContent(token string) error {
+	if token == "" {
+		return errors.New("token is empty")
+	}
+	if strings.TrimSpace(token) != token || strings.ContainsAny(token, "\r\n\t ") {
+		return errors.New("token content is malformed")
+	}
+	if !strings.HasPrefix(token, "xoxb-") && !strings.HasPrefix(token, "xoxp-") {
+		return errors.New("token content is malformed; expected xoxb- or xoxp- token")
+	}
+	return nil
 }
 
 type authFieldHelp struct {
@@ -401,7 +495,7 @@ func authLoginHuhTheme(th *clibtheme.Theme) huh.Theme {
 	})
 }
 
-func authLoginMergeHuhStyle(base lipgloss.Style, override lipgloss.Style) lipgloss.Style {
+func authLoginMergeHuhStyle(base, override lipgloss.Style) lipgloss.Style {
 	if foreground := override.GetForeground(); foreground != nil {
 		base = base.Foreground(foreground)
 	}
@@ -537,7 +631,7 @@ func completeOAuthLogin(ctx *CommandContext, runtime *RootRuntime, input *authLo
 	select {
 	case callback = <-resultCh:
 	case <-time.After(timeout):
-		return false, fmt.Errorf("oauth flow timed out waiting for %s", redirectURL.String())
+		return false, oauthTimeoutError{RedirectURL: redirectURL.String()}
 	}
 	if callback.Err != nil {
 		return false, callback.Err
@@ -587,6 +681,27 @@ func applyOAuthResponse(input *authLoginInput, response *slackgo.OAuthV2Response
 	}
 	input.ClientID = strings.TrimSpace(input.ClientID)
 	return nil
+}
+
+type oauthTimeoutError struct {
+	RedirectURL string
+}
+
+func (e oauthTimeoutError) Error() string {
+	return "oauth flow timed out waiting"
+}
+
+func authCLIErrorFromError(err error) CLIError {
+	var timeout oauthTimeoutError
+	if errors.As(err, &timeout) {
+		return CLIError{
+			Type:     ErrorTypeAuth,
+			Message:  timeout.Error(),
+			Details:  map[string]any{"redirect_url": timeout.RedirectURL},
+			ExitCode: ExitCodeAuthFailure,
+		}
+	}
+	return authCLIError(err.Error())
 }
 
 func encodeLoginCredential(ctx *CommandContext, input authLoginInput) (string, error) {
@@ -723,7 +838,7 @@ func isLoopbackHost(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-func oauthCallbackHandler(state string, expectedPath string, resultCh chan<- oauthCallbackResult) http.Handler {
+func oauthCallbackHandler(state, expectedPath string, resultCh chan<- oauthCallbackResult) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query()
 		if r.URL.Path != expectedPath {
@@ -769,11 +884,11 @@ func oauthRandomState() (string, error) {
 
 func defaultOpenURL(target string) error {
 	if opener := os.Getenv("BROWSER"); opener != "" {
-		return exec.Command(opener, target).Start()
+		return exec.Command(opener, target).Start() //nolint:gosec // BROWSER is explicit user configuration and exec.Command does not invoke a shell.
 	}
 	for _, opener := range []string{"xdg-open", "open"} {
 		if path, err := exec.LookPath(opener); err == nil {
-			return exec.Command(path, target).Start()
+			return exec.Command(path, target).Start() //nolint:gosec // Path is resolved from a fixed opener allowlist.
 		}
 	}
 	return nil

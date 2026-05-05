@@ -81,7 +81,7 @@ func GenerateSchema(root *cobra.Command) Schema {
 		Auth: AuthInfo{
 			Type:        "bearer",
 			EnvVar:      "SLACK_CLI_TOKEN",
-			Description: "Slack token via environment or configured secret ref. Never store plaintext tokens in TOML.",
+			Description: "Slack token via SLACK_CLI_TOKEN_<PROFILE>, SLACK_CLI_TOKEN, or configured secret ref. Never store plaintext tokens in TOML or argv.",
 		},
 		Output: OutputInfo{
 			Default:     "JSON in non-TTY/agent mode, rich text in TTY",
@@ -93,24 +93,32 @@ func GenerateSchema(root *cobra.Command) Schema {
 				"stderr is diagnostics",
 				"mutation commands support --dry-run",
 				"agent-originated messages include attribution unless explicitly disabled",
+				"--raw is output-only; use command-local --blocks for raw Block Kit input",
+				"Markdown uses source-preserving Markdown fallback sections for unsupported block-level constructs",
+				"--blocks validates Slack Block Kit JSON rules before Slack mutation",
+				"Slack permission failures such as missing_scope, not_in_channel, and no_permission map to fixed exit codes",
+				"--json, --plain, --compact, and --raw are mutually exclusive",
 			},
 		},
 		GlobalFlags:   extractGlobalFlags(root),
 		Commands:      walkCommands(root),
 		InputShapes:   inputShapes(),
 		OutputSchemas: outputSchemas(),
-		Env:           agent.KnownEnvVars(),
+		Env:           schemaEnvVars(),
 		ExitCodes:     exitCodes(),
 		Examples:      examples(),
 		Workflows:     workflowSchemas(),
 		BestPractices: []string{
 			"Prefer channel/user IDs over display names in automation.",
 			"Use --file - for multiline message bodies.",
+			"Use --blocks when message-like input is already Slack Block Kit JSON.",
 			"Use --dry-run before destructive or high-visibility mutations.",
 			"Use --compact when another tool expects command-specific JSON only.",
 		},
 		AntiPatterns: []string{
 			"Do not store Slack tokens in TOML or source files.",
+			"Do not pass raw Slack tokens in argv.",
+			"Do not use --raw to select raw Block Kit input; --raw is an output mode.",
 			"Do not disable agent attribution unless explicitly required.",
 			"Do not parse human-readable output in scripts; use JSON.",
 		},
@@ -119,11 +127,13 @@ func GenerateSchema(root *cobra.Command) Schema {
 
 func inputShapes() map[string][]string {
 	return map[string][]string{
-		"message.send": {"--channel <id|alias>", "--user <id|alias>", "--message <markdown>", "--file <path|->", "stdin markdown when --file -", "--raw Block Kit JSON array"},
-		"history.list": {"--channel <id|alias>", "--max-items <n>", "--since <slack-ts>", "--until <slack-ts>", "--user <id>", "--thread <ts>"},
-		"file.upload":  {"--channel <id|alias>", "--file <path|->", "--filename <name> required for stdin", "--message <markdown>"},
-		"manifest":     {"template --name <name>", "template --format <json|yaml>", "local manifest generation only"},
-		"auth.login":   {"--workspace-name <name>", "--auth-method <oauth|token>", "--token <xoxb|xoxp>", "--team-id <workspace-id>", "--client-id <id>", "--oauth-redirect-url <local-url>"},
+		"message.send":   {"--channel <id|alias>", "--user <id|alias>", "--channel and --user are mutually exclusive", "--message <markdown>", "--file <path|->", "stdin markdown when --file -", "source-preserving Markdown fallback for unsupported block-level constructs", "--blocks Block Kit JSON array", "--blocks validates Slack Block Kit JSON rules"},
+		"lookup.channel": {"--channel <id|alias> for one conversation", "--types <public_channel,private_channel,im,mpim>", "--max-items <n>", "--filter <text>"},
+		"lookup.user":    {"--user <id|alias> for one user", "--max-items <n>", "--filter <text>", "--presence"},
+		"history.list":   {"--channel <id|alias>", "--max-items <n>", "--since <slack-ts>", "--until <slack-ts>", "--user <id>", "--thread <ts>"},
+		"file.upload":    {"--channel <id|alias>", "--file <path|->", "--filename <name> required for stdin", "--message <markdown>", "--blocks Block Kit JSON array for --message comment"},
+		"manifest":       {"template --name <name>", "template --format <json|yaml>", "local manifest generation only"},
+		"auth.login":     {"--workspace <name>", "--method <oauth|token>", "--token-stdin", "--token-file <path>", "--token-env <env-var-name>", "--oauth-client-id <id>", "--oauth-redirect-url <local-url>", "--force"},
 	}
 }
 
@@ -148,13 +158,26 @@ func exitCodes() map[string]int {
 
 func examples() map[string][]string {
 	return map[string][]string{
-		"message":  {"echo 'Deploy complete' | slack message send --channel '#alerts' --file -", "slack message send --user U123 --message 'Need review'"},
+		"message":  {"echo 'Deploy complete' | slack message send --channel '#alerts' --file -", "slack message send --user U123 --message 'Need review'", "slack message send --channel C123 --blocks --file blocks.json"},
 		"history":  {"slack history list --channel C123 --max-items 50"},
+		"lookup":   {"slack lookup channel --max-items 20", "slack lookup channel --types im", "slack lookup user --presence", "slack lookup user --user U123"},
 		"file":     {"tar czf - build/ | slack file upload --channel C123 --file - --filename build.tgz"},
 		"manifest": {"slack manifest template --name example --format json > manifest.json", "slack manifest template --name example --format yaml > manifest.yaml"},
-		"auth":     {"slack auth login", "slack auth login --workspace-name default --auth-method token --token xoxb-..."},
-		"schema":   {"slack agent schema --compact"},
+		"auth":     {"slack auth login", "printf '%s\\n' \"$SLACK_TOKEN\" | slack auth login --workspace default --method token --token-stdin", "slack auth login --workspace default --method token --token-file ./slack-token.txt", "slack auth login --workspace default --method token --token-env SLACK_CLI_TOKEN_DEFAULT"},
+		"schema":   {"slack agent schema", "slack agent schema --compact", "slack agent schema --raw"},
 	}
+}
+
+func schemaEnvVars() []string {
+	env := []string{
+		"SLACK_CLI_TOKEN_<PROFILE>",
+		"SLACK_CLI_TOKEN",
+		"SLACK_CLI_CONFIG",
+		"SLACK_CLI_BASE_URL",
+		"SLACK_CLI_CALLBACK_PORT",
+	}
+	env = append(env, agent.KnownEnvVars()...)
+	return env
 }
 
 func workflowSchemas() []Workflow {

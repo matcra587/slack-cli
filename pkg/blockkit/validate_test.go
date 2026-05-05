@@ -73,3 +73,114 @@ func TestValidateBlocksRejectsTableLimits(t *testing.T) {
 		}
 	})
 }
+
+func TestValidateRawBlocksRejectsRequiredFieldsAndLimits(t *testing.T) {
+	longText := strings.Repeat("x", 3001)
+	tooManyContext := make([]any, 11)
+	for i := range tooManyContext {
+		tooManyContext[i] = map[string]any{"type": "mrkdwn", "text": "ctx"}
+	}
+	tooManyBlocks := make([]map[string]any, 51)
+	for i := range tooManyBlocks {
+		tooManyBlocks[i] = map[string]any{"type": "divider"}
+	}
+
+	tests := []struct {
+		name   string
+		blocks []map[string]any
+		want   string
+	}{
+		{
+			name:   "section missing text or fields",
+			blocks: []map[string]any{{"type": "section"}},
+			want:   "section text or fields are required",
+		},
+		{
+			name:   "section text exceeds limit",
+			blocks: []map[string]any{{"type": "section", "text": map[string]any{"type": "mrkdwn", "text": longText}}},
+			want:   "text exceeds 3000",
+		},
+		{
+			name:   "context elements required",
+			blocks: []map[string]any{{"type": "context", "elements": []any{}}},
+			want:   "context elements are required",
+		},
+		{
+			name:   "context element count",
+			blocks: []map[string]any{{"type": "context", "elements": tooManyContext}},
+			want:   "context elements exceed 10",
+		},
+		{
+			name:   "image url required",
+			blocks: []map[string]any{{"type": "image", "alt_text": "diagram"}},
+			want:   "image_url is required",
+		},
+		{
+			name:   "image alt text required",
+			blocks: []map[string]any{{"type": "image", "image_url": "https://example.com/image.png"}},
+			want:   "alt_text is required",
+		},
+		{
+			name:   "file fields required",
+			blocks: []map[string]any{{"type": "file", "external_id": "F123"}},
+			want:   "file external_id and source are required",
+		},
+		{
+			name:   "table rows required",
+			blocks: []map[string]any{{"type": "table"}},
+			want:   "table rows are required",
+		},
+		{
+			name:   "rich text elements required",
+			blocks: []map[string]any{{"type": "rich_text"}},
+			want:   "rich_text elements are required",
+		},
+		{
+			name: "rich text child type required",
+			blocks: []map[string]any{{
+				"type":     "rich_text",
+				"elements": []any{map[string]any{}},
+			}},
+			want: "rich_text element 0 type is required",
+		},
+		{
+			name: "table rich text cell elements required",
+			blocks: []map[string]any{{
+				"type": "table",
+				"rows": []any{[]any{
+					map[string]any{"type": "rich_text"},
+				}},
+			}},
+			want: "table cell 0:0 rich_text elements are required",
+		},
+		{
+			name:   "block count",
+			blocks: tooManyBlocks,
+			want:   "block count exceeds 50",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := blockkit.ValidateRawBlocks(tt.blocks)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("ValidateRawBlocks error = %v, want substring %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateRawBlocksAcceptsSupportedRawBlocks(t *testing.T) {
+	blocks := []map[string]any{
+		{"type": "section", "text": map[string]any{"type": "mrkdwn", "text": "hello"}},
+		{"type": "context", "elements": []any{map[string]any{"type": "mrkdwn", "text": "context"}}},
+		{"type": "divider"},
+		{"type": "image", "image_url": "https://example.com/image.png", "alt_text": "example"},
+		{"type": "file", "external_id": "F123", "source": "remote"},
+		{"type": "rich_text", "elements": []any{map[string]any{"type": "rich_text_section", "elements": []any{}}}},
+		{"type": "table", "rows": []any{[]any{map[string]any{"type": "rich_text", "elements": []any{}}}}},
+	}
+	if err := blockkit.ValidateRawBlocks(blocks); err != nil {
+		t.Fatalf("ValidateRawBlocks returned error: %v", err)
+	}
+}

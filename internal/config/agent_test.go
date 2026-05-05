@@ -12,11 +12,14 @@ func TestWorkspaceAgentSettingsDefaultOn(t *testing.T) {
 	if !settings.Attribution {
 		t.Fatal("AgentSettings Attribution = false, want default true")
 	}
-	if settings.Label != "agent mode" {
-		t.Fatalf("AgentSettings Label = %q, want agent mode", settings.Label)
+	if settings.Label != "" {
+		t.Fatalf("AgentSettings Label = %q, want no configured label", settings.Label)
 	}
-	if settings.Emoji != ":robot_face:" {
-		t.Fatalf("AgentSettings Emoji = %q, want :robot_face:", settings.Emoji)
+	if settings.Emoji != "" {
+		t.Fatalf("AgentSettings Emoji = %q, want no configured emoji", settings.Emoji)
+	}
+	if settings.Message != "" {
+		t.Fatalf("AgentSettings Message = %q, want no configured message", settings.Message)
 	}
 }
 
@@ -55,8 +58,10 @@ func TestWorkspaceAgentSettingsUsesCustomLabelAndEmoji(t *testing.T) {
 }
 
 func TestWorkspaceAgentSettingsSupportsNestedAttributionConfig(t *testing.T) {
+	disabled := false
 	settings := config.WorkspaceProfile{
 		Attribution: config.AttributionConfig{
+			Enabled: &disabled,
 			Label:   "deploy pipeline",
 			Message: "Sent from deploy job",
 			Emoji:   ":rocket:",
@@ -65,6 +70,9 @@ func TestWorkspaceAgentSettingsSupportsNestedAttributionConfig(t *testing.T) {
 
 	if settings.Label != "deploy pipeline" {
 		t.Fatalf("AgentSettings Label = %q, want nested label", settings.Label)
+	}
+	if settings.Attribution {
+		t.Fatal("AgentSettings Attribution = true, want nested enabled=false")
 	}
 	if settings.Message != "Sent from deploy job" {
 		t.Fatalf("AgentSettings Message = %q, want nested message", settings.Message)

@@ -3,6 +3,7 @@ package integration_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -27,8 +28,11 @@ func TestPipeContractForMessageEditFileUploadAndHistory(t *testing.T) {
 		stderr bool
 	}{
 		{name: "send stdin", args: []string{"message", "send", "--channel", "C123", "--file", "-"}, stdin: "hello"},
+		{name: "send blocks stdin", args: []string{"message", "send", "--channel", "C123", "--file", "-", "--blocks"}, stdin: `[{"type":"section","text":{"type":"mrkdwn","text":"hello"}}]`},
 		{name: "edit stdin", args: []string{"message", "edit", "--channel", "C123", "--timestamp", "1746284582.123456", "--file", "-"}, stdin: "updated"},
+		{name: "edit blocks stdin", args: []string{"message", "edit", "--channel", "C123", "--timestamp", "1746284582.123456", "--file", "-", "--blocks"}, stdin: `[{"type":"section","text":{"type":"mrkdwn","text":"updated"}}]`},
 		{name: "file upload stdin", args: []string{"file", "upload", "--channel", "C123", "--file", "-", "--filename", "stdin.txt"}, stdin: "artifact", stderr: true},
+		{name: "file upload stdin with block comment", args: []string{"file", "upload", "--channel", "C123", "--file", "-", "--filename", "stdin.txt", "--message", `[{"type":"section","text":{"type":"mrkdwn","text":"artifact"}}]`, "--blocks"}, stdin: "artifact", stderr: true},
 		{name: "history json", args: []string{"history", "list", "--channel", "C123", "--max-items", "1"}},
 	}
 
@@ -49,6 +53,105 @@ func TestPipeContractForMessageEditFileUploadAndHistory(t *testing.T) {
 	}
 }
 
+func TestPipeContractRejectsIncompatibleOutputFlagsBeforeCommandWork(t *testing.T) {
+	binary := buildSlackBinary(t)
+	server := pipeMockSlackServer(t)
+	defer server.Close()
+	configPath := writePipeConfig(t)
+
+	stdout, stderr, err := runSlackBinary(t, binary, configPath, server.URL, "",
+		"--json", "--plain", "message", "send", "--channel", "C123", "--message", "hello")
+	if err == nil {
+		t.Fatal("command returned nil error, want validation failure")
+	}
+	if got := exitCode(err); got != 4 {
+		t.Fatalf("exit code = %d, want 4\nstderr=%s", got, stderr)
+	}
+	if stdout != "" {
+		t.Fatalf("stdout = %q, want empty", stdout)
+	}
+	if !strings.Contains(stderr, `"type":"validation_error"`) {
+		t.Fatalf("stderr = %q, want structured validation_error", stderr)
+	}
+	if strings.Contains(stderr, "chat.postMessage") {
+		t.Fatalf("stderr = %q, command appears to have run before flag validation", stderr)
+	}
+}
+
+func TestPipeContractUnknownCommandUsesStructuredValidationError(t *testing.T) {
+	binary := buildSlackBinary(t)
+	server := pipeMockSlackServer(t)
+	defer server.Close()
+	configPath := writePipeConfig(t)
+
+	stdout, stderr, err := runSlackBinary(t, binary, configPath, server.URL, "", "dm")
+	if err == nil {
+		t.Fatal("command returned nil error, want unknown command failure")
+	}
+	if got := exitCode(err); got != 4 {
+		t.Fatalf("exit code = %d, want 4\nstderr=%s", got, stderr)
+	}
+	if stdout != "" {
+		t.Fatalf("stdout = %q, want empty", stdout)
+	}
+	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, `unknown command \"dm\"`) {
+		t.Fatalf("stderr = %q, want structured unknown-command validation error", stderr)
+	}
+}
+
+func TestPipeContractRejectsInvalidRawBlocksFromStdinBeforeSlackCall(t *testing.T) {
+	binary := buildSlackBinary(t)
+	server := pipeMockSlackServer(t)
+	defer server.Close()
+	configPath := writePipeConfig(t)
+
+	stdout, stderr, err := runSlackBinary(t, binary, configPath, server.URL, `[{"type":"section"}]`,
+		"message", "send", "--channel", "C123", "--file", "-", "--blocks")
+	if err == nil {
+		t.Fatal("command returned nil error, want raw Block Kit validation failure")
+	}
+	if got := exitCode(err); got != 4 {
+		t.Fatalf("exit code = %d, want 4\nstderr=%s", got, stderr)
+	}
+	if stdout != "" {
+		t.Fatalf("stdout = %q, want empty", stdout)
+	}
+	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "section text or fields are required") {
+		t.Fatalf("stderr = %q, want raw Block Kit validation error", stderr)
+	}
+}
+
+func TestPipeContractPermissionFailuresKeepStdoutEmpty(t *testing.T) {
+	binary := buildSlackBinary(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth.test":
+			writeJSON(w, `{"ok":true,"user_id":"U123"}`)
+		case "/api/chat.postMessage":
+			writeJSON(w, `{"ok":false,"error":"not_in_channel"}`)
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	configPath := writePipeConfig(t)
+
+	stdout, stderr, err := runSlackBinary(t, binary, configPath, server.URL, "hello",
+		"message", "send", "--channel", "C123", "--file", "-")
+	if err == nil {
+		t.Fatal("command returned nil error, want Slack permission failure")
+	}
+	if got := exitCode(err); got != 2 {
+		t.Fatalf("exit code = %d, want 2\nstderr=%s", got, stderr)
+	}
+	if stdout != "" {
+		t.Fatalf("stdout = %q, want empty", stdout)
+	}
+	if !strings.Contains(stderr, `"type":"not_found"`) || !strings.Contains(stderr, "not_in_channel") {
+		t.Fatalf("stderr = %q, want fixed not_found error", stderr)
+	}
+}
+
 func buildSlackBinary(t *testing.T) string {
 	t.Helper()
 	root := repoRoot(t)
@@ -62,7 +165,7 @@ func buildSlackBinary(t *testing.T) string {
 	return binary
 }
 
-func runSlackBinary(t *testing.T, binary, configPath, baseURL, stdin string, args ...string) (string, string, error) {
+func runSlackBinary(t *testing.T, binary, configPath, baseURL, stdin string, args ...string) (stdoutText, stderrText string, runErr error) {
 	t.Helper()
 	cmd := exec.Command(binary, args...)
 	cmd.Env = append(os.Environ(),
@@ -119,6 +222,8 @@ func pipeMockSlackServer(t *testing.T) *httptest.Server {
 			w.WriteHeader(http.StatusOK)
 		case "/api/files.completeUploadExternal":
 			writeJSON(w, `{"ok":true,"files":[{"id":"F123","name":"stdin.txt","size":8,"permalink":"https://example.slack.com/files/F123"}]}`)
+		case "/api/files.info":
+			writeJSON(w, `{"ok":true,"file":{"id":"F123","name":"stdin.txt","title":"stdin.txt","size":8,"permalink":"https://example.slack.com/files/F123"}}`)
 		case "/api/conversations.history":
 			writeJSON(w, `{"ok":true,"messages":[{"type":"message","user":"U123","text":"hello","ts":"1746284582.123456"}]}`)
 		default:
@@ -145,7 +250,8 @@ func exitCode(err error) int {
 	if err == nil {
 		return 0
 	}
-	if exitErr, ok := err.(*exec.ExitError); ok {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
 		return exitErr.ExitCode()
 	}
 	return -1

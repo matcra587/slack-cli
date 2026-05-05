@@ -28,6 +28,7 @@ agent_message = "Sent from local automation"
 rate_limit_tier = "auto"
 
 [workspaces.default.attribution]
+enabled = false
 label = "nested automation"
 message = "Sent from nested automation"
 emoji = ":sparkles:"
@@ -63,6 +64,9 @@ ops = "C456"
 		t.Fatalf("alerts alias = %q, want C123", got)
 	}
 	settings := workspace.AgentSettings()
+	if settings.Attribution {
+		t.Fatal("AgentSettings Attribution = true, want nested enabled=false override")
+	}
 	if settings.Label != "nested automation" {
 		t.Fatalf("AgentSettings Label = %q, want nested label override", settings.Label)
 	}
@@ -115,14 +119,14 @@ func TestSaveFileRoundTripsWithoutTokenValues(t *testing.T) {
 		DefaultWorkspace: "default",
 		Workspaces: map[string]config.WorkspaceProfile{
 			"default": {
-				Name:             "default",
-				TeamID:           "T123",
-				TeamName:         "Example",
-				TokenType:        config.TokenTypeBot,
-				TokenRef:         "keychain:slack-cli/default",
-				DefaultChannel:   "C123",
-				AgentAttribution: &disabled,
+				Name:           "default",
+				TeamID:         "T123",
+				TeamName:       "Example",
+				TokenType:      config.TokenTypeBot,
+				TokenRef:       "keychain:slack-cli/default",
+				DefaultChannel: "C123",
 				Attribution: config.AttributionConfig{
+					Enabled: &disabled,
 					Message: "Sent from tests",
 					Emoji:   ":test_tube:",
 				},
@@ -141,7 +145,7 @@ func TestSaveFileRoundTripsWithoutTokenValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile returned error: %v", err)
 	}
-	if string(raw) == "" {
+	if len(raw) == 0 {
 		t.Fatal("saved config is empty")
 	}
 	if strings.Contains(string(raw), "xoxb-") || strings.Contains(string(raw), "xoxp-") {
@@ -151,7 +155,7 @@ func TestSaveFileRoundTripsWithoutTokenValues(t *testing.T) {
 		`schema_version = "1"`,
 		`default_workspace = "default"`,
 		"[workspaces.default]\nname = \"default\"",
-		"[workspaces.default.attribution]\nmessage = \"Sent from tests\"",
+		"[workspaces.default.attribution]\nenabled = false\nmessage = \"Sent from tests\"",
 		"[workspaces.default.aliases]\nalerts = \"C123\"",
 	} {
 		if !strings.Contains(string(raw), fragment) {
@@ -161,6 +165,11 @@ func TestSaveFileRoundTripsWithoutTokenValues(t *testing.T) {
 	for _, fragment := range []string{"[workspaces]\n", "  [workspaces.default]", "    name ="} {
 		if strings.Contains(string(raw), fragment) {
 			t.Fatalf("saved config = %s, did not want encoder-style fragment %q", raw, fragment)
+		}
+	}
+	for _, legacy := range []string{"agent_attribution", "agent_label", "agent_emoji", "agent_message"} {
+		if strings.Contains(string(raw), legacy) {
+			t.Fatalf("saved config = %s, did not want legacy key %q in new writes", raw, legacy)
 		}
 	}
 

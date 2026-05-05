@@ -84,17 +84,11 @@ func (c *CommandContext) WriteSearchTable(data searchCommandData) error {
 }
 
 func (c *CommandContext) WriteChannelTable(command string, channels []cliChannel) error {
-	if command == "dm.list" {
-		columns := []table.Column[cliChannel]{
-			{Name: "dm", Header: "DM", Render: func(row cliChannel, _ *table.RenderContext) table.Cell { return table.TextCell(row.ID) }},
-			{Name: "user", Header: "USER", Render: func(row cliChannel, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.User)) }},
-		}
-		return c.WritePlain(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(channels).String())
-	}
 	columns := []table.Column[cliChannel]{
 		{Name: "channel", Header: "CHANNEL", Render: func(row cliChannel, _ *table.RenderContext) table.Cell { return table.TextCell(row.ID) }},
 		{Name: "name", Header: "NAME", Render: func(row cliChannel, _ *table.RenderContext) table.Cell { return table.TextCell(row.Name) }},
 		{Name: "type", Header: "TYPE", Render: func(row cliChannel, _ *table.RenderContext) table.Cell { return table.TextCell(row.Type) }},
+		{Name: "user", Header: "USER", Render: func(row cliChannel, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.User)) }},
 		{Name: "member", Header: "MEMBER", Render: func(row cliChannel, _ *table.RenderContext) table.Cell { return table.TextCell(ptrBool(row.IsMember)) }},
 		{Name: "archived", Header: "ARCHIVED", Render: func(row cliChannel, _ *table.RenderContext) table.Cell {
 			return table.TextCell(ptrBool(row.IsArchived))

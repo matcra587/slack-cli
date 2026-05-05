@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -44,7 +45,7 @@ type OutputFlags struct {
 	Raw     bool
 }
 
-func (f OutputFlags) Resolve(isTTY bool, agentMode bool) OutputMode {
+func (f OutputFlags) Resolve(isTTY, agentMode bool) OutputMode {
 	switch {
 	case f.Raw:
 		return OutputModeRaw
@@ -154,7 +155,7 @@ func WithSlackBaseURL(baseURL string) RootOption {
 	}
 }
 
-func WithIO(stdin io.Reader, stdout io.Writer, stderr io.Writer) RootOption {
+func WithIO(stdin io.Reader, stdout, stderr io.Writer) RootOption {
 	return func(runtime *RootRuntime) {
 		runtime.Stdin = stdin
 		runtime.Stdout = stdout
@@ -224,7 +225,7 @@ type CredentialTokenResolver struct {
 }
 
 var readOnePasswordSecret = func(ref string) (string, error) {
-	out, err := exec.Command("op", "read", ref).Output()
+	out, err := exec.Command("op", "read", ref).Output() //nolint:gosec // The 1Password reference is explicit user configuration, not shell-expanded input.
 	if err != nil {
 		return "", fmt.Errorf("reading 1Password secret: %w", err)
 	}
@@ -232,6 +233,9 @@ var readOnePasswordSecret = func(ref string) (string, error) {
 }
 
 func (r CredentialTokenResolver) ResolveToken(profile config.WorkspaceProfile) (string, error) {
+	if token, ok := runtimeEnvToken(profile.Name); ok {
+		return token, nil
+	}
 	if strings.TrimSpace(profile.TokenRef) == "" {
 		return "", config.ErrCredentialNotFound
 	}
@@ -259,9 +263,39 @@ func (r CredentialTokenResolver) ResolveToken(profile config.WorkspaceProfile) (
 	return "", errors.New("unsupported token reference")
 }
 
+func runtimeEnvToken(profileName string) (string, bool) {
+	for _, name := range runtimeTokenEnvNames(profileName) {
+		if token := strings.TrimSpace(os.Getenv(name)); token != "" {
+			return token, true
+		}
+	}
+	return "", false
+}
+
+func runtimeTokenEnvNames(profileName string) []string {
+	names := make([]string, 0, 2)
+	if normalized := normalizeProfileEnvSuffix(profileName); normalized != "" {
+		names = append(names, "SLACK_CLI_TOKEN_"+normalized)
+	}
+	names = append(names, "SLACK_CLI_TOKEN")
+	return names
+}
+
+func normalizeProfileEnvSuffix(profileName string) string {
+	var b strings.Builder
+	for _, r := range strings.ToUpper(strings.TrimSpace(profileName)) {
+		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			continue
+		}
+		b.WriteByte('_')
+	}
+	return strings.Trim(b.String(), "_")
+}
+
 const credentialRefreshBuffer = 5 * time.Minute
 
-func (r CredentialTokenResolver) resolveStoredCredential(name string, secret string) (string, error) {
+func (r CredentialTokenResolver) resolveStoredCredential(name, secret string) (string, error) {
 	credential, err := config.DecodeCredential(secret)
 	if err != nil {
 		return "", err
@@ -367,6 +401,20 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	th := theme.Default()
 	renderer := help.NewRenderer(th)
 	root.SetHelpFunc(cobracli.HelpFunc(renderer, cobracli.Sections))
+	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		if err := validateOutputModeFlags(cmd.Root()); err != nil {
+			ctx := &CommandContext{
+				Workspace: "default",
+				Mode:      OutputModeJSON,
+				Stdout:    runtime.Stdout,
+				Stderr:    runtime.Stderr,
+				Now:       runtime.Now,
+				RequestID: runtime.RequestID,
+			}
+			return writeCommandError(ctx, validationCLIError(err.Error()))
+		}
+		return nil
+	}
 
 	flags := root.PersistentFlags()
 	flags.String("workspace", "", "Workspace profile")
@@ -382,13 +430,10 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	flags.Bool("no-throttle", false, "Disable proactive Slack API throttling")
 
 	root.AddCommand(newMessageCommand(runtime))
-	root.AddCommand(newDMCommand(runtime))
 	root.AddCommand(newHistoryCommand(runtime))
 	root.AddCommand(newThreadCommand(runtime))
 	root.AddCommand(newReactionCommand(runtime))
-	root.AddCommand(newSearchCommand(runtime))
-	root.AddCommand(newChannelCommand(runtime))
-	root.AddCommand(newUserCommand(runtime))
+	root.AddCommand(newLookupCommand(runtime))
 	root.AddCommand(newFileCommand(runtime))
 	root.AddCommand(newManifestCommand(runtime))
 	root.AddCommand(newConfigCommand(runtime))
@@ -398,6 +443,27 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	root.AddCommand(newVersionCommand(runtime))
 
 	return root
+}
+
+func validateOutputModeFlags(root *cobra.Command) error {
+	if root == nil {
+		return nil
+	}
+	flags := root.PersistentFlags()
+	selected := make([]string, 0, 4)
+	for _, name := range []string{"json", "plain", "compact", "raw"} {
+		value, err := flags.GetBool(name)
+		if err != nil {
+			return err
+		}
+		if value {
+			selected = append(selected, "--"+name)
+		}
+	}
+	if len(selected) > 1 {
+		return fmt.Errorf("output mode flags are mutually exclusive: %s", strings.Join(selected, ", "))
+	}
+	return nil
 }
 
 func defaultConfigPath() string {
@@ -464,7 +530,7 @@ func commandContext(cmd *cobra.Command, runtime *RootRuntime) (*CommandContext, 
 	if runtime.ConfigLoadError != nil {
 		ctx := &CommandContext{
 			Workspace: "default",
-			Mode:      opts.Output.Resolve(runtime.IsTTY, DetectAgentMode(opts.Agent).Enabled),
+			Mode:      opts.Output.Resolve(runtime.IsTTY, DetectAgentOutputMode(opts.Agent)),
 			Stdout:    runtime.Stdout,
 			Stderr:    runtime.Stderr,
 			Now:       runtime.Now,
@@ -495,7 +561,7 @@ func NewCommandContext(opts RootOptions) (*CommandContext, Attribution, error) {
 			return nil, Attribution{}, err
 		}
 		workspace = profile.Name
-		agentFlags.ProfileAttribution = profile.AgentAttribution
+		agentFlags.ProfileAttribution = profileAttributionSetting(profile)
 		settings := profile.AgentSettings()
 		if agentFlags.AgentLabel == "" {
 			agentFlags.AgentLabel = settings.Label
@@ -513,13 +579,20 @@ func NewCommandContext(opts RootOptions) (*CommandContext, Attribution, error) {
 	attribution := DetectAgentMode(agentFlags)
 	return &CommandContext{
 		Workspace: workspace,
-		Mode:      opts.Output.Resolve(opts.IsTTY, attribution.Enabled),
+		Mode:      opts.Output.Resolve(opts.IsTTY, DetectAgentOutputMode(agentFlags)),
 		Stdout:    opts.Stdout,
 		Stderr:    opts.Stderr,
 		Now:       opts.Now,
 		RequestID: opts.RequestID,
 		IsTTY:     opts.IsTTY,
 	}, attribution, nil
+}
+
+func profileAttributionSetting(profile config.WorkspaceProfile) *bool {
+	if profile.Attribution.Enabled != nil {
+		return profile.Attribution.Enabled
+	}
+	return profile.AgentAttribution
 }
 
 type Envelope struct {
@@ -647,7 +720,7 @@ type fieldStyle struct {
 	Seed  string
 }
 
-func entityFieldStyle(field string, value string) fieldStyle {
+func entityFieldStyle(field, value string) fieldStyle {
 	return fieldStyle{Field: field, Seed: field + ":" + value}
 }
 
@@ -1068,17 +1141,17 @@ func hashEntityStyle(th *theme.Theme, key string) *lipgloss.Style {
 	}
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(strings.ToLower(strings.TrimSpace(key))))
-	//nolint:gosec // Palette indexing is deterministic presentation logic.
 	style := lipgloss.NewStyle().Foreground(th.EntityColors[h.Sum32()%uint32(len(th.EntityColors))])
 	return &style
 }
 
 func (c *CommandContext) WriteError(err CLIError) int {
 	if c.Mode == OutputModePlain {
-		c.stderrLogger().Error().
+		event := c.stderrLogger().Error().
 			Str("type", err.Type).
-			Int("exit_code", err.ExitCode).
-			Msg(err.Message)
+			Int("exit_code", err.ExitCode)
+		event = addCLIErrorDetails(event, err.Details)
+		event.Msg(err.Message)
 	} else {
 		c.stderrLogger().Print().Mode(clog.JSONFlat).JSON(struct {
 			Errors []CLIError `json:"errors"`
@@ -1087,6 +1160,30 @@ func (c *CommandContext) WriteError(err CLIError) int {
 		})
 	}
 	return err.ExitCode
+}
+
+func addCLIErrorDetails(event *clog.Event, details map[string]any) *clog.Event {
+	if len(details) == 0 {
+		return event
+	}
+	keys := make([]string, 0, len(details))
+	for key := range details {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		switch value := details[key].(type) {
+		case string:
+			event = event.Str(key, value)
+		case bool:
+			event = event.Bool(key, value)
+		case int:
+			event = event.Int(key, value)
+		default:
+			event = event.Any(key, value)
+		}
+	}
+	return event
 }
 
 func (c *CommandContext) debugOutput() bool {
@@ -1179,11 +1276,27 @@ func (c *CommandContext) workspace() string {
 }
 
 func main() {
-	if err := NewRootCommand().Execute(); err != nil {
+	root := NewRootCommand()
+	if err := root.Execute(); err != nil {
 		var commandErr CommandError
 		if errors.As(err, &commandErr) {
 			os.Exit(commandErr.CLIError.ExitCode)
 		}
-		os.Exit(ExitCodeServer)
+		ctx := &CommandContext{
+			Workspace: "default",
+			Mode:      outputFlagsFromCommand(root).Resolve(terminal.Is(os.Stdout), false),
+			Stdout:    os.Stdout,
+			Stderr:    os.Stderr,
+		}
+		os.Exit(ctx.WriteError(validationCLIError(err.Error())))
 	}
+}
+
+func outputFlagsFromCommand(cmd *cobra.Command) OutputFlags {
+	flags := cmd.PersistentFlags()
+	jsonMode, _ := flags.GetBool("json")
+	plain, _ := flags.GetBool("plain")
+	compact, _ := flags.GetBool("compact")
+	raw, _ := flags.GetBool("raw")
+	return OutputFlags{JSON: jsonMode, Plain: plain, Compact: compact, Raw: raw}
 }

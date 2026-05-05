@@ -3,6 +3,7 @@ package testutil
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -59,7 +60,8 @@ func RunBinary(t testing.TB, binary string, args []string, opts CommandOptions) 
 	exitCode := 0
 	if err != nil {
 		exitCode = -1
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			exitCode = exitErr.ExitCode()
 		}
 	}
@@ -72,7 +74,7 @@ func RunBinary(t testing.TB, binary string, args []string, opts CommandOptions) 
 	}
 }
 
-func WriteExecutable(t testing.TB, name string, content string) string {
+func WriteExecutable(t testing.TB, name, content string) string {
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), name)

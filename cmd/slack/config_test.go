@@ -18,8 +18,8 @@ func TestConfigInitWritesPreferencesOnlyConfig(t *testing.T) {
 			"config", "init",
 			"--profile", "default",
 			"--default-channel", "C7N2Q8L4P",
-			"--agent-emoji", ":rocket:",
-			"--agent-message", "Sent from deploy automation",
+			"--attribution-emoji", ":rocket:",
+			"--attribution-message", "Sent from deploy automation",
 		},
 	)
 	if err != nil {
@@ -39,6 +39,12 @@ func TestConfigInitWritesPreferencesOnlyConfig(t *testing.T) {
 	if strings.Contains(string(raw), "xox") {
 		t.Fatalf("config contains plaintext token: %s", raw)
 	}
+	if strings.Contains(string(raw), "agent_attribution") {
+		t.Fatalf("config contains legacy attribution key: %s", raw)
+	}
+	if !strings.Contains(string(raw), "[workspaces.default.attribution]\nenabled = true") {
+		t.Fatalf("config = %s, want canonical attribution.enabled write", raw)
+	}
 	for _, forbidden := range []string{"team_id", "team_name", "token_type", "token ="} {
 		if strings.Contains(string(raw), forbidden) {
 			t.Fatalf("config contains auth-owned field %q: %s", forbidden, raw)
@@ -55,6 +61,32 @@ func TestConfigInitWritesPreferencesOnlyConfig(t *testing.T) {
 	settings := profile.AgentSettings()
 	if settings.Emoji != ":rocket:" || settings.Message != "Sent from deploy automation" {
 		t.Fatalf("AgentSettings = %#v, want custom emoji/message", settings)
+	}
+}
+
+func TestConfigInitExposesCanonicalAttributionFlags(t *testing.T) {
+	root := NewRootCommand()
+	initCmd, _, err := root.Find([]string{"config", "init"})
+	if err != nil {
+		t.Fatalf("find config init: %v", err)
+	}
+	for _, name := range []string{"attribution-enabled", "attribution-label", "attribution-emoji", "attribution-message"} {
+		flag := initCmd.Flags().Lookup(name)
+		if flag == nil {
+			t.Fatalf("config init flag %q is missing", name)
+		}
+		if flag.Hidden {
+			t.Fatalf("config init flag %q is hidden; canonical attribution flags must be discoverable", name)
+		}
+	}
+	for _, name := range []string{"agent-attribution", "agent-label", "agent-emoji", "agent-message"} {
+		flag := initCmd.Flags().Lookup(name)
+		if flag == nil {
+			t.Fatalf("legacy config init alias %q is missing", name)
+		}
+		if !flag.Hidden {
+			t.Fatalf("legacy config init alias %q is visible; docs/schema should expose attribution.* flags", name)
+		}
 	}
 }
 
@@ -213,6 +245,13 @@ func TestConfigPathListGetSetUnset(t *testing.T) {
 	if listed["default_workspace"] != "default" {
 		t.Fatalf("config list = %#v, want default workspace", listed)
 	}
+	settings, ok := listed["settings"].([]any)
+	if !ok {
+		t.Fatalf("config list settings = %#v, want array", listed["settings"])
+	}
+	if !configListIncludesKey(settings, "workspaces.default.attribution.enabled") {
+		t.Fatalf("config list settings = %#v, want attribution.enabled", settings)
+	}
 
 	stdout, stderr, err = executeAuthRoot(t, nil, configPath, config.NewMemoryCredentialStore(), "http://example.invalid",
 		[]string{"config", "get", "workspaces.default.default_channel", "--compact"},
@@ -251,4 +290,14 @@ func TestConfigPathListGetSetUnset(t *testing.T) {
 	if loaded.Workspaces["default"].Attribution.Message != "" {
 		t.Fatalf("attribution message = %q, want unset", loaded.Workspaces["default"].Attribution.Message)
 	}
+}
+
+func configListIncludesKey(settings []any, key string) bool {
+	for _, setting := range settings {
+		entry, ok := setting.(map[string]any)
+		if ok && entry["key"] == key {
+			return true
+		}
+	}
+	return false
 }

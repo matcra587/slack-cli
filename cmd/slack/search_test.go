@@ -19,7 +19,7 @@ func TestSearchMessagesCommandWritesPaginatedEnvelope(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"search", "messages", "--query", "deploy failed", "--max-items", "1", "--cursor", "1"},
+		[]string{"lookup", "messages", "--query", "deploy failed", "--max-items", "1", "--cursor", "1"},
 	)
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
@@ -36,13 +36,45 @@ func TestSearchMessagesCommandWritesPaginatedEnvelope(t *testing.T) {
 	}
 }
 
+func TestSearchMessagesCommandReturnsEmptyMatchesForNoResults(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"search.messages": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"messages":{"matches":[],"pagination":{"page":1,"page_count":1}}}`)
+		},
+	})
+	defer server.Close()
+
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+		"",
+		[]string{"lookup", "messages", "--query", "no such message", "--max-items", "10"},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+	var envelope struct {
+		Data struct {
+			Matches []cliSearchMessage `json:"matches"`
+		} `json:"data"`
+		Errors []CLIError `json:"errors"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
+		t.Fatalf("stdout is not JSON: %v\n%s", err, stdout)
+	}
+	if len(envelope.Data.Matches) != 0 {
+		t.Fatalf("matches = %#v, want empty", envelope.Data.Matches)
+	}
+	if len(envelope.Errors) != 0 {
+		t.Fatalf("errors = %#v, want empty", envelope.Errors)
+	}
+}
+
 func TestSearchMessagesCommandRejectsMissingQuery(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
 	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"search", "messages"},
+		[]string{"lookup", "messages"},
 	)
 	if err == nil {
 		t.Fatal("Execute returned nil error, want validation error")

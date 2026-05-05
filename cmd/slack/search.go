@@ -14,12 +14,7 @@ type searchCommandData struct {
 	Full    bool               `json:"-"`
 }
 
-func newSearchCommand(runtime *RootRuntime) *cobra.Command {
-	searchCmd := &cobra.Command{
-		Use:   "search",
-		Short: "Search Slack",
-	}
-
+func newLookupMessagesCommand(runtime *RootRuntime) *cobra.Command {
 	var query string
 	var maxItems int
 	var cursor string
@@ -27,6 +22,7 @@ func newSearchCommand(runtime *RootRuntime) *cobra.Command {
 	messagesCmd := &cobra.Command{
 		Use:          "messages",
 		Short:        "Search Slack messages",
+		Hidden:       true,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSearchMessages(cmd, runtime, query, maxItems, cursor, full)
@@ -36,9 +32,7 @@ func newSearchCommand(runtime *RootRuntime) *cobra.Command {
 	messagesCmd.Flags().IntVar(&maxItems, "max-items", 0, "Maximum matches to return")
 	messagesCmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor")
 	messagesCmd.Flags().BoolVar(&full, "full", false, "Show full text in plain mode")
-	searchCmd.AddCommand(messagesCmd)
-
-	return searchCmd
+	return messagesCmd
 }
 
 func runSearchMessages(cmd *cobra.Command, runtime *RootRuntime, query string, maxItems int, cursor string, full bool) error {
@@ -53,6 +47,9 @@ func runSearchMessages(cmd *cobra.Command, runtime *RootRuntime, query string, m
 	client, err := slackClient(cmd, profile, runtime)
 	if err != nil {
 		return writeCommandError(ctx, authCLIError(err.Error()))
+	}
+	if err := requireSlackScopes(cmd.Context(), client, allScopes("search:read")); err != nil {
+		return writeCommandError(ctx, cliErrorFromSlack(err))
 	}
 
 	params := slackgo.SearchParameters{}

@@ -2,7 +2,9 @@ package ratelimit_test
 
 import (
 	"context"
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,17 +22,16 @@ func TestRetrySleepsRetryAfterOn429(t *testing.T) {
 	}, func() (*http.Response, error) {
 		attempts++
 		if attempts == 1 {
-			return &http.Response{
-				StatusCode: http.StatusTooManyRequests,
-				Header:     http.Header{"Retry-After": []string{"3"}},
-			}, nil
+			return retryResponse(http.StatusTooManyRequests, "3"), nil
 		}
-		return &http.Response{StatusCode: http.StatusOK}, nil
+		return retryResponse(http.StatusOK, ""), nil
 	})
-
 	if err != nil {
 		t.Fatalf("Retry returned error: %v", err)
 	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
@@ -45,13 +46,18 @@ func TestRetrySleepsRetryAfterOn429(t *testing.T) {
 func TestRetryReturnsRateLimitErrorAfterExhaustion(t *testing.T) {
 	clock := &fakeClock{now: time.Unix(100, 0)}
 
-	_, err := ratelimit.Retry(context.Background(), ratelimit.RetryPolicy{
+	resp, err := ratelimit.Retry(context.Background(), ratelimit.RetryPolicy{
 		MaxAttempts: 2,
 		BaseBackoff: time.Second,
 		Clock:       clock,
 	}, func() (*http.Response, error) {
-		return &http.Response{StatusCode: http.StatusTooManyRequests}, nil
+		return retryResponse(http.StatusTooManyRequests, ""), nil
 	})
+	if resp != nil {
+		defer func() {
+			_ = resp.Body.Close()
+		}()
+	}
 	if err == nil {
 		t.Fatal("Retry returned nil error")
 	}
@@ -61,4 +67,16 @@ func TestRetryReturnsRateLimitErrorAfterExhaustion(t *testing.T) {
 	if len(clock.sleeps) != 1 || clock.sleeps[0] != time.Second {
 		t.Fatalf("sleeps = %#v, want exponential fallback 1s", clock.sleeps)
 	}
+}
+
+func retryResponse(statusCode int, retryAfter string) *http.Response {
+	resp := &http.Response{
+		StatusCode: statusCode,
+		Header:     http.Header{},
+		Body:       io.NopCloser(strings.NewReader("")),
+	}
+	if retryAfter != "" {
+		resp.Header.Set("Retry-After", retryAfter)
+	}
+	return resp
 }

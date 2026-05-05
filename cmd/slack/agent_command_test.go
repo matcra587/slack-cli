@@ -27,8 +27,11 @@ func TestAgentSchemaCompactOutputsCommandTreeForAgents(t *testing.T) {
 	if !compactSchemaHasCommand(schema.Commands, "message", "send") {
 		t.Fatalf("schema commands = %#v, want message send", schema.Commands)
 	}
-	if !compactSchemaHasCommand(schema.Commands, "reaction", "add") {
-		t.Fatalf("schema commands = %#v, want reaction add", schema.Commands)
+	if compactSchemaHasCommand(schema.Commands, "reaction") {
+		t.Fatalf("schema commands = %#v, reaction command should be hidden for now", schema.Commands)
+	}
+	if compactSchemaHasCommand(schema.Commands, "dm") {
+		t.Fatalf("schema commands = %#v, dm command should not be exposed; use message send --user", schema.Commands)
 	}
 	if compactSchemaHasCommand(schema.Commands, "schema") {
 		t.Fatalf("schema commands = %#v, root schema alias should not be exposed", schema.Commands)
@@ -93,6 +96,89 @@ func TestAgentSchemaIncludesRootSchemaContract(t *testing.T) {
 	}
 }
 
+func TestAgentSchemaIncludesBlocksAndOutputOnlyRawContract(t *testing.T) {
+	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "schema"})
+	if err != nil {
+		t.Fatalf("agent schema returned error: %v\nstderr=%s", err, stderr)
+	}
+	var schema agenthelp.Schema
+	if err := json.Unmarshal([]byte(stdout), &schema); err != nil {
+		t.Fatalf("unmarshal schema: %v\nstdout=%s", err, stdout)
+	}
+	for _, path := range [][]string{
+		{"message", "send"},
+		{"message", "edit"},
+	} {
+		command := findSchemaCommand(schema.Commands, path...)
+		if command == nil {
+			t.Fatalf("schema missing command path %v", path)
+		}
+		if !schemaCommandHasFlag(*command, "blocks") {
+			t.Fatalf("schema command %v flags = %#v, want --blocks", path, command.Flags)
+		}
+	}
+	if command := findSchemaCommand(schema.Commands, "dm"); command != nil {
+		t.Fatalf("schema exposed dm command %#v; direct messages must use message send --user", *command)
+	}
+	for _, name := range []string{"channel", "user"} {
+		if command := findSchemaCommand(schema.Commands, name); command != nil {
+			t.Fatalf("schema exposed %s command %#v; discovery must use lookup", name, *command)
+		}
+	}
+	for _, path := range [][]string{{"lookup", "channel"}, {"lookup", "user"}} {
+		if command := findSchemaCommand(schema.Commands, path...); command == nil {
+			t.Fatalf("schema missing lookup command path %v", path)
+		}
+	}
+	if !schemaGlobalFlag(schema.GlobalFlags, "raw") || !schemaGlobalFlag(schema.GlobalFlags, "json") {
+		t.Fatalf("global flags = %#v, want --raw and --json output flags", schema.GlobalFlags)
+	}
+	messageShape := strings.Join(schema.InputShapes["message.send"], "\n")
+	if !strings.Contains(messageShape, "--blocks Block Kit JSON array") {
+		t.Fatalf("message.send input shape = %#v, want --blocks raw input contract", schema.InputShapes["message.send"])
+	}
+	for _, fragment := range []string{"source-preserving Markdown fallback", "validates Slack Block Kit JSON rules", "missing_scope", "not_in_channel", "no_permission"} {
+		if !strings.Contains(messageShape, fragment) && !strings.Contains(strings.Join(schema.Output.Notes, "\n"), fragment) {
+			t.Fatalf("schema missing clarified contract %q\ninput=%#v\nnotes=%#v", fragment, schema.InputShapes["message.send"], schema.Output.Notes)
+		}
+	}
+	if !strings.Contains(messageShape, "--channel and --user are mutually exclusive") {
+		t.Fatalf("message.send input shape = %#v, want mutually-exclusive target contract", schema.InputShapes["message.send"])
+	}
+	if strings.Contains(messageShape, "--raw Block Kit JSON array") {
+		t.Fatalf("message.send input shape = %#v, --raw must not select raw input", schema.InputShapes["message.send"])
+	}
+	if !strings.Contains(strings.Join(schema.Output.Notes, "\n"), "--raw is output-only") {
+		t.Fatalf("output notes = %#v, want output-only --raw note", schema.Output.Notes)
+	}
+}
+
+func TestAgentSchemaDoesNotDocumentRawTokenArgv(t *testing.T) {
+	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "schema"})
+	if err != nil {
+		t.Fatalf("agent schema returned error: %v\nstderr=%s", err, stderr)
+	}
+	if strings.Contains(stdout, "--token <xox") || strings.Contains(stdout, "--token xox") {
+		t.Fatalf("schema documents raw token argv usage: %s", stdout)
+	}
+	var schema agenthelp.Schema
+	if err := json.Unmarshal([]byte(stdout), &schema); err != nil {
+		t.Fatalf("unmarshal schema: %v\nstdout=%s", err, stdout)
+	}
+	for _, fragment := range []string{"--token-stdin", "--token-file", "--token-env"} {
+		if !strings.Contains(stdout, fragment) {
+			t.Fatalf("schema missing safe token source %q: %s", fragment, stdout)
+		}
+	}
+	env := map[string]bool{}
+	for _, value := range schema.Env {
+		env[value] = true
+	}
+	if !env["SLACK_CLI_TOKEN_<PROFILE>"] {
+		t.Fatalf("schema env = %#v, want profile-scoped runtime token env", schema.Env)
+	}
+}
+
 func TestAgentGuideOutputsNamedWorkflowInstructions(t *testing.T) {
 	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "guide", "send_msg"})
 	if err != nil {
@@ -103,10 +189,14 @@ func TestAgentGuideOutputsNamedWorkflowInstructions(t *testing.T) {
 		"slack message send",
 		"--channel",
 		"--file -",
+		"--blocks",
 		"JSON",
 		"Agent attribution",
 		"--agent-emoji",
 		"--agent-message",
+		"--raw",
+		"output-only",
+		"attribution.enabled",
 	} {
 		if !strings.Contains(stdout, fragment) {
 			t.Fatalf("stdout = %q, want fragment %q", stdout, fragment)
@@ -204,8 +294,8 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 		},
 		"discover_destination": {
 			"## discover_destination",
-			"slack channel list",
-			"slack dm list",
+			"slack lookup channel",
+			"--types",
 			"prefer IDs",
 			"plain mode renders tables",
 		},
@@ -217,15 +307,15 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 		},
 		"lookup_user": {
 			"## lookup_user",
-			"slack user list",
-			"slack user info",
+			"slack lookup user",
+			"--user",
 			"timezone",
 		},
 		"send_dm": {
 			"## send_dm",
-			"slack dm send",
-			"requires user-token auth",
-			"rejects bot-token",
+			"slack message send --user",
+			"Slack decides",
+			"bot-token",
 		},
 		"safe_mutation": {
 			"## safe_mutation",
@@ -249,7 +339,41 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 	}
 }
 
-func assertBefore(t *testing.T, output string, first string, second string) {
+func findSchemaCommand(commands []agenthelp.CommandInfo, path ...string) *agenthelp.CommandInfo {
+	if len(path) == 0 {
+		return nil
+	}
+	for i := range commands {
+		if commands[i].Name != path[0] {
+			continue
+		}
+		if len(path) == 1 {
+			return &commands[i]
+		}
+		return findSchemaCommand(commands[i].Subcommands, path[1:]...)
+	}
+	return nil
+}
+
+func schemaCommandHasFlag(command agenthelp.CommandInfo, name string) bool {
+	for _, flag := range command.Flags {
+		if flag.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func schemaGlobalFlag(flags []agenthelp.FlagInfo, name string) bool {
+	for _, flag := range flags {
+		if flag.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func assertBefore(t *testing.T, output, first, second string) {
 	t.Helper()
 	firstIndex := strings.Index(output, first)
 	secondIndex := strings.Index(output, second)

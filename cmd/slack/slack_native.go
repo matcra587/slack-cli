@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -97,6 +98,34 @@ type reactionResult struct {
 
 var errNotOwned = errors.New("message is not owned by authenticated actor")
 
+type scopeRequirement struct {
+	all []string
+	any []string
+}
+
+type missingScopeError struct {
+	all []string
+	any []string
+}
+
+func (e missingScopeError) Error() string {
+	if len(e.all) == 1 {
+		return "missing required Slack scope: " + e.all[0]
+	}
+	if len(e.all) > 1 {
+		return "missing required Slack scopes: " + strings.Join(e.all, ",")
+	}
+	return "missing one of required Slack scopes: " + strings.Join(e.any, ",")
+}
+
+func allScopes(scopes ...string) scopeRequirement {
+	return scopeRequirement{all: scopes}
+}
+
+func anyScope(scopes ...string) scopeRequirement {
+	return scopeRequirement{any: scopes}
+}
+
 func slackClient(cmd *cobra.Command, profile config.WorkspaceProfile, runtime *RootRuntime) (*slackgo.Client, error) {
 	resolver := runtime.TokenResolver
 	if resolver == nil {
@@ -181,9 +210,72 @@ func slackAPIURL(baseURL string) string {
 	return baseURL + "/api/"
 }
 
+func requireSlackScopes(ctx context.Context, client *slackgo.Client, requirements ...scopeRequirement) error {
+	if len(requirements) == 0 {
+		return nil
+	}
+	auth, err := client.AuthTestContext(ctx)
+	if err != nil {
+		var slackErr slackgo.SlackErrorResponse
+		if errors.As(err, &slackErr) && slackErr.Err == "method_not_found" {
+			return nil
+		}
+		if strings.Contains(err.Error(), "slack server error: 404 Not Found") {
+			return nil
+		}
+		return err
+	}
+	scopes := parseSlackScopes(auth.Header.Get("X-OAuth-Scopes"))
+	if len(scopes) == 0 {
+		return nil
+	}
+	for _, requirement := range requirements {
+		if err := validateScopeRequirement(scopes, requirement); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func parseSlackScopes(value string) map[string]bool {
+	out := map[string]bool{}
+	for _, part := range strings.Split(value, ",") {
+		scope := strings.TrimSpace(part)
+		if scope != "" {
+			out[scope] = true
+		}
+	}
+	return out
+}
+
+func validateScopeRequirement(scopes map[string]bool, requirement scopeRequirement) error {
+	var missing []string
+	for _, scope := range requirement.all {
+		if !scopes[scope] {
+			missing = append(missing, scope)
+		}
+	}
+	if len(missing) > 0 {
+		return missingScopeError{all: missing}
+	}
+	if len(requirement.any) == 0 {
+		return nil
+	}
+	for _, scope := range requirement.any {
+		if scopes[scope] {
+			return nil
+		}
+	}
+	return missingScopeError{any: requirement.any}
+}
+
 func cliErrorFromSlack(err error) CLIError {
 	if errors.Is(err, errNotOwned) {
 		return CLIError{Type: ErrorTypeValidation, Message: err.Error(), ExitCode: ExitCodeValidation}
+	}
+	var scopeErr missingScopeError
+	if errors.As(err, &scopeErr) {
+		return CLIError{Type: ErrorTypeAuth, Message: scopeErr.Error(), ExitCode: ExitCodeAuthFailure}
 	}
 	var rateErr *slackgo.RateLimitedError
 	if errors.As(err, &rateErr) {
@@ -201,8 +293,12 @@ func cliErrorFromSlack(err error) CLIError {
 	var slackErr slackgo.SlackErrorResponse
 	if errors.As(err, &slackErr) {
 		switch slackErr.Err {
-		case "channel_not_found", "user_not_found", "message_not_found":
+		case "channel_not_found", "user_not_found", "message_not_found", "not_in_channel":
 			return CLIError{Type: ErrorTypeNotFound, Message: slackErr.Err, ExitCode: ExitCodeNotFound}
+		case "not_allowed_token_type", "invalid_arguments":
+			return CLIError{Type: ErrorTypeValidation, Message: slackErr.Err, ExitCode: ExitCodeValidation}
+		case "invalid_auth", "not_authed", "account_inactive", "token_revoked", "missing_scope", "no_permission":
+			return CLIError{Type: ErrorTypeAuth, Message: slackErr.Err, ExitCode: ExitCodeAuthFailure}
 		case "ratelimited":
 			return CLIError{Type: ErrorTypeRateLimit, Message: slackErr.Err, ExitCode: ExitCodeRateLimit}
 		default:

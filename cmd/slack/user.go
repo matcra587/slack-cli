@@ -16,47 +16,32 @@ type userInfoData struct {
 	User cliUser `json:"user"`
 }
 
-func newUserCommand(runtime *RootRuntime) *cobra.Command {
-	userCmd := &cobra.Command{
-		Use:   "user",
-		Short: "Discover Slack users",
-	}
-
+func newLookupUserCommand(runtime *RootRuntime) *cobra.Command {
 	var maxItems int
 	var cursor string
 	var filter string
 	var presence bool
-	listCmd := &cobra.Command{
-		Use:          "list",
-		Short:        "List Slack users",
+	userCmd := &cobra.Command{
+		Use:          "user",
+		Short:        "Look up Slack users",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runUserList(cmd, runtime, maxItems, cursor, filter, presence)
+			userID, _ := cmd.Flags().GetString("user")
+			if strings.TrimSpace(userID) != "" {
+				return runUserInfoValue(cmd, runtime, "lookup.user", userID, presence)
+			}
+			return runUserListWithCommand(cmd, runtime, "lookup.user", maxItems, cursor, filter, presence)
 		},
 	}
-	listCmd.Flags().IntVar(&maxItems, "max-items", 0, "Maximum users to return")
-	listCmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor")
-	listCmd.Flags().StringVar(&filter, "filter", "", "Filter by ID or name")
-	listCmd.Flags().BoolVar(&presence, "presence", false, "Fetch presence for each user")
-
-	var infoPresence bool
-	infoCmd := &cobra.Command{
-		Use:          "info",
-		Short:        "Show Slack user metadata",
-		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runUserInfo(cmd, runtime, infoPresence)
-		},
-	}
-	infoCmd.Flags().String("user", "", "Slack user ID")
-	infoCmd.Flags().BoolVar(&infoPresence, "presence", false, "Fetch presence")
-
-	userCmd.AddCommand(listCmd)
-	userCmd.AddCommand(infoCmd)
+	userCmd.Flags().String("user", "", "Slack user ID")
+	userCmd.Flags().IntVar(&maxItems, "max-items", 0, "Maximum users to return")
+	userCmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor")
+	userCmd.Flags().StringVar(&filter, "filter", "", "Filter by ID or name")
+	userCmd.Flags().BoolVar(&presence, "presence", false, "Fetch presence")
 	return userCmd
 }
 
-func runUserList(cmd *cobra.Command, runtime *RootRuntime, maxItems int, cursor string, filter string, presence bool) error {
+func runUserListWithCommand(cmd *cobra.Command, runtime *RootRuntime, command string, maxItems int, cursor, filter string, presence bool) error {
 	ctx, profile, _, err := commandContext(cmd, runtime)
 	if err != nil {
 		return writeRuntimeError(runtime, validationCLIError(err.Error()))
@@ -64,6 +49,9 @@ func runUserList(cmd *cobra.Command, runtime *RootRuntime, maxItems int, cursor 
 	client, err := slackClient(cmd, profile, runtime)
 	if err != nil {
 		return writeCommandError(ctx, authCLIError(err.Error()))
+	}
+	if err := requireSlackScopes(cmd.Context(), client, allScopes("users:read")); err != nil {
+		return writeCommandError(ctx, cliErrorFromSlack(err))
 	}
 	options := []slackgo.GetUsersOption{}
 	if maxItems > 0 {
@@ -79,7 +67,7 @@ func runUserList(cmd *cobra.Command, runtime *RootRuntime, maxItems int, cursor 
 		return writeCommandError(ctx, cliErrorFromSlack(err))
 	}
 	users := filterUsers(cliUsersFromSlack(page.Users), filter)
-	return ctx.WriteResultWithPagination("user.list", userListData{Users: users}, &Pagination{
+	return ctx.WriteResultWithPagination(command, userListData{Users: users}, &Pagination{
 		Cursor:        stringPtr(cursor),
 		NextCursor:    stringPtr(page.Cursor),
 		HasMore:       page.Cursor != "",
@@ -88,18 +76,21 @@ func runUserList(cmd *cobra.Command, runtime *RootRuntime, maxItems int, cursor 
 	})
 }
 
-func runUserInfo(cmd *cobra.Command, runtime *RootRuntime, presence bool) error {
+func runUserInfoValue(cmd *cobra.Command, runtime *RootRuntime, command, userID string, presence bool) error {
 	ctx, profile, _, err := commandContext(cmd, runtime)
 	if err != nil {
 		return writeRuntimeError(runtime, validationCLIError(err.Error()))
 	}
-	userID, _ := cmd.Flags().GetString("user")
 	if strings.TrimSpace(userID) == "" {
 		return writeCommandError(ctx, validationCLIError("user is required"))
 	}
+	userID = resolveAlias(profile, strings.TrimSpace(userID))
 	client, err := slackClient(cmd, profile, runtime)
 	if err != nil {
 		return writeCommandError(ctx, authCLIError(err.Error()))
+	}
+	if err := requireSlackScopes(cmd.Context(), client, allScopes("users:read")); err != nil {
+		return writeCommandError(ctx, cliErrorFromSlack(err))
 	}
 	user, err := client.GetUserInfoContext(context.Background(), userID)
 	if err != nil {
@@ -113,7 +104,7 @@ func runUserInfo(cmd *cobra.Command, runtime *RootRuntime, presence bool) error 
 		}
 		result.Presence = stringPtr(presenceResult.Presence)
 	}
-	return ctx.WriteResult("user.info", userInfoData{User: result})
+	return ctx.WriteResult(command, userInfoData{User: result})
 }
 
 func cliUsersFromSlack(users []slackgo.User) []cliUser {

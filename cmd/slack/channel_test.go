@@ -9,9 +9,12 @@ import (
 	"github.com/matcra587/slack-cli/internal/testutil"
 )
 
-func TestChannelListAndInfoCommands(t *testing.T) {
+func TestLookupChannelListsAndShowsInfo(t *testing.T) {
 	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
-		"conversations.list": func(testutil.SlackRequest) testutil.SlackResponse {
+		"conversations.list": func(req testutil.SlackRequest) testutil.SlackResponse {
+			if got := req.Form.Get("types"); got != "public_channel,private_channel" {
+				t.Fatalf("types = %q, want public/private channels", got)
+			}
 			return testutil.JSONResponse(`{"ok":true,"channels":[{"id":"C123","name":"alerts","num_members":12,"topic":{"value":"Ops alerts"}}],"response_metadata":{"next_cursor":"next"}}`)
 		},
 		"conversations.info": func(testutil.SlackRequest) testutil.SlackResponse {
@@ -22,10 +25,10 @@ func TestChannelListAndInfoCommands(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"channel", "list", "--max-items", "1", "--cursor", "cursor-1"},
+		[]string{"lookup", "channel", "--max-items", "1", "--cursor", "cursor-1"},
 	)
 	if err != nil {
-		t.Fatalf("channel list returned error: %v\nstderr=%s", err, stderr)
+		t.Fatalf("lookup channel returned error: %v\nstderr=%s", err, stderr)
 	}
 	if !strings.Contains(stdout, "Ops alerts") {
 		t.Fatalf("stdout = %s, want topic", stdout)
@@ -33,21 +36,44 @@ func TestChannelListAndInfoCommands(t *testing.T) {
 
 	stdout, stderr, err = executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"channel", "info", "--channel", "C123"},
+		[]string{"lookup", "channel", "--channel", "C123"},
 	)
 	if err != nil {
-		t.Fatalf("channel info returned error: %v\nstderr=%s", err, stderr)
+		t.Fatalf("lookup channel info returned error: %v\nstderr=%s", err, stderr)
 	}
 	var envelope map[string]any
 	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
 		t.Fatalf("stdout is not JSON: %v\n%s", err, stdout)
 	}
-	if envelope["meta"].(map[string]any)["command"] != "channel.info" {
-		t.Fatalf("meta.command = %q, want channel.info", envelope["meta"].(map[string]any)["command"])
+	if envelope["meta"].(map[string]any)["command"] != "lookup.channel" {
+		t.Fatalf("meta.command = %q, want lookup.channel", envelope["meta"].(map[string]any)["command"])
 	}
 }
 
-func TestChannelInfoCommandMapsMissingChannelToNotFound(t *testing.T) {
+func TestLookupChannelCanListDMConversationsByType(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"conversations.list": func(req testutil.SlackRequest) testutil.SlackResponse {
+			if got := req.Form.Get("types"); got != "im" {
+				t.Fatalf("types = %q, want im", got)
+			}
+			return testutil.JSONResponse(`{"ok":true,"channels":[{"id":"D123","is_im":true,"user":"U123"}]}`)
+		},
+	})
+	defer server.Close()
+
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+		"",
+		[]string{"lookup", "channel", "--types", "im", "--max-items", "1"},
+	)
+	if err != nil {
+		t.Fatalf("lookup channel --types im returned error: %v\nstderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, "D123") || !strings.Contains(stdout, `"type":"im"`) {
+		t.Fatalf("stdout = %s, want DM conversation", stdout)
+	}
+}
+
+func TestLookupChannelMapsMissingChannelToNotFound(t *testing.T) {
 	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
 		"conversations.info": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":false,"error":"channel_not_found"}`)
@@ -57,7 +83,7 @@ func TestChannelInfoCommandMapsMissingChannelToNotFound(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"channel", "info", "--channel", "C404"},
+		[]string{"lookup", "channel", "--channel", "C404"},
 	)
 	if err == nil {
 		t.Fatal("Execute returned nil error, want not-found error")

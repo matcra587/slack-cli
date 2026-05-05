@@ -166,7 +166,7 @@ func localManifestContext(cmd *cobra.Command, runtime *RootRuntime) *CommandCont
 	opts := rootOptionsFromCommand(cmd, runtime)
 	return &CommandContext{
 		Workspace: "manifest",
-		Mode:      opts.Output.Resolve(runtime.IsTTY, DetectAgentMode(opts.Agent).Enabled),
+		Mode:      opts.Output.Resolve(runtime.IsTTY, DetectAgentOutputMode(opts.Agent)),
 		Stdout:    runtime.Stdout,
 		Stderr:    runtime.Stderr,
 		Now:       runtime.Now,
@@ -212,7 +212,7 @@ func manifestTemplate(opts manifestTemplateOptions) (*generatedManifest, error) 
 	}, nil
 }
 
-func manifestScopes(authType string, template string, botScopes []string, userScopes []string) ([]string, []string, error) {
+func manifestScopes(authType, template string, botScopes, userScopes []string) ([]string, []string, error) {
 	if authType == "" {
 		authType = "user"
 	}
@@ -232,7 +232,7 @@ func manifestScopes(authType string, template string, botScopes []string, userSc
 	}
 }
 
-func scopesOrPreset(scopes []string, preset []string) []string {
+func scopesOrPreset(scopes, preset []string) []string {
 	out := normalizeScopes(scopes)
 	if len(out) == 0 {
 		return slices.Clone(preset)

@@ -29,8 +29,10 @@ func TestAuthLoginStoresTokenReferenceNotRawToken(t *testing.T) {
 
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
-	stdout, stderr, err := executeAuthRoot(t, nil, configPath, store, server.BaseURL(),
-		[]string{"auth", "login", "--workspace-name", "default", "--token", "xoxb-secret", "--team-id", "T123", "--team-name", "Test Workspace"},
+	stdout, stderr, err := executeAuthRootWithInput(t, nil, configPath, store, server.BaseURL(),
+		strings.NewReader("xoxb-secret\n"),
+		false,
+		[]string{"--workspace", "default", "auth", "login", "--method", "token", "--token-stdin", "--team-id", "T123", "--team-name", "Test Workspace"},
 	)
 	if err != nil {
 		t.Fatalf("auth login returned error: %v\nstderr=%s", err, stderr)
@@ -74,8 +76,10 @@ func TestAuthLoginTokenDerivesWorkspaceMetadataFromAuthTest(t *testing.T) {
 
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
-	_, stderr, err := executeAuthRoot(t, nil, configPath, store, server.BaseURL(),
-		[]string{"auth", "login", "--workspace-name", "derived", "--token", "xoxp-secret"},
+	_, stderr, err := executeAuthRootWithInput(t, nil, configPath, store, server.BaseURL(),
+		strings.NewReader("xoxp-secret\n"),
+		false,
+		[]string{"--workspace", "derived", "auth", "login", "--method", "token", "--token-stdin"},
 	)
 	if err != nil {
 		t.Fatalf("auth login returned error: %v\nstderr=%s", err, stderr)
@@ -87,6 +91,109 @@ func TestAuthLoginTokenDerivesWorkspaceMetadataFromAuthTest(t *testing.T) {
 	profile := cfg.Workspaces["derived"]
 	if profile.TeamID != "TDERIVED" || profile.TeamName != "Derived Workspace" {
 		t.Fatalf("profile metadata = %#v, want derived team id/name", profile)
+	}
+}
+
+func TestAuthLoginTokenFileTrimsTrailingNewline(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"team_id":"TFILE","team":"File Workspace","user_id":"U123"}`)
+		},
+	})
+	defer server.Close()
+
+	tokenPath := filepath.Join(t.TempDir(), "slack-token.txt")
+	if err := os.WriteFile(tokenPath, []byte("xoxb-file-secret\n"), 0o600); err != nil {
+		t.Fatalf("write token file: %v", err)
+	}
+
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	store := config.NewMemoryCredentialStore()
+	_, stderr, err := executeAuthRoot(t, nil, configPath, store, server.BaseURL(),
+		[]string{"--workspace", "file-profile", "auth", "login", "--method", "token", "--token-file", tokenPath},
+	)
+	if err != nil {
+		t.Fatalf("auth login returned error: %v\nstderr=%s", err, stderr)
+	}
+	secret, err := store.Get("slack-cli", "file-profile")
+	if err != nil {
+		t.Fatalf("stored credential err=%v", err)
+	}
+	credential, err := config.DecodeCredential(secret)
+	if err != nil {
+		t.Fatalf("decode stored credential: %v", err)
+	}
+	if credential.AccessToken != "xoxb-file-secret" {
+		t.Fatalf("stored access token = %q, want token without trailing newline", credential.AccessToken)
+	}
+}
+
+func TestAuthLoginTokenEnvReadsEnvironmentVariableName(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"team_id":"TENV","team":"Env Workspace","user_id":"U123"}`)
+		},
+	})
+	defer server.Close()
+
+	t.Setenv("SLACK_CLI_TOKEN_TEST_PROFILE", "xoxp-env-secret")
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	store := config.NewMemoryCredentialStore()
+	_, stderr, err := executeAuthRoot(t, nil, configPath, store, server.BaseURL(),
+		[]string{"--workspace", "env-profile", "auth", "login", "--method", "token", "--token-env", "SLACK_CLI_TOKEN_TEST_PROFILE"},
+	)
+	if err != nil {
+		t.Fatalf("auth login returned error: %v\nstderr=%s", err, stderr)
+	}
+	secret, err := store.Get("slack-cli", "env-profile")
+	if err != nil {
+		t.Fatalf("stored credential err=%v", err)
+	}
+	credential, err := config.DecodeCredential(secret)
+	if err != nil {
+		t.Fatalf("decode stored credential: %v", err)
+	}
+	if credential.AccessToken != "xoxp-env-secret" {
+		t.Fatalf("stored access token = %q, want env token", credential.AccessToken)
+	}
+}
+
+func TestAuthLoginTokenSourcesAreMutuallyExclusive(t *testing.T) {
+	tokenPath := filepath.Join(t.TempDir(), "slack-token.txt")
+	if err := os.WriteFile(tokenPath, []byte("xoxb-file-secret\n"), 0o600); err != nil {
+		t.Fatalf("write token file: %v", err)
+	}
+
+	_, stderr, err := executeAuthRootWithInput(t, nil, filepath.Join(t.TempDir(), "config.toml"), config.NewMemoryCredentialStore(), "http://example.invalid",
+		strings.NewReader("xoxb-stdin-secret\n"),
+		false,
+		[]string{"--workspace", "default", "auth", "login", "--method", "token", "--token-stdin", "--token-file", tokenPath},
+	)
+	if err == nil {
+		t.Fatal("auth login returned nil error, want mutually exclusive token source failure")
+	}
+	if !strings.Contains(stderr, "token source flags are mutually exclusive") {
+		t.Fatalf("stderr = %q, want token source mutual exclusion", stderr)
+	}
+}
+
+func TestAuthLoginDoesNotExposeRawTokenFlag(t *testing.T) {
+	root := NewRootCommand()
+	authCmd, _, err := root.Find([]string{"auth"})
+	if err != nil {
+		t.Fatalf("find auth command: %v", err)
+	}
+	loginCmd, _, err := authCmd.Find([]string{"login"})
+	if err != nil {
+		t.Fatalf("find auth login command: %v", err)
+	}
+	if loginCmd.Flags().Lookup("token") != nil {
+		t.Fatal("auth login exposes --token; raw token values must not be accepted in argv")
+	}
+	for _, name := range []string{"token-stdin", "token-file", "token-env", "method", "oauth-client-id"} {
+		if loginCmd.Flags().Lookup(name) == nil {
+			t.Fatalf("auth login missing --%s", name)
+		}
 	}
 }
 
@@ -104,10 +211,10 @@ func TestAuthLoginPreservesConfigManagedProfilePreferences(t *testing.T) {
 		DefaultWorkspace: "default",
 		Workspaces: map[string]config.WorkspaceProfile{
 			"default": {
-				Name:             "default",
-				DefaultChannel:   "C7N2Q8L4P",
-				AgentAttribution: &attribution,
+				Name:           "default",
+				DefaultChannel: "C7N2Q8L4P",
 				Attribution: config.AttributionConfig{
+					Enabled: &attribution,
 					Emoji:   ":rocket:",
 					Message: "Sent from config",
 				},
@@ -117,8 +224,10 @@ func TestAuthLoginPreservesConfigManagedProfilePreferences(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
 
-	_, stderr, err := executeAuthRoot(t, cfg, configPath, store, server.BaseURL(),
-		[]string{"auth", "login", "--workspace-name", "default", "--token", "xoxp-secret"},
+	_, stderr, err := executeAuthRootWithInput(t, cfg, configPath, store, server.BaseURL(),
+		strings.NewReader("xoxp-secret\n"),
+		false,
+		[]string{"--workspace", "default", "auth", "login", "--method", "token", "--token-stdin"},
 	)
 	if err != nil {
 		t.Fatalf("auth login returned error: %v\nstderr=%s", err, stderr)
@@ -135,8 +244,8 @@ func TestAuthLoginPreservesConfigManagedProfilePreferences(t *testing.T) {
 	if profile.DefaultChannel != "C7N2Q8L4P" {
 		t.Fatalf("DefaultChannel = %q, want preserved", profile.DefaultChannel)
 	}
-	if profile.AgentAttribution == nil || *profile.AgentAttribution {
-		t.Fatalf("AgentAttribution = %#v, want preserved false", profile.AgentAttribution)
+	if profile.Attribution.Enabled == nil || *profile.Attribution.Enabled {
+		t.Fatalf("Attribution.Enabled = %#v, want preserved false", profile.Attribution.Enabled)
 	}
 	if profile.Attribution.Emoji != ":rocket:" || profile.Attribution.Message != "Sent from config" {
 		t.Fatalf("Attribution = %#v, want preserved config preferences", profile.Attribution)
@@ -161,8 +270,10 @@ func TestAuthLoginReusesExistingProfileCaseInsensitively(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
 
-	_, stderr, err := executeAuthRoot(t, cfg, configPath, store, server.BaseURL(),
-		[]string{"auth", "login", "--workspace-name", "default", "--token", "xoxp-secret"},
+	_, stderr, err := executeAuthRootWithInput(t, cfg, configPath, store, server.BaseURL(),
+		strings.NewReader("xoxp-secret\n"),
+		false,
+		[]string{"--workspace", "default", "auth", "login", "--method", "token", "--token-stdin"},
 	)
 	if err != nil {
 		t.Fatalf("auth login returned error: %v\nstderr=%s", err, stderr)
@@ -179,6 +290,133 @@ func TestAuthLoginReusesExistingProfileCaseInsensitively(t *testing.T) {
 	}
 	if _, err := store.Get("slack-cli", "default"); err == nil {
 		t.Fatalf("credential stored under duplicate lower-case profile")
+	}
+}
+
+func TestAuthLoginRequiresForceToOverwriteAuthenticatedProfile(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"team_id":"TNEW","team":"New Workspace","user_id":"U123"}`)
+		},
+	})
+	defer server.Close()
+
+	cfg := &config.Config{
+		SchemaVersion:    config.SchemaVersion,
+		DefaultWorkspace: "default",
+		Workspaces: map[string]config.WorkspaceProfile{
+			"default": {
+				Name:           "default",
+				TeamID:         "TOLD",
+				TeamName:       "Old Workspace",
+				TokenType:      config.TokenTypeBot,
+				TokenRef:       "keychain:slack-cli/default",
+				DefaultChannel: "C7N2Q8L4P",
+			},
+		},
+	}
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	store := config.NewMemoryCredentialStore()
+	oldSecret, err := config.EncodeCredential(config.CredentialPayload{AccessToken: "xoxb-old"})
+	if err != nil {
+		t.Fatalf("encode old credential: %v", err)
+	}
+	if err := store.Set("slack-cli", "default", oldSecret); err != nil {
+		t.Fatalf("store old credential: %v", err)
+	}
+
+	stdout, stderr, err := executeAuthRootWithInput(t, cfg, configPath, store, server.BaseURL(),
+		strings.NewReader("xoxp-new\n"),
+		false,
+		[]string{"--workspace", "default", "auth", "login", "--method", "token", "--token-stdin"},
+	)
+	if err == nil {
+		t.Fatal("auth login returned nil error, want force validation")
+	}
+	if stdout != "" {
+		t.Fatalf("stdout = %q, want empty", stdout)
+	}
+	if !strings.Contains(stderr, "--force") {
+		t.Fatalf("stderr = %q, want --force guidance", stderr)
+	}
+	secret, err := store.Get("slack-cli", "default")
+	if err != nil {
+		t.Fatalf("get credential: %v", err)
+	}
+	credential, err := config.DecodeCredential(secret)
+	if err != nil {
+		t.Fatalf("decode credential: %v", err)
+	}
+	if credential.AccessToken != "xoxb-old" {
+		t.Fatalf("credential access token = %q, want old token preserved", credential.AccessToken)
+	}
+	if cfg.Workspaces["default"].TeamID != "TOLD" {
+		t.Fatalf("profile team id = %q, want old profile preserved", cfg.Workspaces["default"].TeamID)
+	}
+}
+
+func TestAuthLoginForceOverwritesAuthFieldsAndPreservesPreferences(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"team_id":"TNEW","team":"New Workspace","user_id":"U123"}`)
+		},
+	})
+	defer server.Close()
+
+	attributionEnabled := true
+	cfg := &config.Config{
+		SchemaVersion:    config.SchemaVersion,
+		DefaultWorkspace: "default",
+		Workspaces: map[string]config.WorkspaceProfile{
+			"default": {
+				Name:           "default",
+				TeamID:         "TOLD",
+				TeamName:       "Old Workspace",
+				TokenType:      config.TokenTypeBot,
+				TokenRef:       "keychain:slack-cli/default",
+				DefaultChannel: "C7N2Q8L4P",
+				Attribution: config.AttributionConfig{
+					Enabled: &attributionEnabled,
+					Message: "Sent from profile",
+				},
+			},
+		},
+	}
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	store := config.NewMemoryCredentialStore()
+	oldSecret, err := config.EncodeCredential(config.CredentialPayload{AccessToken: "xoxb-old"})
+	if err != nil {
+		t.Fatalf("encode old credential: %v", err)
+	}
+	if err := store.Set("slack-cli", "default", oldSecret); err != nil {
+		t.Fatalf("store old credential: %v", err)
+	}
+
+	_, stderr, err := executeAuthRootWithInput(t, cfg, configPath, store, server.BaseURL(),
+		strings.NewReader("xoxp-new\n"),
+		false,
+		[]string{"--workspace", "default", "auth", "login", "--method", "token", "--token-stdin", "--force"},
+	)
+	if err != nil {
+		t.Fatalf("auth login returned error: %v\nstderr=%s", err, stderr)
+	}
+	profile := cfg.Workspaces["default"]
+	if profile.TeamID != "TNEW" || profile.TeamName != "New Workspace" || profile.TokenType != config.TokenTypeUser {
+		t.Fatalf("profile auth fields = %#v, want new auth metadata", profile)
+	}
+	if profile.DefaultChannel != "C7N2Q8L4P" || profile.Attribution.Message != "Sent from profile" {
+		t.Fatalf("profile preferences = %#v, want preserved preferences", profile)
+	}
+	secret, err := store.Get("slack-cli", "default")
+	if err != nil {
+		t.Fatalf("get credential: %v", err)
+	}
+	credential, err := config.DecodeCredential(secret)
+	if err != nil {
+		t.Fatalf("decode credential: %v", err)
+	}
+	if credential.AccessToken != "xoxp-new" {
+		t.Fatalf("credential access token = %q, want force-written token", credential.AccessToken)
 	}
 }
 
@@ -507,6 +745,39 @@ func TestAuthLoginOAuthBadClientSecretExplainsPKCESetup(t *testing.T) {
 		if !strings.Contains(stderr, fragment) {
 			t.Fatalf("stderr = %q, want fragment %q", stderr, fragment)
 		}
+	}
+}
+
+func TestAuthLoginOAuthTimeoutReportsRedirectURLAsField(t *testing.T) {
+	redirectURL := localOAuthTestRedirectURL(t)
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	store := config.NewMemoryCredentialStore()
+
+	stdout, stderr, err := executeAuthRootWithOptions(t, nil, configPath, store, "http://example.invalid",
+		strings.NewReader(""),
+		true,
+		[]string{"auth", "login", "--workspace-name", "oauth-profile", "--auth-method", "oauth", "--client-id", "C123", "--oauth-redirect-url", redirectURL},
+		WithOAuthTimeout(time.Millisecond),
+		WithURLOpener(func(string) error { return nil }),
+	)
+	if err == nil {
+		t.Fatal("auth login returned nil error, want oauth timeout")
+	}
+	if stdout != "" {
+		t.Fatalf("stdout = %q, want empty", stdout)
+	}
+	for _, fragment := range []string{
+		"oauth flow timed out waiting",
+		"redirect_url=" + redirectURL,
+		"type=auth_failure",
+		"exit_code=1",
+	} {
+		if !strings.Contains(stderr, fragment) {
+			t.Fatalf("stderr = %q, want fragment %q", stderr, fragment)
+		}
+	}
+	if strings.Contains(stderr, "waiting for "+redirectURL) {
+		t.Fatalf("stderr = %q, redirect URL should be a structured field, not message text", stderr)
 	}
 }
 
@@ -858,6 +1129,42 @@ func TestAuthStatusTreatsLegacyRawCredentialAsUnauthenticated(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "legacy plaintext credential") {
 		t.Fatalf("stdout = %s, want legacy plaintext credential guidance", stdout)
+	}
+}
+
+func TestAuthStatusUsesRuntimeEnvTokenOverride(t *testing.T) {
+	t.Setenv("SLACK_CLI_TOKEN_DEFAULT", "xoxb-env-override")
+	cfg := &config.Config{
+		SchemaVersion:    config.SchemaVersion,
+		DefaultWorkspace: "default",
+		Workspaces: map[string]config.WorkspaceProfile{
+			"default": {Name: "default", TeamID: "T123", TokenType: config.TokenTypeBot, TokenRef: "keychain:slack-cli/default"},
+		},
+	}
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	store := config.NewMemoryCredentialStore()
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"auth.test": func(req testutil.SlackRequest) testutil.SlackResponse {
+			token := req.Header.Get("Authorization")
+			if token == "" {
+				token = req.Form.Get("token")
+			}
+			if !strings.Contains(token, "xoxb-env-override") {
+				t.Fatalf("auth token = %q, want env override token", token)
+			}
+			return testutil.JSONResponse(`{"ok":true,"team_id":"T123","team":"Test Workspace","user_id":"U123"}`)
+		},
+	})
+	defer server.Close()
+
+	stdout, stderr, err := executeAuthRoot(t, cfg, configPath, store, server.BaseURL(),
+		[]string{"auth", "status"},
+	)
+	if err != nil {
+		t.Fatalf("auth status returned error: %v\nstderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, `"authenticated":true`) || !strings.Contains(stdout, `"validation_state":"valid"`) {
+		t.Fatalf("stdout = %s, want env override valid auth status", stdout)
 	}
 }
 

@@ -44,20 +44,32 @@ func TestReactionCommandAddRemoveAndList(t *testing.T) {
 }
 
 func TestReactionCommandDryRunSkipsMutation(t *testing.T) {
-	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
+	for _, tt := range []struct {
+		name   string
+		action string
+		method string
+		want   string
+	}{
+		{name: "add", action: "add", method: "reactions.add", want: `"dry_run":true`},
+		{name: "remove", action: "remove", method: "reactions.remove", want: `"removed":true`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server := testutil.NewSlackServer(t, nil)
+			defer server.Close()
 
-	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
-		"",
-		[]string{"reaction", "add", "--channel", "C123", "--timestamp", "1746284582.123456", "--emoji", "thumbsup", "--dry-run"},
-	)
-	if err != nil {
-		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
-	}
-	if got := len(server.Requests("reactions.add")); got != 0 {
-		t.Fatalf("reactions.add requests = %d, want 0", got)
-	}
-	if !strings.Contains(stdout, `"dry_run":true`) {
-		t.Fatalf("stdout = %s, want dry_run true", stdout)
+			stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+				"",
+				[]string{"reaction", tt.action, "--channel", "C123", "--timestamp", "1746284582.123456", "--emoji", "thumbsup", "--dry-run"},
+			)
+			if err != nil {
+				t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+			}
+			if got := len(server.Requests(tt.method)); got != 0 {
+				t.Fatalf("%s requests = %d, want 0", tt.method, got)
+			}
+			if !strings.Contains(stdout, `"dry_run":true`) || !strings.Contains(stdout, tt.want) {
+				t.Fatalf("stdout = %s, want dry_run true and %s", stdout, tt.want)
+			}
+		})
 	}
 }

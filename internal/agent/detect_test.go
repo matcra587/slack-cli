@@ -107,8 +107,8 @@ func TestDetectSupportsFlagAndExplicitOptOut(t *testing.T) {
 	if got := agent.Detect(agent.Options{Force: true}); !got.Active || got.Source != "flag" {
 		t.Fatalf("flag detection = %#v", got)
 	}
-	if got := agent.Detect(agent.Options{ProfileAttribution: &profileOn}); got.Active {
-		t.Fatalf("profile attribution alone should not create agent mode: %#v", got)
+	if got := agent.Detect(agent.Options{ProfileAttribution: &profileOn}); !got.Active || got.Source != "profile" {
+		t.Fatalf("profile attribution should force attribution: %#v", got)
 	}
 	t.Setenv("CLAUDE_CODE", "1")
 	if got := agent.Detect(agent.Options{ProfileAttribution: &profileOff}); got.Active {

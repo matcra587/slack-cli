@@ -85,11 +85,16 @@ ID and workspace name after authorization. It does not need a client secret.
 Token setup is also supported:
 
 ```sh
-slack auth login \
-  --workspace-name default \
-  --auth-method token \
-  --token "$SLACK_TOKEN"
+printf '%s\n' "$SLACK_TOKEN" |
+  slack auth login \
+    --workspace default \
+    --method token \
+    --token-stdin
 ```
+
+You can also use `--token-file ./slack-token.txt` or `--token-env
+SLACK_TOKEN`. `--token-env` takes an environment variable name, not the token
+value, so token auth never requires a raw token in argv.
 
 `auth login` validates the token with Slack, stores a structured credential in
 keychain, and writes only a credential reference to TOML.
@@ -110,6 +115,8 @@ Config lives at `~/.config/slack-cli/config.toml` or `SLACK_CLI_CONFIG`.
 ```sh
 slack config init
 slack config set workspaces.default.default_channel C1234567890
+slack config set workspaces.default.attribution.enabled true
+slack config set workspaces.default.attribution.emoji :robot_face:
 slack config set workspaces.default.attribution.message "Sent via build agent"
 slack config list
 ```
@@ -126,6 +133,10 @@ slack message send \
 
 echo "Deploy complete" |
   slack message send --channel C1234567890 --file -
+
+slack message send \
+  --user U1234567890 \
+  --message "Build artifact is ready"
 ```
 
 Use `--dry-run` before high-visibility sends.
@@ -136,6 +147,22 @@ slack message send \
   --message "Deploy complete" \
   --dry-run
 ```
+
+Use `--blocks` only when the message body is already a Slack Block Kit JSON
+array:
+
+```sh
+slack message send --channel C1234567890 --blocks --file blocks.json
+```
+
+Raw Block Kit input is validated before any Slack mutation. Malformed JSON,
+unsupported block types, missing required fields, and Slack limits return a
+`validation_error` with no command data on stdout.
+
+Markdown input is converted to Block Kit by default. Paragraphs, headings, and
+tables use semantic blocks where possible. Unsupported block-level constructs,
+such as lists, blockquotes, fenced code, and HTML blocks, preserve the original
+Markdown source text in readable section blocks instead of being dropped.
 
 ## Agent Attribution
 
@@ -174,13 +201,19 @@ slack message send \
 ```sh
 slack history list --channel C1234567890 --max-items 50
 slack history list --channel C1234567890 --thread 1746284582.123456
-slack search messages --query "deploy failed" --max-items 10
-slack channel list --max-items 20
-slack dm list
-slack user list --presence
+slack lookup messages --query "deploy failed" --max-items 10
+slack lookup channel --max-items 20
+slack lookup channel --types im
+slack lookup user --presence
 ```
 
 History returns parent messages by default. Fetch thread replies with `--thread`.
+
+Slack scope checks are best-effort when token scope metadata is available. If
+Slack rejects a request during the target API call, common permission outcomes
+map to the fixed error contract: `missing_scope` and `no_permission` are
+`auth_failure`; `not_in_channel`, `channel_not_found`, and `user_not_found` are
+`not_found`.
 
 ## Mutate Safely
 
@@ -229,12 +262,13 @@ JSON. Use flags when you need a specific shape:
 
 ```sh
 slack auth status --json
-slack channel list --plain
+slack lookup channel --plain
 slack agent schema --compact
 ```
 
-`--compact` removes the envelope. `--plain` is for humans. `--raw` is for
-Slack-native payloads.
+`--compact` removes the envelope. `--plain` is for humans. `--raw` is
+output-only for Slack-native payloads; it does not make message input raw Block
+Kit. Use command-local `--blocks` for raw Block Kit input.
 
 ## Agent Help
 

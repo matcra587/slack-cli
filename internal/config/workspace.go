@@ -38,6 +38,7 @@ type WorkspaceProfile struct {
 }
 
 type AttributionConfig struct {
+	Enabled *bool  `toml:"enabled,omitempty" json:"enabled,omitempty"`
 	Message string `toml:"message,omitempty" json:"message,omitempty"`
 	Label   string `toml:"label,omitempty" json:"label,omitempty"`
 	Emoji   string `toml:"emoji,omitempty" json:"emoji,omitempty"`

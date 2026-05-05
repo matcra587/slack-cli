@@ -1,5 +1,7 @@
 package agent
 
+import "strings"
+
 type Attribution struct {
 	Enabled  bool
 	Category Category
@@ -22,7 +24,9 @@ func NewAttribution(detection Detection, opts Options) Attribution {
 	}
 	message := opts.Message
 	if message == "" {
-		message = "Sent via slack-cli (" + label + ")"
+		message = defaultMessageForCategory(detection.Category, label)
+	} else if shouldAppendAgentMode(detection, message) {
+		message += " (agent mode)"
 	}
 
 	return Attribution{
@@ -36,6 +40,8 @@ func NewAttribution(detection Detection, opts Options) Attribution {
 
 func defaultsForCategory(category Category) (string, string) {
 	switch category {
+	case CategoryCLI:
+		return "slack-cli", ":robot_face:"
 	case CategoryAI:
 		return "agent mode", ":robot_face:"
 	case CategoryCI:
@@ -45,4 +51,15 @@ func defaultsForCategory(category Category) (string, string) {
 	default:
 		return "automation", ":wrench:"
 	}
+}
+
+func defaultMessageForCategory(category Category, label string) string {
+	if category == CategoryCLI {
+		return "Sent via slack-cli"
+	}
+	return "Sent via slack-cli (" + label + ")"
+}
+
+func shouldAppendAgentMode(detection Detection, message string) bool {
+	return detection.Category == CategoryAI && !strings.Contains(strings.ToLower(message), "(agent mode)")
 }

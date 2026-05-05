@@ -63,10 +63,7 @@ type configMutationData struct {
 var slackConfigKeys = []string{
 	"default_workspace",
 	"workspaces.<profile>.default_channel",
-	"workspaces.<profile>.agent_attribution",
-	"workspaces.<profile>.agent_label",
-	"workspaces.<profile>.agent_emoji",
-	"workspaces.<profile>.agent_message",
+	"workspaces.<profile>.attribution.enabled",
 	"workspaces.<profile>.attribution.label",
 	"workspaces.<profile>.attribution.emoji",
 	"workspaces.<profile>.attribution.message",
@@ -75,10 +72,7 @@ var slackConfigKeys = []string{
 var slackConfigDescriptions = map[string]string{
 	"default_workspace":                        "Default workspace profile name",
 	"workspaces.<profile>.default_channel":     "Default channel ID or alias",
-	"workspaces.<profile>.agent_attribution":   "Enable automated attribution by default",
-	"workspaces.<profile>.agent_label":         "Legacy attribution label override",
-	"workspaces.<profile>.agent_emoji":         "Legacy attribution emoji override",
-	"workspaces.<profile>.agent_message":       "Legacy attribution message override",
+	"workspaces.<profile>.attribution.enabled": "Enable automated attribution by default",
 	"workspaces.<profile>.attribution.label":   "Attribution label override",
 	"workspaces.<profile>.attribution.emoji":   "Attribution emoji override",
 	"workspaces.<profile>.attribution.message": "Attribution message override",
@@ -117,10 +111,15 @@ func newConfigInitCommand(runtime *RootRuntime) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&opts.Profile, "profile", opts.Profile, "Local workspace profile name")
 	cmd.Flags().StringVar(&opts.DefaultChannel, "default-channel", "", "Default channel ID or alias")
-	cmd.Flags().BoolVar(&opts.AgentAttribution, "agent-attribution", opts.AgentAttribution, "Enable automated attribution by default")
-	cmd.Flags().StringVar(&opts.AgentLabel, "agent-label", "", "Attribution label")
-	cmd.Flags().StringVar(&opts.AgentEmoji, "agent-emoji", "", "Attribution emoji")
-	cmd.Flags().StringVar(&opts.AgentMessage, "agent-message", "", "Attribution message")
+	cmd.Flags().BoolVar(&opts.AgentAttribution, "attribution-enabled", opts.AgentAttribution, "Enable automated attribution by default")
+	cmd.Flags().StringVar(&opts.AgentLabel, "attribution-label", "", "Attribution label")
+	cmd.Flags().StringVar(&opts.AgentEmoji, "attribution-emoji", "", "Attribution emoji")
+	cmd.Flags().StringVar(&opts.AgentMessage, "attribution-message", "", "Attribution message")
+	cmd.Flags().BoolVar(&opts.AgentAttribution, "agent-attribution", opts.AgentAttribution, "Legacy alias for --attribution-enabled")
+	cmd.Flags().StringVar(&opts.AgentLabel, "agent-label", "", "Legacy alias for --attribution-label")
+	cmd.Flags().StringVar(&opts.AgentEmoji, "agent-emoji", "", "Legacy alias for --attribution-emoji")
+	cmd.Flags().StringVar(&opts.AgentMessage, "agent-message", "", "Legacy alias for --attribution-message")
+	hideFlags(cmd, "agent-attribution", "agent-label", "agent-emoji", "agent-message")
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite an existing config")
 	extendConfigInitFlags(cmd)
 	return cmd
@@ -172,7 +171,18 @@ func runConfigInit(cmd *cobra.Command, runtime *RootRuntime, opts configInitOpti
 
 func shouldPromptConfigInit(cmd *cobra.Command) bool {
 	flags := cmd.Flags()
-	for _, name := range []string{"profile", "default-channel", "agent-attribution", "agent-label", "agent-emoji", "agent-message"} {
+	for _, name := range []string{
+		"profile",
+		"default-channel",
+		"attribution-enabled",
+		"attribution-label",
+		"attribution-emoji",
+		"attribution-message",
+		"agent-attribution",
+		"agent-label",
+		"agent-emoji",
+		"agent-message",
+	} {
 		if flags.Changed(name) {
 			return false
 		}
@@ -210,7 +220,7 @@ func runConfigInitForm(runtime *RootRuntime, opts *configInitOptions) error {
 				Placeholder("C7N2Q8L4P").
 				Value(&opts.DefaultChannel),
 			huh.NewConfirm().
-				Title("Enable agent attribution?").
+				Title("Enable message attribution?").
 				Description(help["agent_attribution"]).
 				Value(&opts.AgentAttribution),
 			huh.NewInput().
@@ -221,7 +231,7 @@ func runConfigInitForm(runtime *RootRuntime, opts *configInitOptions) error {
 			huh.NewInput().
 				Title("Attribution message").
 				Description(help["agent_message"]).
-				Placeholder("Sent via slack-cli (agent mode)").
+				Placeholder("Sent via slack-cli").
 				Value(&opts.AgentMessage),
 		),
 	)
@@ -243,7 +253,7 @@ func configInitFieldHelp() map[string]string {
 	return map[string]string{
 		"profile":           "Local Slack CLI profile. Select it later with --workspace; use default if you only need one profile.",
 		"default_channel":   "Optional default channel ID or alias for commands that support defaults.",
-		"agent_attribution": "Default on. Sent messages include visible Block Kit attribution when agent mode is detected.",
+		"agent_attribution": "Default on. Sent messages include visible Block Kit attribution; detected agents add agent-mode wording.",
 		"agent_emoji":       "Optional emoji override for the attribution context block.",
 		"agent_message":     "Optional custom attribution text shown in the Block Kit context block.",
 	}
@@ -256,10 +266,10 @@ func configProfileFromInitOptions(opts configInitOptions) (config.WorkspaceProfi
 	}
 	agentAttribution := opts.AgentAttribution
 	return config.WorkspaceProfile{
-		Name:             name,
-		DefaultChannel:   strings.TrimSpace(opts.DefaultChannel),
-		AgentAttribution: &agentAttribution,
+		Name:           name,
+		DefaultChannel: strings.TrimSpace(opts.DefaultChannel),
 		Attribution: config.AttributionConfig{
+			Enabled: &agentAttribution,
 			Label:   strings.TrimSpace(opts.AgentLabel),
 			Emoji:   strings.TrimSpace(opts.AgentEmoji),
 			Message: strings.TrimSpace(opts.AgentMessage),
@@ -380,7 +390,7 @@ func localConfigContext(cmd *cobra.Command, runtime *RootRuntime) *CommandContex
 	opts := rootOptionsFromCommand(cmd, runtime)
 	return &CommandContext{
 		Workspace: "config",
-		Mode:      opts.Output.Resolve(runtime.IsTTY, DetectAgentMode(opts.Agent).Enabled),
+		Mode:      opts.Output.Resolve(runtime.IsTTY, DetectAgentOutputMode(opts.Agent)),
 		Stdout:    runtime.Stdout,
 		Stderr:    runtime.Stderr,
 		Now:       runtime.Now,
@@ -410,7 +420,7 @@ func configEntries(cfg *config.Config) []configEntry {
 		prefix := "workspaces." + name + "."
 		entries = append(entries,
 			configEntry{Key: prefix + "default_channel", Value: workspace.DefaultChannel, Description: slackConfigDescriptions["workspaces.<profile>.default_channel"]},
-			configEntry{Key: prefix + "agent_attribution", Value: boolPtrString(workspace.AgentAttribution), Description: slackConfigDescriptions["workspaces.<profile>.agent_attribution"]},
+			configEntry{Key: prefix + "attribution.enabled", Value: boolPtrString(attributionEnabled(workspace)), Description: slackConfigDescriptions["workspaces.<profile>.attribution.enabled"]},
 			configEntry{Key: prefix + "attribution.label", Value: workspace.Attribution.Label, Description: slackConfigDescriptions["workspaces.<profile>.attribution.label"]},
 			configEntry{Key: prefix + "attribution.emoji", Value: workspace.Attribution.Emoji, Description: slackConfigDescriptions["workspaces.<profile>.attribution.emoji"]},
 			configEntry{Key: prefix + "attribution.message", Value: workspace.Attribution.Message, Description: slackConfigDescriptions["workspaces.<profile>.attribution.message"]},
@@ -435,6 +445,22 @@ func boolPtrString(value *bool) string {
 	return strconv.FormatBool(*value)
 }
 
+func attributionEnabled(workspace config.WorkspaceProfile) *bool {
+	if workspace.Attribution.Enabled != nil {
+		return workspace.Attribution.Enabled
+	}
+	return workspace.AgentAttribution
+}
+
+func firstNonEmptyConfigValue(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func getConfigValue(cfg *config.Config, key string) (string, error) {
 	if key == "default_workspace" {
 		return cfg.DefaultWorkspace, nil
@@ -451,13 +477,15 @@ func getConfigValue(cfg *config.Config, key string) (string, error) {
 	case "default_channel":
 		return workspace.DefaultChannel, nil
 	case "agent_attribution":
-		return boolPtrString(workspace.AgentAttribution), nil
+		return boolPtrString(attributionEnabled(workspace)), nil
 	case "agent_label":
-		return workspace.AgentLabel, nil
+		return firstNonEmptyConfigValue(workspace.Attribution.Label, workspace.AgentLabel), nil
 	case "agent_emoji":
-		return workspace.AgentEmoji, nil
+		return firstNonEmptyConfigValue(workspace.Attribution.Emoji, workspace.AgentEmoji), nil
 	case "agent_message":
-		return workspace.AgentMessage, nil
+		return firstNonEmptyConfigValue(workspace.Attribution.Message, workspace.AgentMessage), nil
+	case "attribution.enabled":
+		return boolPtrString(attributionEnabled(workspace)), nil
 	case "attribution.label":
 		return workspace.Attribution.Label, nil
 	case "attribution.emoji":
@@ -472,7 +500,7 @@ func getConfigValue(cfg *config.Config, key string) (string, error) {
 	}
 }
 
-func setConfigValue(cfg *config.Config, key string, value string) error {
+func setConfigValue(cfg *config.Config, key, value string) error {
 	if key == "default_workspace" {
 		if _, ok := cfg.Workspaces[value]; !ok {
 			return fmt.Errorf("workspace %q not found", value)
@@ -492,17 +520,23 @@ func setConfigValue(cfg *config.Config, key string, value string) error {
 	case "default_channel":
 		workspace.DefaultChannel = value
 	case "agent_attribution":
+		fallthrough
+	case "attribution.enabled":
 		parsed, err := strconv.ParseBool(value)
 		if err != nil {
-			return fmt.Errorf("agent_attribution must be true or false: %w", err)
+			return fmt.Errorf("%s must be true or false: %w", field, err)
 		}
-		workspace.AgentAttribution = &parsed
+		workspace.Attribution.Enabled = &parsed
+		workspace.AgentAttribution = nil
 	case "agent_label":
-		workspace.AgentLabel = value
+		workspace.Attribution.Label = value
+		workspace.AgentLabel = ""
 	case "agent_emoji":
-		workspace.AgentEmoji = value
+		workspace.Attribution.Emoji = value
+		workspace.AgentEmoji = ""
 	case "agent_message":
-		workspace.AgentMessage = value
+		workspace.Attribution.Message = value
+		workspace.AgentMessage = ""
 	case "attribution.label":
 		workspace.Attribution.Label = value
 	case "attribution.emoji":
@@ -535,13 +569,19 @@ func unsetConfigValue(cfg *config.Config, key string) error {
 	case "default_channel":
 		workspace.DefaultChannel = ""
 	case "agent_attribution":
+		fallthrough
+	case "attribution.enabled":
 		workspace.AgentAttribution = nil
+		workspace.Attribution.Enabled = nil
 	case "agent_label":
 		workspace.AgentLabel = ""
+		workspace.Attribution.Label = ""
 	case "agent_emoji":
 		workspace.AgentEmoji = ""
+		workspace.Attribution.Emoji = ""
 	case "agent_message":
 		workspace.AgentMessage = ""
+		workspace.Attribution.Message = ""
 	case "attribution.label":
 		workspace.Attribution.Label = ""
 	case "attribution.emoji":
@@ -600,9 +640,15 @@ func extendConfigInitFlags(cmd *cobra.Command) {
 	f := cmd.Flags()
 	clib.Extend(f.Lookup("profile"), clib.FlagExtra{Group: "Profile", Placeholder: "NAME", Terse: "profile name"})
 	clib.Extend(f.Lookup("default-channel"), clib.FlagExtra{Group: "Profile", Placeholder: "C7N2Q8L4P", Terse: "default channel"})
-	clib.Extend(f.Lookup("agent-attribution"), clib.FlagExtra{Group: "Attribution", Terse: "agent attribution"})
-	clib.Extend(f.Lookup("agent-label"), clib.FlagExtra{Group: "Attribution", Placeholder: "LABEL", Terse: "agent label"})
-	clib.Extend(f.Lookup("agent-emoji"), clib.FlagExtra{Group: "Attribution", Placeholder: ":robot_face:", Terse: "agent emoji"})
-	clib.Extend(f.Lookup("agent-message"), clib.FlagExtra{Group: "Attribution", Placeholder: "TEXT", Terse: "agent message"})
+	clib.Extend(f.Lookup("attribution-enabled"), clib.FlagExtra{Group: "Attribution", Terse: "attribution"})
+	clib.Extend(f.Lookup("attribution-label"), clib.FlagExtra{Group: "Attribution", Placeholder: "LABEL", Terse: "attribution label"})
+	clib.Extend(f.Lookup("attribution-emoji"), clib.FlagExtra{Group: "Attribution", Placeholder: ":robot_face:", Terse: "attribution emoji"})
+	clib.Extend(f.Lookup("attribution-message"), clib.FlagExtra{Group: "Attribution", Placeholder: "TEXT", Terse: "attribution message"})
 	clib.Extend(f.Lookup("force"), clib.FlagExtra{Group: "Safety", Terse: "overwrite config"})
+}
+
+func hideFlags(cmd *cobra.Command, names ...string) {
+	for _, name := range names {
+		_ = cmd.Flags().MarkHidden(name)
+	}
 }

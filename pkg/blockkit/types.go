@@ -2,17 +2,19 @@ package blockkit
 
 import slackgo "github.com/slack-go/slack"
 
-type Block = slackgo.Block
-type TextObject = slackgo.TextBlockObject
-type SectionBlock = slackgo.SectionBlock
-type ContextBlock = slackgo.ContextBlock
-type DividerBlock = slackgo.DividerBlock
-type ImageBlock = slackgo.ImageBlock
-type FileBlock = slackgo.FileBlock
-type TableBlock = slackgo.TableBlock
-type RichTextBlock = slackgo.RichTextBlock
-type RichTextSection = slackgo.RichTextSection
-type RichTextSectionTextElement = slackgo.RichTextSectionTextElement
+type (
+	Block                      = slackgo.Block
+	TextObject                 = slackgo.TextBlockObject
+	SectionBlock               = slackgo.SectionBlock
+	ContextBlock               = slackgo.ContextBlock
+	DividerBlock               = slackgo.DividerBlock
+	ImageBlock                 = slackgo.ImageBlock
+	FileBlock                  = slackgo.FileBlock
+	TableBlock                 = slackgo.TableBlock
+	RichTextBlock              = slackgo.RichTextBlock
+	RichTextSection            = slackgo.RichTextSection
+	RichTextSectionTextElement = slackgo.RichTextSectionTextElement
+)
 
 const (
 	TextTypeMarkdown = "mrkdwn"

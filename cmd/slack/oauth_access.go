@@ -11,7 +11,7 @@ import (
 	slackgo "github.com/slack-go/slack"
 )
 
-func exchangeOAuthUserCode(runtime *RootRuntime, clientID string, code string, redirectURI string, verifier string) (*slackgo.OAuthV2Response, error) {
+func exchangeOAuthUserCode(runtime *RootRuntime, clientID, code, redirectURI, verifier string) (*slackgo.OAuthV2Response, error) {
 	values := url.Values{
 		"client_id":     {clientID},
 		"code":          {code},
@@ -21,7 +21,7 @@ func exchangeOAuthUserCode(runtime *RootRuntime, clientID string, code string, r
 	return postOAuthAccess(context.Background(), slackOAuthHTTPClient(runtime), runtime.SlackBaseURL, values)
 }
 
-func refreshOAuthUserToken(ctx context.Context, client *http.Client, baseURL string, clientID string, refreshToken string) (*slackgo.OAuthV2Response, error) {
+func refreshOAuthUserToken(ctx context.Context, client *http.Client, baseURL, clientID, refreshToken string) (*slackgo.OAuthV2Response, error) {
 	values := url.Values{
 		"client_id":     {clientID},
 		"grant_type":    {"refresh_token"},

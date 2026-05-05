@@ -8,6 +8,7 @@ import (
 type Category string
 
 const (
+	CategoryCLI        Category = "cli"
 	CategoryAI         Category = "ai"
 	CategoryCI         Category = "ci"
 	CategoryAutomation Category = "automation"
@@ -99,6 +100,9 @@ func Detect(opts Options) Detection {
 
 	if opts.Force {
 		return Detection{Active: true, Source: "flag", Name: "manual", Category: CategoryAutomation}
+	}
+	if opts.ProfileAttribution != nil && *opts.ProfileAttribution {
+		return Detection{Active: true, Source: "profile", Name: "profile", Category: CategoryCLI}
 	}
 	return Detection{}
 }

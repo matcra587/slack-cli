@@ -1,10 +1,5 @@
 package config
 
-const (
-	defaultAgentLabel = "agent mode"
-	defaultAgentEmoji = ":robot_face:"
-)
-
 type AgentSettings struct {
 	Attribution bool
 	Label       string
@@ -17,29 +12,23 @@ func (w WorkspaceProfile) AgentSettings() AgentSettings {
 	if w.AgentAttribution != nil {
 		attribution = *w.AgentAttribution
 	}
+	if w.Attribution.Enabled != nil {
+		attribution = *w.Attribution.Enabled
+	}
 
 	label := w.AgentLabel
 	if w.Attribution.Label != "" {
 		label = w.Attribution.Label
-	}
-	if label == "" {
-		label = defaultAgentLabel
 	}
 
 	emoji := w.AgentEmoji
 	if w.Attribution.Emoji != "" {
 		emoji = w.Attribution.Emoji
 	}
-	if emoji == "" {
-		emoji = defaultAgentEmoji
-	}
 
 	message := w.AgentMessage
 	if w.Attribution.Message != "" {
 		message = w.Attribution.Message
-	}
-	if message == "" {
-		message = "Sent via slack-cli (" + label + ")"
 	}
 
 	return AgentSettings{

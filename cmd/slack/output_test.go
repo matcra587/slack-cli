@@ -146,11 +146,11 @@ func TestWriteResultPlainAuthStatusUsesClogFields(t *testing.T) {
 		}
 	}
 	if !regexp.MustCompile(`team_id.*\x1b\[38;(?:2|5);[^m]*mT8KQ42P9D`).MatchString(got) {
-		t.Fatalf("stdout = %q, want hash-coloured team_id value", got)
+		t.Fatalf("stdout = %q, want hash-colored team_id value", got)
 	}
 	for _, field := range []string{"authenticated", "valid"} {
 		if !regexp.MustCompile(field + `.*\x1b\[[^m]*32mtrue`).MatchString(got) {
-			t.Fatalf("stdout = %q, want theme-coloured bool field %q", got, field)
+			t.Fatalf("stdout = %q, want theme-colored bool field %q", got, field)
 		}
 	}
 	if strings.Contains(got, "{\"workspaces\"") || strings.Contains(got, "default valid user") || strings.Contains(got, "validation_state=") {
@@ -197,7 +197,7 @@ func TestWriteResultPlainMessageSendUsesClogFieldsAndDebugDetails(t *testing.T) 
 		}
 	}
 	if !regexp.MustCompile(`channel.*\x1b\[38;(?:2|5);[^m]*mC7N2Q8L4P`).MatchString(got) {
-		t.Fatalf("stdout = %q, want hash-coloured channel value", got)
+		t.Fatalf("stdout = %q, want hash-colored channel value", got)
 	}
 }
 

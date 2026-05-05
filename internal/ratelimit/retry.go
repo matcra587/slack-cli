@@ -52,6 +52,7 @@ func Retry(ctx context.Context, policy RetryPolicy, do func() (*http.Response, e
 		if attempt == policy.MaxAttempts {
 			return resp, &RateLimitError{RetryAfter: lastRetryAfter}
 		}
+		closeResponseBody(resp)
 		if err := policy.Clock.Sleep(ctx, lastRetryAfter); err != nil {
 			return resp, err
 		}
@@ -70,6 +71,13 @@ func retryAfter(resp *http.Response, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return time.Duration(seconds) * time.Second
+}
+
+func closeResponseBody(resp *http.Response) {
+	if resp == nil || resp.Body == nil {
+		return
+	}
+	_ = resp.Body.Close()
 }
 
 func fallbackBackoff(base time.Duration, attempt int) time.Duration {

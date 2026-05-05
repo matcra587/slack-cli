@@ -79,20 +79,18 @@ func encodeConfigTOML(cfg *Config) string {
 		writeOptionalTOMLString(&b, "token_type", string(workspace.TokenType))
 		writeOptionalTOMLString(&b, "token", workspace.TokenRef)
 		writeOptionalTOMLString(&b, "default_channel", workspace.DefaultChannel)
-		if workspace.AgentAttribution != nil {
-			writeTOMLBool(&b, "agent_attribution", *workspace.AgentAttribution)
-		}
-		writeOptionalTOMLString(&b, "agent_label", workspace.AgentLabel)
-		writeOptionalTOMLString(&b, "agent_emoji", workspace.AgentEmoji)
-		writeOptionalTOMLString(&b, "agent_message", workspace.AgentMessage)
 		writeOptionalTOMLString(&b, "rate_limit_tier", workspace.RateLimitTier)
 
-		if workspace.Attribution.Message != "" || workspace.Attribution.Label != "" || workspace.Attribution.Emoji != "" {
+		attribution := canonicalAttributionConfig(workspace)
+		if attribution.Enabled != nil || attribution.Message != "" || attribution.Label != "" || attribution.Emoji != "" {
 			b.WriteString("\n")
 			writeTOMLTable(&b, "workspaces", name, "attribution")
-			writeOptionalTOMLString(&b, "message", workspace.Attribution.Message)
-			writeOptionalTOMLString(&b, "label", workspace.Attribution.Label)
-			writeOptionalTOMLString(&b, "emoji", workspace.Attribution.Emoji)
+			if attribution.Enabled != nil {
+				writeTOMLBool(&b, "enabled", *attribution.Enabled)
+			}
+			writeOptionalTOMLString(&b, "message", attribution.Message)
+			writeOptionalTOMLString(&b, "label", attribution.Label)
+			writeOptionalTOMLString(&b, "emoji", attribution.Emoji)
 		}
 
 		if len(workspace.Aliases) > 0 {
@@ -111,6 +109,24 @@ func encodeConfigTOML(cfg *Config) string {
 	return b.String()
 }
 
+func canonicalAttributionConfig(workspace WorkspaceProfile) AttributionConfig {
+	attribution := workspace.Attribution
+	if attribution.Enabled == nil && workspace.AgentAttribution != nil {
+		enabled := *workspace.AgentAttribution
+		attribution.Enabled = &enabled
+	}
+	if attribution.Label == "" {
+		attribution.Label = workspace.AgentLabel
+	}
+	if attribution.Emoji == "" {
+		attribution.Emoji = workspace.AgentEmoji
+	}
+	if attribution.Message == "" {
+		attribution.Message = workspace.AgentMessage
+	}
+	return attribution
+}
+
 func writeTOMLTable(b *strings.Builder, path ...string) {
 	b.WriteString("[")
 	for i, part := range path {
@@ -122,14 +138,14 @@ func writeTOMLTable(b *strings.Builder, path ...string) {
 	b.WriteString("]\n")
 }
 
-func writeTOMLString(b *strings.Builder, key string, value string) {
+func writeTOMLString(b *strings.Builder, key, value string) {
 	b.WriteString(key)
 	b.WriteString(" = ")
 	b.WriteString(strconv.Quote(value))
 	b.WriteString("\n")
 }
 
-func writeOptionalTOMLString(b *strings.Builder, key string, value string) {
+func writeOptionalTOMLString(b *strings.Builder, key, value string) {
 	if value == "" {
 		return
 	}

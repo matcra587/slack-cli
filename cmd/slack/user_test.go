@@ -8,7 +8,7 @@ import (
 	"github.com/matcra587/slack-cli/internal/testutil"
 )
 
-func TestUserListAndInfoCommands(t *testing.T) {
+func TestLookupUserListsAndShowsInfo(t *testing.T) {
 	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
 		"users.list": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":true,"members":[{"id":"U123","name":"matt","tz":"America/Toronto","profile":{"status_text":"Deploying"}}]}`)
@@ -24,10 +24,10 @@ func TestUserListAndInfoCommands(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"user", "list", "--max-items", "1", "--presence"},
+		[]string{"lookup", "user", "--max-items", "1", "--presence"},
 	)
 	if err != nil {
-		t.Fatalf("user list returned error: %v\nstderr=%s", err, stderr)
+		t.Fatalf("lookup user returned error: %v\nstderr=%s", err, stderr)
 	}
 	if !strings.Contains(stdout, "Deploying") {
 		t.Fatalf("stdout = %s, want status text", stdout)
@@ -35,17 +35,17 @@ func TestUserListAndInfoCommands(t *testing.T) {
 
 	stdout, stderr, err = executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"user", "info", "--user", "U123", "--presence"},
+		[]string{"lookup", "user", "--user", "U123", "--presence"},
 	)
 	if err != nil {
-		t.Fatalf("user info returned error: %v\nstderr=%s", err, stderr)
+		t.Fatalf("lookup user info returned error: %v\nstderr=%s", err, stderr)
 	}
 	if !strings.Contains(stdout, `"presence":"active"`) {
 		t.Fatalf("stdout = %s, want presence", stdout)
 	}
 }
 
-func TestUserInfoCommandMapsMissingUserToNotFound(t *testing.T) {
+func TestLookupUserMapsMissingUserToNotFound(t *testing.T) {
 	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
 		"users.info": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":false,"error":"user_not_found"}`)
@@ -55,7 +55,7 @@ func TestUserInfoCommandMapsMissingUserToNotFound(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"user", "info", "--user", "U404"},
+		[]string{"lookup", "user", "--user", "U404"},
 	)
 	if err == nil {
 		t.Fatal("Execute returned nil error, want not-found")

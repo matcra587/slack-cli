@@ -36,7 +36,7 @@ func localVersionContext(cmd *cobra.Command, runtime *RootRuntime) *CommandConte
 	opts := rootOptionsFromCommand(cmd, runtime)
 	return &CommandContext{
 		Workspace: "version",
-		Mode:      opts.Output.Resolve(runtime.IsTTY, DetectAgentMode(opts.Agent).Enabled),
+		Mode:      opts.Output.Resolve(runtime.IsTTY, DetectAgentOutputMode(opts.Agent)),
 		Stdout:    runtime.Stdout,
 		Stderr:    runtime.Stderr,
 		Now:       runtime.Now,

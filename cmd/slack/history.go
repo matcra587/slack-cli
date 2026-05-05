@@ -85,6 +85,9 @@ func runHistoryList(cmd *cobra.Command, runtime *RootRuntime, opts historyListOp
 	if err != nil {
 		return writeCommandError(ctx, authCLIError(err.Error()))
 	}
+	if err := requireSlackScopes(cmd.Context(), client, anyScope("channels:history", "groups:history", "im:history", "mpim:history")); err != nil {
+		return writeCommandError(ctx, cliErrorFromSlack(err))
+	}
 	var result historyResult
 	if opts.Thread != "" {
 		result, err = threadHistory(context.Background(), client, channel, opts.Thread, opts.MaxItems, opts.Cursor)
@@ -144,7 +147,7 @@ func channelHistory(ctx context.Context, client *slackgo.Client, channel string,
 	return historyResult{Messages: messages, NextCursor: stringPtr(resp.ResponseMetaData.NextCursor)}, nil
 }
 
-func threadHistory(ctx context.Context, client *slackgo.Client, channel string, threadTS string, maxItems int, cursor string) (historyResult, error) {
+func threadHistory(ctx context.Context, client *slackgo.Client, channel, threadTS string, maxItems int, cursor string) (historyResult, error) {
 	messages, _, nextCursor, err := client.GetConversationRepliesContext(ctx, &slackgo.GetConversationRepliesParameters{
 		ChannelID: channel,
 		Timestamp: threadTS,

@@ -12,6 +12,10 @@ func TestBinaryRetriesRetryAfterRateLimit(t *testing.T) {
 	configPath := writePipeConfig(t)
 	attempts := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/auth.test" {
+			writeJSON(w, `{"ok":true,"user_id":"U123"}`)
+			return
+		}
 		if r.URL.Path == "/api/chat.getPermalink" {
 			writeJSON(w, `{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
 			return
@@ -43,6 +47,10 @@ func TestBinaryRateLimitExhaustionUsesExitCode3(t *testing.T) {
 	binary := buildSlackBinary(t)
 	configPath := writePipeConfig(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/auth.test" {
+			writeJSON(w, `{"ok":true,"user_id":"U123"}`)
+			return
+		}
 		w.Header().Set("Retry-After", "0")
 		w.WriteHeader(http.StatusTooManyRequests)
 		_, _ = w.Write([]byte(`{"ok":false,"error":"ratelimited"}`))

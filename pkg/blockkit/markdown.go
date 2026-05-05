@@ -29,6 +29,14 @@ func FromMarkdown(markdown string) ([]Block, error) {
 			if len(table.Rows) > 0 {
 				blocks = append(blocks, table)
 			}
+		default:
+			content := strings.TrimSpace(sourceFromNode(node, source))
+			if content == "" {
+				content = strings.TrimSpace(textFromNode(node, source))
+			}
+			if content != "" {
+				blocks = append(blocks, slackgo.NewSectionBlock(MarkdownText(content), nil, nil))
+			}
 		}
 	}
 
@@ -65,6 +73,114 @@ func tableRowFromNode(row ast.Node, source []byte) []*slackgo.RichTextBlock {
 		cells = append(cells, RichTextCell(text))
 	}
 	return cells
+}
+
+func sourceFromNode(node ast.Node, source []byte) string {
+	if node == nil {
+		return ""
+	}
+	start := minSegmentStart(node)
+	if start < 0 || start >= len(source) {
+		return ""
+	}
+
+	stop := maxSegmentStop(node)
+	if fenced, ok := node.(*ast.FencedCodeBlock); ok {
+		if fenced.Info != nil && fenced.Info.Segment.Start >= 0 {
+			start = lineStart(fenced.Info.Segment.Start, source)
+		} else {
+			start = previousLineStart(lineStart(start, source), source)
+		}
+		stop = fencedCodeStop(stop, source)
+	} else {
+		start = lineStart(start, source)
+		stop = extendLineStop(stop, source)
+	}
+	if stop > len(source) {
+		stop = len(source)
+	}
+	if stop <= start {
+		return ""
+	}
+	return string(source[start:stop])
+}
+
+func lineStart(pos int, source []byte) int {
+	if pos > len(source) {
+		pos = len(source)
+	}
+	for pos > 0 && source[pos-1] != '\n' {
+		pos--
+	}
+	return pos
+}
+
+func previousLineStart(pos int, source []byte) int {
+	if pos <= 0 {
+		return 0
+	}
+	pos--
+	for pos > 0 && source[pos-1] != '\n' {
+		pos--
+	}
+	return pos
+}
+
+func fencedCodeStop(stop int, source []byte) int {
+	stop = extendLineStop(stop, source)
+	if stop >= len(source) {
+		return stop
+	}
+	lineEnd := extendLineStop(stop, source)
+	line := strings.TrimSpace(string(source[stop:lineEnd]))
+	if strings.HasPrefix(line, "```") || strings.HasPrefix(line, "~~~") {
+		return lineEnd
+	}
+	return stop
+}
+
+func minSegmentStart(node ast.Node) int {
+	min := -1
+	_ = ast.Walk(node, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering || n.Type() != ast.TypeBlock || n.Lines() == nil {
+			return ast.WalkContinue, nil
+		}
+		for i := range n.Lines().Len() {
+			segment := n.Lines().At(i)
+			if segment.Start >= 0 && (min == -1 || segment.Start < min) {
+				min = segment.Start
+			}
+		}
+		return ast.WalkContinue, nil
+	})
+	return min
+}
+
+func maxSegmentStop(node ast.Node) int {
+	max := -1
+	_ = ast.Walk(node, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering || n.Type() != ast.TypeBlock || n.Lines() == nil {
+			return ast.WalkContinue, nil
+		}
+		for i := range n.Lines().Len() {
+			segment := n.Lines().At(i)
+			if segment.Stop > max {
+				max = segment.Stop
+			}
+		}
+		return ast.WalkContinue, nil
+	})
+	return max
+}
+
+func extendLineStop(stop int, source []byte) int {
+	for stop < len(source) && source[stop] != '\n' {
+		stop++
+	}
+	if stop < len(source) && source[stop] == '\n' {
+		stop++
+	}
+	return stop
 }
 
 func textFromNode(node ast.Node, source []byte) string {

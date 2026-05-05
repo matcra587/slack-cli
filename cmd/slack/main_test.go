@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/matcra587/slack-cli/internal/agent"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/internal/testutil"
+	"github.com/spf13/cobra"
 )
 
 func TestNewRootCommandDefinesPersistentFlags(t *testing.T) {
@@ -40,6 +42,97 @@ func TestNewRootCommandDefinesPersistentFlags(t *testing.T) {
 		if cmd.PersistentFlags().Lookup(name) != nil {
 			t.Fatalf("persistent flag %q should not exist", name)
 		}
+	}
+}
+
+func TestNewRootCommandUsesLookupForDiscovery(t *testing.T) {
+	cmd := NewRootCommand()
+	if lookup, _, err := cmd.Find([]string{"lookup"}); err != nil || lookup.Name() != "lookup" {
+		t.Fatalf("root command missing lookup command: cmd=%v err=%v", lookup, err)
+	}
+	for _, child := range cmd.Commands() {
+		switch child.Name() {
+		case "channel", "dm", "user":
+			t.Fatalf("root command exposes %q; use slack lookup channel/user and slack message send --user", child.CommandPath())
+		}
+	}
+}
+
+func TestNewRootCommandHidesDeferredCommandSurfaces(t *testing.T) {
+	cmd := NewRootCommand()
+	for _, name := range []string{"file", "reaction", "thread"} {
+		child := findDirectChild(cmd, name)
+		if child == nil {
+			t.Fatalf("root command missing hidden command %q", name)
+		}
+		if !child.Hidden {
+			t.Fatalf("root command %q is visible; it should stay hidden for now", name)
+		}
+	}
+	if search := findDirectChild(cmd, "search"); search != nil {
+		t.Fatalf("root command exposes %q; message search should live under lookup messages", search.CommandPath())
+	}
+
+	lookup := findDirectChild(cmd, "lookup")
+	if lookup == nil {
+		t.Fatal("root command missing lookup command")
+	}
+	messages := findDirectChild(lookup, "messages")
+	if messages == nil {
+		t.Fatal("lookup command missing hidden messages command")
+	}
+	if !messages.Hidden {
+		t.Fatal("lookup messages is visible; it should stay hidden for now")
+	}
+}
+
+func findDirectChild(cmd *cobra.Command, name string) *cobra.Command {
+	for _, child := range cmd.Commands() {
+		if child.Name() == name {
+			return child
+		}
+	}
+	return nil
+}
+
+func TestExecuteRejectsMutuallyExclusiveOutputModes(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "json plain", args: []string{"--json", "--plain", "version"}},
+		{name: "json compact", args: []string{"--json", "--compact", "version"}},
+		{name: "json raw", args: []string{"--json", "--raw", "version"}},
+		{name: "plain compact", args: []string{"--plain", "--compact", "version"}},
+		{name: "plain raw", args: []string{"--plain", "--raw", "version"}},
+		{name: "compact raw", args: []string{"--compact", "--raw", "version"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout := &bytes.Buffer{}
+			stderr := &bytes.Buffer{}
+			cmd := NewRootCommand(WithConfig(nil), WithIO(strings.NewReader(""), stdout, stderr), WithTTY(false))
+			cmd.SetArgs(tt.args)
+
+			err := cmd.Execute()
+			if err == nil {
+				t.Fatal("Execute returned nil error, want output-mode validation error")
+			}
+			var commandErr CommandError
+			if !errors.As(err, &commandErr) {
+				t.Fatalf("Execute error = %T %[1]v, want CommandError", err)
+			}
+			if commandErr.CLIError.Type != ErrorTypeValidation || commandErr.CLIError.ExitCode != ExitCodeValidation {
+				t.Fatalf("CLIError = %#v, want validation exit 4", commandErr.CLIError)
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("stdout = %q, want empty", stdout.String())
+			}
+			if !strings.Contains(stderr.String(), `"type":"validation_error"`) {
+				t.Fatalf("stderr = %q, want structured validation_error", stderr.String())
+			}
+		})
 	}
 }
 
@@ -82,6 +175,149 @@ func TestNewCommandContextResolvesWorkspaceAndOutputMode(t *testing.T) {
 	}
 }
 
+func TestNewCommandContextUsesNestedProfileAttributionConfig(t *testing.T) {
+	clearAgentEnvironment(t)
+	profileOn := true
+	cfg := &config.Config{
+		SchemaVersion:    "1",
+		DefaultWorkspace: "default",
+		Workspaces: map[string]config.WorkspaceProfile{
+			"default": {
+				Name:      "default",
+				TeamID:    "T123",
+				TokenType: config.TokenTypeBot,
+				TokenRef:  "keychain:slack-cli/default",
+				Attribution: config.AttributionConfig{
+					Enabled: &profileOn,
+					Message: "Sent from config",
+					Emoji:   ":rocket:",
+				},
+			},
+		},
+	}
+
+	ctx, attribution, err := NewCommandContext(RootOptions{
+		Config: cfg,
+		Stdout: &bytes.Buffer{},
+		Stderr: &bytes.Buffer{},
+		IsTTY:  true,
+	})
+	if err != nil {
+		t.Fatalf("NewCommandContext returned error: %v", err)
+	}
+	if !attribution.Enabled {
+		t.Fatal("Attribution Enabled = false, want profile attribution to force enabled")
+	}
+	if attribution.Message != "Sent from config" {
+		t.Fatalf("Attribution Message = %q, want config message", attribution.Message)
+	}
+	if attribution.Emoji != ":rocket:" {
+		t.Fatalf("Attribution Emoji = %q, want config emoji", attribution.Emoji)
+	}
+	if ctx.Mode != OutputModePlain {
+		t.Fatalf("profile-attributed TTY mode = %q, want plain", ctx.Mode)
+	}
+}
+
+func TestNewCommandContextProfileAttributionUsesSlackCLIMessageUntilAgentDetected(t *testing.T) {
+	clearAgentEnvironment(t)
+	profileOn := true
+	cfg := &config.Config{
+		SchemaVersion:    "1",
+		DefaultWorkspace: "default",
+		Workspaces: map[string]config.WorkspaceProfile{
+			"default": {
+				Name:      "default",
+				TeamID:    "T123",
+				TokenType: config.TokenTypeBot,
+				TokenRef:  "keychain:slack-cli/default",
+				Attribution: config.AttributionConfig{
+					Enabled: &profileOn,
+				},
+			},
+		},
+	}
+
+	ctx, attribution, err := NewCommandContext(RootOptions{
+		Config: cfg,
+		Stdout: &bytes.Buffer{},
+		Stderr: &bytes.Buffer{},
+		IsTTY:  true,
+	})
+	if err != nil {
+		t.Fatalf("NewCommandContext returned error: %v", err)
+	}
+	if !attribution.Enabled {
+		t.Fatal("Attribution Enabled = false, want profile attribution enabled")
+	}
+	if attribution.Message != "Sent via slack-cli" {
+		t.Fatalf("Attribution Message = %q, want slack-cli message", attribution.Message)
+	}
+	if ctx.Mode != OutputModePlain {
+		t.Fatalf("profile-attributed TTY mode = %q, want plain", ctx.Mode)
+	}
+
+	t.Setenv("CLAUDE_CODE", "1")
+	ctx, attribution, err = NewCommandContext(RootOptions{
+		Config: cfg,
+		Stdout: &bytes.Buffer{},
+		Stderr: &bytes.Buffer{},
+		IsTTY:  true,
+	})
+	if err != nil {
+		t.Fatalf("NewCommandContext with agent env returned error: %v", err)
+	}
+	if attribution.Message != "Sent via slack-cli (agent mode)" {
+		t.Fatalf("Attribution Message = %q, want agent-mode suffix", attribution.Message)
+	}
+	if ctx.Mode != OutputModeJSON {
+		t.Fatalf("agent-detected TTY mode = %q, want json", ctx.Mode)
+	}
+}
+
+func clearAgentEnvironment(t *testing.T) {
+	t.Helper()
+	for _, key := range agent.KnownEnvVars() {
+		t.Setenv(key, "")
+	}
+}
+
+func TestNewCommandContextNestedProfileAttributionOptOutBeatsAgentEnv(t *testing.T) {
+	t.Setenv("CLAUDE_CODE", "1")
+	profileOff := false
+	cfg := &config.Config{
+		SchemaVersion:    "1",
+		DefaultWorkspace: "default",
+		Workspaces: map[string]config.WorkspaceProfile{
+			"default": {
+				Name:      "default",
+				TeamID:    "T123",
+				TokenType: config.TokenTypeBot,
+				TokenRef:  "keychain:slack-cli/default",
+				Attribution: config.AttributionConfig{
+					Enabled: &profileOff,
+				},
+			},
+		},
+	}
+
+	ctx, attribution, err := NewCommandContext(RootOptions{
+		Config: cfg,
+		Stdout: &bytes.Buffer{},
+		Stderr: &bytes.Buffer{},
+		IsTTY:  true,
+	})
+	if err != nil {
+		t.Fatalf("NewCommandContext returned error: %v", err)
+	}
+	if attribution.Enabled {
+		t.Fatalf("Attribution enabled despite profile opt-out: %#v", attribution)
+	}
+	if ctx.Mode != OutputModeJSON {
+		t.Fatalf("agent-detected TTY mode = %q, want json even when attribution is disabled", ctx.Mode)
+	}
+}
+
 func TestNewCommandContextWiresAgentDetection(t *testing.T) {
 	t.Setenv("CLAUDE_CODE", "1")
 
@@ -103,6 +339,89 @@ func TestNewCommandContextWiresAgentDetection(t *testing.T) {
 	}
 	if ctx.Mode != OutputModeJSON {
 		t.Fatalf("agent TTY mode = %q, want JSON", ctx.Mode)
+	}
+}
+
+func TestCredentialTokenResolverPrefersRuntimeEnvOverrides(t *testing.T) {
+	store := config.NewMemoryCredentialStore()
+	secret, err := config.EncodeCredential(config.CredentialPayload{AccessToken: "xoxb-configured"})
+	if err != nil {
+		t.Fatalf("encode credential: %v", err)
+	}
+	if err := store.Set("slack-cli", "default", secret); err != nil {
+		t.Fatalf("store credential: %v", err)
+	}
+	t.Setenv("SLACK_CLI_TOKEN_DEFAULT", "xoxb-profile-env")
+	t.Setenv("SLACK_CLI_TOKEN", "xoxb-global-env")
+
+	token, err := (CredentialTokenResolver{Store: store}).ResolveToken(config.WorkspaceProfile{
+		Name:      "default",
+		TeamID:    "T123",
+		TokenType: config.TokenTypeBot,
+		TokenRef:  "keychain:slack-cli/default",
+	})
+	if err != nil {
+		t.Fatalf("ResolveToken returned error: %v", err)
+	}
+	if token != "xoxb-profile-env" {
+		t.Fatalf("token = %q, want profile-specific env override", token)
+	}
+}
+
+func TestCredentialTokenResolverUsesNormalizedProfileEnvName(t *testing.T) {
+	t.Setenv("SLACK_CLI_TOKEN_PROD_ENV", "xoxp-profile-env")
+
+	token, err := (CredentialTokenResolver{}).ResolveToken(config.WorkspaceProfile{
+		Name:      "prod-env",
+		TeamID:    "T123",
+		TokenType: config.TokenTypeUser,
+		TokenRef:  "keychain:slack-cli/prod-env",
+	})
+	if err != nil {
+		t.Fatalf("ResolveToken returned error: %v", err)
+	}
+	if token != "xoxp-profile-env" {
+		t.Fatalf("token = %q, want normalized profile env token", token)
+	}
+}
+
+func TestCredentialTokenResolverFallsBackThroughEnvPrecedence(t *testing.T) {
+	store := config.NewMemoryCredentialStore()
+	secret, err := config.EncodeCredential(config.CredentialPayload{AccessToken: "xoxb-configured"})
+	if err != nil {
+		t.Fatalf("encode credential: %v", err)
+	}
+	if err := store.Set("slack-cli", "default", secret); err != nil {
+		t.Fatalf("store credential: %v", err)
+	}
+	t.Setenv("SLACK_CLI_TOKEN_DEFAULT", "")
+	t.Setenv("SLACK_CLI_TOKEN", "xoxb-global-env")
+
+	token, err := (CredentialTokenResolver{Store: store}).ResolveToken(config.WorkspaceProfile{
+		Name:      "default",
+		TeamID:    "T123",
+		TokenType: config.TokenTypeBot,
+		TokenRef:  "keychain:slack-cli/default",
+	})
+	if err != nil {
+		t.Fatalf("ResolveToken returned error: %v", err)
+	}
+	if token != "xoxb-global-env" {
+		t.Fatalf("token = %q, want global env token after empty profile env", token)
+	}
+
+	t.Setenv("SLACK_CLI_TOKEN", "")
+	token, err = (CredentialTokenResolver{Store: store}).ResolveToken(config.WorkspaceProfile{
+		Name:      "default",
+		TeamID:    "T123",
+		TokenType: config.TokenTypeBot,
+		TokenRef:  "keychain:slack-cli/default",
+	})
+	if err != nil {
+		t.Fatalf("ResolveToken returned error after env fallback: %v", err)
+	}
+	if token != "xoxb-configured" {
+		t.Fatalf("token = %q, want configured credential after empty env values", token)
 	}
 }
 

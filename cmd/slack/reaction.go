@@ -16,8 +16,9 @@ type reactionCommandData struct {
 
 func newReactionCommand(runtime *RootRuntime) *cobra.Command {
 	reactionCmd := &cobra.Command{
-		Use:   "reaction",
-		Short: "Manage Slack reactions",
+		Use:    "reaction",
+		Short:  "Manage Slack reactions",
+		Hidden: true,
 	}
 
 	reactionCmd.AddCommand(newReactionMutationCommand(runtime, "add"))
@@ -73,15 +74,18 @@ func runReactionMutation(cmd *cobra.Command, runtime *RootRuntime, action string
 		return writeCommandError(ctx, validationCLIError("emoji is required"))
 	}
 
-	client, err := slackClient(cmd, profile, runtime)
-	if err != nil {
-		return writeCommandError(ctx, authCLIError(err.Error()))
-	}
 	result := reactionResult{Channel: target.Channel, Timestamp: target.Timestamp, Emoji: emoji}
 	if dryRun {
 		result.DryRun = true
 		result.Removed = action == "remove"
 		return ctx.WriteResult("reaction."+action, reactionCommandData{Reaction: &result, Target: target})
+	}
+	client, err := slackClient(cmd, profile, runtime)
+	if err != nil {
+		return writeCommandError(ctx, authCLIError(err.Error()))
+	}
+	if err := requireSlackScopes(cmd.Context(), client, allScopes("reactions:write")); err != nil {
+		return writeCommandError(ctx, cliErrorFromSlack(err))
 	}
 	switch action {
 	case "remove":
@@ -109,6 +113,9 @@ func runReactionList(cmd *cobra.Command, runtime *RootRuntime) error {
 	client, err := slackClient(cmd, profile, runtime)
 	if err != nil {
 		return writeCommandError(ctx, authCLIError(err.Error()))
+	}
+	if err := requireSlackScopes(cmd.Context(), client, allScopes("reactions:read")); err != nil {
+		return writeCommandError(ctx, cliErrorFromSlack(err))
 	}
 	item, err := client.GetReactionsContext(context.Background(), slackgo.NewRefToMessage(target.Channel, target.Timestamp), slackgo.GetReactionsParameters{})
 	if err != nil {

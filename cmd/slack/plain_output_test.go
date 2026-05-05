@@ -38,10 +38,10 @@ func TestPlainOutputForHistorySearchListsAndReactions(t *testing.T) {
 		row     string
 	}{
 		{args: []string{"--plain", "history", "list", "--channel", "C123"}, headers: []string{"TS", "USER", "TEXT"}, row: "hello"},
-		{args: []string{"--plain", "search", "messages", "--query", "xxx"}, headers: []string{"TS", "CHANNEL", "USER", "TEXT"}, row: "alerts"},
-		{args: []string{"--plain", "channel", "list"}, headers: []string{"CHANNEL", "NAME", "TYPE", "MEMBERS", "TOPIC"}, row: "Ops alerts"},
-		{args: []string{"--plain", "dm", "list"}, headers: []string{"DM", "USER"}, row: "D123"},
-		{args: []string{"--plain", "user", "list"}, headers: []string{"USER", "NAME", "PRESENCE", "TZ", "STATUS"}, row: "Deploying"},
+		{args: []string{"--plain", "lookup", "messages", "--query", "xxx"}, headers: []string{"TS", "CHANNEL", "USER", "TEXT"}, row: "alerts"},
+		{args: []string{"--plain", "lookup", "channel"}, headers: []string{"CHANNEL", "NAME", "TYPE", "MEMBERS", "TOPIC"}, row: "Ops alerts"},
+		{args: []string{"--plain", "lookup", "channel", "--types", "im"}, headers: []string{"CHANNEL", "TYPE", "USER"}, row: "D123"},
+		{args: []string{"--plain", "lookup", "user"}, headers: []string{"USER", "NAME", "PRESENCE", "TZ", "STATUS"}, row: "Deploying"},
 		{args: []string{"--plain", "reaction", "list", "--channel", "C123", "--timestamp", "1746284582.123456"}, headers: []string{"EMOJI", "COUNT", "USERS"}, row: "thumbsup"},
 	}
 	for _, tt := range commands {
@@ -77,7 +77,7 @@ func TestSearchPlainOutputTruncatesUnlessFull(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"--plain", "search", "messages", "--query", "xxx"},
+		[]string{"--plain", "lookup", "messages", "--query", "xxx"},
 	)
 	if err != nil {
 		t.Fatalf("search returned error: %v\nstderr=%s", err, stderr)
@@ -88,7 +88,7 @@ func TestSearchPlainOutputTruncatesUnlessFull(t *testing.T) {
 
 	stdout, stderr, err = executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"--plain", "search", "messages", "--query", "xxx", "--full"},
+		[]string{"--plain", "lookup", "messages", "--query", "xxx", "--full"},
 	)
 	if err != nil {
 		t.Fatalf("search --full returned error: %v\nstderr=%s", err, stderr)

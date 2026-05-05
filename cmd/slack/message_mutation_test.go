@@ -30,7 +30,7 @@ func TestMessageEditCommandSupportsBlockInput(t *testing.T) {
 		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":true,"user_id":"U123"}`)
 		},
-		"conversations.replies": func(testutil.SlackRequest) testutil.SlackResponse {
+		"conversations.history": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"U123","text":"old","ts":"1746284582.123456"}]}`)
 		},
 		"chat.update": func(req testutil.SlackRequest) testutil.SlackResponse {
@@ -80,7 +80,7 @@ func TestMessageEditCommandPreservesUnsupportedMarkdownSourceFallback(t *testing
 		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":true,"user_id":"U123"}`)
 		},
-		"conversations.replies": func(testutil.SlackRequest) testutil.SlackResponse {
+		"conversations.history": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"U123","text":"old","ts":"1746284582.123456"}]}`)
 		},
 		"chat.update": func(req testutil.SlackRequest) testutil.SlackResponse {
@@ -228,6 +228,44 @@ func TestMessageDeleteCommandDeletesOwnedMessageWithForce(t *testing.T) {
 	}
 }
 
+func TestMessageDeleteCommandUsesHistoryForNonThreadMessage(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"user_id":"U123"}`)
+		},
+		"conversations.replies": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":false,"error":"thread_not_found"}`)
+		},
+		"conversations.history": func(req testutil.SlackRequest) testutil.SlackResponse {
+			if got := req.Form.Get("oldest"); got != "1746284582.123456" {
+				t.Fatalf("oldest = %q, want target timestamp", got)
+			}
+			if got := req.Form.Get("latest"); got != "1746284582.123456" {
+				t.Fatalf("latest = %q, want target timestamp", got)
+			}
+			if got := req.Form.Get("inclusive"); got != "1" {
+				t.Fatalf("inclusive = %q, want 1", got)
+			}
+			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"U123","text":"old","ts":"1746284582.123456"}]}`)
+		},
+		"chat.delete": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456"}`)
+		},
+	})
+	defer server.Close()
+
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+		"",
+		[]string{"message", "delete", "--channel", "C123", "--timestamp", "1746284582.123456", "--force"},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, `"deleted":true`) {
+		t.Fatalf("stdout = %s, want deleted true", stdout)
+	}
+}
+
 func TestMessageDeleteCommandRejectsNonOwnedMessageBeforeMutation(t *testing.T) {
 	server := nonOwnedMessageMutationServer(t, "chat.delete")
 	defer server.Close()
@@ -256,7 +294,7 @@ func ownedMessageMutationServer(t *testing.T, mutation string) *testutil.SlackSe
 		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":true,"user_id":"U123"}`)
 		},
-		"conversations.replies": func(testutil.SlackRequest) testutil.SlackResponse {
+		"conversations.history": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"U123","text":"old","ts":"1746284582.123456"}]}`)
 		},
 		mutation: func(testutil.SlackRequest) testutil.SlackResponse {
@@ -274,7 +312,7 @@ func nonOwnedMessageMutationServer(t *testing.T, mutation string) *testutil.Slac
 		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":true,"user_id":"U123"}`)
 		},
-		"conversations.replies": func(testutil.SlackRequest) testutil.SlackResponse {
+		"conversations.history": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"U999","text":"old","ts":"1746284582.123456"}]}`)
 		},
 	}

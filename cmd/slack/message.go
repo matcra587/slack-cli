@@ -406,18 +406,13 @@ func requireMessageOwnership(ctx context.Context, client *slackgo.Client, channe
 	if err != nil {
 		return err
 	}
-	messages, _, _, err := client.GetConversationRepliesContext(ctx, &slackgo.GetConversationRepliesParameters{
-		ChannelID: channel,
-		Timestamp: timestamp,
-		Limit:     1,
-	})
+	message, err := messageForOwnership(ctx, client, channel, timestamp)
 	if err != nil {
 		return err
 	}
-	if len(messages) == 0 {
+	if message == nil {
 		return errNotOwned
 	}
-	message := messages[0]
 	if actor.UserID != "" && message.User == actor.UserID {
 		return nil
 	}
@@ -425,6 +420,47 @@ func requireMessageOwnership(ctx context.Context, client *slackgo.Client, channe
 		return nil
 	}
 	return errNotOwned
+}
+
+func messageForOwnership(ctx context.Context, client *slackgo.Client, channel, timestamp string) (*slackgo.Message, error) {
+	history, err := client.GetConversationHistoryContext(ctx, &slackgo.GetConversationHistoryParameters{
+		ChannelID: channel,
+		Oldest:    timestamp,
+		Latest:    timestamp,
+		Inclusive: true,
+		Limit:     1,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for i := range history.Messages {
+		if history.Messages[i].Timestamp == timestamp {
+			return &history.Messages[i], nil
+		}
+	}
+
+	messages, _, _, err := client.GetConversationRepliesContext(ctx, &slackgo.GetConversationRepliesParameters{
+		ChannelID: channel,
+		Timestamp: timestamp,
+		Limit:     1,
+	})
+	if err != nil {
+		if isSlackError(err, "thread_not_found") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	for i := range messages {
+		if messages[i].Timestamp == timestamp {
+			return &messages[i], nil
+		}
+	}
+	return nil, nil
+}
+
+func isSlackError(err error, code string) bool {
+	var slackErr slackgo.SlackErrorResponse
+	return errors.As(err, &slackErr) && slackErr.Err == code
 }
 
 func writeSendResult(ctx *CommandContext, command string, data sendCommandData) error {

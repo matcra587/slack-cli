@@ -26,10 +26,14 @@ func TestMessageSendCommandReadsStdinAppliesAttributionAndWritesEnvelope(t *test
 			if len(blocks) != 2 {
 				t.Fatalf("blocks length = %d, want markdown block plus attribution", len(blocks))
 			}
+			text := blocks[0]["text"].(map[string]any)
+			if text["text"] != "Deploy complete\nsecond line" {
+				t.Fatalf("message block text = %#v, want newline-preserving markdown text", text["text"])
+			}
 			if got := blocks[1]["type"]; got != "context" {
 				t.Fatalf("attribution block type = %q, want context", got)
 			}
-			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","text":"Deploy complete","ts":"1746284582.123456"}}`)
+			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","text":"Deploy complete\nsecond line","ts":"1746284582.123456"}}`)
 		},
 		"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
@@ -38,7 +42,7 @@ func TestMessageSendCommandReadsStdinAppliesAttributionAndWritesEnvelope(t *test
 	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
-		"Deploy *complete*\n",
+		"Deploy *complete*\nsecond line\n",
 		[]string{"message", "send", "--channel", "C123", "--file", "-"},
 	)
 	if err != nil {

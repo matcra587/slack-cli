@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/matcra587/slack-cli/pkg/blockkit"
+	slackgo "github.com/slack-go/slack"
 )
 
 func TestValidateBlocksAcceptsSupportedBlocks(t *testing.T) {
@@ -37,6 +38,45 @@ func TestValidateBlocksRejectsSectionTextLimit(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "section text") {
 		t.Fatalf("ValidateBlocks error = %v, want section text limit", err)
+	}
+}
+
+func TestValidateBlocksRejectsMissingSectionText(t *testing.T) {
+	err := blockkit.ValidateBlocks([]blockkit.Block{blockkit.SectionBlock{}})
+	if err == nil || !strings.Contains(err.Error(), "section text or fields are required") {
+		t.Fatalf("ValidateBlocks error = %v, want missing section text validation", err)
+	}
+}
+
+func TestValidateBlocksRejectsUnknownTopLevelBlockWithoutPanic(t *testing.T) {
+	err := blockkit.ValidateBlocks([]blockkit.Block{fakeBlock{}})
+	if err == nil || !strings.Contains(err.Error(), "unsupported type") {
+		t.Fatalf("ValidateBlocks error = %v, want unsupported block type", err)
+	}
+}
+
+func TestValidateBlocksRejectsBadShapesWithoutPanic(t *testing.T) {
+	tests := []struct {
+		name  string
+		block blockkit.Block
+		want  string
+	}{
+		{name: "nil section pointer", block: (*blockkit.SectionBlock)(nil), want: "nil"},
+		{name: "nil table pointer", block: (*blockkit.TableBlock)(nil), want: "nil"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					t.Fatalf("ValidateBlocks panicked: %v", recovered)
+				}
+			}()
+			err := blockkit.ValidateBlocks([]blockkit.Block{tt.block})
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("ValidateBlocks error = %v, want substring %q", err, tt.want)
+			}
+		})
 	}
 }
 
@@ -144,6 +184,50 @@ func TestValidateRawBlocksRejectsRequiredFieldsAndLimits(t *testing.T) {
 			want: "rich_text element 0 type is required",
 		},
 		{
+			name: "rich text section child must be object",
+			blocks: []map[string]any{{
+				"type": "rich_text",
+				"elements": []any{map[string]any{
+					"type":     "rich_text_section",
+					"elements": []any{42},
+				}},
+			}},
+			want: "rich_text_section element 0 must be an object",
+		},
+		{
+			name: "rich text section child type required",
+			blocks: []map[string]any{{
+				"type": "rich_text",
+				"elements": []any{map[string]any{
+					"type":     "rich_text_section",
+					"elements": []any{map[string]any{}},
+				}},
+			}},
+			want: "rich_text_section element 0 type is required",
+		},
+		{
+			name: "rich text section child unsupported type",
+			blocks: []map[string]any{{
+				"type": "rich_text",
+				"elements": []any{map[string]any{
+					"type":     "rich_text_section",
+					"elements": []any{map[string]any{"type": "bogus"}},
+				}},
+			}},
+			want: `rich_text_section element 0 unsupported type "bogus"`,
+		},
+		{
+			name: "rich text section text child missing text",
+			blocks: []map[string]any{{
+				"type": "rich_text",
+				"elements": []any{map[string]any{
+					"type":     "rich_text_section",
+					"elements": []any{map[string]any{"type": "text"}},
+				}},
+			}},
+			want: "rich_text_section element 0 text is required",
+		},
+		{
 			name: "table rich text cell elements required",
 			blocks: []map[string]any{{
 				"type": "table",
@@ -183,4 +267,14 @@ func TestValidateRawBlocksAcceptsSupportedRawBlocks(t *testing.T) {
 	if err := blockkit.ValidateRawBlocks(blocks); err != nil {
 		t.Fatalf("ValidateRawBlocks returned error: %v", err)
 	}
+}
+
+type fakeBlock struct{}
+
+func (fakeBlock) BlockType() slackgo.MessageBlockType {
+	return "fake"
+}
+
+func (fakeBlock) ID() string {
+	return ""
 }

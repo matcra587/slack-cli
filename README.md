@@ -198,6 +198,11 @@ slack message send \
 
 ## Read and Search
 
+`lookup messages` is probationary. It is implemented and covered by mock tests,
+but the command remains hidden from help and shell completion. Agent schema and
+workflow guidance may mention it only as probationary and not promoted until the
+remaining promotion evidence, including live Slack smoke, is complete.
+
 ```sh
 slack history list --channel C1234567890 --max-items 50
 slack history list --channel C1234567890 --thread 1746284582.123456
@@ -216,6 +221,12 @@ map to the fixed error contract: `missing_scope` and `no_permission` are
 `not_found`.
 
 ## Mutate Safely
+
+`thread reply` and `reaction` are probationary. They are implemented and covered
+by mock tests, but the commands remain hidden from help and shell completion.
+Agent schema and workflow guidance may mention them only as probationary and not
+promoted until the remaining promotion evidence, including live Slack smoke, is
+complete.
 
 ```sh
 slack thread reply \
@@ -242,6 +253,11 @@ slack message delete \
 Deletes require `--force` unless you use `--dry-run`.
 
 ## Upload Files
+
+`file upload` is probationary. It is implemented and covered by mock tests, but
+the command remains hidden from help and shell completion. Agent schema and
+workflow guidance may mention it only as probationary and not promoted until the
+remaining promotion evidence, including live Slack smoke, is complete.
 
 ```sh
 slack file upload --channel C1234567890 --file ./report.txt

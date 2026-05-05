@@ -161,7 +161,7 @@ func examples() map[string][]string {
 		"message":  {"echo 'Deploy complete' | slack message send --channel '#alerts' --file -", "slack message send --user U123 --message 'Need review'", "slack message send --channel C123 --blocks --file blocks.json"},
 		"history":  {"slack history list --channel C123 --max-items 50"},
 		"lookup":   {"slack lookup channel --max-items 20", "slack lookup channel --types im", "slack lookup user --presence", "slack lookup user --user U123"},
-		"file":     {"tar czf - build/ | slack file upload --channel C123 --file - --filename build.tgz"},
+		"file":     {"probationary, not promoted: tar czf - build/ | slack file upload --channel C123 --file - --filename build.tgz"},
 		"manifest": {"slack manifest template --name example --format json > manifest.json", "slack manifest template --name example --format yaml > manifest.yaml"},
 		"auth":     {"slack auth login", "printf '%s\\n' \"$SLACK_TOKEN\" | slack auth login --workspace default --method token --token-stdin", "slack auth login --workspace default --method token --token-file ./slack-token.txt", "slack auth login --workspace default --method token --token-env SLACK_CLI_TOKEN_DEFAULT"},
 		"schema":   {"slack agent schema", "slack agent schema --compact", "slack agent schema --raw"},

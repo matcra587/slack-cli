@@ -192,6 +192,9 @@ func textFromNode(node ast.Node, source []byte) string {
 		switch typed := n.(type) {
 		case *ast.Text:
 			b.Write(typed.Segment.Value(source))
+			if typed.SoftLineBreak() || typed.HardLineBreak() {
+				b.WriteByte('\n')
+			}
 		case *ast.CodeSpan:
 			for segment := typed.FirstChild(); segment != nil; segment = segment.NextSibling() {
 				if text, ok := segment.(*ast.Text); ok {

@@ -29,6 +29,26 @@ func TestFromMarkdownConvertsParagraphToSection(t *testing.T) {
 	}
 }
 
+func TestFromMarkdownPreservesParagraphLineBreaks(t *testing.T) {
+	blocks, err := blockkit.FromMarkdown("first line\nsecond line\n")
+	if err != nil {
+		t.Fatalf("FromMarkdown returned error: %v", err)
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("block count = %d, want 1", len(blocks))
+	}
+	section, ok := blocks[0].(*blockkit.SectionBlock)
+	if !ok {
+		t.Fatalf("block type = %T, want SectionBlock", blocks[0])
+	}
+	if section.Text == nil {
+		t.Fatal("section text is nil")
+	}
+	if section.Text.Text != "first line\nsecond line" {
+		t.Fatalf("section text = %q, want paragraph newline preserved", section.Text.Text)
+	}
+}
+
 func TestFromMarkdownPreservesUnsupportedBlockSourceFallback(t *testing.T) {
 	tests := []struct {
 		name  string

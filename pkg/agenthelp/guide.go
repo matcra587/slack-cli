@@ -31,13 +31,13 @@ var guideWorkflows = []GuideWorkflow{
 	},
 	{
 		Name:        "react_emoji",
-		Description: "Add, remove, or list emoji reactions by channel and timestamp",
-		Steps:       []string{"Use channel ID and message timestamp", "Pass emoji as :name: or name", "Read JSON response for confirmation"},
+		Description: "Probationary hidden reaction workflow by channel and timestamp",
+		Steps:       []string{"Status: probationary and not promoted; command entries are hidden from help and shell completion, while agent schema/workflow guidance may mention this workflow with that status", "Use channel ID and message timestamp", "Pass emoji as :name: or name", "Read JSON response for confirmation"},
 	},
 	{
 		Name:        "reply_thread",
-		Description: "Reply under a parent message timestamp",
-		Steps:       []string{"Use channel ID and parent message timestamp", "Post with thread reply --parent", "Read JSON response for reply ts and thread_ts"},
+		Description: "Probationary hidden thread reply workflow",
+		Steps:       []string{"Status: probationary and not promoted; command entries are hidden from help and shell completion, while agent schema/workflow guidance may mention this workflow with that status", "Use channel ID and parent message timestamp", "Post with thread reply --parent", "Read JSON response for reply ts and thread_ts"},
 	},
 	{
 		Name:        "read_history",
@@ -46,13 +46,13 @@ var guideWorkflows = []GuideWorkflow{
 	},
 	{
 		Name:        "search_msgs",
-		Description: "Search workspace messages and keep JSON for full text",
-		Steps:       []string{"Search with structured Slack query text", "Bound output with --max-items", "Use JSON for full text and metadata"},
+		Description: "Probationary hidden workspace message search workflow",
+		Steps:       []string{"Status: probationary and not promoted; command entries are hidden from help and shell completion, while agent schema/workflow guidance may mention this workflow with that status", "Search with structured Slack query text", "Bound output with --max-items", "Use JSON for full text and metadata"},
 	},
 	{
 		Name:        "upload_file",
-		Description: "Upload a file path or piped stdin artifact",
-		Steps:       []string{"Use file upload with --file path or --file -", "Provide --filename for stdin uploads", "Read JSON response for file permalink"},
+		Description: "Probationary hidden file upload workflow",
+		Steps:       []string{"Status: probationary and not promoted; command entries are hidden from help and shell completion, while agent schema/workflow guidance may mention this workflow with that status", "Use file upload with --file path or --file -", "Provide --filename for stdin uploads", "Read JSON response for file permalink"},
 	},
 	{
 		Name:        "edit_msg",
@@ -130,6 +130,7 @@ const guide = `# Slack CLI Agent Guide
 - Use ` + "`--dry-run`" + ` before high-visibility sends.
 
 ## react_emoji
+- Status: probationary and not promoted. Command entries are hidden from help and shell completion; agent schema/workflow guidance may mention this workflow with that status. Use only when explicitly testing this workflow.
 - Use ` + "`slack reaction add --channel <channel-id> --timestamp <message-ts> --emoji :thumbsup:`" + ` to react.
 - Use ` + "`slack reaction remove --channel <channel-id> --timestamp <message-ts> --emoji :thumbsup:`" + ` to remove a reaction.
 - Use ` + "`slack reaction list --channel <channel-id> --timestamp <message-ts>`" + ` to inspect reactions.
@@ -137,6 +138,7 @@ const guide = `# Slack CLI Agent Guide
 - Emoji may be passed as ` + "`thumbsup`" + ` or ` + "`:thumbsup:`" + `.
 
 ## reply_thread
+- Status: probationary and not promoted. Command entries are hidden from help and shell completion; agent schema/workflow guidance may mention this workflow with that status. Use only when explicitly testing this workflow.
 - Use ` + "`slack thread reply --channel <channel-id> --parent <parent-message-ts> --message <markdown>`" + ` to answer in a thread.
 - The ` + "`--parent`" + ` value is the parent message timestamp, not a permalink or search result index.
 - Read ` + "`data.message.thread_ts`" + ` and ` + "`data.message.ts`" + ` from JSON output to confirm nesting.
@@ -151,11 +153,13 @@ const guide = `# Slack CLI Agent Guide
 - Plain mode renders history as a table for humans. JSON mode preserves the envelope and full metadata for agents.
 
 ## search_msgs
+- Status: probationary and not promoted. Command entries are hidden from help and shell completion; agent schema/workflow guidance may mention this workflow with that status. Use only when explicitly testing this workflow.
 - Use ` + "`slack lookup messages --query <query> --max-items <n>`" + ` to search workspace messages.
 - JSON output includes full text and metadata. Plain output truncates snippets for humans.
 - Use ` + "`--full`" + ` only when human plain output really needs the complete text.
 
 ## upload_file
+- Status: probationary and not promoted. Command entries are hidden from help and shell completion; agent schema/workflow guidance may mention this workflow with that status. Use only when explicitly testing this workflow.
 - Use ` + "`slack file upload --channel <channel-id> --file <path>`" + ` for files on disk.
 - Use ` + "`slack file upload --channel <channel-id> --file - --filename <name>`" + ` for piped artifacts.
 - Use ` + "`--message`" + ` for an upload comment; markdown is converted to Block Kit and attribution is appended when agent mode is active.

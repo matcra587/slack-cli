@@ -25,20 +25,20 @@ func ValidateBlocks(blocks []Block) error {
 	for i, block := range blocks {
 		switch b := block.(type) {
 		case *SectionBlock:
-			if err := validateBlockID(i, b.BlockID); err != nil {
-				return err
+			if b == nil {
+				return fmt.Errorf("block %d is nil", i)
 			}
-			if b.Text != nil && len(b.Text.Text) > maxSectionText {
-				return fmt.Errorf("block %d section text exceeds %d characters", i, maxSectionText)
+			if err := validateSectionBlock(i, b); err != nil {
+				return err
 			}
 		case SectionBlock:
-			if err := validateBlockID(i, b.BlockID); err != nil {
+			if err := validateSectionBlock(i, &b); err != nil {
 				return err
 			}
-			if b.Text != nil && len(b.Text.Text) > maxSectionText {
-				return fmt.Errorf("block %d section text exceeds %d characters", i, maxSectionText)
-			}
 		case *ContextBlock:
+			if b == nil {
+				return fmt.Errorf("block %d is nil", i)
+			}
 			if err := validateBlockID(i, b.BlockID); err != nil {
 				return err
 			}
@@ -53,6 +53,9 @@ func ValidateBlocks(blocks []Block) error {
 				return fmt.Errorf("block %d context elements exceed %d", i, maxContextItems)
 			}
 		case *DividerBlock:
+			if b == nil {
+				return fmt.Errorf("block %d is nil", i)
+			}
 			if err := validateBlockID(i, b.BlockID); err != nil {
 				return err
 			}
@@ -61,6 +64,9 @@ func ValidateBlocks(blocks []Block) error {
 				return err
 			}
 		case *ImageBlock:
+			if b == nil {
+				return fmt.Errorf("block %d is nil", i)
+			}
 			if err := validateBlockID(i, b.BlockID); err != nil {
 				return err
 			}
@@ -81,6 +87,9 @@ func ValidateBlocks(blocks []Block) error {
 				return fmt.Errorf("block %d alt_text is required", i)
 			}
 		case *FileBlock:
+			if b == nil {
+				return fmt.Errorf("block %d is nil", i)
+			}
 			if err := validateBlockID(i, b.BlockID); err != nil {
 				return err
 			}
@@ -95,6 +104,9 @@ func ValidateBlocks(blocks []Block) error {
 				return fmt.Errorf("block %d file external_id and source are required", i)
 			}
 		case *TableBlock:
+			if b == nil {
+				return fmt.Errorf("block %d is nil", i)
+			}
 			tableCount++
 			if tableCount > 1 {
 				return fmt.Errorf("messages may contain only one table block")
@@ -307,12 +319,81 @@ func validateRawRichTextObject(index int, label string, block map[string]any) er
 		}
 		switch elementType {
 		case "rich_text_section", "rich_text_list", "rich_text_quote", "rich_text_preformatted":
-			if _, ok := elementObject["elements"].([]any); !ok {
+			childElements, ok := elementObject["elements"].([]any)
+			if !ok {
 				return fmt.Errorf("block %d %s element %d elements are required", index, label, elementIndex)
+			}
+			if err := validateRawRichTextChildElements(index, fmt.Sprintf("%s element %d %s", label, elementIndex, elementType), elementType, childElements); err != nil {
+				return err
 			}
 		default:
 			return fmt.Errorf("block %d %s element %d unsupported type %q", index, label, elementIndex, elementType)
 		}
+	}
+	return nil
+}
+
+func validateRawRichTextChildElements(index int, label, parentType string, elements []any) error {
+	for childIndex, child := range elements {
+		childObject, ok := child.(map[string]any)
+		if !ok {
+			return fmt.Errorf("block %d %s element %d must be an object", index, label, childIndex)
+		}
+		childType, _ := childObject["type"].(string)
+		if childType == "" {
+			return fmt.Errorf("block %d %s element %d type is required", index, label, childIndex)
+		}
+		if parentType == "rich_text_list" {
+			if childType != "rich_text_section" {
+				return fmt.Errorf("block %d %s element %d unsupported type %q", index, label, childIndex, childType)
+			}
+			sectionElements, ok := childObject["elements"].([]any)
+			if !ok {
+				return fmt.Errorf("block %d %s element %d elements are required", index, label, childIndex)
+			}
+			if err := validateRawRichTextChildElements(index, fmt.Sprintf("%s element %d rich_text_section", label, childIndex), "rich_text_section", sectionElements); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := validateRawRichTextSectionChild(index, label, childIndex, childType, childObject); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateRawRichTextSectionChild(index int, label string, childIndex int, childType string, child map[string]any) error {
+	requiredField := ""
+	switch childType {
+	case "text":
+		requiredField = "text"
+	case "emoji":
+		requiredField = "name"
+	case "link":
+		requiredField = "url"
+	case "user":
+		requiredField = "user_id"
+	case "channel":
+		requiredField = "channel_id"
+	case "usergroup":
+		requiredField = "usergroup_id"
+	case "broadcast":
+		requiredField = "range"
+	case "date":
+		if _, ok := child["timestamp"]; !ok {
+			return fmt.Errorf("block %d %s element %d timestamp is required", index, label, childIndex)
+		}
+		requiredField = "format"
+	case "team":
+		requiredField = "team_id"
+	case "color":
+		requiredField = "value"
+	default:
+		return fmt.Errorf("block %d %s element %d unsupported type %q", index, label, childIndex, childType)
+	}
+	if value, _ := child[requiredField].(string); value == "" {
+		return fmt.Errorf("block %d %s element %d %s is required", index, label, childIndex, requiredField)
 	}
 	return nil
 }
@@ -328,6 +409,45 @@ func validateRawTextObject(index int, label string, text map[string]any, maxLeng
 	}
 	if len(value) > maxLength {
 		return fmt.Errorf("block %d %s text exceeds %d characters", index, label, maxLength)
+	}
+	return nil
+}
+
+func validateSectionBlock(index int, block *SectionBlock) error {
+	if err := validateBlockID(index, block.BlockID); err != nil {
+		return err
+	}
+	if block.Text == nil && len(block.Fields) == 0 {
+		return fmt.Errorf("block %d section text or fields are required", index)
+	}
+	if block.Text != nil {
+		if err := validateTextObject(index, "section text", block.Text, maxSectionText); err != nil {
+			return err
+		}
+	}
+	if len(block.Fields) > maxSectionItems {
+		return fmt.Errorf("block %d section fields exceed %d", index, maxSectionItems)
+	}
+	for fieldIndex, field := range block.Fields {
+		if field == nil {
+			return fmt.Errorf("block %d section field %d must be a text object", index, fieldIndex)
+		}
+		if err := validateTextObject(index, fmt.Sprintf("section field %d", fieldIndex), field, maxFieldText); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateTextObject(index int, label string, text *TextObject, maxLength int) error {
+	if text.Type != TextTypeMarkdown && text.Type != TextTypePlain {
+		return fmt.Errorf("block %d %s type must be mrkdwn or plain_text", index, label)
+	}
+	if text.Text == "" {
+		return fmt.Errorf("block %d %s text is required", index, label)
+	}
+	if len(text.Text) > maxLength {
+		return fmt.Errorf("block %d %s exceeds %d characters", index, label, maxLength)
 	}
 	return nil
 }

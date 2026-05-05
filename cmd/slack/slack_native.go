@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/matcra587/slack-cli/internal/config"
@@ -170,11 +172,48 @@ func slackHTTPClient(cmd *cobra.Command, runtime *RootRuntime) *http.Client {
 	}
 	noThrottle, _ := cmd.Root().PersistentFlags().GetBool("no-throttle")
 	client.Transport = rateLimitTransport{
-		base:      transport,
+		base:      slackBearerTransport{base: transport},
 		throttler: ratelimit.NewThrottler(),
 		disabled:  noThrottle,
 	}
 	return &client
+}
+
+type slackBearerTransport struct {
+	base http.RoundTripper
+}
+
+func (t slackBearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Body == nil || req.Header.Get("Authorization") != "" || !strings.HasPrefix(req.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+		return t.base.RoundTrip(req)
+	}
+	body, err := io.ReadAll(req.Body)
+	_ = req.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+	values, err := url.ParseQuery(string(body))
+	if err != nil {
+		resetRequestBody(req, string(body))
+		return t.base.RoundTrip(req)
+	}
+	token := values.Get("token")
+	if token == "" {
+		resetRequestBody(req, string(body))
+		return t.base.RoundTrip(req)
+	}
+	values.Del("token")
+	req.Header.Set("Authorization", "Bearer "+token)
+	resetRequestBody(req, values.Encode())
+	return t.base.RoundTrip(req)
+}
+
+func resetRequestBody(req *http.Request, body string) {
+	req.Body = io.NopCloser(strings.NewReader(body))
+	req.ContentLength = int64(len(body))
+	req.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(strings.NewReader(body)), nil
+	}
 }
 
 type rateLimitTransport struct {

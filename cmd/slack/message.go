@@ -29,8 +29,13 @@ type messageSource struct {
 
 func newMessageCommand(runtime *RootRuntime) *cobra.Command {
 	messageCmd := &cobra.Command{
-		Use:   "message",
-		Short: "Manage Slack messages",
+		Use:          "message",
+		Short:        "Manage Slack messages",
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return cmd.Help()
+		},
 	}
 
 	var source messageSource

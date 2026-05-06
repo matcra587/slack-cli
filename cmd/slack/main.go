@@ -397,6 +397,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	root.SetIn(runtime.Stdin)
 	root.SetOut(runtime.Stdout)
 	root.SetErr(runtime.Stderr)
+	setupClibCompletion(root, runtime)
 
 	th := theme.Default()
 	renderer := help.NewRenderer(th)
@@ -441,6 +442,8 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	root.AddCommand(newAuthCommand(runtime))
 	root.AddCommand(newWorkspaceCommand(runtime))
 	root.AddCommand(newVersionCommand(runtime))
+	extendSlackCompletionMetadata(root)
+	addClibCompletionCommand(root)
 
 	return root
 }
@@ -690,17 +693,25 @@ func (c *CommandContext) WritePlainResult(command string, data any, pagination *
 	case channelListData:
 		return c.WriteChannels(command, typed.Channels, pagination)
 	case channelInfoData:
-		return c.WriteChannels(command, []cliChannel{typed.Channel}, pagination)
+		return c.WriteChannelInfo(command, typed.Channel)
 	case userListData:
 		return c.WriteUsers(command, typed.Users, pagination)
 	case userInfoData:
-		return c.WriteUsers(command, []cliUser{typed.User}, pagination)
+		return c.WriteUserInfo(command, typed.User)
 	case workspaceListData:
 		return c.WriteWorkspaces(command, typed.Workspaces, pagination)
 	case versionData:
 		return c.WriteVersion(typed)
 	case configInitData:
 		return c.WriteConfigInit(typed)
+	case configPathData:
+		return c.WriteConfigPath(command, typed)
+	case configListData:
+		return c.WriteConfigList(command, typed)
+	case configGetData:
+		return c.WriteConfigGet(command, typed)
+	case configMutationData:
+		return c.WriteConfigMutation(command, typed)
 	default:
 		event := c.resultEvent(command).Any("data", data)
 		addPaginationFields(event, pagination)
@@ -966,6 +977,21 @@ func (c *CommandContext) WriteSearch(command string, data searchCommandData, pag
 	return nil
 }
 
+func (c *CommandContext) WriteChannelInfo(command string, channel cliChannel) error {
+	event := c.resultEventWithStyles(command, entityFieldStyle("channel", channel.ID)).
+		Str("channel", channel.ID).
+		Str("name", channel.Name).
+		Str("type", channel.Type)
+	event = addBoolField(event, "is_member", channel.IsMember)
+	event = addBoolField(event, "is_im", channel.IsIM)
+	event = addBoolField(event, "is_archived", channel.IsArchived)
+	event = addStringField(event, "user", channel.User)
+	event = addStringField(event, "topic", channel.Topic)
+	event = addIntField(event, "num_members", channel.NumMembers)
+	event.Msg(commandMessage(command))
+	return nil
+}
+
 func (c *CommandContext) WriteChannels(command string, channels []cliChannel, pagination *Pagination) error {
 	if len(channels) > 0 {
 		return c.WriteChannelTable(command, channels)
@@ -989,6 +1015,18 @@ func (c *CommandContext) WriteChannels(command string, channels []cliChannel, pa
 		event = addIntField(event, "num_members", channel.NumMembers)
 		event.Msg(commandMessage(command))
 	}
+	return nil
+}
+
+func (c *CommandContext) WriteUserInfo(command string, user cliUser) error {
+	event := c.resultEventWithStyles(command, entityFieldStyle("user", user.ID)).
+		Str("user", user.ID).
+		Str("name", user.Name)
+	event = addBoolField(event, "deleted", user.Deleted)
+	event = addStringField(event, "timezone", user.Timezone)
+	event = addStringField(event, "presence", user.Presence)
+	event = addStringField(event, "status_text", user.StatusText)
+	event.Msg(commandMessage(command))
 	return nil
 }
 
@@ -1059,8 +1097,54 @@ func (c *CommandContext) WriteConfigInit(data configInitData) error {
 	c.resultEvent("config.init").
 		Path("path", data.Path).
 		Str("profile", data.Profile).
+		Str("workspace", data.Workspace).
 		Bool("written", data.Written).
 		Msg("config init")
+	return nil
+}
+
+func (c *CommandContext) WriteConfigPath(command string, data configPathData) error {
+	c.resultEvent(command).
+		Path("path", data.Path).
+		Bool("exists", data.Exists).
+		Msg(commandMessage(command))
+	return nil
+}
+
+func (c *CommandContext) WriteConfigList(command string, data configListData) error {
+	c.resultEvent(command).
+		Path("path", data.Path).
+		Str("default_workspace", data.DefaultWorkspace).
+		Int("settings", len(data.Settings)).
+		Msg(commandMessage(command))
+	if len(data.Settings) == 0 {
+		return nil
+	}
+	for _, setting := range data.Settings {
+		c.resultEvent(command).
+			Str("key", setting.Key).
+			Str("value", setting.Value).
+			Msg("config setting")
+	}
+	return nil
+}
+
+func (c *CommandContext) WriteConfigGet(command string, data configGetData) error {
+	c.resultEvent(command).
+		Str("key", data.Key).
+		Str("value", data.Value).
+		Msg(commandMessage(command))
+	return nil
+}
+
+func (c *CommandContext) WriteConfigMutation(command string, data configMutationData) error {
+	event := c.resultEvent(command).
+		Path("path", data.Path).
+		Str("key", data.Key)
+	if data.Value != "" {
+		event = event.Str("value", data.Value)
+	}
+	event.Msg(commandMessage(command))
 	return nil
 }
 

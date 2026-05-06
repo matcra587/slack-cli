@@ -198,10 +198,10 @@ slack message send \
 
 ## Read and Search
 
-`lookup messages` is probationary. It is implemented and covered by mock tests,
-but the command remains hidden from help and shell completion. Agent schema and
-workflow guidance may mention it only as probationary and not promoted until the
-remaining promotion evidence, including live Slack smoke, is complete.
+`lookup messages` searches Slack messages with the Web API `search.messages`
+method. It requires a user token with `search:read`; bot-token profiles cannot
+use this command. In generated manifests, `--type both` places `search:read`
+under user scopes only.
 
 ```sh
 slack history list --channel C1234567890 --max-items 50

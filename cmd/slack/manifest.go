@@ -224,9 +224,9 @@ func manifestScopes(authType, template string, botScopes, userScopes []string) (
 	case "user":
 		return nil, scopesOrPreset(userScopes, presetScopes), nil
 	case "bot":
-		return scopesOrPreset(botScopes, presetScopes), nil, nil
+		return botCompatibleScopes(scopesOrPreset(botScopes, presetScopes)), nil, nil
 	case "both":
-		return scopesOrPreset(botScopes, presetScopes), scopesOrPreset(userScopes, presetScopes), nil
+		return botCompatibleScopes(scopesOrPreset(botScopes, presetScopes)), scopesOrPreset(userScopes, presetScopes), nil
 	default:
 		return nil, nil, errors.New("type must be user, bot, or both")
 	}
@@ -238,6 +238,21 @@ func scopesOrPreset(scopes, preset []string) []string {
 		return slices.Clone(preset)
 	}
 	return out
+}
+
+func botCompatibleScopes(scopes []string) []string {
+	out := make([]string, 0, len(scopes))
+	for _, scope := range scopes {
+		if userTokenOnlyManifestScope(scope) {
+			continue
+		}
+		out = append(out, scope)
+	}
+	return out
+}
+
+func userTokenOnlyManifestScope(scope string) bool {
+	return scope == "search:read"
 }
 
 func manifestTemplatePresets() []manifestTemplatePreset {

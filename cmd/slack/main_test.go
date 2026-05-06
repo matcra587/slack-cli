@@ -93,10 +93,10 @@ func TestNewRootCommandHidesDeferredCommandSurfaces(t *testing.T) {
 	}
 	messages := findDirectChild(lookup, "messages")
 	if messages == nil {
-		t.Fatal("lookup command missing hidden messages command")
+		t.Fatal("lookup command missing messages command")
 	}
-	if !messages.Hidden {
-		t.Fatal("lookup messages is visible; it should stay hidden for now")
+	if messages.Hidden {
+		t.Fatal("lookup messages is hidden; it should be public now that search scope requirements are documented")
 	}
 }
 

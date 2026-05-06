@@ -10,6 +10,7 @@ import (
 
 	"github.com/gechr/clog"
 	"github.com/gechr/x/ansi"
+	"github.com/matcra587/slack-cli/internal/config"
 )
 
 func TestOutputModeSelection(t *testing.T) {
@@ -109,6 +110,40 @@ func TestWritePlainUsesClogDataOutput(t *testing.T) {
 	}
 }
 
+func TestWriteErrorPlainUsesClogDiagnosticFields(t *testing.T) {
+	ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
+
+	exitCode := ctx.WriteError(CLIError{
+		Type:     ErrorTypeValidation,
+		Message:  "channel is required",
+		ExitCode: ExitCodeValidation,
+		Details:  map[string]any{"flag": "channel"},
+	})
+
+	if exitCode != ExitCodeValidation {
+		t.Fatalf("exit code = %d, want %d", exitCode, ExitCodeValidation)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	got := stderr.String()
+	plain := ansi.Strip(got)
+	for _, fragment := range []string{
+		"ERR",
+		"channel is required",
+		"type=validation_error",
+		"exit_code=4",
+		"flag=channel",
+	} {
+		if !strings.Contains(plain, fragment) {
+			t.Fatalf("stderr = %q, want fragment %q", got, fragment)
+		}
+	}
+	if strings.Contains(plain, "{") {
+		t.Fatalf("stderr = %q, did not want JSON in plain error mode", got)
+	}
+}
+
 func TestWriteResultPlainAuthStatusUsesClogFields(t *testing.T) {
 	ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
 	ctx.ColorMode = clog.ColorAlways
@@ -198,6 +233,328 @@ func TestWriteResultPlainMessageSendUsesClogFieldsAndDebugDetails(t *testing.T) 
 	}
 	if !regexp.MustCompile(`channel.*\x1b\[38;(?:2|5);[^m]*mC7N2Q8L4P`).MatchString(got) {
 		t.Fatalf("stdout = %q, want hash-colored channel value", got)
+	}
+}
+
+func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  string
+		data any
+		want []string
+		deny []string
+	}{
+		{
+			name: "auth login",
+			cmd:  "auth.login",
+			data: authWorkspaceData{
+				Workspace:     "default",
+				Authenticated: true,
+				TokenType:     config.TokenTypeUser,
+				TeamID:        "T8KQ42P9D",
+				TeamName:      "Example Notifications",
+			},
+			want: []string{
+				"INF",
+				"auth login",
+				"command=auth.login",
+				"workspace=default",
+				"authenticated=true",
+				"token_type=user",
+				"team_id=T8KQ42P9D",
+				"team_name=\"Example Notifications\"",
+			},
+		},
+		{
+			name: "auth switch",
+			cmd:  "auth.switch",
+			data: authWorkspaceData{Workspace: "example"},
+			want: []string{"INF", "auth switch", "command=auth.switch", "workspace=example"},
+			deny: []string{"data="},
+		},
+		{
+			name: "message delete",
+			cmd:  "message.delete",
+			data: deleteMessageData{
+				Channel:   "C7N2Q8L4P",
+				Timestamp: "1746284582.123456",
+				Deleted:   true,
+				DryRun:    true,
+			},
+			want: []string{
+				"INF",
+				"message delete",
+				"command=message.delete",
+				"channel=C7N2Q8L4P",
+				"ts=1746284582.123456",
+				"deleted=true",
+				"dry_run=true",
+			},
+		},
+		{
+			name: "file upload",
+			cmd:  "file.upload",
+			data: uploadFileResult{
+				Channel: "C7N2Q8L4P",
+				File: cliFile{
+					ID:   "F123",
+					Name: "report.txt",
+					Size: 128,
+				},
+				DryRun: true,
+			},
+			want: []string{
+				"INF",
+				"file upload",
+				"command=file.upload",
+				"channel=C7N2Q8L4P",
+				"file_id=F123",
+				"file_name=report.txt",
+				"size=128",
+				"dry_run=true",
+			},
+		},
+		{
+			name: "react add",
+			cmd:  "react.add",
+			data: reactionCommandData{Reaction: &reactionResult{
+				Channel:   "C7N2Q8L4P",
+				Timestamp: "1746284582.123456",
+				Emoji:     "thumbsup",
+			}},
+			want: []string{
+				"INF",
+				"react add",
+				"command=react.add",
+				"channel=C7N2Q8L4P",
+				"ts=1746284582.123456",
+				"emoji=thumbsup",
+				"removed=false",
+				"dry_run=false",
+			},
+		},
+		{
+			name: "config init",
+			cmd:  "config.init",
+			data: configInitData{
+				Path:      "/tmp/slack-cli/config.toml",
+				Profile:   "default",
+				Workspace: "default",
+				Written:   true,
+			},
+			want: []string{
+				"INF",
+				"config init",
+				"command=config.init",
+				"path=/tmp/slack-cli/config.toml",
+				"profile=default",
+				"workspace=default",
+				"written=true",
+			},
+		},
+		{
+			name: "config path",
+			cmd:  "config.path",
+			data: configPathData{Path: "/tmp/slack-cli/config.toml", Exists: true},
+			want: []string{
+				"INF",
+				"config path",
+				"command=config.path",
+				"path=/tmp/slack-cli/config.toml",
+				"exists=true",
+			},
+			deny: []string{"data="},
+		},
+		{
+			name: "config get",
+			cmd:  "config.get",
+			data: configGetData{Key: "workspaces.default.default_channel", Value: "C7N2Q8L4P"},
+			want: []string{
+				"INF",
+				"config get",
+				"command=config.get",
+				"key=workspaces.default.default_channel",
+				"value=C7N2Q8L4P",
+			},
+			deny: []string{"data="},
+		},
+		{
+			name: "config set",
+			cmd:  "config.set",
+			data: configMutationData{
+				Path:  "/tmp/slack-cli/config.toml",
+				Key:   "workspaces.default.attribution.message",
+				Value: "Sent via slack-cli",
+			},
+			want: []string{
+				"INF",
+				"config set",
+				"command=config.set",
+				"path=/tmp/slack-cli/config.toml",
+				"key=workspaces.default.attribution.message",
+				"value=\"Sent via slack-cli\"",
+			},
+			deny: []string{"data="},
+		},
+		{
+			name: "config unset",
+			cmd:  "config.unset",
+			data: configMutationData{
+				Path: "/tmp/slack-cli/config.toml",
+				Key:  "workspaces.default.attribution.message",
+			},
+			want: []string{
+				"INF",
+				"config unset",
+				"command=config.unset",
+				"path=/tmp/slack-cli/config.toml",
+				"key=workspaces.default.attribution.message",
+			},
+			deny: []string{"data=", "value="},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
+			if err := ctx.WriteResult(tt.cmd, tt.data); err != nil {
+				t.Fatalf("WriteResult returned error: %v", err)
+			}
+			if stderr.Len() != 0 {
+				t.Fatalf("stderr = %q, want empty", stderr.String())
+			}
+			got := stdout.String()
+			plain := ansi.Strip(got)
+			for _, fragment := range tt.want {
+				if !strings.Contains(plain, fragment) {
+					t.Fatalf("stdout = %q, want fragment %q", got, fragment)
+				}
+			}
+			deny := append([]string{"{", "}"}, tt.deny...)
+			for _, fragment := range deny {
+				if strings.Contains(plain, fragment) {
+					t.Fatalf("stdout = %q, did not want fragment %q", got, fragment)
+				}
+			}
+		})
+	}
+}
+
+func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
+	ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
+
+	err := ctx.WriteResult("lookup.channel", channelInfoData{Channel: cliChannel{
+		ID:         "C7N2Q8L4P",
+		Name:       "alerts",
+		Type:       "channel",
+		IsMember:   boolPtr(true),
+		IsArchived: boolPtr(false),
+		Topic:      stringPtr("Ops alerts"),
+		NumMembers: intPtr(12),
+	}})
+	if err != nil {
+		t.Fatalf("WriteResult returned error: %v", err)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	got := stdout.String()
+	plain := ansi.Strip(got)
+	for _, fragment := range []string{
+		"INF",
+		"lookup channel",
+		"command=lookup.channel",
+		"channel=C7N2Q8L4P",
+		"name=alerts",
+		"type=channel",
+		"is_member=true",
+		"is_archived=false",
+		"topic=\"Ops alerts\"",
+		"num_members=12",
+	} {
+		if !strings.Contains(plain, fragment) {
+			t.Fatalf("stdout = %q, want fragment %q", got, fragment)
+		}
+	}
+	if strings.Contains(plain, "CHANNEL") || strings.Contains(plain, "{") {
+		t.Fatalf("stdout = %q, want clog event output for singleton lookup", got)
+	}
+
+	stdout.Reset()
+	err = ctx.WriteResult("lookup.user", userInfoData{User: cliUser{
+		ID:         "U7N2Q8L4P",
+		Name:       "matt",
+		Deleted:    boolPtr(false),
+		Timezone:   stringPtr("America/Toronto"),
+		Presence:   stringPtr("active"),
+		StatusText: stringPtr("Deploying"),
+	}})
+	if err != nil {
+		t.Fatalf("WriteResult returned error: %v", err)
+	}
+	got = stdout.String()
+	plain = ansi.Strip(got)
+	for _, fragment := range []string{
+		"INF",
+		"lookup user",
+		"command=lookup.user",
+		"user=U7N2Q8L4P",
+		"name=matt",
+		"deleted=false",
+		"timezone=America/Toronto",
+		"presence=active",
+		"status_text=Deploying",
+	} {
+		if !strings.Contains(plain, fragment) {
+			t.Fatalf("stdout = %q, want fragment %q", got, fragment)
+		}
+	}
+	if strings.Contains(plain, "USER") || strings.Contains(plain, "{") {
+		t.Fatalf("stdout = %q, want clog event output for singleton lookup", got)
+	}
+}
+
+func TestWriteResultPlainConfigListUsesPerSettingClogLines(t *testing.T) {
+	ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
+
+	err := ctx.WriteResult("config.list", configListData{
+		Path:             "/tmp/slack-cli/config.toml",
+		DefaultWorkspace: "default",
+		Settings: []configEntry{
+			{Key: "default_workspace", Value: "default"},
+			{Key: "workspaces.default.attribution.enabled", Value: "true"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("WriteResult returned error: %v", err)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	got := stdout.String()
+	plain := ansi.Strip(got)
+	for _, fragment := range []string{
+		"INF",
+		"config list",
+		"command=config.list",
+		"path=/tmp/slack-cli/config.toml",
+		"default_workspace=default",
+		"settings=2",
+		"config setting",
+		"key=default_workspace",
+		"value=default",
+		"key=workspaces.default.attribution.enabled",
+		"value=true",
+	} {
+		if !strings.Contains(plain, fragment) {
+			t.Fatalf("stdout = %q, want fragment %q", got, fragment)
+		}
+	}
+	if strings.Contains(plain, "{") || strings.Contains(plain, "description=") {
+		t.Fatalf("stdout = %q, want concise clog fields", got)
+	}
+	if lines := strings.Count(strings.TrimSpace(plain), "\n") + 1; lines != 3 {
+		t.Fatalf("stdout = %q, want summary plus one clog line per setting", got)
 	}
 }
 

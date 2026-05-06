@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/matcra587/slack-cli/pkg/agenthelp"
+	"github.com/matcra587/slack-cli/internal/agenthelp"
 )
 
 func TestAgentSchemaCompactOutputsCommandTreeForAgents(t *testing.T) {
@@ -136,7 +136,7 @@ func TestAgentSchemaIncludesBlocksAndOutputOnlyRawContract(t *testing.T) {
 			t.Fatalf("schema exposed %s command %#v; discovery must use lookup", name, *command)
 		}
 	}
-	for _, path := range [][]string{{"lookup", "channel"}, {"lookup", "user"}} {
+	for _, path := range [][]string{{"lookup", "channel"}, {"lookup", "messages"}, {"lookup", "user"}} {
 		if command := findSchemaCommand(schema.Commands, path...); command == nil {
 			t.Fatalf("schema missing lookup command path %v", path)
 		}

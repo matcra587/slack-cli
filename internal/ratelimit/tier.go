@@ -16,7 +16,7 @@ const (
 var methodTiers = map[string]Tier{
 	"auth.test":             Tier2,
 	"chat.delete":           Tier4,
-	"chat.postMessage":      Tier4,
+	"chat.postMessage":      TierSpecial,
 	"chat.update":           Tier4,
 	"conversations.history": Tier3,
 	"conversations.info":    Tier3,

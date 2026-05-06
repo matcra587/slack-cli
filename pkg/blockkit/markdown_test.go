@@ -24,8 +24,28 @@ func TestFromMarkdownConvertsParagraphToSection(t *testing.T) {
 	if section.Text == nil {
 		t.Fatal("section text is nil")
 	}
-	if section.Text.Text != "Deploy complete" {
-		t.Fatalf("section text = %q, want stripped Markdown text", section.Text.Text)
+	if section.Text.Text != "Deploy *complete*" {
+		t.Fatalf("section text = %q, want Slack mrkdwn text", section.Text.Text)
+	}
+}
+
+func TestFromMarkdownPreservesInlineSlackMrkdwn(t *testing.T) {
+	blocks, err := blockkit.FromMarkdown("markdown: *bold* _italic_ `code`")
+	if err != nil {
+		t.Fatalf("FromMarkdown returned error: %v", err)
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("block count = %d, want 1", len(blocks))
+	}
+	section, ok := blocks[0].(*blockkit.SectionBlock)
+	if !ok {
+		t.Fatalf("block type = %T, want SectionBlock", blocks[0])
+	}
+	if section.Text == nil {
+		t.Fatal("section text is nil")
+	}
+	if section.Text.Text != "markdown: *bold* _italic_ `code`" {
+		t.Fatalf("section text = %q, want inline Slack mrkdwn preserved", section.Text.Text)
 	}
 }
 

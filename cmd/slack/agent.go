@@ -6,7 +6,7 @@ import (
 	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
 	"github.com/matcra587/slack-cli/internal/agent"
-	"github.com/matcra587/slack-cli/pkg/agenthelp"
+	"github.com/matcra587/slack-cli/internal/agenthelp"
 	"github.com/spf13/cobra"
 )
 

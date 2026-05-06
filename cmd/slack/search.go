@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +23,6 @@ func newLookupMessagesCommand(runtime *RootRuntime) *cobra.Command {
 	messagesCmd := &cobra.Command{
 		Use:          "messages",
 		Short:        "Search Slack messages",
-		Hidden:       true,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSearchMessages(cmd, runtime, query, maxItems, cursor, full)
@@ -42,6 +42,9 @@ func runSearchMessages(cmd *cobra.Command, runtime *RootRuntime, query string, m
 	}
 	if strings.TrimSpace(query) == "" {
 		return writeCommandError(ctx, validationCLIError("query is required"))
+	}
+	if profile.TokenType != config.TokenTypeUser {
+		return writeCommandError(ctx, authCLIError("lookup messages requires a user token with search:read"))
 	}
 
 	client, err := slackClient(cmd, profile, runtime)

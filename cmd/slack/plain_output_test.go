@@ -45,7 +45,7 @@ func TestPlainOutputForHistorySearchListsAndReactions(t *testing.T) {
 		{args: []string{"--plain", "react", "list", "--channel", "C123", "--timestamp", "1746284582.123456"}, headers: []string{"EMOJI", "COUNT", "USERS"}, row: "thumbsup"},
 	}
 	for _, tt := range commands {
-		stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "", tt.args)
+		stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(), "", tt.args)
 		if err != nil {
 			t.Fatalf("%v returned error: %v\nstderr=%s", tt.args, err, stderr)
 		}
@@ -75,7 +75,7 @@ func TestSearchPlainOutputTruncatesUnlessFull(t *testing.T) {
 	})
 	defer server.Close()
 
-	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(),
 		"",
 		[]string{"--plain", "lookup", "messages", "--query", "xxx"},
 	)
@@ -86,7 +86,7 @@ func TestSearchPlainOutputTruncatesUnlessFull(t *testing.T) {
 		t.Fatalf("plain search was not truncated: %s", stdout)
 	}
 
-	stdout, stderr, err = executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+	stdout, stderr, err = executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(),
 		"",
 		[]string{"--plain", "lookup", "messages", "--query", "xxx", "--full"},
 	)

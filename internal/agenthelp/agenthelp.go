@@ -114,6 +114,8 @@ func GenerateSchema(root *cobra.Command) Schema {
 			"Use --blocks when message-like input is already Slack Block Kit JSON.",
 			"Use --dry-run before destructive or high-visibility mutations.",
 			"Use --compact when another tool expects command-specific JSON only.",
+			"Follow meta.pagination.next_cursor while meta.pagination.has_more is true.",
+			"Load the workflow runbook with slack agent guide <workflow> before operating.",
 		},
 		AntiPatterns: []string{
 			"Do not store Slack tokens in TOML or source files.",
@@ -121,6 +123,8 @@ func GenerateSchema(root *cobra.Command) Schema {
 			"Do not use --raw to select raw Block Kit input; --raw is an output mode.",
 			"Do not disable agent attribution unless explicitly required.",
 			"Do not parse human-readable output in scripts; use JSON.",
+			"Do not assume one search page means there are no more matches.",
+			"Do not duplicate attribution text in the message body.",
 		},
 	}
 }
@@ -166,7 +170,7 @@ func examples() map[string][]string {
 		"reply":    {"slack reply --channel C123 --parent 1746284582.123456 --message 'Investigating'", "echo 'details' | slack reply --channel C123 --parent 1746284582.123456 --file -"},
 		"react":    {"slack react add --channel C123 --timestamp 1746284582.123456 --emoji eyes", "slack react remove --channel C123 --timestamp 1746284582.123456 --emoji eyes", "slack react list --channel C123 --timestamp 1746284582.123456"},
 		"history":  {"slack history list --channel C123 --max-items 50"},
-		"lookup":   {"slack lookup channel --max-items 20", "slack lookup channel --types im", "slack lookup user --presence", "slack lookup user --user U123"},
+		"lookup":   {"slack lookup channel --max-items 20", "slack lookup channel --types im", "slack lookup user --presence", "slack lookup user --user U123", "slack lookup messages --query 'deploy failed' --max-items 10"},
 		"file":     {"probationary, not promoted: tar czf - build/ | slack file upload --channel C123 --file - --filename build.tgz"},
 		"manifest": {"slack manifest template --name example --format json > manifest.json", "slack manifest template --name example --format yaml > manifest.yaml"},
 		"auth":     {"slack auth login", "printf '%s\\n' \"$SLACK_TOKEN\" | slack auth login --workspace default --method token --token-stdin", "slack auth login --workspace default --method token --token-file ./slack-token.txt", "slack auth login --workspace default --method token --token-env SLACK_CLI_TOKEN_DEFAULT"},

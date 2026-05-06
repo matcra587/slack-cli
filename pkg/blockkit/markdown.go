@@ -19,7 +19,12 @@ func FromMarkdown(markdown string) ([]Block, error) {
 	var blocks []Block
 	for node := doc.FirstChild(); node != nil; node = node.NextSibling() {
 		switch node.Kind() {
-		case ast.KindParagraph, ast.KindHeading:
+		case ast.KindParagraph:
+			content := strings.TrimSpace(sourceFromNode(node, source))
+			if content != "" {
+				blocks = append(blocks, slackgo.NewSectionBlock(MarkdownText(content), nil, nil))
+			}
+		case ast.KindHeading:
 			content := strings.TrimSpace(textFromNode(node, source))
 			if content != "" {
 				blocks = append(blocks, slackgo.NewSectionBlock(MarkdownText(content), nil, nil))

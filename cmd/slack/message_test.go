@@ -27,7 +27,7 @@ func TestMessageSendCommandReadsStdinAppliesAttributionAndWritesEnvelope(t *test
 				t.Fatalf("blocks length = %d, want markdown block plus attribution", len(blocks))
 			}
 			text := blocks[0]["text"].(map[string]any)
-			if text["text"] != "Deploy complete\nsecond line" {
+			if text["text"] != "Deploy *complete*\nsecond line" {
 				t.Fatalf("message block text = %#v, want newline-preserving markdown text", text["text"])
 			}
 			if got := blocks[1]["type"]; got != "context" {

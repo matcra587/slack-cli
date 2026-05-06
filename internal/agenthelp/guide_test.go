@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/matcra587/slack-cli/pkg/agenthelp"
+	"github.com/matcra587/slack-cli/internal/agenthelp"
 )
 
 func TestGuideDocumentsBlocksRawAndAttributionConfig(t *testing.T) {
@@ -19,6 +19,8 @@ func TestGuideDocumentsBlocksRawAndAttributionConfig(t *testing.T) {
 		"attribution.enabled",
 		"attribution.message",
 		"attribution.emoji",
+		"Do not repeat attribution text",
+		"realistic content such as a PR review",
 	} {
 		if !strings.Contains(guide, fragment) {
 			t.Fatalf("send_msg guide missing %q:\n%s", fragment, guide)
@@ -154,6 +156,71 @@ func TestGuideDocumentsUserLookupDMAndTimestampWorkflows(t *testing.T) {
 	} {
 		if !strings.Contains(history, fragment) {
 			t.Fatalf("read_history guide missing %q:\n%s", fragment, history)
+		}
+	}
+}
+
+func TestGuideDocumentsOperationalRunbooks(t *testing.T) {
+	developerReview := agenthelp.GetGuideSection("developer_review")
+	for _, fragment := range []string{
+		"Runbook:",
+		"Inputs:",
+		"Preflight:",
+		"Send the parent",
+		"Parse and store",
+		"Quirks:",
+	} {
+		if !strings.Contains(developerReview, fragment) {
+			t.Fatalf("developer_review guide missing %q:\n%s", fragment, developerReview)
+		}
+	}
+
+	cleanup := agenthelp.GetGuideSection("cleanup_msgs")
+	for _, fragment := range []string{
+		"Runbook:",
+		"Inputs:",
+		"meta.pagination.has_more",
+		"meta.pagination.next_cursor",
+		"data.matches[].channel.id",
+		"errors[0].retry_after_seconds",
+		"message_not_found",
+		"Quirks:",
+	} {
+		if !strings.Contains(cleanup, fragment) {
+			t.Fatalf("cleanup_msgs guide missing %q:\n%s", fragment, cleanup)
+		}
+	}
+
+	search := agenthelp.GetGuideSection("search_msgs")
+	for _, fragment := range []string{
+		"--cursor <meta.pagination.next_cursor>",
+		"repeat search and delete until paginated search returns zero matches",
+	} {
+		if !strings.Contains(search, fragment) {
+			t.Fatalf("search_msgs guide missing %q:\n%s", fragment, search)
+		}
+	}
+
+	safeMutation := agenthelp.GetGuideSection("safe_mutation")
+	for _, fragment := range []string{
+		"chat.postMessage",
+		"Separate CLI processes do not share proactive throttle state",
+		"structured `rate_limit` errors",
+	} {
+		if !strings.Contains(safeMutation, fragment) {
+			t.Fatalf("safe_mutation guide missing %q:\n%s", fragment, safeMutation)
+		}
+	}
+}
+
+func TestWorkflowCatalogIncludesOperationalRunbooks(t *testing.T) {
+	names := map[string]bool{}
+	for _, name := range agenthelp.WorkflowNames() {
+		names[name] = true
+	}
+	for _, name := range []string{"cleanup_msgs", "developer_review"} {
+		if !names[name] {
+			t.Fatalf("workflow names = %#v, want %s", names, name)
 		}
 	}
 }

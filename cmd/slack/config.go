@@ -315,11 +315,10 @@ func newConfigListCommand(runtime *RootRuntime) *cobra.Command {
 
 func newConfigGetCommand(runtime *RootRuntime) *cobra.Command {
 	return &cobra.Command{
-		Use:               "get <key>",
-		Short:             "Show a configuration value",
-		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: completeSlackConfigKeys,
-		SilenceUsage:      true,
+		Use:          "get <key>",
+		Short:        "Show a configuration value",
+		Args:         cobra.ExactArgs(1),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := localConfigContext(cmd, runtime)
 			cfg, err := loadConfigForConfigCommand(runtime)
@@ -337,11 +336,10 @@ func newConfigGetCommand(runtime *RootRuntime) *cobra.Command {
 
 func newConfigSetCommand(runtime *RootRuntime) *cobra.Command {
 	return &cobra.Command{
-		Use:               "set <key> <value>",
-		Short:             "Add or update a setting",
-		Args:              cobra.ExactArgs(2),
-		ValidArgsFunction: completeSlackConfigKeys,
-		SilenceUsage:      true,
+		Use:          "set <key> <value>",
+		Short:        "Add or update a setting",
+		Args:         cobra.ExactArgs(2),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := localConfigContext(cmd, runtime)
 			cfg, err := loadConfigForConfigCommand(runtime)
@@ -362,12 +360,11 @@ func newConfigSetCommand(runtime *RootRuntime) *cobra.Command {
 
 func newConfigUnsetCommand(runtime *RootRuntime) *cobra.Command {
 	return &cobra.Command{
-		Use:               "unset <key>",
-		Aliases:           []string{"rm", "remove"},
-		Short:             "Remove a setting",
-		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: completeSlackConfigKeys,
-		SilenceUsage:      true,
+		Use:          "unset <key>",
+		Aliases:      []string{"rm", "remove"},
+		Short:        "Remove a setting",
+		Args:         cobra.ExactArgs(1),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := localConfigContext(cmd, runtime)
 			cfg, err := loadConfigForConfigCommand(runtime)
@@ -628,12 +625,39 @@ func unknownConfigKey(key string) error {
 	return fmt.Errorf("unknown config key %s - run 'slack config list' to see all keys", key)
 }
 
-func completeSlackConfigKeys(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-	completions := make([]string, 0, len(slackConfigKeys))
-	for _, key := range slackConfigKeys {
-		completions = append(completions, key+"\t"+slackConfigDescriptions[key])
+func slackConfigKeyCompletions(cfg *config.Config) []string {
+	if cfg == nil || len(cfg.Workspaces) == 0 {
+		completions := make([]string, 0, len(slackConfigKeys))
+		for _, key := range slackConfigKeys {
+			completions = append(completions, key+"\t"+slackConfigDescriptions[key])
+		}
+		return completions
 	}
-	return completions, cobra.ShellCompDirectiveNoFileComp
+	completions := []string{"default_workspace\t" + slackConfigDescriptions["default_workspace"]}
+	for _, profile := range sortedWorkspaceNames(cfg) {
+		prefix := "workspaces." + profile + "."
+		completions = append(completions,
+			prefix+"default_channel\t"+slackConfigDescriptions["workspaces.<profile>.default_channel"],
+			prefix+"attribution.enabled\t"+slackConfigDescriptions["workspaces.<profile>.attribution.enabled"],
+			prefix+"attribution.label\t"+slackConfigDescriptions["workspaces.<profile>.attribution.label"],
+			prefix+"attribution.emoji\t"+slackConfigDescriptions["workspaces.<profile>.attribution.emoji"],
+			prefix+"attribution.message\t"+slackConfigDescriptions["workspaces.<profile>.attribution.message"],
+		)
+	}
+	return completions
+}
+
+func slackConfigValueCompletions(key string, cfg *config.Config) []string {
+	switch {
+	case key == "default_workspace":
+		return completionWorkspaceNames(cfg)
+	case strings.HasSuffix(key, ".attribution.enabled"):
+		return []string{"true", "false"}
+	case strings.HasSuffix(key, ".attribution.emoji"):
+		return commonEmojiCompletions()
+	default:
+		return nil
+	}
 }
 
 func extendConfigInitFlags(cmd *cobra.Command) {

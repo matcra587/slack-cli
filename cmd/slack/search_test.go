@@ -17,7 +17,7 @@ func TestSearchMessagesCommandWritesPaginatedEnvelope(t *testing.T) {
 	})
 	defer server.Close()
 
-	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(),
 		"",
 		[]string{"lookup", "messages", "--query", "deploy failed", "--max-items", "1", "--cursor", "1"},
 	)
@@ -44,7 +44,7 @@ func TestSearchMessagesCommandReturnsEmptyMatchesForNoResults(t *testing.T) {
 	})
 	defer server.Close()
 
-	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(),
 		"",
 		[]string{"lookup", "messages", "--query", "no such message", "--max-items", "10"},
 	)
@@ -72,7 +72,7 @@ func TestSearchMessagesCommandRejectsMissingQuery(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
 	defer server.Close()
 
-	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(),
 		"",
 		[]string{"lookup", "messages"},
 	)
@@ -84,5 +84,29 @@ func TestSearchMessagesCommandRejectsMissingQuery(t *testing.T) {
 	}
 	if !strings.Contains(stderr, `"type":"validation_error"`) {
 		t.Fatalf("stderr = %s, want validation_error", stderr)
+	}
+}
+
+func TestSearchMessagesRequiresUserToken(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"search.messages": func(testutil.SlackRequest) testutil.SlackResponse {
+			t.Fatal("search.messages should not be called for bot-token profiles")
+			return testutil.JSONResponse(`{"ok":true}`)
+		},
+	})
+	defer server.Close()
+
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+		"",
+		[]string{"lookup", "messages", "--query", "deploy failed"},
+	)
+	if err == nil {
+		t.Fatal("Execute returned nil error, want auth failure")
+	}
+	if stdout != "" {
+		t.Fatalf("stdout = %q, want empty", stdout)
+	}
+	if !strings.Contains(stderr, `"type":"auth_failure"`) || !strings.Contains(stderr, "user token") || !strings.Contains(stderr, "search:read") {
+		t.Fatalf("stderr = %s, want user-token search scope auth failure", stderr)
 	}
 }

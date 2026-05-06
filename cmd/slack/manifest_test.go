@@ -298,6 +298,25 @@ func TestManifestTemplateTypeControlsScopes(t *testing.T) {
 	}
 }
 
+func TestManifestSearchScopeIsUserOnlyForBothAuth(t *testing.T) {
+	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{
+		"manifest", "template", "--name", "example", "--type", "both", "--preset", "search",
+	})
+	if err != nil {
+		t.Fatalf("manifest template returned error: %v\nstderr=%s", err, stderr)
+	}
+	var manifest slackgo.Manifest
+	if err := json.Unmarshal([]byte(stdout), &manifest); err != nil {
+		t.Fatalf("unmarshal manifest: %v\nstdout=%s", err, stdout)
+	}
+	if !contains(manifest.OAuthConfig.Scopes.User, "search:read") {
+		t.Fatalf("user scopes = %#v, want search:read", manifest.OAuthConfig.Scopes.User)
+	}
+	if contains(manifest.OAuthConfig.Scopes.Bot, "search:read") {
+		t.Fatalf("bot scopes = %#v, did not want user-token-only search:read", manifest.OAuthConfig.Scopes.Bot)
+	}
+}
+
 func TestManifestTemplateYAMLQuotesStringValues(t *testing.T) {
 	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{
 		"manifest", "template", "--name", "example", "--format", "yaml",

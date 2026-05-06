@@ -1,201 +1,91 @@
 ---
 name: slack-cli
-description: Use when the user asks about Slack messages, channels, DMs, threads, reactions, users, Slack auth, app manifests, or anything that needs the matcra587/slack-cli binary
-allowed-tools: Bash(slack agent:*) Bash(slack auth:*) Bash(slack config:*) Bash(slack manifest:*) Bash(slack message:*) Bash(slack history:*) Bash(slack lookup:*) Bash(slack react:*) Bash(slack reply:*) Bash(slack workspace:*)
+description: Use when the user asks an agent to operate Slack through the matcra587/slack-cli binary, including messages, DMs, threads, reactions, history, search, cleanup, users, channels, auth, config, or app manifests.
+allowed-tools: Bash(slack agent:*) Bash(slack auth login:*) Bash(slack auth status:*) Bash(slack auth switch:*) Bash(slack config get:*) Bash(slack config init:*) Bash(slack config list:*) Bash(slack config path:*) Bash(slack config set:*) Bash(slack history list:*) Bash(slack lookup:*) Bash(slack manifest template:*) Bash(slack message edit:*) Bash(slack message send:*) Bash(slack react:*) Bash(slack reply:*) Bash(slack workspace list:*)
 ---
 
 # slack-cli
 
-Operational skill for `matcra587/slack-cli`. The binary embeds its own
-authoritative reference. **Read it first:**
+Use this skill as a thin router. The Slack CLI binary contains the operational
+runbooks. Load the matching runbook before acting. Do not copy CLI runbooks into
+this skill; update the embedded `slack agent guide` source when details change.
+
+## First Step
+
+Run the matching guide command:
 
 ```sh
-slack agent guide              # full operational guide (markdown)
-slack agent guide --help       # workflow list
-slack agent schema --compact   # command tree + flag signatures (JSON)
+slack agent guide <workflow>
 ```
 
-This skill points to the embedded guide and records the contracts, gotchas, and
-live-tested patterns that trip agents up before they read it.
-
-## When to use
-
-- Send, reply to, edit, delete, or react to Slack messages
-- Read channel history or thread replies
-- Look up channels, DMs, or users before posting
-- Send DMs with `message send --user`
-- Manage Slack auth, profiles, config preferences, or app manifests
-- Author Slack Markdown or raw Block Kit input
-
-## Setup check
+Use the schema only when you need command inventory or flag details:
 
 ```sh
-slack auth status --json       # credential health
-slack workspace list --json    # configured profiles
-slack agent guide auth_setup   # auth workflow details
-```
-
-If auth is missing: use `slack manifest template --preset messaging --type user`
-to generate an importable Slack app manifest, then run `slack auth login`.
-OAuth uses PKCE, needs the app client ID, and derives the workspace ID/name from
-Slack. Token auth is also supported, but never put tokens in argv: use
-`--token-stdin`, `--token-file`, or `--token-env <VAR>`.
-
-## Output mode contract
-
-stdout is command data. stderr is diagnostics and structured errors.
-
-| Flag | Effect |
-| --- | --- |
-| `--json` | Full envelope: `{meta, data, errors}` |
-| `--compact` | Success-path data only |
-| `--plain` | clog human output |
-| `--raw` | API-native output shape where supported |
-
-The output flags are mutually exclusive. Exit codes: `0` success, `1` auth,
-`2` not-found, `3` rate limit, `4` validation, `5` server error.
-
-TTY output is human-readable. Non-TTY and detected agent contexts use JSON.
-
-## Auth and config
-
-Use auth commands for credentials:
-
-```sh
-slack auth login
-slack auth status
-slack auth switch <workspace>
-slack auth logout <workspace>
-```
-
-Use config commands for preferences only:
-
-```sh
-slack config init
-slack config set workspaces.default.default_channel C1234567890
-slack config set workspaces.default.attribution.enabled true
-slack config set workspaces.default.attribution.message "Sent via slack-cli"
-```
-
-Config lives at `~/.config/slack-cli/config.toml` or `SLACK_CLI_CONFIG`.
-Credentials are stored as structured keychain secrets or secret refs such as
-`op://...`; plaintext `xox*` values do not belong in TOML.
-
-## Destinations and timestamps
-
-Look up destinations before writing:
-
-```sh
-slack lookup channel --max-items 20 --json
-slack lookup channel --types im --json
-slack lookup user --filter ansible --max-items 20 --json
-slack lookup user --user U1234567890 --json
-```
-
-For DMs, parse `data.users[].id` and send with `message send --user`. There is
-no `slack dm` command.
-
-Slack timestamps are channel-scoped strings like `1746284582.123456`. Keep them
-as strings. Get them from `data.message.ts` after sending or from
-`data.messages[].ts` in history output. Use:
-
-- parent `ts` with `slack reply --parent`
-- any message or reply `ts` with `slack react add --timestamp`
-- exact channel + `ts` with edit/delete
-
-## Sending and replying
-
-```sh
-slack message send --channel C123 --message "Deploy **complete**" --json
-echo "multiline" | slack message send --channel C123 --file - --json
-slack message send --user U123 --message "Build artifact is ready" --json
-slack reply \
-  --channel C123 \
-  --parent 1746284582.123456 \
-  --message "Investigating" \
-  --json
-```
-
-`--channel` and `--user` are mutually exclusive. Use `--blocks` only when the
-input body is already a raw Slack Block Kit JSON array. `--raw` is an output
-mode, not raw input.
-
-Markdown input is converted to Block Kit. Unsupported block-level Markdown is
-preserved as readable section text instead of being dropped.
-
-## Attribution
-
-Sent messages may include a Block Kit context block. Agent envs and `--agent`
-enable agent-mode wording; profile `attribution.enabled = true` can force plain
-slack-cli attribution even without an agent env. Override presentation with
-`--agent-emoji`, `--agent-message`, or config keys under
-`workspaces.<profile>.attribution.*`.
-
-Use `--no-agent-attribution` only when the user explicitly wants no visible
-automation attribution.
-
-## Reading, replying, and reacting
-
-```sh
-slack history list --channel C123 --max-items 50 --json
-slack history list --channel C123 --thread 1746284582.123456 --max-items 10 --json
-slack react add --channel C123 --timestamp 1746284582.123456 --emoji eyes --json
-slack react list --channel C123 --timestamp 1746284582.123456 --json
-slack react remove --channel C123 --timestamp 1746284582.123456 --emoji eyes --json
-```
-
-Thread replies are normal reaction targets: use the reply's own `ts`.
-
-## Mutations
-
-Use dry-run before high-impact sends, replies, edits, deletes, reactions, or
-file uploads.
-
-```sh
-slack message edit \
-  --channel C123 \
-  --timestamp 1746284582.123456 \
-  --message "Corrected" \
-  --json
-slack message delete \
-  --channel C123 \
-  --timestamp 1746284582.123456 \
-  --force \
-  --json
-```
-
-Deletes require `--force` unless `--dry-run` is used. The CLI requires exact
-channel + timestamp; it intentionally does not support "last message" or search
-result indexes for destructive operations.
-
-## Probationary surfaces
-
-`lookup messages` and `file upload` are implemented but hidden from help and
-shell completion. Use them only when explicitly testing those workflows, and
-read their embedded guides first:
-
-```sh
-slack agent guide search_msgs
-slack agent guide upload_file
-```
-
-## Gotchas
-
-- There is no `slack dm`, `slack thread`, or `slack reaction` command.
-- Use `slack reply`, `slack react`, and `slack message send --user`.
-- Do not parse `--plain` output in automation.
-- Do not pass Slack tokens in argv; use stdin, file, env-name, keychain, or
-  1Password.
-- Slack may return permission errors even after local scope checks; preserve the
-  structured error.
-- `missing_scope`/`no_permission` are auth failures; `channel_not_found`,
-  `user_not_found`, and `not_in_channel` are not-found errors.
-
-## When this skill isn't enough
-
-Read the embedded guide and schema. They are kept in lockstep with the binary.
-
-```sh
-slack agent guide
 slack agent schema --compact
 ```
+
+## Workflow Map
+
+| User task | Load this runbook |
+| --- | --- |
+| Send a channel message or DM | `slack agent guide send_msg` |
+| Post a realistic PR review, incident update, release note, reactions, and thread | `slack agent guide developer_review` |
+| Reply in a thread | `slack agent guide reply` |
+| Add, remove, or list reactions | `slack agent guide react` |
+| Read channel history or thread replies | `slack agent guide read_history` |
+| Search messages, especially by run ID | `slack agent guide search_msgs` |
+| Clean up live-test messages | `slack agent guide cleanup_msgs` |
+| Edit a message | `slack agent guide edit_msg` |
+| Delete a message | Requires explicit user approval; then load `slack agent guide delete_msg` |
+| Find channels, private channels, or DMs | `slack agent guide discover_destination` |
+| Find users or presence | `slack agent guide lookup_user` |
+| Send direct messages | `slack agent guide send_dm` |
+| Auth, manifests, token setup | `slack agent guide auth_setup` |
+| Config preferences | `slack agent guide config_prefs` |
+| Output modes, exit codes, parsing | `slack agent guide core_contract` |
+| High-impact or destructive operations | `slack agent guide safe_mutation` |
+| File upload testing | `slack agent guide upload_file` |
+| Command inventory | `slack agent guide inspect_schema` |
+
+## Non-Negotiables
+
+- Run `slack agent guide <workflow>` before taking action. The guide is the
+  runbook; the schema is only command inventory.
+- Keep automation on JSON output. Do not parse `--plain`.
+- Treat stdout as command data and stderr as diagnostics or structured errors.
+- Parse failures from stderr JSON: `errors[0].type`, `errors[0].message`, and
+  `errors[0].exit_code`.
+- Keep Slack timestamps as strings. They are scoped to a channel.
+- Use exact `channel` + `ts` for replies, reactions, edits, and deletes.
+- Never pass Slack tokens in argv. Use stdin, file, env-name, keychain, or a
+  configured secret reference.
+- Use real multiline stdin for multiline Slack messages. Do not type literal
+  `\n` into `--message` when the UI should show a new line.
+- Use `--dry-run` before high-visibility or destructive mutations.
+- This skill does not preapprove deletes. Treat `slack message delete` as an
+  explicit-user-approval operation outside `allowed-tools`.
+- Do not duplicate attribution text in the message body. Attribution renders as
+  a context block when enabled.
+- For live tests, use realistic content and unique run IDs. Clean up with the
+  paginated `cleanup_msgs` runbook.
+- For search cleanup, follow `meta.pagination.next_cursor` until
+  `meta.pagination.has_more` is false, then repeat the search after deletes
+  until there are no matches.
+
+## Command Name Guardrails
+
+- There is no `slack dm` command. Use `slack message send --user`.
+- There is no `slack thread` command. Use `slack reply`.
+- There is no `slack reaction` command. Use `slack react`.
+- `--raw` is an output mode. Use `--blocks` only when the input is raw Block Kit
+  JSON.
+- File upload remains probationary. Use `slack agent guide upload_file` before
+  testing it and prefer dry-run first.
+
+## Rate-Limit Guardrail
+
+The CLI returns structured `rate_limit` errors with exit code `3`. Respect
+`retry_after_seconds`.
+
+Separate CLI processes do not share proactive throttle state. Keep shell fanout
+modest unless the user explicitly asks for a rate-limit test.

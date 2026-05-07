@@ -103,11 +103,30 @@ func (c *CommandContext) WriteUserTable(users []cliUser) error {
 	columns := []table.Column[cliUser]{
 		{Name: "user", Header: "USER", Render: func(row cliUser, _ *table.RenderContext) table.Cell { return table.TextCell(row.ID) }},
 		{Name: "name", Header: "NAME", Render: func(row cliUser, _ *table.RenderContext) table.Cell { return table.TextCell(row.Name) }},
-		{Name: "presence", Header: "PRESENCE", Render: func(row cliUser, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.Presence)) }},
-		{Name: "tz", Header: "TZ", Render: func(row cliUser, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.Timezone)) }},
-		{Name: "status", Header: "STATUS", Flex: true, Render: func(row cliUser, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.StatusText)) }},
 	}
+	if usersHavePresence(users) {
+		columns = append(columns, table.Column[cliUser]{
+			Name:   "presence",
+			Header: "PRESENCE",
+			Render: func(row cliUser, _ *table.RenderContext) table.Cell {
+				return table.TextCell(ptrString(row.Presence))
+			},
+		})
+	}
+	columns = append(columns,
+		table.Column[cliUser]{Name: "tz", Header: "TZ", Render: func(row cliUser, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.Timezone)) }},
+		table.Column[cliUser]{Name: "status", Header: "STATUS", Flex: true, Render: func(row cliUser, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.StatusText)) }},
+	)
 	return c.WritePlain(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(users).String())
+}
+
+func usersHavePresence(users []cliUser) bool {
+	for _, user := range users {
+		if strings.TrimSpace(ptrString(user.Presence)) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *CommandContext) WriteReactionTable(reactions []cliReactionSummary) error {

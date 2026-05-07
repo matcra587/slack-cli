@@ -742,14 +742,15 @@ func (c *CommandContext) WritePlainResult(command string, data any, pagination *
 }
 
 func (c *CommandContext) WriteCacheClear(command string, data cacheClearData) error {
-	event := c.resultEvent(command).Str("profile", data.Profile)
-	if data.Resource != "" {
-		event = event.Str("resource", data.Resource).Bool("removed", data.Removed)
-	}
-	if data.RemovedCount > 0 {
-		event = event.Int("removed_count", data.RemovedCount)
-	}
-	event.Msg(commandMessage(command))
+	c.resultEvent(command).
+		Str("profile", data.Profile).
+		When(data.Resource != "", func(e *clog.Event) {
+			e.Str("resource", data.Resource).Bool("removed", data.Removed)
+		}).
+		When(data.RemovedCount > 0, func(e *clog.Event) {
+			e.Int("removed_count", data.RemovedCount)
+		}).
+		Msg(commandMessage(command))
 	return nil
 }
 
@@ -784,27 +785,26 @@ func addPaginationFields(event *clog.Event, pagination *Pagination) *clog.Event 
 	if pagination == nil {
 		return event
 	}
-	if pagination.Cursor != nil {
-		event = event.Str("cursor", *pagination.Cursor)
-	}
-	if pagination.NextCursor != nil {
-		event = event.Str("next_cursor", *pagination.NextCursor)
-	}
-	event = event.Bool("has_more", pagination.HasMore)
-	if pagination.MaxItems != nil {
-		event = event.Int("max_items", *pagination.MaxItems)
-	}
-	if pagination.ItemsReturned != nil {
-		event = event.Int("items_returned", *pagination.ItemsReturned)
-	}
-	return event
+	return event.
+		When(pagination.Cursor != nil, func(e *clog.Event) {
+			e.Str("cursor", *pagination.Cursor)
+		}).
+		When(pagination.NextCursor != nil, func(e *clog.Event) {
+			e.Str("next_cursor", *pagination.NextCursor)
+		}).
+		Bool("has_more", pagination.HasMore).
+		When(pagination.MaxItems != nil, func(e *clog.Event) {
+			e.Int("max_items", *pagination.MaxItems)
+		}).
+		When(pagination.ItemsReturned != nil, func(e *clog.Event) {
+			e.Int("items_returned", *pagination.ItemsReturned)
+		})
 }
 
 func addStringField(event *clog.Event, key string, value *string) *clog.Event {
-	if value == nil || *value == "" {
-		return event
-	}
-	return event.Str(key, *value)
+	return event.When(value != nil && *value != "", func(e *clog.Event) {
+		e.Str(key, *value)
+	})
 }
 
 func addSlackTimestampFields(event *clog.Event, ts string, debug bool, now time.Time) *clog.Event {
@@ -844,17 +844,15 @@ func parseSlackTimestamp(ts string) (time.Time, bool) {
 }
 
 func addBoolField(event *clog.Event, key string, value *bool) *clog.Event {
-	if value == nil {
-		return event
-	}
-	return event.Bool(key, *value)
+	return event.When(value != nil, func(e *clog.Event) {
+		e.Bool(key, *value)
+	})
 }
 
 func addIntField(event *clog.Event, key string, value *int) *clog.Event {
-	if value == nil {
-		return event
-	}
-	return event.Int(key, *value)
+	return event.When(value != nil, func(e *clog.Event) {
+		e.Int(key, *value)
+	})
 }
 
 func (c *CommandContext) WriteAuthWorkspace(command string, workspace authWorkspaceData) error {
@@ -866,19 +864,19 @@ func (c *CommandContext) WriteAuthWorkspace(command string, workspace authWorksp
 		Parts(clog.PartLevel, clog.PartMessage, clog.PartFields).
 		Str("command", command).
 		Str("workspace", workspace.Workspace).
-		Bool("authenticated", workspace.Authenticated)
-	if workspace.TokenType != "" {
-		event = event.Str("token_type", string(workspace.TokenType))
-	}
-	if workspace.TeamID != "" {
-		event = event.Str("team_id", workspace.TeamID)
-	}
-	if workspace.TeamName != "" {
-		event = event.Str("team_name", workspace.TeamName)
-	}
-	if workspace.ValidationError != "" {
-		event = event.Str("validation_error", workspace.ValidationError)
-	}
+		Bool("authenticated", workspace.Authenticated).
+		When(workspace.TokenType != "", func(e *clog.Event) {
+			e.Str("token_type", string(workspace.TokenType))
+		}).
+		When(workspace.TeamID != "", func(e *clog.Event) {
+			e.Str("team_id", workspace.TeamID)
+		}).
+		When(workspace.TeamName != "", func(e *clog.Event) {
+			e.Str("team_name", workspace.TeamName)
+		}).
+		When(workspace.ValidationError != "", func(e *clog.Event) {
+			e.Str("validation_error", workspace.ValidationError)
+		})
 	event.Msg(commandMessage(command))
 	return nil
 }
@@ -890,13 +888,13 @@ func (c *CommandContext) WriteSend(command string, data sendCommandData) error {
 	}
 	event := c.resultEventWithStyles(command, entityFieldStyle("channel", channel))
 	event = addSlackTimestampFields(event, data.Message.TS, c.debugOutput(), c.now()).
-		Bool("dry_run", data.DryRun)
+		Bool("dry_run", data.DryRun).
+		When(c.debugOutput(), func(e *clog.Event) {
+			e.Bool("attribution", data.Attribution)
+			addStringField(e, "thread_ts", data.Message.ThreadTS)
+			addStringField(e, "permalink", data.Permalink)
+		})
 	event = addStringField(event, "channel", data.Message.Channel)
-	if c.debugOutput() {
-		event = event.Bool("attribution", data.Attribution)
-		event = addStringField(event, "thread_ts", data.Message.ThreadTS)
-		event = addStringField(event, "permalink", data.Permalink)
-	}
 	event.Msg(commandMessage(command))
 	return nil
 }
@@ -960,10 +958,10 @@ func (c *CommandContext) WriteStatus(command string, data statusCommandData) err
 		Str("text", data.Text).
 		Str("emoji", data.Emoji).
 		Bool("cleared", data.Cleared).
-		Bool("dry_run", data.DryRun)
-	if data.Expiration > 0 {
-		event = event.Int64("expiration", data.Expiration)
-	}
+		Bool("dry_run", data.DryRun).
+		When(data.Expiration > 0, func(e *clog.Event) {
+			e.Int64("expiration", data.Expiration)
+		})
 	event.Msg(commandMessage(command))
 	return nil
 }
@@ -1120,10 +1118,10 @@ func (c *CommandContext) WriteWorkspaces(command string, workspaces []config.Wor
 			Str("workspace", workspace.Name).
 			Str("team_id", workspace.TeamID).
 			Str("token_type", string(workspace.TokenType)).
-			Str("token", workspace.TokenRef)
-		if workspace.TeamName != "" {
-			event = event.Str("team_name", workspace.TeamName)
-		}
+			Str("token", workspace.TokenRef).
+			When(workspace.TeamName != "", func(e *clog.Event) {
+				e.Str("team_name", workspace.TeamName)
+			})
 		event.Msg(commandMessage(command))
 	}
 	return nil
@@ -1184,13 +1182,13 @@ func (c *CommandContext) WriteConfigGet(command string, data configGetData) erro
 }
 
 func (c *CommandContext) WriteConfigMutation(command string, data configMutationData) error {
-	event := c.resultEvent(command).
+	c.resultEvent(command).
 		Str("path", human.ContractHome(data.Path)).
-		Str("key", data.Key)
-	if data.Value != "" {
-		event = event.Str("value", data.Value)
-	}
-	event.Msg(commandMessage(command))
+		Str("key", data.Key).
+		When(data.Value != "", func(e *clog.Event) {
+			e.Str("value", data.Value)
+		}).
+		Msg(commandMessage(command))
 	return nil
 }
 
@@ -1223,21 +1221,21 @@ func (c *CommandContext) WriteAuthStatus(data authStatusData) error {
 		event := logger.Info().
 			Parts(clog.PartLevel, clog.PartMessage, clog.PartFields).
 			Str("workspace", workspace.Workspace).
-			Bool("authenticated", workspace.Authenticated)
-		if workspace.TokenType != "" {
-			event = event.Str("token_type", string(workspace.TokenType))
-		}
-		if workspace.TeamID != "" {
-			applyTeamIDStyle(logger, workspace.TeamID)
-			event = event.Str("team_id", workspace.TeamID)
-		}
-		if workspace.TeamName != "" {
-			event = event.Str("team_name", workspace.TeamName)
-		}
-		event = event.Bool("valid", state == "valid")
-		if workspace.ValidationError != "" {
-			event = event.Str("validation_error", workspace.ValidationError)
-		}
+			Bool("authenticated", workspace.Authenticated).
+			When(workspace.TokenType != "", func(e *clog.Event) {
+				e.Str("token_type", string(workspace.TokenType))
+			}).
+			When(workspace.TeamID != "", func(e *clog.Event) {
+				applyTeamIDStyle(logger, workspace.TeamID)
+				e.Str("team_id", workspace.TeamID)
+			}).
+			When(workspace.TeamName != "", func(e *clog.Event) {
+				e.Str("team_name", workspace.TeamName)
+			}).
+			Bool("valid", state == "valid").
+			When(workspace.ValidationError != "", func(e *clog.Event) {
+				e.Str("validation_error", workspace.ValidationError)
+			})
 		event.Msg("auth status")
 	}
 	return nil
@@ -1363,11 +1361,15 @@ func authCLIError(message string) CLIError {
 }
 
 func (c *CommandContext) stdoutLogger() *clog.Logger {
-	return clog.New(clog.NewOutput(c.stdout(), c.ColorMode))
+	logger := clog.New(clog.NewOutput(c.stdout(), c.ColorMode))
+	logger.SetOmitZero(true)
+	return logger
 }
 
 func (c *CommandContext) stderrLogger() *clog.Logger {
-	return clog.New(clog.NewOutput(c.stderr(), c.ColorMode))
+	logger := clog.New(clog.NewOutput(c.stderr(), c.ColorMode))
+	logger.SetOmitZero(true)
+	return logger
 }
 
 func (c *CommandContext) stdout() io.Writer {

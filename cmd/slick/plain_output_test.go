@@ -41,7 +41,7 @@ func TestPlainOutputForHistorySearchListsAndReactions(t *testing.T) {
 		{args: []string{"--plain", "lookup", "messages", "--query", "xxx"}, headers: []string{"TS", "CHANNEL", "USER", "TEXT"}, row: "alerts"},
 		{args: []string{"--plain", "lookup", "channel"}, headers: []string{"CHANNEL", "NAME", "TYPE", "MEMBERS", "TOPIC"}, row: "Ops alerts"},
 		{args: []string{"--plain", "lookup", "channel", "--types", "im"}, headers: []string{"CHANNEL", "TYPE", "USER"}, row: "D123"},
-		{args: []string{"--plain", "lookup", "user"}, headers: []string{"USER", "NAME", "PRESENCE", "TZ", "STATUS"}, row: "Deploying"},
+		{args: []string{"--plain", "lookup", "user"}, headers: []string{"USER", "NAME", "TZ", "STATUS"}, row: "Deploying"},
 		{args: []string{"--plain", "react", "list", "--channel", "C123", "--timestamp", "1746284582.123456"}, headers: []string{"EMOJI", "COUNT", "USERS"}, row: "thumbsup"},
 	}
 	for _, tt := range commands {

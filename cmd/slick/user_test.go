@@ -45,6 +45,65 @@ func TestLookupUserListsAndShowsInfo(t *testing.T) {
 	}
 }
 
+func TestLookupUserHidesEmptyPresence(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"users.list": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"members":[{"id":"U123","name":"matt","tz":"America/Toronto"}]}`)
+		},
+		"users.info": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"user":{"id":"U123","name":"matt","tz":"America/Toronto"}}`)
+		},
+		"users.getPresence": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"presence":""}`)
+		},
+	})
+	defer server.Close()
+
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+		"",
+		[]string{"--plain", "lookup", "user", "--max-items", "1", "--presence"},
+	)
+	if err != nil {
+		t.Fatalf("lookup user returned error: %v\nstderr=%s", err, stderr)
+	}
+	if strings.Contains(stdout, "PRESENCE") {
+		t.Fatalf("stdout = %s, should hide all-empty presence column", stdout)
+	}
+
+	stdout, stderr, err = executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+		"",
+		[]string{"lookup", "user", "--user", "U123", "--presence"},
+	)
+	if err != nil {
+		t.Fatalf("lookup user info returned error: %v\nstderr=%s", err, stderr)
+	}
+	if strings.Contains(stdout, `"presence"`) {
+		t.Fatalf("stdout = %s, should omit empty presence field", stdout)
+	}
+}
+
+func TestLookupUserShowsPresenceColumnWhenAnyUserHasPresence(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"users.list": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"members":[{"id":"U123","name":"matt","presence":"active"},{"id":"U456","name":"deploy"}]}`)
+		},
+	})
+	defer server.Close()
+
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+		"",
+		[]string{"--plain", "lookup", "user", "--max-items", "2", "--presence"},
+	)
+	if err != nil {
+		t.Fatalf("lookup user returned error: %v\nstderr=%s", err, stderr)
+	}
+	for _, want := range []string{"PRESENCE", "active"} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("stdout = %s, want %q", stdout, want)
+		}
+	}
+}
+
 func TestLookupUserListExcludesDeletedUsersByDefault(t *testing.T) {
 	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
 		"users.list": func(testutil.SlackRequest) testutil.SlackResponse {

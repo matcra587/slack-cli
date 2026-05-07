@@ -108,7 +108,9 @@ func runUserInfoValue(cmd *cobra.Command, runtime *RootRuntime, command, userID 
 		if err != nil {
 			return writeCommandError(ctx, cliErrorFromSlack(err))
 		}
-		result.Presence = stringPtr(presenceResult.Presence)
+		if strings.TrimSpace(presenceResult.Presence) != "" {
+			result.Presence = stringPtr(presenceResult.Presence)
+		}
 	}
 	return ctx.WriteResult(command, userInfoData{User: result})
 }

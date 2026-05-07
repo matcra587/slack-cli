@@ -162,8 +162,8 @@ func TestConfigInitTTYPromptsBeforeOverwritingExistingConfig(t *testing.T) {
 	if !strings.Contains(stderr, "Overwrite existing config?") {
 		t.Fatalf("stderr prompts = %q, want overwrite prompt", stderr)
 	}
-	if !strings.Contains(stdout, "written=false") {
-		t.Fatalf("stdout = %s, want unchanged result", stdout)
+	if strings.Contains(stdout, "written=false") {
+		t.Fatalf("stdout = %s, should omit false written field", stdout)
 	}
 	raw, err := os.ReadFile(configPath)
 	if err != nil {

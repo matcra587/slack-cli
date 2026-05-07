@@ -201,10 +201,15 @@ func completeCachedUsers(shell, profile string) bool {
 	if !readCompletionCache(profile, "users", &payload) {
 		return false
 	}
+	printed := false
 	for _, user := range payload.Users {
+		if !completionUserActive(user) {
+			continue
+		}
 		printCompletion(shell, user.ID, user.Name)
+		printed = true
 	}
-	return true
+	return printed
 }
 
 func completeCachedChannels(shell, profile string) bool {
@@ -224,6 +229,10 @@ func readCompletionCache(profile, resource string, target any) bool {
 		return false
 	}
 	return json.Unmarshal(entry.Data, target) == nil
+}
+
+func completionUserActive(user cliUser) bool {
+	return user.Deleted == nil || !*user.Deleted
 }
 
 func slackCompletionClient(token, baseURL string) *slackgo.Client {

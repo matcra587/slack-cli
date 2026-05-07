@@ -111,7 +111,7 @@ func TestCacheClearRemovesOneResource(t *testing.T) {
 
 func TestCompletionUsesCachedUsersAndChannelsBeforeSlackRequests(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	if _, err := slackcache.Write("default", "users", json.RawMessage(`{"users":[{"id":"UCACHED","name":"cached-user"}]}`)); err != nil {
+	if _, err := slackcache.Write("default", "users", json.RawMessage(`{"users":[{"id":"UCACHED","name":"cached-user","deleted":false},{"id":"UDELETED","name":"gone","deleted":true}]}`)); err != nil {
 		t.Fatalf("write users cache: %v", err)
 	}
 	if _, err := slackcache.Write("default", "channels", json.RawMessage(`{"channels":[{"id":"CCACHED","name":"cached-channel"}]}`)); err != nil {
@@ -126,6 +126,9 @@ func TestCompletionUsesCachedUsersAndChannelsBeforeSlackRequests(t *testing.T) {
 	userCandidates := captureSlackCompletion(t, handler, "zsh", "user", nil)
 	if !slices.Contains(userCandidates, "UCACHED") {
 		t.Fatalf("user completion = %#v, want cached user", userCandidates)
+	}
+	if slices.Contains(userCandidates, "UDELETED") {
+		t.Fatalf("user completion = %#v, did not want deleted cached user", userCandidates)
 	}
 	channelCandidates := captureSlackCompletion(t, handler, "fish", "channel", nil)
 	if !slices.Contains(channelCandidates, "CCACHED\tcached-channel") {

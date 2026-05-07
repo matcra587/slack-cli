@@ -222,7 +222,6 @@ func TestWriteResultPlainMessageSendUsesClogFieldsAndDebugDetails(t *testing.T) 
 		"command=message.send",
 		"channel=C7N2Q8L4P",
 		"ts=1746284582.123456",
-		"dry_run=false",
 		"attribution=true",
 		"time=",
 		"age=",
@@ -234,6 +233,9 @@ func TestWriteResultPlainMessageSendUsesClogFieldsAndDebugDetails(t *testing.T) 
 	}
 	if !regexp.MustCompile(`channel.*\x1b\[38;(?:2|5);[^m]*mC7N2Q8L4P`).MatchString(got) {
 		t.Fatalf("stdout = %q, want hash-colored channel value", got)
+	}
+	if strings.Contains(plain, "dry_run=false") {
+		t.Fatalf("stdout = %q, should omit false dry_run field", got)
 	}
 }
 
@@ -330,9 +332,8 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				"channel=C7N2Q8L4P",
 				"ts=1746284582.123456",
 				"emoji=thumbsup",
-				"removed=false",
-				"dry_run=false",
 			},
+			deny: []string{"removed=false", "dry_run=false"},
 		},
 		{
 			name: "config init",
@@ -469,7 +470,6 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 		"name=alerts",
 		"type=channel",
 		"is_member=true",
-		"is_archived=false",
 		"topic=\"Ops alerts\"",
 		"num_members=12",
 	} {
@@ -477,7 +477,7 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 			t.Fatalf("stdout = %q, want fragment %q", got, fragment)
 		}
 	}
-	if strings.Contains(plain, "CHANNEL") || strings.Contains(plain, "{") {
+	if strings.Contains(plain, "CHANNEL") || strings.Contains(plain, "{") || strings.Contains(plain, "is_archived=false") {
 		t.Fatalf("stdout = %q, want clog event output for singleton lookup", got)
 	}
 
@@ -501,7 +501,6 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 		"command=lookup.user",
 		"user=U7N2Q8L4P",
 		"name=matt",
-		"deleted=false",
 		"timezone=America/Toronto",
 		"presence=active",
 		"status_text=Deploying",
@@ -510,7 +509,7 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 			t.Fatalf("stdout = %q, want fragment %q", got, fragment)
 		}
 	}
-	if strings.Contains(plain, "USER") || strings.Contains(plain, "{") {
+	if strings.Contains(plain, "USER") || strings.Contains(plain, "{") || strings.Contains(plain, "deleted=false") {
 		t.Fatalf("stdout = %q, want clog event output for singleton lookup", got)
 	}
 }

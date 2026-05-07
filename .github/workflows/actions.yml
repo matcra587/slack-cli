@@ -19,7 +19,7 @@ permissions: {}
 jobs:
   workflow-lint:
     name: Workflow lint
-    uses: matcra587/github-actions/.github/workflows/workflow-lint.yml@8b104684e72bef79fca78b294accb5f789d3f202
+    uses: matcra587/github-actions/.github/workflows/workflow-lint.yml@67f0de0d0ceebe69895e868207c04e5c66b3bde8
     permissions:
       contents: read
       # security-events: write # Required for zizmor SARIF upload.

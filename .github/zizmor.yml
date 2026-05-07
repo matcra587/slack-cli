@@ -1,0 +1,6 @@
+rules:
+  ref-version-mismatch:
+    ignore:
+      # Package-scoped monorepo tag; the audited SHA is pointed to by
+      # homebrew/v0.1.0, but zizmor resolves version comments as root refs.
+      - release.yml:96

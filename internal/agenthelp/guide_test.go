@@ -77,6 +77,21 @@ func TestGuideDocumentsCoreContract(t *testing.T) {
 	}
 }
 
+func TestGuideDocumentsConfigRunbook(t *testing.T) {
+	config := agenthelp.GetGuideSection("config_prefs")
+	for _, fragment := range []string{
+		"slick config init",
+		"config file not found",
+		"default_channel",
+		"attribution.message",
+		"~/.config/slick/config.toml",
+	} {
+		if !strings.Contains(config, fragment) {
+			t.Fatalf("config_prefs guide missing %q:\n%s", fragment, config)
+		}
+	}
+}
+
 func TestGuideDocumentsPromotedReplyAndReactCommands(t *testing.T) {
 	react := agenthelp.GetGuideSection("react")
 	for _, fragment := range []string{"slick react add", "slick react remove", "slick react list", "react.add", "react.remove", "react.list"} {
@@ -211,6 +226,19 @@ func TestGuideDocumentsOperationalRunbooks(t *testing.T) {
 			t.Fatalf("safe_mutation guide missing %q:\n%s", fragment, safeMutation)
 		}
 	}
+
+	cacheMetadata := agenthelp.GetGuideSection("cache_metadata")
+	for _, fragment := range []string{
+		"slick cache users",
+		"slick cache channels",
+		"--refresh",
+		"--ttl-minutes 10080",
+		"~/.cache/slick/<profile>/",
+	} {
+		if !strings.Contains(cacheMetadata, fragment) {
+			t.Fatalf("cache_metadata guide missing %q:\n%s", fragment, cacheMetadata)
+		}
+	}
 }
 
 func TestWorkflowCatalogIncludesOperationalRunbooks(t *testing.T) {
@@ -218,7 +246,7 @@ func TestWorkflowCatalogIncludesOperationalRunbooks(t *testing.T) {
 	for _, name := range agenthelp.WorkflowNames() {
 		names[name] = true
 	}
-	for _, name := range []string{"cleanup_msgs", "developer_review"} {
+	for _, name := range []string{"cache_metadata", "cleanup_msgs", "developer_review"} {
 		if !names[name] {
 			t.Fatalf("workflow names = %#v, want %s", names, name)
 		}

@@ -108,6 +108,11 @@ func TestCompletionGeneratorAnnotatesCommonSlackFlags(t *testing.T) {
 	if got := configSet.DynamicArgs; !slices.Equal(got, []string{"config_key", "config_value"}) {
 		t.Fatalf("config set dynamic args = %#v, want config_key/config_value", got)
 	}
+
+	cacheClear := completionSub(t, gen.Subs, "cache", "clear")
+	if got := cacheClear.DynamicArgs; !slices.Equal(got, []string{"cache_resource"}) {
+		t.Fatalf("cache clear dynamic args = %#v, want cache_resource", got)
+	}
 }
 
 func TestCompletionDoesNotUseCobraNativeCompletionHooks(t *testing.T) {
@@ -130,7 +135,7 @@ func TestCompletionHandlerCompletesSlackResourcesAndLocalConfig(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"channels":[{"id":"C123","name":"alerts"},{"id":"D123","is_im":true,"user":"U123"}]}`)
 		},
 		"users.list": func(testutil.SlackRequest) testutil.SlackResponse {
-			return testutil.JSONResponse(`{"ok":true,"members":[{"id":"U123","name":"matt"},{"id":"U456","name":"deploy-bot"}]}`)
+			return testutil.JSONResponse(`{"ok":true,"members":[{"id":"U123","name":"matt","deleted":false},{"id":"U456","name":"deploy-bot","deleted":false},{"id":"UDELETED","name":"gone","deleted":true}]}`)
 		},
 	})
 	defer server.Close()
@@ -169,6 +174,9 @@ func TestCompletionHandlerCompletesSlackResourcesAndLocalConfig(t *testing.T) {
 				shell = "fish"
 			}
 			got := captureSlackCompletion(t, handler, shell, tt.kind, tt.args)
+			if tt.kind == "user" && slices.Contains(got, "UDELETED") {
+				t.Fatalf("completion %s/%s = %#v, did not want deleted users", shell, tt.kind, got)
+			}
 			for _, want := range tt.want {
 				if !slices.Contains(got, want) {
 					t.Fatalf("completion %s/%s = %#v, want %q", shell, tt.kind, got, want)

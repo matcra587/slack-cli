@@ -115,6 +115,7 @@ func GenerateSchema(root *cobra.Command) Schema {
 			"Use --dry-run before destructive or high-visibility mutations.",
 			"Use --compact when another tool expects command-specific JSON only.",
 			"Follow meta.pagination.next_cursor while meta.pagination.has_more is true.",
+			"Prime users and channels with cache commands before repeated lookup or completion-heavy work.",
 			"Load the workflow runbook with slick agent guide <workflow> before operating.",
 		},
 		AntiPatterns: []string{
@@ -137,7 +138,10 @@ func inputShapes() map[string][]string {
 		"react.remove":   {"--channel <id|alias>", "--timestamp <slack-ts>", "--emoji <name|:name:>", "--dry-run"},
 		"react.list":     {"--channel <id|alias>", "--timestamp <slack-ts>"},
 		"lookup.channel": {"--channel <id|alias> for one conversation", "--types <public_channel,private_channel,im,mpim>", "--max-items <n>", "--filter <text>"},
-		"lookup.user":    {"--user <id|alias> for one user", "--max-items <n>", "--filter <text>", "--presence"},
+		"lookup.user":    {"--user <id|alias> for one user", "--max-items <n>", "--filter <text>", "--presence", "--include-deleted"},
+		"cache.users":    {"--refresh", "--ttl-minutes <n>", "--page-size <n>", "--max-pages <n>", "active users only"},
+		"cache.channels": {"--refresh", "--ttl-minutes <n>", "--page-size <n>", "--max-pages <n>", "active public/private/DM/MPIM conversations"},
+		"cache.clear":    {"optional resource: users or channels", "no resource clears all cache files for the profile"},
 		"history.list":   {"--channel <id|alias>", "--max-items <n>", "--since <slack-ts>", "--until <slack-ts>", "--user <id>", "--thread <ts>"},
 		"file.upload":    {"--channel <id|alias>", "--file <path|->", "--filename <name> required for stdin", "--message <markdown>", "--blocks Block Kit JSON array for --message comment"},
 		"manifest":       {"template --name <name>", "template --format <json|yaml>", "local manifest generation only"},
@@ -172,6 +176,7 @@ func examples() map[string][]string {
 		"status":   {"slick status set --text 'Heads down' --emoji :headphones: --expires-in 2h", "slick status clear"},
 		"history":  {"slick history list --channel C123 --max-items 50"},
 		"lookup":   {"slick lookup channel --max-items 20", "slick lookup channel --types im", "slick lookup user --presence", "slick lookup user --user U123", "slick lookup messages --query 'deploy failed' --max-items 10"},
+		"cache":    {"slick cache users", "slick cache channels", "slick cache users --refresh", "slick cache clear users"},
 		"file":     {"probationary, not promoted: tar czf - build/ | slick file upload --channel C123 --file - --filename build.tgz"},
 		"manifest": {"slick manifest template --name example --format json > manifest.json", "slick manifest template --name example --format yaml > manifest.yaml"},
 		"auth":     {"slick auth login", "printf '%s\\n' \"$SLACK_TOKEN\" | slick auth login --workspace default --method token --token-stdin", "slick auth login --workspace default --method token --token-file ./slack-token.txt", "slick auth login --workspace default --method token --token-env SLACK_CLI_TOKEN_DEFAULT"},
@@ -183,7 +188,9 @@ func schemaEnvVars() []string {
 	env := []string{
 		"SLACK_CLI_TOKEN_<PROFILE>",
 		"SLACK_CLI_TOKEN",
+		"SLICK_CONFIG",
 		"SLACK_CLI_CONFIG",
+		"XDG_CACHE_HOME",
 		"SLACK_CLI_BASE_URL",
 		"SLACK_CLI_CALLBACK_PORT",
 	}

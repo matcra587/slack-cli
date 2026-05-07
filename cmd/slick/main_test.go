@@ -59,30 +59,37 @@ func TestNewRootCommandDefinesPersistentFlags(t *testing.T) {
 
 func TestDefaultConfigPathUsesXDGConfigDirAndEnvOverride(t *testing.T) {
 	override := filepath.Join(t.TempDir(), "custom.toml")
+	t.Setenv("SLICK_CONFIG", override)
+	if got := defaultConfigPath(); got != override {
+		t.Fatalf("defaultConfigPath SLICK_CONFIG override = %q, want %q", got, override)
+	}
+
+	t.Setenv("SLICK_CONFIG", "")
 	t.Setenv("SLACK_CLI_CONFIG", override)
 	if got := defaultConfigPath(); got != override {
-		t.Fatalf("defaultConfigPath override = %q, want %q", got, override)
+		t.Fatalf("defaultConfigPath legacy SLACK_CLI_CONFIG override = %q, want %q", got, override)
 	}
 
 	overrideDir := t.TempDir()
 	t.Setenv("SLACK_CLI_CONFIG_DIR", overrideDir)
-	t.Setenv("SLACK_CLI_CONFIG", "$SLACK_CLI_CONFIG_DIR/custom.toml")
+	t.Setenv("SLICK_CONFIG", "$SLACK_CLI_CONFIG_DIR/custom.toml")
 	if got, want := defaultConfigPath(), filepath.Join(overrideDir, "custom.toml"); got != want {
 		t.Fatalf("defaultConfigPath expanded override = %q, want %q", got, want)
 	}
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("SLACK_CLI_CONFIG", "~/custom.toml")
+	t.Setenv("SLICK_CONFIG", "~/custom.toml")
 	if got, want := defaultConfigPath(), filepath.Join(home, "custom.toml"); got != want {
 		t.Fatalf("defaultConfigPath home override = %q, want %q", got, want)
 	}
 
+	t.Setenv("SLICK_CONFIG", "")
 	t.Setenv("SLACK_CLI_CONFIG", "")
 	configHome := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", configHome)
 	got := defaultConfigPath()
-	want := filepath.Join(configHome, "slack-cli", "config.toml")
+	want := filepath.Join(configHome, "slick", "config.toml")
 	if got != want {
 		t.Fatalf("defaultConfigPath = %q, want %q", got, want)
 	}
@@ -91,7 +98,7 @@ func TestDefaultConfigPathUsesXDGConfigDirAndEnvOverride(t *testing.T) {
 	home = t.TempDir()
 	t.Setenv("HOME", home)
 	got = defaultConfigPath()
-	want = filepath.Join(home, ".config", "slack-cli", "config.toml")
+	want = filepath.Join(home, ".config", "slick", "config.toml")
 	if got != want {
 		t.Fatalf("defaultConfigPath XDG fallback = %q, want %q", got, want)
 	}
@@ -550,6 +557,68 @@ name = "Default"
 	}
 	if !strings.Contains(stderr.String(), "duplicate workspace profile") {
 		t.Fatalf("stderr = %q, want duplicate workspace profile error", stderr.String())
+	}
+}
+
+func TestCommandSurfacesMissingConfigWithInitRemediation(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	configPath := filepath.Join(home, ".config", "slick", "missing.toml")
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd := NewRootCommand(
+		WithConfigPath(configPath),
+		WithCredentialStore(config.NewMemoryCredentialStore()),
+		WithIO(strings.NewReader(""), stdout, stderr),
+		WithTTY(false),
+	)
+	cmd.SetArgs([]string{"message", "send", "--channel", "C123", "--message", "hello"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute returned nil error, want missing config error")
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	for _, want := range []string{"config file not found", "~/.config/slick/missing.toml", "slick config init"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Fatalf("stderr = %q, want %q", stderr.String(), want)
+		}
+	}
+	if strings.Contains(stderr.String(), home) {
+		t.Fatalf("stderr = %q, should not expose absolute home path %q", stderr.String(), home)
+	}
+	if strings.Contains(stderr.String(), "open ") {
+		t.Fatalf("stderr = %q, should not expose raw open error", stderr.String())
+	}
+}
+
+func TestConfigInitWorksWhenDefaultConfigIsMissing(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd := NewRootCommand(
+		WithConfigPath(configPath),
+		WithCredentialStore(config.NewMemoryCredentialStore()),
+		WithIO(strings.NewReader(""), stdout, stderr),
+		WithTTY(false),
+	)
+	cmd.SetArgs([]string{
+		"config", "init",
+		"--profile", "default",
+		"--default-channel", "C123",
+	})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("config init returned error: %v\nstderr=%s", err, stderr.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	if _, err := os.Stat(configPath); err != nil {
+		t.Fatalf("config init did not write %s: %v", configPath, err)
 	}
 }
 

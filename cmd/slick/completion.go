@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"os"
 	"sort"
@@ -11,6 +12,7 @@ import (
 	cobracli "github.com/gechr/clib/cli/cobra"
 	"github.com/gechr/clib/complete"
 	"github.com/matcra587/slack-cli/internal/agenthelp"
+	slackcache "github.com/matcra587/slack-cli/internal/cache"
 	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
@@ -87,6 +89,7 @@ func slackCompletionToken(runtime *RootRuntime, cfg *config.Config) string {
 }
 
 func slackCompletionHandler(token string, cfg *config.Config, baseURL string) complete.Handler {
+	profileName := slackCompletionProfileName(cfg)
 	return func(shell, kind string, args []string) {
 		switch kind {
 		case "workspace":
@@ -105,6 +108,9 @@ func slackCompletionHandler(token string, cfg *config.Config, baseURL string) co
 				return
 			}
 			if strings.HasSuffix(args[0], ".default_channel") {
+				if completeCachedChannels(shell, profileName) {
+					return
+				}
 				if token == "" {
 					return
 				}
@@ -120,6 +126,19 @@ func slackCompletionHandler(token string, cfg *config.Config, baseURL string) co
 				printCompletion(shell, workflow, "")
 			}
 			return
+		case "cache_resource":
+			for _, resource := range cacheResources {
+				printCompletion(shell, resource, "")
+			}
+			return
+		case "channel":
+			if completeCachedChannels(shell, profileName) {
+				return
+			}
+		case "user":
+			if completeCachedUsers(shell, profileName) {
+				return
+			}
 		}
 
 		if token == "" {
@@ -133,15 +152,20 @@ func slackCompletionHandler(token string, cfg *config.Config, baseURL string) co
 		case "channel":
 			completeSlackChannels(shell, client)
 		case "user":
-			users, err := client.GetUsersContext(ctx, slackgo.GetUsersOptionLimit(100))
-			if err != nil {
-				return
-			}
-			for _, user := range users {
-				printCompletion(shell, user.ID, user.Name)
-			}
+			completeSlackUsers(ctx, shell, client)
 		}
 	}
+}
+
+func slackCompletionProfileName(cfg *config.Config) string {
+	if cfg == nil {
+		return "default"
+	}
+	profile, err := cfg.ResolveWorkspace("")
+	if err != nil {
+		return "default"
+	}
+	return profile.Name
 }
 
 func completeSlackChannels(shell string, client *slackgo.Client) {
@@ -157,6 +181,49 @@ func completeSlackChannels(shell string, client *slackgo.Client) {
 	for _, channel := range channels {
 		printCompletion(shell, channel.ID, completionChannelDescription(channel))
 	}
+}
+
+func completeSlackUsers(ctx context.Context, shell string, client *slackgo.Client) {
+	users, err := client.GetUsersContext(ctx, slackgo.GetUsersOptionLimit(100))
+	if err != nil {
+		return
+	}
+	for _, user := range users {
+		if user.Deleted {
+			continue
+		}
+		printCompletion(shell, user.ID, user.Name)
+	}
+}
+
+func completeCachedUsers(shell, profile string) bool {
+	var payload cachedUsersPayload
+	if !readCompletionCache(profile, "users", &payload) {
+		return false
+	}
+	for _, user := range payload.Users {
+		printCompletion(shell, user.ID, user.Name)
+	}
+	return true
+}
+
+func completeCachedChannels(shell, profile string) bool {
+	var payload cachedChannelsPayload
+	if !readCompletionCache(profile, "channels", &payload) {
+		return false
+	}
+	for _, channel := range payload.Channels {
+		printCompletion(shell, channel.ID, completionChannelDescriptionFromCLI(channel))
+	}
+	return true
+}
+
+func readCompletionCache(profile, resource string, target any) bool {
+	entry, ok, stale, err := slackcache.Read(profile, resource, time.Duration(slackMetadataCacheTTLMinutes)*time.Minute)
+	if err != nil || !ok || stale {
+		return false
+	}
+	return json.Unmarshal(entry.Data, target) == nil
 }
 
 func slackCompletionClient(token, baseURL string) *slackgo.Client {
@@ -191,6 +258,13 @@ func completionChannelDescription(channel slackgo.Channel) string {
 	return ""
 }
 
+func completionChannelDescriptionFromCLI(channel cliChannel) string {
+	if channel.Name != "" {
+		return channel.Name
+	}
+	return ptrString(channel.User)
+}
+
 func printCompletion(shell, value, desc string) {
 	if value == "" {
 		return
@@ -211,6 +285,7 @@ func extendSlackCompletionMetadata(root *cobra.Command) {
 	extendLookupCompletionFlags(root)
 	extendFileCompletionFlags(root)
 	extendStatusCompletionFlags(root)
+	extendCacheCompletionMetadata(root)
 	extendManifestCompletionFlags(root)
 	extendConfigCompletionArgs(root)
 	extendAgentCompletionArgs(root)
@@ -308,6 +383,7 @@ func extendLookupCompletionFlags(root *cobra.Command) {
 	extendMaxItemsFlag(user)
 	extendCursorFlag(user)
 	cobracli.Extend(flag(user, "filter"), cobracli.FlagExtra{Placeholder: "TEXT", Terse: "filter"})
+	cobracli.Extend(flag(user, "include-deleted"), cobracli.FlagExtra{Terse: "include deleted users"})
 
 	messages := commandPath(root, "lookup", "messages")
 	cobracli.Extend(flag(messages, "query"), cobracli.FlagExtra{Placeholder: "QUERY", Terse: "search query"})
@@ -380,6 +456,19 @@ func extendConfigCompletionArgs(root *cobra.Command) {
 func extendAgentCompletionArgs(root *cobra.Command) {
 	if cmd := commandPath(root, "agent", "guide"); cmd != nil {
 		cmd.Annotations = mergeClibAnnotation(cmd.Annotations, "dynamic-args='guide_workflow'")
+	}
+}
+
+func extendCacheCompletionMetadata(root *cobra.Command) {
+	for _, path := range [][]string{{"cache", "users"}, {"cache", "channels"}} {
+		cmd := commandPath(root, path...)
+		cobracli.Extend(flag(cmd, "refresh"), cobracli.FlagExtra{Terse: "refresh"})
+		cobracli.Extend(flag(cmd, "ttl-minutes"), cobracli.FlagExtra{Placeholder: "MINUTES", Terse: "TTL"})
+		cobracli.Extend(flag(cmd, "page-size"), cobracli.FlagExtra{Placeholder: "N", Terse: "page size"})
+		cobracli.Extend(flag(cmd, "max-pages"), cobracli.FlagExtra{Placeholder: "N", Terse: "max pages"})
+	}
+	if cmd := commandPath(root, "cache", "clear"); cmd != nil {
+		cmd.Annotations = mergeClibAnnotation(cmd.Annotations, "dynamic-args='cache_resource'")
 	}
 }
 

@@ -112,12 +112,13 @@ slick workspace list
 
 ## Configure Preferences
 
-Config uses XDG config home unless `SLACK_CLI_CONFIG` is set. By default that is
-`~/.config/slack-cli/config.toml`. Path inputs such as
+Config uses XDG config home unless `SLICK_CONFIG` is set. By default that is
+`~/.config/slick/config.toml`. Path inputs such as `SLICK_CONFIG`,
 `SLACK_CLI_CONFIG`, `--token-file`, and `--file` expand `~` and environment
-variables.
+variables. `SLACK_CLI_CONFIG` remains as a legacy config-path override.
 `config` manages preferences, not auth. Use `auth login`, `auth status`,
 `auth switch`, and `auth logout` for credentials.
+If the config file does not exist yet, run `slick config init`.
 
 ```sh
 slick config init
@@ -226,9 +227,19 @@ slick lookup messages --query "deploy failed" --max-items 10
 slick lookup channel --max-items 20
 slick lookup channel --types im
 slick lookup user --presence
+slick cache users
+slick cache channels
 ```
 
 History returns parent messages by default. Fetch thread replies with `--thread`.
+`lookup user` list mode excludes deleted and deactivated users by default. Add
+`--include-deleted` when you need the full `users.list` result.
+
+`cache users` and `cache channels` store active metadata under
+`${XDG_CACHE_HOME:-~/.cache}/slick/<profile>/`. The default freshness window is
+one day. Use `--refresh` to force a Slack API fetch, `--ttl-minutes 10080` for a
+weekly window, and `cache clear [users|channels]` to remove stale entries. Shell
+completion prefers fresh cached users and channels before live Slack API calls.
 
 Slack scope checks are best-effort when token scope metadata is available. If
 Slack rejects a request during the target API call, common permission outcomes

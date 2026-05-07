@@ -45,6 +45,51 @@ func TestLookupUserListsAndShowsInfo(t *testing.T) {
 	}
 }
 
+func TestLookupUserListExcludesDeletedUsersByDefault(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"users.list": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"members":[{"id":"UACTIVE","name":"active","deleted":false},{"id":"UDELETED","name":"deleted","deleted":true}]}`)
+		},
+	})
+	defer server.Close()
+
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+		"",
+		[]string{"lookup", "user", "--max-items", "2"},
+	)
+	if err != nil {
+		t.Fatalf("lookup user returned error: %v\nstderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, "UACTIVE") {
+		t.Fatalf("stdout = %s, want active user", stdout)
+	}
+	if strings.Contains(stdout, "UDELETED") {
+		t.Fatalf("stdout = %s, did not want deleted user by default", stdout)
+	}
+}
+
+func TestLookupUserListCanIncludeDeletedUsers(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"users.list": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"members":[{"id":"UACTIVE","name":"active","deleted":false},{"id":"UDELETED","name":"deleted","deleted":true}]}`)
+		},
+	})
+	defer server.Close()
+
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+		"",
+		[]string{"lookup", "user", "--max-items", "2", "--include-deleted"},
+	)
+	if err != nil {
+		t.Fatalf("lookup user --include-deleted returned error: %v\nstderr=%s", err, stderr)
+	}
+	for _, want := range []string{"UACTIVE", "UDELETED"} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("stdout = %s, want %s", stdout, want)
+		}
+	}
+}
+
 func TestLookupUserMapsMissingUserToNotFound(t *testing.T) {
 	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
 		"users.info": func(testutil.SlackRequest) testutil.SlackResponse {

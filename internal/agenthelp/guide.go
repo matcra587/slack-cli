@@ -85,6 +85,11 @@ var guideWorkflows = []GuideWorkflow{
 		Steps:       []string{"Use lookup user to list users or inspect one user", "Fetch presence, status, and timezone when needed", "Prefer stable user IDs", "Use --presence only when the token has presence visibility"},
 	},
 	{
+		Name:        "cache_metadata",
+		Description: "Prime users and channels for repeated lookup and shell completion",
+		Steps:       []string{"Run cache users and cache channels once per work session", "Use --refresh when Slack membership changed", "Use --ttl-minutes to choose daily or weekly refresh windows", "Clear stale resources with cache clear users or cache clear channels"},
+	},
+	{
 		Name:        "send_dm",
 		Description: "Send direct messages while handling token limits",
 		Steps:       []string{"Use message send --user with user IDs, aliases, or email addresses", "Repeat --user or comma-separate values for group DMs", "Slack decides whether the active bot-token or user-token profile may open the DM", "Handle structured errors where Slack rejects the target", "Use a user-token profile for DM-anyone workflows when bot-token limits get in the way"},
@@ -147,6 +152,7 @@ perform the task, what to parse, and which quirks matter.
 - Runbook: use this to change profile preferences, not credentials.
 - Inputs: profile name, preference key, desired value, and whether replacement is intentional.
 - Create preferences: run ` + "`slick config init`" + `. It does not ask for tokens, token type, workspace ID, or workspace display name.
+- Missing config: if any command reports ` + "`config file not found`" + `, run ` + "`slick config init`" + ` before retrying.
 - Set default channel: run ` + "`slick config set workspaces.<profile>.default_channel <channel-id>`" + `.
 - Set attribution text: run ` + "`slick config set workspaces.<profile>.attribution.message <text>`" + `.
 - Set attribution emoji: run ` + "`slick config set workspaces.<profile>.attribution.emoji <emoji>`" + `.
@@ -155,7 +161,7 @@ perform the task, what to parse, and which quirks matter.
 - Parse: config JSON shows effective preferences but must not expose credential material.
 - Quirks: auth commands own credentials: ` + "`slick auth login`" + `, ` + "`slick auth status`" + `, ` + "`slick auth switch`" + `, and ` + "`slick auth logout`" + `.
 - Quirks: default channel is the fallback for ` + "`slick message send`" + ` when neither ` + "`--channel`" + ` nor ` + "`--user`" + ` is passed.
-- Quirks: config path uses XDG config home by default, including on macOS. Default is ` + "`~/.config/slack-cli/config.toml`" + `. Path inputs expand ` + "`~`" + ` and environment variables.
+- Quirks: config path uses XDG config home by default, including on macOS. Default is ` + "`~/.config/slick/config.toml`" + `. ` + "`SLICK_CONFIG`" + ` overrides it; legacy ` + "`SLACK_CLI_CONFIG`" + ` still works. Path inputs expand ` + "`~`" + ` and environment variables.
 - Quirks: configuration precedence is environment, then config file, then defaults.
 - Quirks: profile-scoped runtime tokens use ` + "`SLACK_CLI_TOKEN_<PROFILE>`" + ` with uppercase names and non-alphanumeric characters replaced by underscores.
 
@@ -323,10 +329,24 @@ perform the task, what to parse, and which quirks matter.
 - Filter command: ` + "`slick lookup user --filter ansible --max-items 20 --json`" + `.
 - Exact command: ` + "`slick lookup user --user <user-id> --json`" + `.
 - Presence command: add ` + "`--presence`" + ` only when the token has presence visibility.
+- Deleted users: list mode excludes deleted and deactivated users by default; add ` + "`--include-deleted`" + ` only when auditing old accounts.
+- Cache command: ` + "`slick cache users --json`" + ` primes active users for shell completion and repeated discovery.
 - Parse: use ` + "`data.users[].id`" + ` for commands, ` + "`data.users[].tz`" + ` for scheduling, and ` + "`data.users[].presence`" + ` when presence is available.
 - Next step: pass ` + "`data.users[].id`" + ` to ` + "`slick message send --user <user-id>`" + ` for DM workflows.
 - Quirks: prefer user IDs such as ` + "`U123...`" + ` in commands; names and display names can change.
 - Quirks: presence and custom status depend on token scopes and Slack workspace policy. Missing fields are not always an error.
+
+## cache_metadata
+- Runbook: use this before repeated lookup, shell completion, or large live tests that may hit Slack rate limits.
+- Cache users: ` + "`slick cache users --json`" + ` caches active users only. Deleted and deactivated users stay out of the cache.
+- Cache channels: ` + "`slick cache channels --json`" + ` caches active public channels, private channels, IMs, and MPIMs.
+- Refresh: add ` + "`--refresh`" + ` to force a Slack API fetch even when the cache is fresh.
+- TTL: default freshness is 1440 minutes. Use ` + "`--ttl-minutes 10080`" + ` for a weekly refresh window.
+- Bounds: use ` + "`--page-size <n>`" + ` and ` + "`--max-pages <n>`" + ` to control pagination when priming large workspaces.
+- Clear: ` + "`slick cache clear users`" + ` or ` + "`slick cache clear channels`" + ` removes one cache resource. ` + "`slick cache clear`" + ` removes all resources for the active profile.
+- Path: cache files live under XDG cache home, normally ` + "`~/.cache/slick/<profile>/`" + `.
+- Quirks: shell completion prefers fresh cached users/channels before live Slack API calls.
+- Quirks: cache files are metadata only; they do not store tokens or message content.
 
 ## send_dm
 - Runbook: use this to send a direct message to a Slack user.

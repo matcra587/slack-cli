@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -337,7 +338,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			name: "config init",
 			cmd:  "config.init",
 			data: configInitData{
-				Path:      "/tmp/slack-cli/config.toml",
+				Path:      "/tmp/slick/config.toml",
 				Profile:   "default",
 				Workspace: "default",
 				Written:   true,
@@ -346,7 +347,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				"INF",
 				"config init",
 				"command=config.init",
-				"path=/tmp/slack-cli/config.toml",
+				"path=/tmp/slick/config.toml",
 				"profile=default",
 				"workspace=default",
 				"written=true",
@@ -355,12 +356,12 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 		{
 			name: "config path",
 			cmd:  "config.path",
-			data: configPathData{Path: "/tmp/slack-cli/config.toml", Exists: true},
+			data: configPathData{Path: "/tmp/slick/config.toml", Exists: true},
 			want: []string{
 				"INF",
 				"config path",
 				"command=config.path",
-				"path=/tmp/slack-cli/config.toml",
+				"path=/tmp/slick/config.toml",
 				"exists=true",
 			},
 			deny: []string{"data="},
@@ -382,7 +383,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			name: "config set",
 			cmd:  "config.set",
 			data: configMutationData{
-				Path:  "/tmp/slack-cli/config.toml",
+				Path:  "/tmp/slick/config.toml",
 				Key:   "workspaces.default.attribution.message",
 				Value: "Sent via slick",
 			},
@@ -390,7 +391,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				"INF",
 				"config set",
 				"command=config.set",
-				"path=/tmp/slack-cli/config.toml",
+				"path=/tmp/slick/config.toml",
 				"key=workspaces.default.attribution.message",
 				"value=\"Sent via slick\"",
 			},
@@ -400,14 +401,14 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			name: "config unset",
 			cmd:  "config.unset",
 			data: configMutationData{
-				Path: "/tmp/slack-cli/config.toml",
+				Path: "/tmp/slick/config.toml",
 				Key:  "workspaces.default.attribution.message",
 			},
 			want: []string{
 				"INF",
 				"config unset",
 				"command=config.unset",
-				"path=/tmp/slack-cli/config.toml",
+				"path=/tmp/slick/config.toml",
 				"key=workspaces.default.attribution.message",
 			},
 			deny: []string{"data=", "value="},
@@ -518,7 +519,7 @@ func TestWriteResultPlainConfigListUsesPerSettingClogLines(t *testing.T) {
 	ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
 
 	err := ctx.WriteResult("config.list", configListData{
-		Path:             "/tmp/slack-cli/config.toml",
+		Path:             "/tmp/slick/config.toml",
 		DefaultWorkspace: "default",
 		Settings: []configEntry{
 			{Key: "default_workspace", Value: "default"},
@@ -537,7 +538,7 @@ func TestWriteResultPlainConfigListUsesPerSettingClogLines(t *testing.T) {
 		"INF",
 		"config list",
 		"command=config.list",
-		"path=/tmp/slack-cli/config.toml",
+		"path=/tmp/slick/config.toml",
 		"default_workspace=default",
 		"settings=2",
 		"config setting",
@@ -555,6 +556,28 @@ func TestWriteResultPlainConfigListUsesPerSettingClogLines(t *testing.T) {
 	}
 	if lines := strings.Count(strings.TrimSpace(plain), "\n") + 1; lines != 3 {
 		t.Fatalf("stdout = %q, want summary plus one clog line per setting", got)
+	}
+}
+
+func TestWriteResultPlainConfigPathsContractHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	path := filepath.Join(home, ".config", "slick", "config.toml")
+	ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
+
+	err := ctx.WriteResult("config.path", configPathData{Path: path, Exists: true})
+	if err != nil {
+		t.Fatalf("WriteResult returned error: %v", err)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	plain := ansi.Strip(stdout.String())
+	if !strings.Contains(plain, "path=~/.config/slick/config.toml") {
+		t.Fatalf("stdout = %q, want contracted home path", stdout.String())
+	}
+	if strings.Contains(plain, home) {
+		t.Fatalf("stdout = %q, should not expose absolute home path %q", stdout.String(), home)
 	}
 }
 

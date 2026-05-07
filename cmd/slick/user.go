@@ -16,11 +16,16 @@ type userInfoData struct {
 	User cliUser `json:"user"`
 }
 
+type userListOptions struct {
+	MaxItems       int
+	Cursor         string
+	Filter         string
+	Presence       bool
+	IncludeDeleted bool
+}
+
 func newLookupUserCommand(runtime *RootRuntime) *cobra.Command {
-	var maxItems int
-	var cursor string
-	var filter string
-	var presence bool
+	opts := userListOptions{}
 	userCmd := &cobra.Command{
 		Use:          "user",
 		Short:        "Look up Slack users",
@@ -28,20 +33,21 @@ func newLookupUserCommand(runtime *RootRuntime) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			userID, _ := cmd.Flags().GetString("user")
 			if strings.TrimSpace(userID) != "" {
-				return runUserInfoValue(cmd, runtime, "lookup.user", userID, presence)
+				return runUserInfoValue(cmd, runtime, "lookup.user", userID, opts.Presence)
 			}
-			return runUserListWithCommand(cmd, runtime, "lookup.user", maxItems, cursor, filter, presence)
+			return runUserListWithCommand(cmd, runtime, "lookup.user", opts)
 		},
 	}
 	userCmd.Flags().StringP("user", "u", "", "Slack user ID")
-	userCmd.Flags().IntVarP(&maxItems, "max-items", "M", 0, "Maximum users to return")
-	userCmd.Flags().StringVarP(&cursor, "cursor", "C", "", "Pagination cursor")
-	userCmd.Flags().StringVarP(&filter, "filter", "f", "", "Filter by ID or name")
-	userCmd.Flags().BoolVarP(&presence, "presence", "p", false, "Fetch presence")
+	userCmd.Flags().IntVarP(&opts.MaxItems, "max-items", "M", 0, "Maximum users to return")
+	userCmd.Flags().StringVarP(&opts.Cursor, "cursor", "C", "", "Pagination cursor")
+	userCmd.Flags().StringVarP(&opts.Filter, "filter", "f", "", "Filter by ID or name")
+	userCmd.Flags().BoolVarP(&opts.Presence, "presence", "p", false, "Fetch presence")
+	userCmd.Flags().BoolVarP(&opts.IncludeDeleted, "include-deleted", "d", false, "Include deleted or deactivated users")
 	return userCmd
 }
 
-func runUserListWithCommand(cmd *cobra.Command, runtime *RootRuntime, command string, maxItems int, cursor, filter string, presence bool) error {
+func runUserListWithCommand(cmd *cobra.Command, runtime *RootRuntime, command string, opts userListOptions) error {
 	ctx, profile, _, err := commandContext(cmd, runtime)
 	if err != nil {
 		return writeRuntimeError(runtime, validationCLIError(err.Error()))
@@ -54,24 +60,24 @@ func runUserListWithCommand(cmd *cobra.Command, runtime *RootRuntime, command st
 		return writeCommandError(ctx, cliErrorFromSlack(err))
 	}
 	options := []slackgo.GetUsersOption{}
-	if maxItems > 0 {
-		options = append(options, slackgo.GetUsersOptionLimit(maxItems))
+	if opts.MaxItems > 0 {
+		options = append(options, slackgo.GetUsersOptionLimit(opts.MaxItems))
 	}
-	if cursor != "" {
-		options = append(options, slackgo.GetUsersOptionCursor(cursor))
+	if opts.Cursor != "" {
+		options = append(options, slackgo.GetUsersOptionCursor(opts.Cursor))
 	}
-	options = append(options, slackgo.GetUsersOptionPresence(presence))
+	options = append(options, slackgo.GetUsersOptionPresence(opts.Presence))
 	pager := client.GetUsersPaginated(options...)
 	page, err := pager.Next(context.Background())
 	if err != nil {
 		return writeCommandError(ctx, cliErrorFromSlack(err))
 	}
-	users := filterUsers(cliUsersFromSlack(page.Users), filter)
+	users := filterUsers(cliUsersFromSlack(page.Users, opts.IncludeDeleted), opts.Filter)
 	return ctx.WriteResultWithPagination(command, userListData{Users: users}, &Pagination{
-		Cursor:        stringPtr(cursor),
+		Cursor:        stringPtr(opts.Cursor),
 		NextCursor:    stringPtr(page.Cursor),
 		HasMore:       page.Cursor != "",
-		MaxItems:      intPtr(maxItems),
+		MaxItems:      intPtr(opts.MaxItems),
 		ItemsReturned: intPtr(len(users)),
 	})
 }
@@ -107,9 +113,12 @@ func runUserInfoValue(cmd *cobra.Command, runtime *RootRuntime, command, userID 
 	return ctx.WriteResult(command, userInfoData{User: result})
 }
 
-func cliUsersFromSlack(users []slackgo.User) []cliUser {
+func cliUsersFromSlack(users []slackgo.User, includeDeleted bool) []cliUser {
 	out := make([]cliUser, 0, len(users))
 	for _, user := range users {
+		if user.Deleted && !includeDeleted {
+			continue
+		}
 		out = append(out, cliUserFromSlack(user))
 	}
 	return out

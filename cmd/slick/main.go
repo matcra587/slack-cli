@@ -438,6 +438,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	root.AddCommand(newLookupCommand(runtime))
 	root.AddCommand(newFileCommand(runtime))
 	root.AddCommand(newStatusCommand(runtime))
+	root.AddCommand(newCacheCommand(runtime))
 	root.AddCommand(newManifestCommand(runtime))
 	root.AddCommand(newConfigCommand(runtime))
 	root.AddCommand(newAgentCommand(runtime))
@@ -472,6 +473,9 @@ func validateOutputModeFlags(root *cobra.Command) error {
 }
 
 func defaultConfigPath() string {
+	if path := os.Getenv("SLICK_CONFIG"); path != "" {
+		return shell.ExpandPath(path)
+	}
 	if path := os.Getenv("SLACK_CLI_CONFIG"); path != "" {
 		return shell.ExpandPath(path)
 	}
@@ -479,7 +483,7 @@ func defaultConfigPath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, "slack-cli", "config.toml")
+	return filepath.Join(dir, "slick", "config.toml")
 }
 
 func loadDefaultConfig(path string) (*config.Config, error) {
@@ -488,9 +492,16 @@ func loadDefaultConfig(path string) (*config.Config, error) {
 	}
 	cfg, err := config.LoadFile(path)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, missingConfigError(path)
+		}
 		return nil, err
 	}
 	return cfg, nil
+}
+
+func missingConfigError(path string) error {
+	return fmt.Errorf("config file not found at %s; run `slick config init`", human.ContractHome(path))
 }
 
 func rootOptionsFromCommand(cmd *cobra.Command, runtime *RootRuntime) RootOptions {
@@ -690,6 +701,12 @@ func (c *CommandContext) WritePlainResult(command string, data any, pagination *
 		return c.WriteReaction(command, typed)
 	case statusCommandData:
 		return c.WriteStatus(command, typed)
+	case cacheUsersData:
+		return c.WriteUsers(command, typed.Users, nil)
+	case cacheChannelsData:
+		return c.WriteChannels(command, typed.Channels, nil)
+	case cacheClearData:
+		return c.WriteCacheClear(command, typed)
 	case historyCommandData:
 		return c.WriteMessages(command, typed.Messages, pagination)
 	case searchCommandData:
@@ -722,6 +739,18 @@ func (c *CommandContext) WritePlainResult(command string, data any, pagination *
 		event.Msg(commandMessage(command))
 		return nil
 	}
+}
+
+func (c *CommandContext) WriteCacheClear(command string, data cacheClearData) error {
+	event := c.resultEvent(command).Str("profile", data.Profile)
+	if data.Resource != "" {
+		event = event.Str("resource", data.Resource).Bool("removed", data.Removed)
+	}
+	if data.RemovedCount > 0 {
+		event = event.Int("removed_count", data.RemovedCount)
+	}
+	event.Msg(commandMessage(command))
+	return nil
 }
 
 func (c *CommandContext) resultEvent(command string) *clog.Event {
@@ -1112,7 +1141,7 @@ func (c *CommandContext) WriteVersion(data versionData) error {
 
 func (c *CommandContext) WriteConfigInit(data configInitData) error {
 	c.resultEvent("config.init").
-		Path("path", data.Path).
+		Str("path", human.ContractHome(data.Path)).
 		Str("profile", data.Profile).
 		Str("workspace", data.Workspace).
 		Bool("written", data.Written).
@@ -1122,7 +1151,7 @@ func (c *CommandContext) WriteConfigInit(data configInitData) error {
 
 func (c *CommandContext) WriteConfigPath(command string, data configPathData) error {
 	c.resultEvent(command).
-		Path("path", data.Path).
+		Str("path", human.ContractHome(data.Path)).
 		Bool("exists", data.Exists).
 		Msg(commandMessage(command))
 	return nil
@@ -1130,7 +1159,7 @@ func (c *CommandContext) WriteConfigPath(command string, data configPathData) er
 
 func (c *CommandContext) WriteConfigList(command string, data configListData) error {
 	c.resultEvent(command).
-		Path("path", data.Path).
+		Str("path", human.ContractHome(data.Path)).
 		Str("default_workspace", data.DefaultWorkspace).
 		Int("settings", len(data.Settings)).
 		Msg(commandMessage(command))
@@ -1156,7 +1185,7 @@ func (c *CommandContext) WriteConfigGet(command string, data configGetData) erro
 
 func (c *CommandContext) WriteConfigMutation(command string, data configMutationData) error {
 	event := c.resultEvent(command).
-		Path("path", data.Path).
+		Str("path", human.ContractHome(data.Path)).
 		Str("key", data.Key)
 	if data.Value != "" {
 		event = event.Str("value", data.Value)

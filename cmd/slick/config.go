@@ -404,7 +404,7 @@ func loadConfigForConfigCommand(runtime *RootRuntime) (*config.Config, error) {
 	if runtime.ConfigPath == "" {
 		return nil, errors.New("config path is unavailable")
 	}
-	return config.LoadFile(runtime.ConfigPath)
+	return loadDefaultConfig(runtime.ConfigPath)
 }
 
 func configEntries(cfg *config.Config) []configEntry {

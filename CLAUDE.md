@@ -47,8 +47,11 @@ stderr.
 - Config stores keychain or secret-manager references.
 - Workspace selection resolves exactly one active profile through `--workspace`
   or `default_workspace`.
-- Config paths come from XDG config home unless `SLACK_CLI_CONFIG` is set;
-  default is `~/.config/slack-cli/config.toml`.
+- Config paths come from XDG config home unless `SLICK_CONFIG` is set;
+  default is `~/.config/slick/config.toml`. `SLACK_CLI_CONFIG` remains as a
+  legacy override.
+- Metadata cache paths come from XDG cache home; default is
+  `~/.cache/slick/<profile>/`.
 - Path inputs use `gechr/x` expansion for `~` and environment variables.
 - Mutations support `--dry-run`; `message delete` also requires `--force`.
 - `message send --user` accepts repeated, comma-separated, and email-address

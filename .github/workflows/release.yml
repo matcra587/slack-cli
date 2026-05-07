@@ -17,9 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: deploy
     permissions:
-      attestations: write       # Required to create GitHub artifact attestations.
       contents: write           # Required to create GitHub releases and upload assets.
-      id-token: write           # Required for cosign and GitHub attestations via OIDC.
+      id-token: write           # Required for cosign via OIDC.
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -77,11 +76,13 @@ jobs:
             --dir dist \
             --clobber
 
-      - name: Attest release artifact provenance
-        if: steps.release-state.outputs.exists != 'true'
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
-        with:
-          subject-checksums: dist/checksums.txt
+      # GitHub artifact attestations are not available for user-owned private repositories.
+      # Re-enable this if the repository becomes public or GitHub supports this repository type.
+      # - name: Attest release artifact provenance
+      #   if: steps.release-state.outputs.exists != 'true'
+      #   uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+      #   with:
+      #     subject-checksums: dist/checksums.txt
 
       - name: Create Homebrew tap token
         id: app-token

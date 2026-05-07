@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"html"
 	"image/color"
 	"io"
 	"net"
@@ -20,6 +21,7 @@ import (
 	"charm.land/lipgloss/v2"
 	clibtheme "github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
+	"github.com/gechr/x/shell"
 	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
@@ -76,18 +78,18 @@ func newAuthCommand(runtime *RootRuntime) *cobra.Command {
 		},
 	}
 	loginCmd.Flags().StringVar(&workspaceName, "workspace-name", "", "Workspace profile name")
-	loginCmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read Slack token from stdin")
-	loginCmd.Flags().StringVar(&tokenFile, "token-file", "", "Read Slack token from file")
-	loginCmd.Flags().StringVar(&tokenEnv, "token-env", "", "Read Slack token from named environment variable")
-	loginCmd.Flags().StringVar(&teamID, "team-id", "", "Slack workspace ID")
-	loginCmd.Flags().StringVar(&teamName, "team-name", "", "Slack workspace display name")
-	loginCmd.Flags().StringVar(&authMethod, "method", "", "Auth mechanism: oauth or token")
+	loginCmd.Flags().BoolVarP(&tokenStdin, "token-stdin", "s", false, "Read Slack token from stdin")
+	loginCmd.Flags().StringVarP(&tokenFile, "token-file", "f", "", "Read Slack token from file")
+	loginCmd.Flags().StringVarP(&tokenEnv, "token-env", "e", "", "Read Slack token from named environment variable")
+	loginCmd.Flags().StringVarP(&teamID, "team-id", "T", "", "Slack workspace ID")
+	loginCmd.Flags().StringVarP(&teamName, "team-name", "N", "", "Slack workspace display name")
+	loginCmd.Flags().StringVarP(&authMethod, "method", "m", "", "Auth mechanism: oauth or token")
 	loginCmd.Flags().StringVar(&authMethod, "auth-method", "", "Auth mechanism: oauth or token")
-	loginCmd.Flags().StringVar(&clientID, "oauth-client-id", "", "Slack OAuth client ID")
+	loginCmd.Flags().StringVarP(&clientID, "oauth-client-id", "C", "", "Slack OAuth client ID")
 	loginCmd.Flags().StringVar(&clientID, "client-id", "", "Slack OAuth client ID")
-	loginCmd.Flags().StringVar(&oauthRedirectURL, "oauth-redirect-url", defaultOAuthRedirectURL(), "Slack OAuth redirect URL configured on the app")
-	loginCmd.Flags().StringVar(&oauthCallbackPort, "oauth-callback-port", "", "Local OAuth callback port; use 0 for an OS-assigned port")
-	loginCmd.Flags().BoolVar(&force, "force", false, "Overwrite an existing authenticated profile")
+	loginCmd.Flags().StringVarP(&oauthRedirectURL, "oauth-redirect-url", "r", defaultOAuthRedirectURL(), "Slack OAuth redirect URL configured on the app")
+	loginCmd.Flags().StringVarP(&oauthCallbackPort, "oauth-callback-port", "p", "", "Local OAuth callback port; use 0 for an OS-assigned port")
+	loginCmd.Flags().BoolVarP(&force, "force", "F", false, "Overwrite an existing authenticated profile")
 	_ = loginCmd.Flags().MarkHidden("workspace-name")
 	_ = loginCmd.Flags().MarkHidden("auth-method")
 	_ = loginCmd.Flags().MarkHidden("client-id")
@@ -288,7 +290,7 @@ func resolveLoginTokenSource(runtime *RootRuntime, input *authLoginInput) error 
 			}
 			input.Token = trimTokenSource(raw)
 		case input.TokenFile != "":
-			raw, err := os.ReadFile(input.TokenFile)
+			raw, err := os.ReadFile(shell.ExpandPath(input.TokenFile))
 			if err != nil {
 				return fmt.Errorf("reading token file: %w", err)
 			}
@@ -470,7 +472,6 @@ func authLoginHuhTheme(th *clibtheme.Theme) huh.Theme {
 		t := huh.ThemeBase(isDark)
 		helpCommand := authLoginHuhStyle(resolved.HelpCommand)
 		helpDim := authLoginHuhStyle(resolved.HelpDim)
-		helpFlag := authLoginHuhStyle(resolved.HelpFlag)
 		helpPlaceholder := authLoginHuhStyle(resolved.HelpValuePlaceholder)
 		red := authLoginHuhStyle(resolved.Red)
 
@@ -479,9 +480,9 @@ func authLoginHuhTheme(th *clibtheme.Theme) huh.Theme {
 		t.Focused.Description = helpDim
 		t.Focused.ErrorIndicator = authLoginMergeHuhStyle(t.Focused.ErrorIndicator, red)
 		t.Focused.ErrorMessage = red
-		t.Focused.TextInput.Cursor = authLoginMergeHuhStyle(t.Focused.TextInput.Cursor, helpFlag)
+		t.Focused.TextInput.Cursor = authLoginMergeHuhStyle(t.Focused.TextInput.Cursor, helpCommand)
 		t.Focused.TextInput.Placeholder = helpPlaceholder
-		t.Focused.TextInput.Prompt = helpFlag
+		t.Focused.TextInput.Prompt = helpCommand
 
 		t.Blurred = t.Focused
 		t.Blurred.Base = t.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
@@ -847,24 +848,29 @@ func oauthCallbackHandler(state, expectedPath string, resultCh chan<- oauthCallb
 		}
 		if errValue := query.Get("error"); errValue != "" {
 			sendOAuthCallbackResult(resultCh, oauthCallbackResult{Err: errors.New(errValue)})
-			http.Error(w, "Slack OAuth failed", http.StatusBadRequest)
+			writeOAuthCallbackHTML(w, http.StatusBadRequest, "Slack OAuth failed", errValue)
 			return
 		}
 		if query.Get("state") != state {
 			sendOAuthCallbackResult(resultCh, oauthCallbackResult{Err: errors.New("oauth callback state mismatch")})
-			http.Error(w, "OAuth state mismatch", http.StatusBadRequest)
+			writeOAuthCallbackHTML(w, http.StatusBadRequest, "OAuth state mismatch", "Return to the terminal and retry the login command.")
 			return
 		}
 		code := query.Get("code")
 		if code == "" {
 			sendOAuthCallbackResult(resultCh, oauthCallbackResult{Err: errors.New("oauth callback missing code")})
-			http.Error(w, "OAuth code missing", http.StatusBadRequest)
+			writeOAuthCallbackHTML(w, http.StatusBadRequest, "OAuth code missing", "Return to the terminal and retry the login command.")
 			return
 		}
 		sendOAuthCallbackResult(resultCh, oauthCallbackResult{Code: code})
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write([]byte("<html><body><h2>Authorization successful</h2><p>You can close this tab and return to the terminal.</p></body></html>"))
+		writeOAuthCallbackHTML(w, http.StatusOK, "Authorisation successful", "You can close this tab and return to the terminal.")
 	})
+}
+
+func writeOAuthCallbackHTML(w http.ResponseWriter, status int, title, body string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = fmt.Fprintf(w, `<!doctype html><html><body style="font-family:sans-serif"><h2>%s</h2><p>%s</p></body></html>`, html.EscapeString(title), html.EscapeString(body))
 }
 
 func sendOAuthCallbackResult(resultCh chan<- oauthCallbackResult, result oauthCallbackResult) {
@@ -884,7 +890,14 @@ func oauthRandomState() (string, error) {
 
 func defaultOpenURL(target string) error {
 	if opener := os.Getenv("BROWSER"); opener != "" {
-		return exec.Command(opener, target).Start() //nolint:gosec // BROWSER is explicit user configuration and exec.Command does not invoke a shell.
+		parts, err := shell.Split(opener)
+		if err != nil {
+			return fmt.Errorf("parsing BROWSER: %w", err)
+		}
+		if len(parts) == 0 {
+			return nil
+		}
+		return exec.Command(parts[0], append(parts[1:], target)...).Start() //nolint:gosec // BROWSER is explicit user configuration and exec.Command does not invoke a shell.
 	}
 	for _, opener := range []string{"xdg-open", "open"} {
 		if path, err := exec.LookPath(opener); err == nil {

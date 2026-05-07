@@ -113,7 +113,7 @@ func TestConfigRejectsAuthOwnedKeys(t *testing.T) {
 	if err == nil {
 		t.Fatal("config set returned nil error, want auth-owned key rejection")
 	}
-	if !strings.Contains(stderr, "auth settings are managed by slack auth") {
+	if !strings.Contains(stderr, "auth settings are managed by slick auth") {
 		t.Fatalf("stderr = %q, want auth-owned key validation", stderr)
 	}
 }
@@ -185,7 +185,7 @@ func TestConfigInitTTYUsesHuhForm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config init returned error: %v\nstderr=%s", err, stderr)
 	}
-	for _, fragment := range []string{"Profile name", "Default channel", "Attribution message"} {
+	for _, fragment := range []string{"Profile name", "Default message channel", "Attribution message"} {
 		if !strings.Contains(stderr, fragment) {
 			t.Fatalf("stderr prompts = %q, want fragment %q", stderr, fragment)
 		}

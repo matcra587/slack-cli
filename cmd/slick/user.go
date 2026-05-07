@@ -33,11 +33,11 @@ func newLookupUserCommand(runtime *RootRuntime) *cobra.Command {
 			return runUserListWithCommand(cmd, runtime, "lookup.user", maxItems, cursor, filter, presence)
 		},
 	}
-	userCmd.Flags().String("user", "", "Slack user ID")
-	userCmd.Flags().IntVar(&maxItems, "max-items", 0, "Maximum users to return")
-	userCmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor")
-	userCmd.Flags().StringVar(&filter, "filter", "", "Filter by ID or name")
-	userCmd.Flags().BoolVar(&presence, "presence", false, "Fetch presence")
+	userCmd.Flags().StringP("user", "u", "", "Slack user ID")
+	userCmd.Flags().IntVarP(&maxItems, "max-items", "M", 0, "Maximum users to return")
+	userCmd.Flags().StringVarP(&cursor, "cursor", "C", "", "Pagination cursor")
+	userCmd.Flags().StringVarP(&filter, "filter", "f", "", "Filter by ID or name")
+	userCmd.Flags().BoolVarP(&presence, "presence", "p", false, "Fetch presence")
 	return userCmd
 }
 

@@ -36,7 +36,7 @@ func DecodeCredential(secret string) (CredentialPayload, error) {
 	}
 	if !strings.HasPrefix(secret, "{") {
 		if strings.HasPrefix(secret, "xox") {
-			return CredentialPayload{}, errors.New("legacy plaintext credential found; structured credential payload is required; run slack auth login to replace it")
+			return CredentialPayload{}, errors.New("legacy plaintext credential found; structured credential payload is required; run slick auth login to replace it")
 		}
 		return CredentialPayload{}, errors.New("structured credential payload is required")
 	}

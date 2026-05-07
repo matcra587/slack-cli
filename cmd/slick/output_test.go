@@ -384,7 +384,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			data: configMutationData{
 				Path:  "/tmp/slack-cli/config.toml",
 				Key:   "workspaces.default.attribution.message",
-				Value: "Sent via slack-cli",
+				Value: "Sent via slick",
 			},
 			want: []string{
 				"INF",
@@ -392,7 +392,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				"command=config.set",
 				"path=/tmp/slack-cli/config.toml",
 				"key=workspaces.default.attribution.message",
-				"value=\"Sent via slack-cli\"",
+				"value=\"Sent via slick\"",
 			},
 			deny: []string{"data="},
 		},

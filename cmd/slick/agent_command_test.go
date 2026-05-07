@@ -102,7 +102,7 @@ func TestAgentSchemaIncludesRootSchemaContract(t *testing.T) {
 	if !ok || len(schemaExamples) == 0 {
 		t.Fatalf("schema examples = %#v, want non-empty array", examples["schema"])
 	}
-	if !strings.Contains(schemaExamples[0].(string), "slack agent schema") {
+	if !strings.Contains(schemaExamples[0].(string), "slick agent schema") {
 		t.Fatalf("schema examples = %#v, want agent schema command", schemaExamples)
 	}
 }
@@ -197,7 +197,7 @@ func TestAgentGuideOutputsNamedWorkflowInstructions(t *testing.T) {
 	}
 	for _, fragment := range []string{
 		"## send_msg",
-		"slack message send",
+		"slick message send",
 		"--channel",
 		"--file -",
 		"--blocks",
@@ -222,7 +222,7 @@ func TestAgentGuideOutputsReactionInstructions(t *testing.T) {
 	}
 	for _, fragment := range []string{
 		"## react",
-		"slack react add",
+		"slick react add",
 		"--timestamp",
 		":thumbsup:",
 	} {
@@ -283,7 +283,7 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 		},
 		"config_prefs": {
 			"## config_prefs",
-			"slack config init",
+			"slick config init",
 			"preferences",
 			"auth commands",
 		},
@@ -296,44 +296,44 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 		},
 		"reply": {
 			"## reply",
-			"slack reply",
+			"slick reply",
 			"--parent",
 			"parent message timestamp",
 		},
 		"edit_msg": {
 			"## edit_msg",
-			"slack message edit",
+			"slick message edit",
 			"--timestamp",
 			"own messages",
 		},
 		"delete_msg": {
 			"## delete_msg",
-			"slack message delete",
+			"slick message delete",
 			"--force",
 			"--dry-run",
 		},
 		"discover_destination": {
 			"## discover_destination",
-			"slack lookup channel",
+			"slick lookup channel",
 			"--types",
 			"prefer IDs",
 			"plain mode renders tables",
 		},
 		"inspect_schema": {
 			"## inspect_schema",
-			"slack agent schema",
+			"slick agent schema",
 			"--compact",
-			"slack schema",
+			"slick schema",
 		},
 		"lookup_user": {
 			"## lookup_user",
-			"slack lookup user",
+			"slick lookup user",
 			"--user",
 			"timezone",
 		},
 		"send_dm": {
 			"## send_dm",
-			"slack message send --user",
+			"slick message send --user",
 			"Slack decides",
 			"bot-token",
 		},

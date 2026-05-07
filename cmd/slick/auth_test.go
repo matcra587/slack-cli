@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -125,6 +126,42 @@ func TestAuthLoginTokenFileTrimsTrailingNewline(t *testing.T) {
 	}
 	if credential.AccessToken != "xoxb-file-secret" {
 		t.Fatalf("stored access token = %q, want token without trailing newline", credential.AccessToken)
+	}
+}
+
+func TestAuthLoginTokenFileExpandsShellPath(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"team_id":"T123","team":"Test Workspace","user_id":"U123"}`)
+		},
+	})
+	defer server.Close()
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	tokenPath := filepath.Join(home, "slack-token.txt")
+	if err := os.WriteFile(tokenPath, []byte("xoxb-file-secret\n"), 0o600); err != nil {
+		t.Fatalf("write token file: %v", err)
+	}
+
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	store := config.NewMemoryCredentialStore()
+	_, stderr, err := executeAuthRoot(t, nil, configPath, store, server.BaseURL(),
+		[]string{"--workspace", "default", "auth", "login", "--method", "token", "--token-file", "~/slack-token.txt", "--team-id", "T123", "--team-name", "Test Workspace"},
+	)
+	if err != nil {
+		t.Fatalf("auth login returned error: %v\nstderr=%s", err, stderr)
+	}
+	secret, err := store.Get("slack-cli", "default")
+	if err != nil {
+		t.Fatalf("stored credential err=%v", err)
+	}
+	credential, err := config.DecodeCredential(secret)
+	if err != nil {
+		t.Fatalf("decode stored credential: %v", err)
+	}
+	if credential.AccessToken != "xoxb-file-secret" {
+		t.Fatalf("stored token = %q, want expanded token file content", credential.AccessToken)
 	}
 }
 
@@ -954,8 +991,54 @@ func TestAuthLoginHuhThemeUsesClibSemanticColors(t *testing.T) {
 	got := authLoginHuhTheme(th).Theme(false)
 	assertSameColor(t, "#123456", got.Focused.Title.GetForeground())
 	assertSameColor(t, "#654321", got.Focused.Description.GetForeground())
-	assertSameColor(t, "#fedcba", got.Focused.TextInput.Prompt.GetForeground())
+	assertSameColor(t, "#123456", got.Focused.TextInput.Prompt.GetForeground())
 	assertSameColor(t, "#abcdef", got.Focused.TextInput.Placeholder.GetForeground())
+}
+
+func TestOAuthCallbackHandlerWritesStyledHTML(t *testing.T) {
+	resultCh := make(chan oauthCallbackResult, 1)
+	handler := oauthCallbackHandler("state-1", "/callback", resultCh)
+	req := httptest.NewRequest(http.MethodGet, "/callback?code=abc&state=state-1", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{`style="font-family:sans-serif"`, "Authorisation successful"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("body = %q, want %q", body, want)
+		}
+	}
+}
+
+func TestDefaultOpenURLSplitsBrowserCommand(t *testing.T) {
+	argsPath := filepath.Join(t.TempDir(), "browser-args.txt")
+	opener := testutil.WriteExecutable(t, "browser.sh", fmt.Sprintf(`#!/bin/sh
+printf '%%s\n' "$@" > %q
+`, argsPath))
+	t.Setenv("BROWSER", opener+" --profile test")
+
+	if err := defaultOpenURL("https://example.com/oauth"); err != nil {
+		t.Fatalf("defaultOpenURL returned error: %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		raw, err := os.ReadFile(argsPath)
+		if err == nil {
+			if got, want := string(raw), "--profile\ntest\nhttps://example.com/oauth\n"; got != want {
+				t.Fatalf("browser args = %q, want %q", got, want)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("browser args were not written: %v", err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 func TestAuthLoginHuhColorLeavesUnsetClibColorUnset(t *testing.T) {

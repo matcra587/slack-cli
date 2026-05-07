@@ -72,7 +72,7 @@ func newAgentSchemaCommand(runtime *RootRuntime) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&compact, "compact", false, "Output minimal schema")
+	cmd.Flags().BoolVarP(&compact, "compact", "c", false, "Output minimal schema")
 	return cmd
 }
 

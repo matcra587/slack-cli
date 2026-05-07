@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gechr/clog"
+	"github.com/gechr/x/shell"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
@@ -43,14 +44,14 @@ func newFileCommand(runtime *RootRuntime) *cobra.Command {
 			})
 		},
 	}
-	uploadCmd.Flags().String("channel", "", "Channel ID, name, or alias")
-	uploadCmd.Flags().StringVar(&filePath, "file", "", "Path to upload or - for stdin")
-	uploadCmd.Flags().StringVar(&filename, "filename", "", "Filename for stdin or override")
-	uploadCmd.Flags().StringVar(&title, "title", "", "Slack file title")
-	uploadCmd.Flags().StringVar(&message, "message", "", "Initial comment")
-	uploadCmd.Flags().BoolVar(&blocks, "blocks", false, "Treat upload message as raw Block Kit JSON")
-	uploadCmd.Flags().StringVar(&thread, "thread", "", "Thread timestamp")
-	uploadCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without uploading")
+	uploadCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
+	uploadCmd.Flags().StringVarP(&filePath, "file", "f", "", "Path to upload or - for stdin")
+	uploadCmd.Flags().StringVarP(&filename, "filename", "N", "", "Filename for stdin or override")
+	uploadCmd.Flags().StringVarP(&title, "title", "T", "", "Slack file title")
+	uploadCmd.Flags().StringVarP(&message, "message", "m", "", "Initial comment")
+	uploadCmd.Flags().BoolVarP(&blocks, "blocks", "b", false, "Treat upload message as raw Block Kit JSON")
+	uploadCmd.Flags().StringVarP(&thread, "thread", "t", "", "Thread timestamp")
+	uploadCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview without uploading")
 	fileCmd.AddCommand(uploadCmd)
 
 	return fileCmd
@@ -148,12 +149,13 @@ func readUploadSource(stdin io.Reader, filePath, filename string) ([]byte, strin
 		content, err := io.ReadAll(stdin)
 		return content, filename, err
 	}
-	content, err := os.ReadFile(filePath)
+	expandedPath := shell.ExpandPath(filePath)
+	content, err := os.ReadFile(expandedPath) //nolint:gosec // File upload intentionally reads the caller-supplied path.
 	if err != nil {
 		return nil, "", err
 	}
 	if filename == "" {
-		filename = filepath.Base(filePath)
+		filename = filepath.Base(expandedPath)
 	}
 	return content, filename, nil
 }

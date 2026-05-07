@@ -12,7 +12,7 @@ func TestCommandsUseSlackGoDirectlyWithoutCustomSlackClientPackage(t *testing.T)
 	customImport := `"` + strings.Join([]string{"github.com", "matcra587", "slack-cli", "pkg", "slack"}, "/") + `"`
 	customDir := filepath.Join("pkg", "slack")
 	var offenders []string
-	for _, dir := range []string{"cmd/slack", customDir} {
+	for _, dir := range []string{"cmd/slick", customDir} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, entry os.DirEntry, err error) error {
 			if err != nil {
 				if os.IsNotExist(err) {

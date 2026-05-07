@@ -19,12 +19,12 @@ func newReplyCommand(runtime *RootRuntime) *cobra.Command {
 			return runThreadReply(cmd, runtime, source, dryRun)
 		},
 	}
-	replyCmd.Flags().String("channel", "", "Channel ID, name, or alias")
-	replyCmd.Flags().String("parent", "", "Parent message timestamp")
-	replyCmd.Flags().StringVar(&source.Message, "message", "", "Message body")
-	replyCmd.Flags().StringVar(&source.File, "file", "", "Read message body from file or - for stdin")
-	replyCmd.Flags().BoolVar(&source.Blocks, "blocks", false, "Treat message source as raw Block Kit JSON")
-	replyCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without sending")
+	replyCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
+	replyCmd.Flags().StringP("parent", "p", "", "Parent message timestamp")
+	replyCmd.Flags().StringVarP(&source.Message, "message", "m", "", "Message body")
+	replyCmd.Flags().StringVarP(&source.File, "file", "f", "", "Read message body from file or - for stdin")
+	replyCmd.Flags().BoolVarP(&source.Blocks, "blocks", "b", false, "Treat message source as raw Block Kit JSON")
+	replyCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview without sending")
 	return replyCmd
 }
 

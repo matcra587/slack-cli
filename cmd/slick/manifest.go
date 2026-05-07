@@ -94,19 +94,19 @@ func newManifestTemplateCommand(runtime *RootRuntime) *cobra.Command {
 			return runManifestTemplate(cmd, runtime, opts)
 		},
 	}
-	cmd.Flags().StringVar(&opts.Name, "name", opts.Name, "App display name")
-	cmd.Flags().StringVar(&opts.Description, "description", opts.Description, "Short app description")
-	cmd.Flags().StringVar(&opts.LongDescription, "long-description", "", "Long app description")
-	cmd.Flags().StringVar(&opts.Preset, "preset", opts.Preset, "Scope preset: readonly, messaging, files, search, or full")
+	cmd.Flags().StringVarP(&opts.Name, "name", "n", opts.Name, "App display name")
+	cmd.Flags().StringVarP(&opts.Description, "description", "d", opts.Description, "Short app description")
+	cmd.Flags().StringVarP(&opts.LongDescription, "long-description", "L", "", "Long app description")
+	cmd.Flags().StringVarP(&opts.Preset, "preset", "p", opts.Preset, "Scope preset: readonly, messaging, files, search, or full")
 	cmd.Flags().StringVar(&opts.Preset, "template", opts.Preset, "Alias for --preset")
 	_ = cmd.Flags().MarkHidden("template")
-	cmd.Flags().StringVar(&opts.Type, "type", opts.Type, "Auth shape: user, bot, or both")
-	cmd.Flags().StringVar(&opts.BackgroundColor, "background-color", opts.BackgroundColor, "App background color")
-	cmd.Flags().StringArrayVar(&opts.BotScopes, "bot-scope", nil, "Override bot OAuth scope")
-	cmd.Flags().StringArrayVar(&opts.UserScopes, "user-scope", nil, "Override user OAuth scope")
-	cmd.Flags().StringArrayVar(&opts.RedirectURLs, "redirect-url", opts.RedirectURLs, "OAuth redirect URL")
-	cmd.Flags().StringVar(&opts.CallbackPort, "callback-port", "", "Local OAuth callback port for the generated redirect URL")
-	cmd.Flags().StringVar(&opts.Format, "format", "json", "Output format: json or yaml")
+	cmd.Flags().StringVarP(&opts.Type, "type", "t", opts.Type, "Auth shape: user, bot, or both")
+	cmd.Flags().StringVarP(&opts.BackgroundColor, "background-color", "B", opts.BackgroundColor, "App background color")
+	cmd.Flags().StringArrayVarP(&opts.BotScopes, "bot-scope", "S", nil, "Override bot OAuth scope")
+	cmd.Flags().StringArrayVarP(&opts.UserScopes, "user-scope", "U", nil, "Override user OAuth scope")
+	cmd.Flags().StringArrayVarP(&opts.RedirectURLs, "redirect-url", "r", opts.RedirectURLs, "OAuth redirect URL")
+	cmd.Flags().StringVarP(&opts.CallbackPort, "callback-port", "C", "", "Local OAuth callback port for the generated redirect URL")
+	cmd.Flags().StringVarP(&opts.Format, "format", "f", "json", "Output format: json or yaml")
 	cmd.SetHelpFunc(manifestTemplateHelpFunc())
 	return cmd
 }
@@ -252,7 +252,7 @@ func botCompatibleScopes(scopes []string) []string {
 }
 
 func userTokenOnlyManifestScope(scope string) bool {
-	return scope == "search:read"
+	return scope == "search:read" || scope == "users.profile:write"
 }
 
 func manifestTemplatePresets() []manifestTemplatePreset {
@@ -291,6 +291,7 @@ func manifestTemplatePresets() []manifestTemplatePreset {
 				"reactions:read",
 				"reactions:write",
 				"users:read",
+				"users:read.email",
 			},
 		},
 		{
@@ -312,6 +313,7 @@ func manifestTemplatePresets() []manifestTemplatePreset {
 				"reactions:read",
 				"reactions:write",
 				"users:read",
+				"users:read.email",
 			},
 		},
 		{
@@ -351,6 +353,8 @@ func manifestTemplatePresets() []manifestTemplatePreset {
 				"reactions:write",
 				"search:read",
 				"users:read",
+				"users:read.email",
+				"users.profile:write",
 			},
 		},
 	}
@@ -396,6 +400,8 @@ func manifestScopeReasons() []manifestScopeReason {
 		{Scope: "reactions:write", Reason: "Add and remove emoji reactions."},
 		{Scope: "search:read", Reason: "Search workspace messages."},
 		{Scope: "users:read", Reason: "List users, inspect user metadata, and read presence."},
+		{Scope: "users:read.email", Reason: "Resolve direct-message recipients by email address."},
+		{Scope: "users.profile:write", Reason: "Set and clear the authenticated user's Slack status."},
 	}
 }
 

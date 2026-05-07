@@ -101,7 +101,7 @@ jobs:
           desc: Headless Slack CLI for agents, scripts, and CI jobs
           homepage: https://github.com/matcra587/slack-cli
           version: ${{ github.ref_name }}
-          binary-name: slack
+          binary-name: slick
           module-path: github.com/matcra587/slack-cli
-          build-package: ./cmd/slack
+          build-package: ./cmd/slick
           commit-message: "slack-cli: v{version}"

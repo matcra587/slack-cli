@@ -155,8 +155,8 @@ func TestPipeContractPermissionFailuresKeepStdoutEmpty(t *testing.T) {
 func buildSlackBinary(t *testing.T) string {
 	t.Helper()
 	root := repoRoot(t)
-	binary := filepath.Join(t.TempDir(), "slack")
-	cmd := exec.Command("go", "build", "-o", binary, "./cmd/slack")
+	binary := filepath.Join(t.TempDir(), "slick")
+	cmd := exec.Command("go", "build", "-o", binary, "./cmd/slick")
 	cmd.Dir = root
 	out, err := cmd.CombinedOutput()
 	if err != nil {

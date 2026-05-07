@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gechr/x/shell"
+	xstrings "github.com/gechr/x/strings"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/pkg/blockkit"
 	slackgo "github.com/slack-go/slack"
@@ -50,14 +52,13 @@ func newMessageCommand(runtime *RootRuntime) *cobra.Command {
 			return runMessageSend(cmd, runtime, source, dryRun)
 		},
 	}
-	sendCmd.Flags().StringVar(&source.Message, "message", "", "Message body")
-	sendCmd.Flags().StringVar(&source.File, "file", "", "Read message body from file or - for stdin")
-	sendCmd.Flags().String("channel", "", "Channel ID, name, or alias")
-	sendCmd.Flags().String("user", "", "User ID or alias for DM target")
-	sendCmd.Flags().StringVar(&filename, "filename", "", "Filename metadata for stdin sources")
-	sendCmd.Flags().BoolVar(&source.Blocks, "blocks", false, "Treat message source as raw Block Kit JSON")
-	sendCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without sending")
-	sendCmd.MarkFlagsOneRequired("channel", "user")
+	sendCmd.Flags().StringVarP(&source.Message, "message", "m", "", "Message body")
+	sendCmd.Flags().StringVarP(&source.File, "file", "f", "", "Read message body from file or - for stdin")
+	sendCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
+	sendCmd.Flags().StringArrayP("user", "u", nil, "User ID or alias for DM target; repeat or comma-separate for group DMs")
+	sendCmd.Flags().StringVarP(&filename, "filename", "N", "", "Filename metadata for stdin sources")
+	sendCmd.Flags().BoolVarP(&source.Blocks, "blocks", "b", false, "Treat message source as raw Block Kit JSON")
+	sendCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview without sending")
 	sendCmd.MarkFlagsMutuallyExclusive("channel", "user")
 	sendCmd.PreRunE = func(cmd *cobra.Command, _ []string) error {
 		if err := cmd.ValidateFlagGroups(); err != nil {
@@ -77,12 +78,12 @@ func newMessageCommand(runtime *RootRuntime) *cobra.Command {
 			return runMessageEdit(cmd, runtime, editSource, editDryRun)
 		},
 	}
-	editCmd.Flags().String("channel", "", "Channel ID, name, or alias")
-	editCmd.Flags().String("timestamp", "", "Message timestamp")
-	editCmd.Flags().StringVar(&editSource.Message, "message", "", "Message body")
-	editCmd.Flags().StringVar(&editSource.File, "file", "", "Read message body from file or - for stdin")
-	editCmd.Flags().BoolVar(&editSource.Blocks, "blocks", false, "Treat message source as raw Block Kit JSON")
-	editCmd.Flags().BoolVar(&editDryRun, "dry-run", false, "Preview without mutating")
+	editCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
+	editCmd.Flags().StringP("timestamp", "t", "", "Message timestamp")
+	editCmd.Flags().StringVarP(&editSource.Message, "message", "m", "", "Message body")
+	editCmd.Flags().StringVarP(&editSource.File, "file", "f", "", "Read message body from file or - for stdin")
+	editCmd.Flags().BoolVarP(&editSource.Blocks, "blocks", "b", false, "Treat message source as raw Block Kit JSON")
+	editCmd.Flags().BoolVarP(&editDryRun, "dry-run", "n", false, "Preview without mutating")
 	messageCmd.AddCommand(editCmd)
 
 	var deleteDryRun bool
@@ -95,10 +96,10 @@ func newMessageCommand(runtime *RootRuntime) *cobra.Command {
 			return runMessageDelete(cmd, runtime, deleteDryRun, force)
 		},
 	}
-	deleteCmd.Flags().String("channel", "", "Channel ID, name, or alias")
-	deleteCmd.Flags().String("timestamp", "", "Message timestamp")
-	deleteCmd.Flags().BoolVar(&deleteDryRun, "dry-run", false, "Preview without mutating")
-	deleteCmd.Flags().BoolVar(&force, "force", false, "Confirm deletion")
+	deleteCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
+	deleteCmd.Flags().StringP("timestamp", "t", "", "Message timestamp")
+	deleteCmd.Flags().BoolVarP(&deleteDryRun, "dry-run", "n", false, "Preview without mutating")
+	deleteCmd.Flags().BoolVarP(&force, "force", "F", false, "Confirm deletion")
 	messageCmd.AddCommand(deleteCmd)
 
 	return messageCmd
@@ -114,8 +115,8 @@ func runMessageSend(cmd *cobra.Command, runtime *RootRuntime, source messageSour
 	}
 
 	channel, _ := cmd.Flags().GetString("channel")
-	user, _ := cmd.Flags().GetString("user")
-	target, err := resolveMessageSendTarget(profile, channel, user)
+	users, _ := cmd.Flags().GetStringArray("user")
+	target, err := resolveMessageSendTarget(profile, channel, users)
 	if err != nil {
 		return writeCommandError(ctx, validationCLIError(err.Error()))
 	}
@@ -131,19 +132,23 @@ func runMessageSend(cmd *cobra.Command, runtime *RootRuntime, source messageSour
 
 	result := sendCommandData{Attribution: attribution.Enabled}
 	if dryRun {
-		result.Message = cliMessage{Type: "message", TS: "dry-run", Channel: stringPtr(target.Channel), Text: stringPtr(strings.TrimSpace(content))}
+		result.Message = cliMessage{Type: "message", TS: "dry-run", Channel: stringPtr(target.previewChannel()), Text: stringPtr(strings.TrimSpace(content))}
 		result.DryRun = true
 	} else {
 		client, err := slackClient(cmd, profile, runtime)
 		if err != nil {
 			return writeCommandError(ctx, authCLIError(err.Error()))
 		}
-		if target.User != "" {
-			if err := requireSlackScopes(cmd.Context(), client, allScopes("chat:write", "im:write")); err != nil {
+		if len(target.Users) > 0 {
+			if err := requireSlackScopes(cmd.Context(), client, messageUserTargetScopes(target.Users)); err != nil {
+				return writeCommandError(ctx, cliErrorFromSlack(err))
+			}
+			target.Users, err = resolveMessageUserIDs(cmd.Context(), client, target.Users)
+			if err != nil {
 				return writeCommandError(ctx, cliErrorFromSlack(err))
 			}
 			opened, _, _, err := client.OpenConversationContext(cmd.Context(), &slackgo.OpenConversationParameters{
-				Users:    []string{target.User},
+				Users:    target.Users,
 				ReturnIM: true,
 			})
 			if err != nil {
@@ -166,21 +171,80 @@ func runMessageSend(cmd *cobra.Command, runtime *RootRuntime, source messageSour
 
 type messageSendTarget struct {
 	Channel string
-	User    string
+	Users   []string
 }
 
-func resolveMessageSendTarget(profile config.WorkspaceProfile, channel, user string) (messageSendTarget, error) {
+func resolveMessageSendTarget(profile config.WorkspaceProfile, channel string, users []string) (messageSendTarget, error) {
 	channel = resolveAlias(profile, strings.TrimSpace(channel))
-	user = resolveAlias(profile, strings.TrimSpace(user))
+	resolvedUsers := resolveUserTargets(profile, users)
 	switch {
-	case channel == "" && user == "":
-		return messageSendTarget{}, errors.New("channel or user is required")
-	case channel != "" && user != "":
+	case channel == "" && len(resolvedUsers) == 0:
+		channel = resolveAlias(profile, strings.TrimSpace(profile.DefaultChannel))
+		if channel == "" {
+			return messageSendTarget{}, errors.New("channel or user is required")
+		}
+		return messageSendTarget{Channel: channel}, nil
+	case channel != "" && len(resolvedUsers) > 0:
 		return messageSendTarget{}, errors.New("channel and user are mutually exclusive")
 	case channel != "":
 		return messageSendTarget{Channel: channel}, nil
 	}
-	return messageSendTarget{Channel: user, User: user}, nil
+	return messageSendTarget{Channel: strings.Join(resolvedUsers, ","), Users: resolvedUsers}, nil
+}
+
+func (t messageSendTarget) previewChannel() string {
+	if t.Channel != "" {
+		return t.Channel
+	}
+	return strings.Join(t.Users, ",")
+}
+
+func resolveUserTargets(profile config.WorkspaceProfile, values []string) []string {
+	var out []string
+	for _, value := range values {
+		for _, part := range xstrings.SplitCSV(value) {
+			out = append(out, resolveAlias(profile, part))
+		}
+	}
+	return out
+}
+
+func messageUserTargetScopes(users []string) scopeRequirement {
+	if len(users) > 1 {
+		if messageTargetsNeedEmailLookup(users) {
+			return allScopes("chat:write", "im:write", "mpim:write", "users:read.email")
+		}
+		return allScopes("chat:write", "im:write", "mpim:write")
+	}
+	if messageTargetsNeedEmailLookup(users) {
+		return allScopes("chat:write", "im:write", "users:read.email")
+	}
+	return allScopes("chat:write", "im:write")
+}
+
+func messageTargetsNeedEmailLookup(users []string) bool {
+	for _, user := range users {
+		if strings.Contains(user, "@") {
+			return true
+		}
+	}
+	return false
+}
+
+func resolveMessageUserIDs(ctx context.Context, client *slackgo.Client, users []string) ([]string, error) {
+	out := make([]string, 0, len(users))
+	for _, user := range users {
+		if !strings.Contains(user, "@") {
+			out = append(out, user)
+			continue
+		}
+		resolved, err := client.GetUserByEmailContext(ctx, user)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, resolved.ID)
+	}
+	return out, nil
 }
 
 func resolveAlias(profile config.WorkspaceProfile, value string) string {
@@ -318,7 +382,7 @@ func readMessageSource(stdin io.Reader, source messageSource) (string, error) {
 		}
 		return string(raw), nil
 	}
-	raw, err := os.ReadFile(source.File)
+	raw, err := os.ReadFile(shell.ExpandPath(source.File))
 	if err != nil {
 		return "", err
 	}

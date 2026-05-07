@@ -8,7 +8,9 @@ mise run deps
 mise run build
 ```
 
-`mise run build` writes `./dist/slack-<goos>-<goarch>`.
+`mise run build` writes `./dist/slick-<goos>-<goarch>`.
+The repository is `slack-cli`; the installed command is `slick`, a short play
+on `slack-cli`.
 
 ## Checks
 

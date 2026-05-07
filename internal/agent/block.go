@@ -16,7 +16,7 @@ func ContextBlock(attribution Attribution) *Block {
 	}
 	text := attribution.Message
 	if text == "" {
-		text = "Sent via slack-cli (" + attribution.Label + ")"
+		text = "Sent via slick (" + attribution.Label + ")"
 	}
 	return &Block{
 		Type: "context",

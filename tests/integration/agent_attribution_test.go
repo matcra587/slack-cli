@@ -27,7 +27,7 @@ func TestBinaryAgentAttributionAddsContextBlock(t *testing.T) {
 				t.Fatalf("blocks is not JSON: %v", err)
 			}
 			last := blocks[len(blocks)-1]
-			if last["type"] == "context" && strings.Contains(r.FormValue("blocks"), ":robot_face: _Sent via slack-cli (agent mode)_") {
+			if last["type"] == "context" && strings.Contains(r.FormValue("blocks"), ":robot_face: _Sent via slick (agent mode)_") {
 				sawAttribution = true
 			}
 			writeJSON(w, `{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","text":"hello","ts":"1746284582.123456"}}`)

@@ -2,9 +2,11 @@
 
 ## Product
 
-`slack` is a headless Slack CLI for agents, scripts, CI jobs, and human users.
-Runtime Slack commands are non-interactive. Command data goes to stdout;
-diagnostics and errors go to stderr.
+`slick` is a headless Slack CLI for agents, scripts, CI jobs, and human users.
+The name is a short play on `slack-cli`: the repository and module stay
+`slack-cli`, while the installed binary is `slick`. Runtime Slack commands are
+non-interactive. Command data goes to stdout; diagnostics and errors go to
+stderr.
 
 ## Local Workflow
 
@@ -22,9 +24,9 @@ diagnostics and errors go to stderr.
 
 ## Repository Map
 
-- `cmd/slack/`: Cobra commands and CLI behavior.
+- `cmd/slick/`: Cobra commands and CLI behavior.
 - `internal/agent/`: agent detection and attribution helpers.
-- `internal/agenthelp/`: runbooks for `slack agent guide`.
+- `internal/agenthelp/`: runbooks for `slick agent guide`.
 - `internal/config/`: TOML profiles, migrations, credential references, and
   workspace resolution.
 - `internal/ratelimit/`: Slack Web API method tiers, throttling, and 429 retry.
@@ -45,7 +47,14 @@ diagnostics and errors go to stderr.
 - Config stores keychain or secret-manager references.
 - Workspace selection resolves exactly one active profile through `--workspace`
   or `default_workspace`.
+- Config paths come from XDG config home unless `SLACK_CLI_CONFIG` is set;
+  default is `~/.config/slack-cli/config.toml`.
+- Path inputs use `gechr/x` expansion for `~` and environment variables.
 - Mutations support `--dry-run`; `message delete` also requires `--force`.
+- `message send --user` accepts repeated, comma-separated, and email-address
+  recipients; email lookup uses `users.lookupByEmail`.
+- `status set|clear` mutates the authenticated user's Slack profile and
+  requires a user token with `users.profile:write`.
 - Slack permission failures such as `missing_scope`, `not_in_channel`, and
   `no_permission` map to structured CLI errors.
 

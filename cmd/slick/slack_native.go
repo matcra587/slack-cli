@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 
+	xstrings "github.com/gechr/x/strings"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/internal/ratelimit"
 	slackgo "github.com/slack-go/slack"
@@ -145,7 +146,7 @@ func slackClient(cmd *cobra.Command, profile config.WorkspaceProfile, runtime *R
 			if workspace == "" {
 				workspace = "selected workspace"
 			}
-			return nil, fmt.Errorf("workspace %s is not authenticated; run slack auth login or switch to an authenticated workspace: %w", workspace, err)
+			return nil, fmt.Errorf("workspace %s is not authenticated; run slick auth login or switch to an authenticated workspace: %w", workspace, err)
 		}
 		return nil, err
 	}
@@ -278,11 +279,8 @@ func requireSlackScopes(ctx context.Context, client *slackgo.Client, requirement
 
 func parseSlackScopes(value string) map[string]bool {
 	out := map[string]bool{}
-	for _, part := range strings.Split(value, ",") {
-		scope := strings.TrimSpace(part)
-		if scope != "" {
-			out[scope] = true
-		}
+	for _, scope := range xstrings.SplitCSV(value) {
+		out[scope] = true
 	}
 	return out
 }

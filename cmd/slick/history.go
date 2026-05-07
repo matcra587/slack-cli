@@ -45,15 +45,15 @@ func newHistoryCommand(runtime *RootRuntime) *cobra.Command {
 			})
 		},
 	}
-	listCmd.Flags().String("channel", "", "Channel ID, name, or alias")
-	listCmd.Flags().IntVar(&maxItems, "max-items", 0, "Maximum messages to return")
-	listCmd.Flags().StringVar(&since, "since", "", "Oldest Slack timestamp")
-	listCmd.Flags().StringVar(&until, "until", "", "Latest Slack timestamp")
-	listCmd.Flags().StringVar(&user, "user", "", "Filter by user ID")
-	listCmd.Flags().StringVar(&thread, "thread", "", "Read replies for parent timestamp")
-	listCmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor")
-	listCmd.Flags().BoolVar(&includeReplies, "include-replies", false, "Include bounded thread replies")
-	listCmd.Flags().IntVar(&replyLimit, "reply-limit", 0, "Maximum replies per parent")
+	listCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
+	listCmd.Flags().IntVarP(&maxItems, "max-items", "M", 0, "Maximum messages to return")
+	listCmd.Flags().StringVarP(&since, "since", "s", "", "Oldest Slack timestamp")
+	listCmd.Flags().StringVarP(&until, "until", "u", "", "Latest Slack timestamp")
+	listCmd.Flags().StringVarP(&user, "user", "U", "", "Filter by user ID")
+	listCmd.Flags().StringVarP(&thread, "thread", "t", "", "Read replies for parent timestamp")
+	listCmd.Flags().StringVarP(&cursor, "cursor", "C", "", "Pagination cursor")
+	listCmd.Flags().BoolVarP(&includeReplies, "include-replies", "R", false, "Include bounded thread replies")
+	listCmd.Flags().IntVarP(&replyLimit, "reply-limit", "L", 0, "Maximum replies per parent")
 	historyCmd.AddCommand(listCmd)
 
 	return historyCmd

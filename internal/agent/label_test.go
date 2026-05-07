@@ -27,7 +27,7 @@ func TestAttributionUsesCategoryDefaults(t *testing.T) {
 			if got.Emoji != tt.emoji {
 				t.Fatalf("Emoji = %q, want %q", got.Emoji, tt.emoji)
 			}
-			if got.Message != "Sent via slack-cli ("+tt.label+")" {
+			if got.Message != "Sent via slick ("+tt.label+")" {
 				t.Fatalf("Message = %q, want default message for %q", got.Message, tt.label)
 			}
 		})

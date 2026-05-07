@@ -41,7 +41,7 @@ func addClibCompletionCommand(root *cobra.Command) {
 }
 
 func slackCompletionGenerator(root *cobra.Command) *complete.Generator {
-	gen := complete.NewGenerator("slack", complete.WithOrder(complete.OrderKeep)).
+	gen := complete.NewGenerator("slick", complete.WithOrder(complete.OrderKeep)).
 		FromFlags(cobracli.FlagMeta(root))
 	gen.Subs = cobracli.Subcommands(root)
 	return gen
@@ -210,6 +210,7 @@ func extendSlackCompletionMetadata(root *cobra.Command) {
 	extendReactCompletionFlags(root)
 	extendLookupCompletionFlags(root)
 	extendFileCompletionFlags(root)
+	extendStatusCompletionFlags(root)
 	extendManifestCompletionFlags(root)
 	extendConfigCompletionArgs(root)
 	extendAgentCompletionArgs(root)
@@ -323,6 +324,18 @@ func extendFileCompletionFlags(root *cobra.Command) {
 	cobracli.Extend(flag(cmd, "message"), cobracli.FlagExtra{Placeholder: "TEXT", Terse: "message"})
 	extendTimestampFlag(cmd, "thread")
 	extendDryRunFlag(cmd)
+}
+
+func extendStatusCompletionFlags(root *cobra.Command) {
+	set := commandPath(root, "status", "set")
+	cobracli.Extend(flag(set, "text"), cobracli.FlagExtra{Placeholder: "TEXT", Terse: "status text"})
+	extendEmojiFlag(set)
+	cobracli.Extend(flag(set, "expires-in"), cobracli.FlagExtra{Placeholder: "DURATION", Terse: "expires in"})
+	cobracli.Extend(flag(set, "until"), cobracli.FlagExtra{Placeholder: "TIME", Terse: "until"})
+	extendDryRunFlag(set)
+
+	clear := commandPath(root, "status", "clear")
+	extendDryRunFlag(clear)
 }
 
 func extendManifestCompletionFlags(root *cobra.Command) {

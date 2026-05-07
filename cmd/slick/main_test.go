@@ -13,6 +13,7 @@ import (
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/internal/testutil"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func TestMain(m *testing.M) {
@@ -28,8 +29,8 @@ func clearAmbientAgentEnvironment() {
 
 func TestNewRootCommandDefinesPersistentFlags(t *testing.T) {
 	cmd := NewRootCommand()
-	if cmd.Use != "slack" {
-		t.Fatalf("Use = %q, want slack", cmd.Use)
+	if cmd.Use != "slick" {
+		t.Fatalf("Use = %q, want slick", cmd.Use)
 	}
 
 	for _, name := range []string{
@@ -56,6 +57,75 @@ func TestNewRootCommandDefinesPersistentFlags(t *testing.T) {
 	}
 }
 
+func TestDefaultConfigPathUsesXDGConfigDirAndEnvOverride(t *testing.T) {
+	override := filepath.Join(t.TempDir(), "custom.toml")
+	t.Setenv("SLACK_CLI_CONFIG", override)
+	if got := defaultConfigPath(); got != override {
+		t.Fatalf("defaultConfigPath override = %q, want %q", got, override)
+	}
+
+	overrideDir := t.TempDir()
+	t.Setenv("SLACK_CLI_CONFIG_DIR", overrideDir)
+	t.Setenv("SLACK_CLI_CONFIG", "$SLACK_CLI_CONFIG_DIR/custom.toml")
+	if got, want := defaultConfigPath(), filepath.Join(overrideDir, "custom.toml"); got != want {
+		t.Fatalf("defaultConfigPath expanded override = %q, want %q", got, want)
+	}
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("SLACK_CLI_CONFIG", "~/custom.toml")
+	if got, want := defaultConfigPath(), filepath.Join(home, "custom.toml"); got != want {
+		t.Fatalf("defaultConfigPath home override = %q, want %q", got, want)
+	}
+
+	t.Setenv("SLACK_CLI_CONFIG", "")
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+	got := defaultConfigPath()
+	want := filepath.Join(configHome, "slack-cli", "config.toml")
+	if got != want {
+		t.Fatalf("defaultConfigPath = %q, want %q", got, want)
+	}
+
+	t.Setenv("XDG_CONFIG_HOME", "")
+	home = t.TempDir()
+	t.Setenv("HOME", home)
+	got = defaultConfigPath()
+	want = filepath.Join(home, ".config", "slack-cli", "config.toml")
+	if got != want {
+		t.Fatalf("defaultConfigPath XDG fallback = %q, want %q", got, want)
+	}
+}
+
+func TestNewRootCommandDefinesVisibleShortFlags(t *testing.T) {
+	root := NewRootCommand()
+	var missing []string
+	var visit func(*cobra.Command)
+	visit = func(cmd *cobra.Command) {
+		cmd.LocalNonPersistentFlags().VisitAll(func(flag *pflag.Flag) {
+			if flag.Hidden || flag.Shorthand != "" || flag.Name == "help" {
+				return
+			}
+			missing = append(missing, cmd.CommandPath()+" --"+flag.Name)
+		})
+		if cmd == root {
+			cmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
+				if flag.Hidden || flag.Shorthand != "" || flag.Name == "help" {
+					return
+				}
+				missing = append(missing, cmd.CommandPath()+" --"+flag.Name)
+			})
+		}
+		for _, child := range cmd.Commands() {
+			visit(child)
+		}
+	}
+	visit(root)
+	if len(missing) > 0 {
+		t.Fatalf("visible flags missing shorthand: %s", strings.Join(missing, ", "))
+	}
+}
+
 func TestNewRootCommandUsesLookupForDiscovery(t *testing.T) {
 	cmd := NewRootCommand()
 	if lookup, _, err := cmd.Find([]string{"lookup"}); err != nil || lookup.Name() != "lookup" {
@@ -64,7 +134,7 @@ func TestNewRootCommandUsesLookupForDiscovery(t *testing.T) {
 	for _, child := range cmd.Commands() {
 		switch child.Name() {
 		case "channel", "dm", "user":
-			t.Fatalf("root command exposes %q; use slack lookup channel/user and slack message send --user", child.CommandPath())
+			t.Fatalf("root command exposes %q; use slick lookup channel/user and slick message send --user", child.CommandPath())
 		}
 	}
 }
@@ -91,7 +161,7 @@ func TestNewRootCommandHidesDeferredCommandSurfaces(t *testing.T) {
 	}
 	for _, name := range []string{"reaction", "thread"} {
 		if child := findDirectChild(cmd, name); child != nil {
-			t.Fatalf("root command exposes legacy %q; use slack react or slack reply", child.CommandPath())
+			t.Fatalf("root command exposes legacy %q; use slick react or slick reply", child.CommandPath())
 		}
 	}
 	if search := findDirectChild(cmd, "search"); search != nil {
@@ -275,7 +345,7 @@ func TestNewCommandContextProfileAttributionUsesSlackCLIMessageUntilAgentDetecte
 	if !attribution.Enabled {
 		t.Fatal("Attribution Enabled = false, want profile attribution enabled")
 	}
-	if attribution.Message != "Sent via slack-cli" {
+	if attribution.Message != "Sent via slick" {
 		t.Fatalf("Attribution Message = %q, want slack-cli message", attribution.Message)
 	}
 	if ctx.Mode != OutputModePlain {
@@ -292,7 +362,7 @@ func TestNewCommandContextProfileAttributionUsesSlackCLIMessageUntilAgentDetecte
 	if err != nil {
 		t.Fatalf("NewCommandContext with agent env returned error: %v", err)
 	}
-	if attribution.Message != "Sent via slack-cli (agent mode)" {
+	if attribution.Message != "Sent via slick (agent mode)" {
 		t.Fatalf("Attribution Message = %q, want agent-mode suffix", attribution.Message)
 	}
 	if ctx.Mode != OutputModeJSON {

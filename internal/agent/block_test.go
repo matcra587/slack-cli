@@ -19,7 +19,7 @@ func TestContextBlockUsesSlackBlockKitShape(t *testing.T) {
 		t.Fatalf("Marshal returned error: %v", err)
 	}
 
-	want := `{"type":"context","elements":[{"type":"mrkdwn","text":":gear: _Sent via slack-cli (CI/CD pipeline)_"}]}`
+	want := `{"type":"context","elements":[{"type":"mrkdwn","text":":gear: _Sent via slick (CI/CD pipeline)_"}]}`
 	if string(raw) != want {
 		t.Fatalf("block JSON = %s\nwant       = %s", raw, want)
 	}

@@ -41,7 +41,7 @@ func NewAttribution(detection Detection, opts Options) Attribution {
 func defaultsForCategory(category Category) (string, string) {
 	switch category {
 	case CategoryCLI:
-		return "slack-cli", ":robot_face:"
+		return "slick", ":robot_face:"
 	case CategoryAI:
 		return "agent mode", ":robot_face:"
 	case CategoryCI:
@@ -55,9 +55,9 @@ func defaultsForCategory(category Category) (string, string) {
 
 func defaultMessageForCategory(category Category, label string) string {
 	if category == CategoryCLI {
-		return "Sent via slack-cli"
+		return "Sent via slick"
 	}
-	return "Sent via slack-cli (" + label + ")"
+	return "Sent via slick (" + label + ")"
 }
 
 func shouldAppendAgentMode(detection Detection, message string) bool {

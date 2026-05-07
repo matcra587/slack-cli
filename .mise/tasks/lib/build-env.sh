@@ -41,8 +41,8 @@ slack_ldflags() {
 slack_binary_path() {
 	local dist_dir="${DIST_DIR:?DIST_DIR is required}"
 	local binary_name="${BINARY_NAME:?BINARY_NAME is required}"
-	local goos="${GOOS:?GOOS is required}"
-	local goarch="${GOARCH:?GOARCH is required}"
+	local goos="${GOOS:-$(go env GOOS)}"
+	local goarch="${GOARCH:-$(go env GOARCH)}"
 
 	printf "%s/%s-%s-%s\n" "$dist_dir" "$binary_name" "$goos" "$goarch"
 }

@@ -115,7 +115,7 @@ func GenerateSchema(root *cobra.Command) Schema {
 			"Use --dry-run before destructive or high-visibility mutations.",
 			"Use --compact when another tool expects command-specific JSON only.",
 			"Follow meta.pagination.next_cursor while meta.pagination.has_more is true.",
-			"Load the workflow runbook with slack agent guide <workflow> before operating.",
+			"Load the workflow runbook with slick agent guide <workflow> before operating.",
 		},
 		AntiPatterns: []string{
 			"Do not store Slack tokens in TOML or source files.",
@@ -166,15 +166,16 @@ func exitCodes() map[string]int {
 
 func examples() map[string][]string {
 	return map[string][]string{
-		"message":  {"echo 'Deploy complete' | slack message send --channel '#alerts' --file -", "slack message send --user U123 --message 'Need review'", "slack message send --channel C123 --blocks --file blocks.json"},
-		"reply":    {"slack reply --channel C123 --parent 1746284582.123456 --message 'Investigating'", "echo 'details' | slack reply --channel C123 --parent 1746284582.123456 --file -"},
-		"react":    {"slack react add --channel C123 --timestamp 1746284582.123456 --emoji eyes", "slack react remove --channel C123 --timestamp 1746284582.123456 --emoji eyes", "slack react list --channel C123 --timestamp 1746284582.123456"},
-		"history":  {"slack history list --channel C123 --max-items 50"},
-		"lookup":   {"slack lookup channel --max-items 20", "slack lookup channel --types im", "slack lookup user --presence", "slack lookup user --user U123", "slack lookup messages --query 'deploy failed' --max-items 10"},
-		"file":     {"probationary, not promoted: tar czf - build/ | slack file upload --channel C123 --file - --filename build.tgz"},
-		"manifest": {"slack manifest template --name example --format json > manifest.json", "slack manifest template --name example --format yaml > manifest.yaml"},
-		"auth":     {"slack auth login", "printf '%s\\n' \"$SLACK_TOKEN\" | slack auth login --workspace default --method token --token-stdin", "slack auth login --workspace default --method token --token-file ./slack-token.txt", "slack auth login --workspace default --method token --token-env SLACK_CLI_TOKEN_DEFAULT"},
-		"schema":   {"slack agent schema", "slack agent schema --compact", "slack agent schema --raw"},
+		"message":  {"echo 'Deploy complete' | slick message send --channel '#alerts' --file -", "slick message send --user U123 --message 'Need review'", "slick message send --user dev@example.com,ops@example.com --message 'PR is ready'", "slick message send --channel C123 --blocks --file blocks.json"},
+		"reply":    {"slick reply --channel C123 --parent 1746284582.123456 --message 'Investigating'", "echo 'details' | slick reply --channel C123 --parent 1746284582.123456 --file -"},
+		"react":    {"slick react add --channel C123 --timestamp 1746284582.123456 --emoji eyes", "slick react remove --channel C123 --timestamp 1746284582.123456 --emoji eyes", "slick react list --channel C123 --timestamp 1746284582.123456"},
+		"status":   {"slick status set --text 'Heads down' --emoji :headphones: --expires-in 2h", "slick status clear"},
+		"history":  {"slick history list --channel C123 --max-items 50"},
+		"lookup":   {"slick lookup channel --max-items 20", "slick lookup channel --types im", "slick lookup user --presence", "slick lookup user --user U123", "slick lookup messages --query 'deploy failed' --max-items 10"},
+		"file":     {"probationary, not promoted: tar czf - build/ | slick file upload --channel C123 --file - --filename build.tgz"},
+		"manifest": {"slick manifest template --name example --format json > manifest.json", "slick manifest template --name example --format yaml > manifest.yaml"},
+		"auth":     {"slick auth login", "printf '%s\\n' \"$SLACK_TOKEN\" | slick auth login --workspace default --method token --token-stdin", "slick auth login --workspace default --method token --token-file ./slack-token.txt", "slick auth login --workspace default --method token --token-env SLACK_CLI_TOKEN_DEFAULT"},
+		"schema":   {"slick agent schema", "slick agent schema --compact", "slick agent schema --raw"},
 	}
 }
 

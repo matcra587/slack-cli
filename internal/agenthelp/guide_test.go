@@ -79,7 +79,7 @@ func TestGuideDocumentsCoreContract(t *testing.T) {
 
 func TestGuideDocumentsPromotedReplyAndReactCommands(t *testing.T) {
 	react := agenthelp.GetGuideSection("react")
-	for _, fragment := range []string{"slack react add", "slack react remove", "slack react list", "react.add", "react.remove", "react.list"} {
+	for _, fragment := range []string{"slick react add", "slick react remove", "slick react list", "react.add", "react.remove", "react.list"} {
 		if !strings.Contains(react, fragment) {
 			t.Fatalf("react guide missing %q:\n%s", fragment, react)
 		}
@@ -89,7 +89,7 @@ func TestGuideDocumentsPromotedReplyAndReactCommands(t *testing.T) {
 	}
 
 	reply := agenthelp.GetGuideSection("reply")
-	for _, fragment := range []string{"slack reply", "--parent", "thread_ts", "Command metadata uses `reply`"} {
+	for _, fragment := range []string{"slick reply", "--parent", "thread_ts", "Command metadata uses `reply`"} {
 		if !strings.Contains(reply, fragment) {
 			t.Fatalf("reply guide missing %q:\n%s", fragment, reply)
 		}
@@ -101,7 +101,7 @@ func TestGuideDocumentsPromotedReplyAndReactCommands(t *testing.T) {
 
 func TestGuideDocumentsSlackDecidedBotDMBehavior(t *testing.T) {
 	guide := agenthelp.GetGuideSection("send_dm")
-	for _, fragment := range []string{"slack message send --user", "Slack decides", "bot-token", "structured error"} {
+	for _, fragment := range []string{"slick message send --user", "Slack decides", "bot-token", "structured error"} {
 		if !strings.Contains(guide, fragment) {
 			t.Fatalf("send_dm guide missing %q:\n%s", fragment, guide)
 		}
@@ -113,7 +113,7 @@ func TestGuideDocumentsSlackDecidedBotDMBehavior(t *testing.T) {
 
 func TestGuideDocumentsLookupSurface(t *testing.T) {
 	destination := agenthelp.GetGuideSection("discover_destination")
-	for _, fragment := range []string{"slack lookup channel", "--types im", "plain mode renders tables"} {
+	for _, fragment := range []string{"slick lookup channel", "--types im", "plain mode renders tables"} {
 		if !strings.Contains(destination, fragment) {
 			t.Fatalf("discover_destination guide missing %q:\n%s", fragment, destination)
 		}
@@ -125,7 +125,7 @@ func TestGuideDocumentsLookupSurface(t *testing.T) {
 	}
 
 	user := agenthelp.GetGuideSection("lookup_user")
-	for _, fragment := range []string{"slack lookup user", "--user", "timezone"} {
+	for _, fragment := range []string{"slick lookup user", "--user", "timezone"} {
 		if !strings.Contains(user, fragment) {
 			t.Fatalf("lookup_user guide missing %q:\n%s", fragment, user)
 		}
@@ -138,9 +138,9 @@ func TestGuideDocumentsLookupSurface(t *testing.T) {
 func TestGuideDocumentsUserLookupDMAndTimestampWorkflows(t *testing.T) {
 	lookup := agenthelp.GetGuideSection("lookup_user")
 	for _, fragment := range []string{
-		"slack lookup user --filter ansible --max-items 20",
+		"slick lookup user --filter ansible --max-items 20",
 		"data.users[].id",
-		"slack message send --user <user-id>",
+		"slick message send --user <user-id>",
 	} {
 		if !strings.Contains(lookup, fragment) {
 			t.Fatalf("lookup_user guide missing %q:\n%s", fragment, lookup)
@@ -151,8 +151,8 @@ func TestGuideDocumentsUserLookupDMAndTimestampWorkflows(t *testing.T) {
 	for _, fragment := range []string{
 		"Use history to discover message timestamps",
 		"data.messages[].ts",
-		"Use the parent message `ts` with `slack reply --parent`",
-		"Use any message or reply `ts` with `slack react add --timestamp`",
+		"Use the parent message `ts` with `slick reply --parent`",
+		"Use any message or reply `ts` with `slick react add --timestamp`",
 	} {
 		if !strings.Contains(history, fragment) {
 			t.Fatalf("read_history guide missing %q:\n%s", fragment, history)

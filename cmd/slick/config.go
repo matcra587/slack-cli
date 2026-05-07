@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"charm.land/huh/v2"
 	clib "github.com/gechr/clib/cli/cobra"
 	clibtheme "github.com/gechr/clib/theme"
+	xfs "github.com/gechr/x/fs"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -71,8 +71,8 @@ var slackConfigKeys = []string{
 
 var slackConfigDescriptions = map[string]string{
 	"default_workspace":                        "Default workspace profile name",
-	"workspaces.<profile>.default_channel":     "Default channel ID or alias",
-	"workspaces.<profile>.attribution.enabled": "Enable automated attribution by default",
+	"workspaces.<profile>.default_channel":     "Fallback message channel ID or alias",
+	"workspaces.<profile>.attribution.enabled": "Add visible attribution by default",
 	"workspaces.<profile>.attribution.label":   "Attribution label override",
 	"workspaces.<profile>.attribution.emoji":   "Attribution emoji override",
 	"workspaces.<profile>.attribution.message": "Attribution message override",
@@ -109,18 +109,18 @@ func newConfigInitCommand(runtime *RootRuntime) *cobra.Command {
 			return runConfigInit(cmd, runtime, opts)
 		},
 	}
-	cmd.Flags().StringVar(&opts.Profile, "profile", opts.Profile, "Local workspace profile name")
-	cmd.Flags().StringVar(&opts.DefaultChannel, "default-channel", "", "Default channel ID or alias")
-	cmd.Flags().BoolVar(&opts.AgentAttribution, "attribution-enabled", opts.AgentAttribution, "Enable automated attribution by default")
-	cmd.Flags().StringVar(&opts.AgentLabel, "attribution-label", "", "Attribution label")
-	cmd.Flags().StringVar(&opts.AgentEmoji, "attribution-emoji", "", "Attribution emoji")
-	cmd.Flags().StringVar(&opts.AgentMessage, "attribution-message", "", "Attribution message")
+	cmd.Flags().StringVarP(&opts.Profile, "profile", "p", opts.Profile, "Local workspace profile name")
+	cmd.Flags().StringVarP(&opts.DefaultChannel, "default-channel", "c", "", "Default message channel ID or alias")
+	cmd.Flags().BoolVarP(&opts.AgentAttribution, "attribution-enabled", "A", opts.AgentAttribution, "Enable visible attribution by default")
+	cmd.Flags().StringVarP(&opts.AgentLabel, "attribution-label", "l", "", "Attribution label")
+	cmd.Flags().StringVarP(&opts.AgentEmoji, "attribution-emoji", "e", "", "Attribution emoji")
+	cmd.Flags().StringVarP(&opts.AgentMessage, "attribution-message", "m", "", "Attribution message")
 	cmd.Flags().BoolVar(&opts.AgentAttribution, "agent-attribution", opts.AgentAttribution, "Legacy alias for --attribution-enabled")
 	cmd.Flags().StringVar(&opts.AgentLabel, "agent-label", "", "Legacy alias for --attribution-label")
 	cmd.Flags().StringVar(&opts.AgentEmoji, "agent-emoji", "", "Legacy alias for --attribution-emoji")
 	cmd.Flags().StringVar(&opts.AgentMessage, "agent-message", "", "Legacy alias for --attribution-message")
 	hideFlags(cmd, "agent-attribution", "agent-label", "agent-emoji", "agent-message")
-	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite an existing config")
+	cmd.Flags().BoolVarP(&opts.Force, "force", "F", false, "Overwrite an existing config")
 	extendConfigInitFlags(cmd)
 	return cmd
 }
@@ -131,7 +131,11 @@ func runConfigInit(cmd *cobra.Command, runtime *RootRuntime, opts configInitOpti
 	if strings.TrimSpace(path) == "" {
 		return writeCommandError(ctx, validationCLIError("config path is unavailable"))
 	}
-	if _, err := os.Stat(path); err == nil && !opts.Force {
+	exists, err := xfs.Exists(path)
+	if err != nil {
+		return writeCommandError(ctx, validationCLIError(err.Error()))
+	}
+	if exists && !opts.Force {
 		if !runtime.IsTTY {
 			return writeCommandError(ctx, validationCLIError("config already exists; rerun with --force to overwrite"))
 		}
@@ -142,8 +146,6 @@ func runConfigInit(cmd *cobra.Command, runtime *RootRuntime, opts configInitOpti
 		if !overwrite {
 			return ctx.WriteResult("config.init", configInitData{Path: path, Profile: opts.Profile, Workspace: opts.Profile, Written: false})
 		}
-	} else if err != nil && !os.IsNotExist(err) {
-		return writeCommandError(ctx, validationCLIError(err.Error()))
 	}
 
 	if runtime.IsTTY && shouldPromptConfigInit(cmd) {
@@ -215,12 +217,12 @@ func runConfigInitForm(runtime *RootRuntime, opts *configInitOptions) error {
 				Value(&opts.Profile).
 				Validate(requiredField("profile name")),
 			huh.NewInput().
-				Title("Default channel").
+				Title("Default message channel").
 				Description(help["default_channel"]).
 				Placeholder("C7N2Q8L4P").
 				Value(&opts.DefaultChannel),
 			huh.NewConfirm().
-				Title("Enable message attribution?").
+				Title("Add visible attribution to sent messages?").
 				Description(help["agent_attribution"]).
 				Value(&opts.AgentAttribution),
 			huh.NewInput().
@@ -231,7 +233,7 @@ func runConfigInitForm(runtime *RootRuntime, opts *configInitOptions) error {
 			huh.NewInput().
 				Title("Attribution message").
 				Description(help["agent_message"]).
-				Placeholder("Sent via slack-cli").
+				Placeholder("Sent via slick").
 				Value(&opts.AgentMessage),
 		),
 	)
@@ -252,10 +254,10 @@ func runConfigForm(runtime *RootRuntime, form *huh.Form) error {
 func configInitFieldHelp() map[string]string {
 	return map[string]string{
 		"profile":           "Local Slack CLI profile. Select it later with --workspace; use default if you only need one profile.",
-		"default_channel":   "Optional default channel ID or alias for commands that support defaults.",
-		"agent_attribution": "Default on. Sent messages include visible Block Kit attribution; detected agents add agent-mode wording.",
-		"agent_emoji":       "Optional emoji override for the attribution context block.",
-		"agent_message":     "Optional custom attribution text shown in the Block Kit context block.",
+		"default_channel":   "Optional fallback destination for slick message send when no --channel or --user target is provided. Use a channel ID or configured alias.",
+		"agent_attribution": "Default on. Sent messages include a visible Slack context block; detected agent and CI runs add agent-mode wording.",
+		"agent_emoji":       "Emoji shown in the attribution context block.",
+		"agent_message":     "Text shown in the attribution context block.",
 	}
 }
 
@@ -285,8 +287,8 @@ func newConfigPathCommand(runtime *RootRuntime) *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := localConfigContext(cmd, runtime)
-			_, statErr := os.Stat(runtime.ConfigPath)
-			return ctx.WriteResult("config.path", configPathData{Path: runtime.ConfigPath, Exists: statErr == nil})
+			exists, err := xfs.Exists(runtime.ConfigPath)
+			return ctx.WriteResult("config.path", configPathData{Path: runtime.ConfigPath, Exists: err == nil && exists})
 		},
 	}
 }
@@ -618,11 +620,11 @@ func configAuthOwnedField(field string) bool {
 }
 
 func authOwnedConfigKey(field string) error {
-	return fmt.Errorf("%s is auth-owned; auth settings are managed by slack auth", field)
+	return fmt.Errorf("%s is auth-owned; auth settings are managed by slick auth", field)
 }
 
 func unknownConfigKey(key string) error {
-	return fmt.Errorf("unknown config key %s - run 'slack config list' to see all keys", key)
+	return fmt.Errorf("unknown config key %s - run 'slick config list' to see all keys", key)
 }
 
 func slackConfigKeyCompletions(cfg *config.Config) []string {

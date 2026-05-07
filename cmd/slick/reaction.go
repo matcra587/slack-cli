@@ -36,10 +36,10 @@ func newReactionMutationCommand(runtime *RootRuntime, action string) *cobra.Comm
 			return runReactionMutation(cmd, runtime, action, dryRun)
 		},
 	}
-	cmd.Flags().String("channel", "", "Channel ID, name, or alias")
-	cmd.Flags().String("timestamp", "", "Message timestamp")
-	cmd.Flags().String("emoji", "", "Emoji name")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without mutating")
+	cmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
+	cmd.Flags().StringP("timestamp", "t", "", "Message timestamp")
+	cmd.Flags().StringP("emoji", "e", "", "Emoji name")
+	cmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview without mutating")
 	return cmd
 }
 
@@ -52,8 +52,8 @@ func newReactionListCommand(runtime *RootRuntime) *cobra.Command {
 			return runReactionList(cmd, runtime)
 		},
 	}
-	cmd.Flags().String("channel", "", "Channel ID, name, or alias")
-	cmd.Flags().String("timestamp", "", "Message timestamp")
+	cmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
+	cmd.Flags().StringP("timestamp", "t", "", "Message timestamp")
 	return cmd
 }
 

@@ -28,10 +28,10 @@ func newLookupMessagesCommand(runtime *RootRuntime) *cobra.Command {
 			return runSearchMessages(cmd, runtime, query, maxItems, cursor, full)
 		},
 	}
-	messagesCmd.Flags().StringVar(&query, "query", "", "Search query")
-	messagesCmd.Flags().IntVar(&maxItems, "max-items", 0, "Maximum matches to return")
-	messagesCmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor")
-	messagesCmd.Flags().BoolVar(&full, "full", false, "Show full text in plain mode")
+	messagesCmd.Flags().StringVarP(&query, "query", "q", "", "Search query")
+	messagesCmd.Flags().IntVarP(&maxItems, "max-items", "M", 0, "Maximum matches to return")
+	messagesCmd.Flags().StringVarP(&cursor, "cursor", "C", "", "Pagination cursor")
+	messagesCmd.Flags().BoolVarP(&full, "full", "F", false, "Show full text in plain mode")
 	return messagesCmd
 }
 

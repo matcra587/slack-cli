@@ -28,7 +28,7 @@ sources = [
   ".mise/tasks/build",
   ".mise/tasks/lib/build-env.sh",
 ]
-outputs = ["{{ env.DIST_DIR }}/{{ env.BINARY_NAME }}-{{ env.GOOS }}-{{ env.GOARCH }}"]
+outputs = ["{{ env.DIST_DIR }}/{{ env.BINARY_NAME }}-*"]
 
 [install]
 description = "Install binary to GOPATH/bin"
@@ -39,7 +39,7 @@ description = "Build and run"
 alias = "r"
 depends = ["build"]
 raw_args = true
-run = '"${DIST_DIR}/${BINARY_NAME}-${GOOS}-${GOARCH}"'
+run = '"${DIST_DIR}/${BINARY_NAME}-$(go env GOOS)-$(go env GOARCH)"'
 
 ["release:check"]
 description = "Run GoReleaser config and environment checks"

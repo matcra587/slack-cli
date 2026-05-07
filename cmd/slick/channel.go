@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	xstrings "github.com/gechr/x/strings"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
@@ -44,11 +45,11 @@ func newLookupChannelCommand(runtime *RootRuntime) *cobra.Command {
 			return runChannelListWithTypes(cmd, runtime, "lookup.channel", maxItems, cursor, filter, parseConversationTypes(types))
 		},
 	}
-	channelCmd.Flags().String("channel", "", "Channel or conversation ID, name, or alias")
-	channelCmd.Flags().IntVar(&maxItems, "max-items", 0, "Maximum conversations to return")
-	channelCmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor")
-	channelCmd.Flags().StringVar(&filter, "filter", "", "Filter by ID or name")
-	channelCmd.Flags().StringVar(&types, "types", "public_channel,private_channel", "Conversation types: public_channel, private_channel, im, mpim, dm, or all")
+	channelCmd.Flags().StringP("channel", "c", "", "Channel or conversation ID, name, or alias")
+	channelCmd.Flags().IntVarP(&maxItems, "max-items", "M", 0, "Maximum conversations to return")
+	channelCmd.Flags().StringVarP(&cursor, "cursor", "C", "", "Pagination cursor")
+	channelCmd.Flags().StringVarP(&filter, "filter", "f", "", "Filter by ID or name")
+	channelCmd.Flags().StringVarP(&types, "types", "t", "public_channel,private_channel", "Conversation types: public_channel, private_channel, im, mpim, dm, or all")
 	return channelCmd
 }
 
@@ -142,7 +143,7 @@ func parseConversationTypes(value string) []string {
 	}
 	seen := map[string]bool{}
 	var out []string
-	for _, part := range strings.Split(value, ",") {
+	for _, part := range xstrings.SplitCSV(value) {
 		normalized := normalizeConversationType(part)
 		if normalized == "" {
 			continue

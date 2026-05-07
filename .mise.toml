@@ -18,10 +18,8 @@ shellcheck = "latest"
 [env]
 HK_MISE = 1
 MODULE = "github.com/matcra587/slack-cli"
-BINARY_NAME = "slack"
+BINARY_NAME = "slick"
 DIST_DIR = "./dist"
-GOOS = "{{ exec(command='go env GOOS') }}"
-GOARCH = "{{ exec(command='go env GOARCH') }}"
 
 [task_config]
 includes = ["tasks.toml"]

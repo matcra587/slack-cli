@@ -39,6 +39,28 @@ func TestFileUploadCommandUploadsPathAndWritesJSON(t *testing.T) {
 	}
 }
 
+func TestFileUploadCommandExpandsFilePath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	filePath := filepath.Join(home, "report.txt")
+	if err := os.WriteFile(filePath, []byte("hello world"), 0o600); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	server := fileUploadServer(t)
+	defer server.Close()
+
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.URL,
+		"",
+		[]string{"file", "upload", "--channel", "C123", "--file", "~/report.txt"},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, `"id":"F123"`) {
+		t.Fatalf("stdout = %s, want file metadata", stdout)
+	}
+}
+
 func TestFileUploadCommandReadsStdinWithFilename(t *testing.T) {
 	server := fileUploadServer(t)
 	defer server.Close()

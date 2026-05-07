@@ -136,7 +136,7 @@ func (w WorkspaceProfile) validate(key string) error {
 		return nil
 	}
 	if authFields != 3 {
-		return fmt.Errorf("workspace %q auth fields must be managed together by slack auth", key)
+		return fmt.Errorf("workspace %q auth fields must be managed together by slick auth", key)
 	}
 	if w.TokenType != TokenTypeBot && w.TokenType != TokenTypeUser {
 		return fmt.Errorf("workspace %q token_type must be bot or user", key)

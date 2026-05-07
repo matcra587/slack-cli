@@ -23,6 +23,7 @@ import (
 	"github.com/gechr/clog"
 	clogstyle "github.com/gechr/clog/style"
 	"github.com/gechr/x/human"
+	"github.com/gechr/x/shell"
 	"github.com/gechr/x/terminal"
 	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
@@ -389,7 +390,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	}
 
 	root := &cobra.Command{
-		Use:           "slack",
+		Use:           "slick",
 		Short:         "Slack command line interface",
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -418,17 +419,17 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	}
 
 	flags := root.PersistentFlags()
-	flags.String("workspace", "", "Workspace profile")
-	flags.Bool("json", false, "Force JSON output")
-	flags.Bool("plain", false, "Force plain text output")
-	flags.Bool("compact", false, "Output command data without envelope")
-	flags.Bool("raw", false, "Output Slack-native data")
-	flags.Bool("agent", false, "Force agent mode")
-	flags.Bool("no-agent-attribution", false, "Disable agent attribution for this command")
-	flags.String("agent-label", "", "Override agent attribution label")
-	flags.String("agent-emoji", "", "Override agent attribution emoji")
-	flags.String("agent-message", "", "Override agent attribution message")
-	flags.Bool("no-throttle", false, "Disable proactive Slack API throttling")
+	flags.StringP("workspace", "w", "", "Workspace profile")
+	flags.BoolP("json", "j", false, "Force JSON output")
+	flags.BoolP("plain", "P", false, "Force plain text output")
+	flags.BoolP("compact", "k", false, "Output command data without envelope")
+	flags.BoolP("raw", "X", false, "Output Slack-native data")
+	flags.BoolP("agent", "a", false, "Force agent mode")
+	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
+	flags.StringP("agent-label", "G", "", "Override agent attribution label")
+	flags.StringP("agent-emoji", "Y", "", "Override agent attribution emoji")
+	flags.StringP("agent-message", "O", "", "Override agent attribution message")
+	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
 
 	root.AddCommand(newMessageCommand(runtime))
 	root.AddCommand(newHistoryCommand(runtime))
@@ -436,6 +437,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	root.AddCommand(newReactCommand(runtime))
 	root.AddCommand(newLookupCommand(runtime))
 	root.AddCommand(newFileCommand(runtime))
+	root.AddCommand(newStatusCommand(runtime))
 	root.AddCommand(newManifestCommand(runtime))
 	root.AddCommand(newConfigCommand(runtime))
 	root.AddCommand(newAgentCommand(runtime))
@@ -471,9 +473,9 @@ func validateOutputModeFlags(root *cobra.Command) error {
 
 func defaultConfigPath() string {
 	if path := os.Getenv("SLACK_CLI_CONFIG"); path != "" {
-		return path
+		return shell.ExpandPath(path)
 	}
-	dir, err := os.UserConfigDir()
+	dir, err := shell.XDGConfigHome()
 	if err != nil {
 		return ""
 	}
@@ -686,6 +688,8 @@ func (c *CommandContext) WritePlainResult(command string, data any, pagination *
 		return c.WriteUpload(command, typed)
 	case reactionCommandData:
 		return c.WriteReaction(command, typed)
+	case statusCommandData:
+		return c.WriteStatus(command, typed)
 	case historyCommandData:
 		return c.WriteMessages(command, typed.Messages, pagination)
 	case searchCommandData:
@@ -922,6 +926,19 @@ func (c *CommandContext) WriteReaction(command string, data reactionCommandData)
 	return nil
 }
 
+func (c *CommandContext) WriteStatus(command string, data statusCommandData) error {
+	event := c.resultEvent(command).
+		Str("text", data.Text).
+		Str("emoji", data.Emoji).
+		Bool("cleared", data.Cleared).
+		Bool("dry_run", data.DryRun)
+	if data.Expiration > 0 {
+		event = event.Int64("expiration", data.Expiration)
+	}
+	event.Msg(commandMessage(command))
+	return nil
+}
+
 func (c *CommandContext) WriteMessages(command string, messages []cliMessage, pagination *Pagination) error {
 	if len(messages) > 0 {
 		return c.WriteMessageTable(messages)
@@ -1085,7 +1102,7 @@ func (c *CommandContext) WriteWorkspaces(command string, workspaces []config.Wor
 
 func (c *CommandContext) WriteVersion(data versionData) error {
 	var b strings.Builder
-	b.WriteString("slack " + data.Version + "\n")
+	b.WriteString("slick " + data.Version + "\n")
 	b.WriteString("  commit:  " + data.Commit + "\n")
 	b.WriteString("  branch:  " + data.Branch + "\n")
 	b.WriteString("  built:   " + data.BuildTime + "\n")

@@ -218,6 +218,109 @@ func TestMessageSendCommandSupportsUnifiedUserTargetWithAlias(t *testing.T) {
 	}
 }
 
+func TestMessageSendCommandSupportsRepeatedAndCommaUserTargets(t *testing.T) {
+	cfg := workspaceConfig(config.TokenTypeUser)
+	cfg.Workspaces["default"] = withAliases(cfg.Workspaces["default"], map[string]string{
+		"oncall":  "U123",
+		"release": "U456",
+	})
+
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"conversations.open": func(req testutil.SlackRequest) testutil.SlackResponse {
+			if got := req.Form.Get("users"); got != "U123,U456,U789" {
+				t.Fatalf("users = %q, want comma-joined resolved recipients", got)
+			}
+			return testutil.JSONResponse(`{"ok":true,"channel":{"id":"G123"}}`)
+		},
+		"chat.postMessage": func(req testutil.SlackRequest) testutil.SlackResponse {
+			if got := req.Form.Get("channel"); got != "G123" {
+				t.Fatalf("channel = %q, want opened MPIM G123", got)
+			}
+			return testutil.JSONResponse(`{"ok":true,"channel":"G123","ts":"1746284582.123456","message":{"type":"message","text":"Heads up","ts":"1746284582.123456"}}`)
+		},
+		"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/G123/p1746284582123456"}`)
+		},
+	})
+	defer server.Close()
+
+	stdout, stderr, err := executeTestRoot(t, cfg, server.BaseURL(), "",
+		[]string{"message", "send", "--user", "oncall,release", "--user", "U789", "--message", "Heads up"},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, `"channel":"G123"`) {
+		t.Fatalf("stdout = %s, want MPIM channel", stdout)
+	}
+}
+
+func TestMessageSendCommandResolvesUserTargetsByEmail(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"users.lookupByEmail": func(req testutil.SlackRequest) testutil.SlackResponse {
+			switch req.Form.Get("email") {
+			case "dev@example.com":
+				return testutil.JSONResponse(`{"ok":true,"user":{"id":"UDEV","name":"dev"}}`)
+			case "ops@example.com":
+				return testutil.JSONResponse(`{"ok":true,"user":{"id":"UOPS","name":"ops"}}`)
+			default:
+				t.Fatalf("unexpected email lookup %q", req.Form.Get("email"))
+				return testutil.JSONResponse(`{"ok":false,"error":"users_not_found"}`)
+			}
+		},
+		"conversations.open": func(req testutil.SlackRequest) testutil.SlackResponse {
+			if got := req.Form.Get("users"); got != "UDEV,UOPS" {
+				t.Fatalf("users = %q, want looked-up user IDs", got)
+			}
+			return testutil.JSONResponse(`{"ok":true,"channel":{"id":"G123"}}`)
+		},
+		"chat.postMessage": func(req testutil.SlackRequest) testutil.SlackResponse {
+			if got := req.Form.Get("channel"); got != "G123" {
+				t.Fatalf("channel = %q, want opened MPIM G123", got)
+			}
+			return testutil.JSONResponse(`{"ok":true,"channel":"G123","ts":"1746284582.123456","message":{"type":"message","text":"Heads up","ts":"1746284582.123456"}}`)
+		},
+		"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/G123/p1746284582123456"}`)
+		},
+	})
+	defer server.Close()
+
+	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(), "",
+		[]string{"message", "send", "--user", "dev@example.com,ops@example.com", "--message", "Heads up"},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+}
+
+func TestMessageSendCommandUsesDefaultChannelWhenNoTargetFlag(t *testing.T) {
+	cfg := workspaceConfig(config.TokenTypeBot)
+	profile := cfg.Workspaces["default"]
+	profile.DefaultChannel = "alerts"
+	cfg.Workspaces["default"] = withAliases(profile, map[string]string{"alerts": "C999"})
+
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"chat.postMessage": func(req testutil.SlackRequest) testutil.SlackResponse {
+			if got := req.Form.Get("channel"); got != "C999" {
+				t.Fatalf("channel = %q, want resolved default channel C999", got)
+			}
+			return testutil.JSONResponse(`{"ok":true,"channel":"C999","ts":"1746284582.123456","message":{"type":"message","text":"Deploy complete","ts":"1746284582.123456"}}`)
+		},
+		"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C999/p1746284582123456"}`)
+		},
+	})
+	defer server.Close()
+
+	_, stderr, err := executeTestRoot(t, cfg, server.BaseURL(), "",
+		[]string{"message", "send", "--message", "Deploy complete"},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+}
+
 func TestMessageSendCommandBotUserTargetLetsSlackDecide(t *testing.T) {
 	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
 		"conversations.open": func(req testutil.SlackRequest) testutil.SlackResponse {
@@ -253,16 +356,13 @@ func TestMessageSendCommandDeclaresCobraTargetFlagGroup(t *testing.T) {
 		t.Fatalf("find message send: %v", err)
 	}
 	if sendCmd.Name() != "send" || sendCmd.Parent().Name() != "message" {
-		t.Fatalf("found command = %s, want slack message send", sendCmd.CommandPath())
+		t.Fatalf("found command = %s, want slick message send", sendCmd.CommandPath())
 	}
 
 	for _, flagName := range []string{"channel", "user"} {
 		flag := sendCmd.Flags().Lookup(flagName)
 		if flag == nil {
 			t.Fatalf("message send flag %q is missing", flagName)
-		}
-		if got := flag.Annotations["cobra_annotation_one_required"]; !containsString(got, "channel user") {
-			t.Fatalf("%s one-required annotations = %#v, want channel/user group", flagName, got)
 		}
 		if got := flag.Annotations["cobra_annotation_mutually_exclusive"]; !containsString(got, "channel user") {
 			t.Fatalf("%s mutually-exclusive annotations = %#v, want channel/user group", flagName, got)
@@ -561,6 +661,36 @@ func TestMessageSendCommandReadsMessageFromFilePath(t *testing.T) {
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
 		[]string{"message", "send", "--channel", "C123", "--file", messageFile, "--filename", "ignored.md"},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+}
+
+func TestMessageSendCommandExpandsMessageFilePath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	messageFile := filepath.Join(home, "message.md")
+	if err := os.WriteFile(messageFile, []byte("From expanded file"), 0o600); err != nil {
+		t.Fatalf("write message file: %v", err)
+	}
+
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"chat.postMessage": func(req testutil.SlackRequest) testutil.SlackResponse {
+			if got := req.Form.Get("text"); got != "From expanded file" {
+				t.Fatalf("text = %q, want expanded file content", got)
+			}
+			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","text":"From expanded file","ts":"1746284582.123456"}}`)
+		},
+		"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
+		},
+	})
+	defer server.Close()
+
+	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+		"",
+		[]string{"message", "send", "--channel", "C123", "--file", "~/message.md"},
 	)
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)

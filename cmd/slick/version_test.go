@@ -36,7 +36,7 @@ func TestVersionCommandPlainMatchesPDCShape(t *testing.T) {
 		t.Fatalf("stderr = %q, want empty", stderr)
 	}
 	for _, fragment := range []string{
-		"slack dev",
+		"slick dev",
 		"commit:",
 		"branch:",
 		"built:",

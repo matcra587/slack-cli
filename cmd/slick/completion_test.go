@@ -32,7 +32,7 @@ func TestRootUsesClibCompletionCommand(t *testing.T) {
 		t.Fatalf("completion fish returned error: %v\nstderr=%s", err, stderr)
 	}
 	for _, fragment := range []string{
-		"slack",
+		"slick",
 		"--@complete=channel",
 		"--@complete=user",
 		"--@complete=workspace",
@@ -42,7 +42,7 @@ func TestRootUsesClibCompletionCommand(t *testing.T) {
 		}
 	}
 	for _, hidden := range []string{
-		`complete -c slack -n '__slack_needs_command' -a file `,
+		`complete -c slick -n '__slick_needs_command' -a file `,
 	} {
 		if strings.Contains(stdout, hidden) {
 			t.Fatalf("completion script exposes hidden command candidate %q:\n%s", hidden, stdout)
@@ -156,7 +156,7 @@ func TestCompletionHandlerCompletesSlackResourcesAndLocalConfig(t *testing.T) {
 		{name: "user IDs", kind: "user", want: []string{"U123", "U456"}},
 		{name: "workspace profiles", kind: "workspace", want: []string{"ci", "default"}},
 		{name: "config keys", kind: "config_key", want: []string{"default_workspace", "workspaces.default.default_channel", "workspaces.ci.attribution.enabled"}},
-		{name: "fish config key descriptions", kind: "config_key", want: []string{"default_workspace\tDefault workspace profile name", "workspaces.default.default_channel\tDefault channel ID or alias"}},
+		{name: "fish config key descriptions", kind: "config_key", want: []string{"default_workspace\tDefault workspace profile name", "workspaces.default.default_channel\tFallback message channel ID or alias"}},
 		{name: "config workspace values", kind: "config_value", args: []string{"default_workspace"}, want: []string{"ci", "default"}},
 		{name: "config channel values", kind: "config_value", args: []string{"workspaces.default.default_channel"}, want: []string{"C123", "D123"}},
 		{name: "config bool values", kind: "config_value", args: []string{"workspaces.default.attribution.enabled"}, want: []string{"true", "false"}},

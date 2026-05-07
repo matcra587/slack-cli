@@ -14,8 +14,8 @@ before:
 
 builds:
   - id: slack-cli
-    main: ./cmd/slack
-    binary: slack
+    main: ./cmd/slick
+    binary: slick
     mod_timestamp: "{{ .CommitTimestamp }}"
     env:
       - CGO_ENABLED=0

@@ -13,7 +13,7 @@ permissions: {}
 jobs:
   go-test:
     name: Go test
-    uses: matcra587/github-actions/.github/workflows/go-test.yml@8b104684e72bef79fca78b294accb5f789d3f202
+    uses: matcra587/github-actions/.github/workflows/go-test.yml@22fb9659d28a51b321f2eb580483d8fd27d20f89
     permissions:
       contents: read
 

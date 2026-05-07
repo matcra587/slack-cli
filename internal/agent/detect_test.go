@@ -1,10 +1,22 @@
 package agent_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/matcra587/slack-cli/internal/agent"
 )
+
+func TestMain(m *testing.M) {
+	clearAmbientAgentEnvironment()
+	os.Exit(m.Run())
+}
+
+func clearAmbientAgentEnvironment() {
+	for _, key := range agent.KnownEnvVars() {
+		_ = os.Unsetenv(key)
+	}
+}
 
 func TestDetectRecognizesAIAgentEnvironmentList(t *testing.T) {
 	tests := []struct {

@@ -15,6 +15,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func TestMain(m *testing.M) {
+	clearAmbientAgentEnvironment()
+	os.Exit(m.Run())
+}
+
+func clearAmbientAgentEnvironment() {
+	for _, key := range agent.KnownEnvVars() {
+		_ = os.Unsetenv(key)
+	}
+}
+
 func TestNewRootCommandDefinesPersistentFlags(t *testing.T) {
 	cmd := NewRootCommand()
 	if cmd.Use != "slack" {

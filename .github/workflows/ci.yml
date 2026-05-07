@@ -13,18 +13,18 @@ permissions: {}
 jobs:
   go-test:
     name: Go test
-    uses: matcra587/github-actions/.github/workflows/go-test.yml@8b104684e72bef79fca78b294accb5f789d3f202
+    uses: matcra587/github-actions/.github/workflows/go-test.yml@67f0de0d0ceebe69895e868207c04e5c66b3bde8
     permissions:
       contents: read
 
   go-lint:
     name: Go lint
-    uses: matcra587/github-actions/.github/workflows/go-lint.yml@8b104684e72bef79fca78b294accb5f789d3f202
+    uses: matcra587/github-actions/.github/workflows/go-lint.yml@67f0de0d0ceebe69895e868207c04e5c66b3bde8
     permissions:
       contents: read
 
   md-lint:
     name: Markdown lint
-    uses: matcra587/github-actions/.github/workflows/md-lint.yml@8b104684e72bef79fca78b294accb5f789d3f202
+    uses: matcra587/github-actions/.github/workflows/md-lint.yml@67f0de0d0ceebe69895e868207c04e5c66b3bde8
     permissions:
       contents: read

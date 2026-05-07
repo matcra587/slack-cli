@@ -10,8 +10,9 @@ respect_gitignore = true
 
 exclude = [
     ".git",
+    ".agents",
+    ".claude",
     ".github",
-    ".claude/rules",
     "build",
     "dist",
     "node_modules",

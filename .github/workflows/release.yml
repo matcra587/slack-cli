@@ -1,0 +1,106 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  release:
+    name: GoReleaser
+    runs-on: ubuntu-latest
+    environment: deploy
+    permissions:
+      attestations: write       # Required to create GitHub artifact attestations.
+      contents: write           # Required to create GitHub releases and upload assets.
+      id-token: write           # Required for cosign and GitHub attestations via OIDC.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+
+      - name: Install mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          install_args: --locked
+          cache: false
+
+      - name: Check release state
+        id: release-state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "exists=true" >>"${GITHUB_OUTPUT}"
+            echo "release ${TAG_NAME} already exists; skipping GoReleaser publish"
+          else
+            echo "exists=false" >>"${GITHUB_OUTPUT}"
+          fi
+
+      - name: Run GoReleaser
+        if: steps.release-state.outputs.exists != 'true'
+        uses: goreleaser/goreleaser-action@1a80836c5c9d9e5755a25cb59ec6f45a3b5f41a8 # v7.2.1
+        with:
+          distribution: goreleaser
+          version: ~> v2.15
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download release checksums
+        if: steps.release-state.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+          gh release download "${TAG_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern checksums.txt \
+            --dir dist \
+            --clobber
+
+      - name: Attest release artifact provenance
+        if: steps.release-state.outputs.exists != 'true'
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-checksums: dist/checksums.txt
+
+      - name: Create Homebrew tap token
+        id: app-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          repositories: homebrew-tap
+
+      - name: Publish Homebrew formula
+        uses: matcra587/github-actions/packages/homebrew-publish-formula@6e3053f35d4ec31adc4f82c04a2c43209f3b36e6 # homebrew/v0.1.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          tap: matcra587/homebrew-tap
+          name: slack-cli
+          desc: Headless Slack CLI for agents, scripts, and CI jobs
+          homepage: https://github.com/matcra587/slack-cli
+          version: ${{ github.ref_name }}
+          binary-name: slack
+          module-path: github.com/matcra587/slack-cli
+          build-package: ./cmd/slack
+          commit-message: "slack-cli: v{version}"

@@ -1,0 +1,55 @@
+# Dependabot configuration
+#
+# Grouping behaviour:
+#   - Minor + patch updates: grouped into a single PR per ecosystem
+#   - Major version bumps: individual PR per dependency
+#   - Security updates: individual PR per dependency
+#
+# Note: "patch" refers to semver version bumps (1.2.3 -> 1.2.4), not
+# security fixes. Security updates come from GitHub's Advisory Database
+# and can be any version bump that fixes a known CVE.
+
+version: 2
+
+updates:
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: friday
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore"
+    labels:
+      - dependencies
+    groups:
+      go-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: friday
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "ci"
+    labels:
+      - dependencies
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

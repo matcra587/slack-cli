@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/rvben/rumdl/main/rumdl.schema.json
+# rumdl configuration file
+#
+# Based on Google's Markdown style guide with project-specific exclusions.
+# https://google.github.io/styleguide/docguide/style.html
+
+[global]
+flavor = "gfm"
+respect_gitignore = true
+
+exclude = [
+    ".git",
+    ".github",
+    ".claude/rules",
+    "build",
+    "dist",
+    "node_modules",
+    "vendor",
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "CLAUDE.md",
+    "LICENSE.md",
+    "testdata/**"
+]
+
+disable = [
+    "MD013",  # Line length - fights one-sentence-per-line style
+    "MD014",  # Commands must show output - too prescriptive
+    "MD024",  # Duplicate headings - legitimate in structured docs
+    "MD025",  # Single top-level heading - too rigid for frontmatter files
+    "MD026",  # Trailing punctuation in heading - "What is X?" is fine
+    "MD033",  # Inline HTML - GFM supports it, needed for details/br/badges
+    "MD034",  # Bare URLs - GFM auto-links them
+    "MD036",  # Emphasis as heading - high false-positive rate
+    "MD041",  # First line must be heading - breaks frontmatter
+    "MD043",  # Required heading structure - too prescriptive
+    "MD044",  # Proper name capitalisation - not worth maintaining a list
+    "MD054",  # Link style consistency - mixed inline/reference is legitimate
+    "MD059",  # Descriptive link text - too many false positives
+    "MD060",  # Table column alignment - creates diff noise
+    "MD063",  # Heading capitalisation - fights sentence-case style
+    "MD064",  # Multiple consecutive spaces - catches table alignment
+    "MD066",  # Footnote validation - not using footnotes
+    "MD067",  # Footnote ordering - not using footnotes
+    "MD068",  # Empty footnotes - not using footnotes
+    "MD069",  # Duplicate list markers - not useful
+    "MD072",  # Frontmatter key sort - key order should be semantic
+    "MD073",  # TOC validation - not using TOCs
+    "MD074",  # MkDocs nav validation - not using MkDocs
+    "MD076",  # List item spacing - personal preference
+    "MD077",  # List continuation indent - too strict
+]
+
+# Headings
+[MD003]
+style = "atx"
+
+# Lists
+[MD004]
+style = "asterisk"
+
+[MD007]
+indent = 4
+
+[MD029]
+style = "one_or_ordered"
+
+[MD030]
+ul_single = 3
+ul_multi = 3
+ol_single = 2
+ol_multi = 2
+
+# Code blocks
+[MD046]
+style = "fenced"

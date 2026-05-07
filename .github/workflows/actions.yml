@@ -1,0 +1,33 @@
+---
+name: actions
+
+on:
+  pull_request:
+    paths:
+      - '.github/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  workflow-lint:
+    name: Workflow lint
+    uses: matcra587/github-actions/.github/workflows/workflow-lint.yml@8b104684e72bef79fca78b294accb5f789d3f202
+    permissions:
+      contents: read
+      # security-events: write # Required for zizmor SARIF upload.
+    with:
+      mise-version: "2026.5.0"
+      actionlint-args: |-
+        -color
+      zizmor-inputs: ./.github/
+      zizmor-persona: pedantic
+      zizmor-advanced-security: false
+      zizmor-annotations: true

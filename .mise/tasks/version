@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# shellcheck source=.mise/tasks/lib/build-env.sh
+source .mise/tasks/lib/build-env.sh
+
+cat <<EOF
+Version:    $(slack_version)
+Commit:     $(slack_commit)
+Branch:     $(slack_branch)
+Built:      $(slack_build_time)
+Built by:   $(slack_build_by)
+Go version: $(go version)
+EOF

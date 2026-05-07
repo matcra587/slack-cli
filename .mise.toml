@@ -1,16 +1,27 @@
+#:schema https://mise.en.dev/schema/mise.json
+min_version = "2026.5.0"
+
+[settings]
+lockfile = true
+
 [tools]
 go = "1.26.2"
-task = "3.49.1"
-goreleaser = "2.15.2"
-actionlint = "1.7.12"
-cosign = "3.0.6"
-hk = "1.44.3"
-rumdl = "0.1.86"
-zizmor = "1.24.1"
+actionlint = "latest"
+goreleaser = "latest"
+cosign = "latest"
+zizmor = "latest"
+rumdl = "latest"
+hk = "latest"
+pkl = "latest"
+shellcheck = "latest"
 
 [env]
 HK_MISE = 1
-DO_NOT_TRACK = 1
+MODULE = "github.com/matcra587/slack-cli"
+BINARY_NAME = "slack"
+DIST_DIR = "./dist"
+GOOS = "{{ exec(command='go env GOOS') }}"
+GOARCH = "{{ exec(command='go env GOARCH') }}"
 
-[hooks]
-postinstall = "hk install --mise"
+[task_config]
+includes = ["tasks.toml"]

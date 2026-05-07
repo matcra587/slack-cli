@@ -1,0 +1,150 @@
+#:schema https://mise.en.dev/schema/mise-task.json
+
+[default]
+description = "List available tasks"
+quiet = true
+run = "mise tasks"
+
+[check]
+description = "Run local verification checks"
+depends = ["fmt:check", "lint", "rumdl", "vet", "test"]
+
+[ci]
+description = "Run CI-equivalent checks"
+depends = ["check", "security"]
+
+[fix]
+description = "Apply automatic formatting and lint fixes"
+depends = ["fmt", "lint:fix", "rumdl:fix"]
+
+[build]
+description = "Build the binary"
+alias = "b"
+file = ".mise/tasks/build"
+sources = [
+  "**/*.go",
+  "go.mod",
+  "go.sum",
+  ".mise/tasks/build",
+  ".mise/tasks/lib/build-env.sh",
+]
+outputs = ["{{ env.DIST_DIR }}/{{ env.BINARY_NAME }}-{{ env.GOOS }}-{{ env.GOARCH }}"]
+
+[install]
+description = "Install binary to GOPATH/bin"
+file = ".mise/tasks/install"
+
+[run]
+description = "Build and run"
+alias = "r"
+depends = ["build"]
+raw_args = true
+run = '"${DIST_DIR}/${BINARY_NAME}-${GOOS}-${GOARCH}"'
+
+["release:check"]
+description = "Run GoReleaser config and environment checks"
+run = ["goreleaser check", "goreleaser healthcheck"]
+
+[release]
+description = "Validate, tag and push a release"
+raw_args = true
+file = ".mise/tasks/release"
+
+["release:build"]
+description = "Build binaries with GoReleaser without publishing"
+run = "goreleaser build --snapshot --clean"
+
+["release:snapshot"]
+description = "Build a full snapshot release locally"
+run = "goreleaser release --snapshot --clean"
+
+[test]
+description = "Run tests with coverage"
+alias = "t"
+run = "go test -v -cover ./..."
+
+["test:all"]
+description = "Run all tests without cache"
+run = "go test -count=1 ./..."
+
+["test:race"]
+description = "Run tests with race detection"
+env = { CGO_ENABLED = "1" }
+run = "go test -v -race -cover ./..."
+
+["test:integration"]
+description = "Run integration tests"
+run = "go test -v ./tests/integration -count=1 -timeout 60s"
+
+[fmt]
+description = "Format code with gofmt and gofumpt"
+run = ["go fmt ./...", "go tool gofumpt -w ."]
+
+["fmt:check"]
+description = "Check Go formatting"
+run = 'test -z "$(go tool gofumpt -l .)"'
+
+["fmt:file"]
+description = "Format Go file(s) with gofumpt"
+raw_args = true
+run = "go tool gofumpt -w"
+
+[lint]
+description = "Run golangci-lint"
+run = "go tool golangci-lint run"
+
+["lint:fix"]
+description = "Run golangci-lint with auto-fix"
+run = "go tool golangci-lint run --fix"
+
+[rumdl]
+description = "Lint markdown files with rumdl"
+run = "rumdl check ."
+
+["rumdl:fix"]
+description = "Fix markdown files with rumdl"
+raw_args = true
+run = "rumdl fmt ."
+
+[vet]
+description = "Run go vet"
+run = "go vet ./..."
+
+[security]
+description = "Run govulncheck"
+run = "go tool govulncheck ./..."
+
+[pre-commit]
+description = "Run hk pre-commit hook"
+run = "hk run pre-commit"
+
+[deps]
+description = "Download Go module dependencies"
+run = "go mod download"
+
+["deps:update"]
+description = "Update direct Go dependencies to latest patch releases"
+env = { DEPS_UPDATE_QUERY = "patch" }
+file = ".mise/tasks/deps-update"
+
+["deps:update:minor"]
+description = "Update direct Go dependencies to latest minor and patch releases"
+env = { DEPS_UPDATE_QUERY = "latest" }
+file = ".mise/tasks/deps-update"
+
+[tidy]
+description = "Tidy Go modules and verify no drift"
+run = ["go mod tidy", "git diff --exit-code -- go.mod go.sum"]
+
+[generate]
+description = "Run go generate"
+run = "go generate ./..."
+
+[clean]
+description = "Remove build and coverage outputs"
+run = "rm -rf bin dist coverage.out"
+
+[version]
+description = "Print build version info"
+quiet = true
+file = ".mise/tasks/version"

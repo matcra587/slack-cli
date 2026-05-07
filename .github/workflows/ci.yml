@@ -1,0 +1,30 @@
+---
+name: ci
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  go-test:
+    name: Go test
+    uses: matcra587/github-actions/.github/workflows/go-test.yml@8b104684e72bef79fca78b294accb5f789d3f202
+    permissions:
+      contents: read
+
+  go-lint:
+    name: Go lint
+    uses: matcra587/github-actions/.github/workflows/go-lint.yml@8b104684e72bef79fca78b294accb5f789d3f202
+    permissions:
+      contents: read
+
+  md-lint:
+    name: Markdown lint
+    uses: matcra587/github-actions/.github/workflows/md-lint.yml@8b104684e72bef79fca78b294accb5f789d3f202
+    permissions:
+      contents: read

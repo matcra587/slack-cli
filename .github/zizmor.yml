@@ -1,0 +1,6 @@
+rules:
+  ref-version-mismatch:
+    ignore:
+      # Package-scoped monorepo tag; zizmor currently does not parse the
+      # homebrew/v0.1.0 version comment as a version.
+      - release.yml:95

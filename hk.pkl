@@ -1,7 +1,12 @@
-amends "package://github.com/jdx/hk/releases/download/v1.44.3/hk@1.44.3#/Config.pkl"
-import "package://github.com/jdx/hk/releases/download/v1.44.3/hk@1.44.3#/Builtins.pkl"
+amends "package://github.com/jdx/hk/releases/download/v1.45.0/hk@1.45.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.45.0/hk@1.45.0#/Builtins.pkl"
 
-min_hk_version = "1.44.0"
+min_hk_version = "1.45.0"
+
+// Project linters and formatters managed by go.mod tool directives are
+// invoked via `go tool`, not as PATH binaries. Override the relevant
+// Go builtins to match. gofumpt's upstream check is broken (always
+// exits 0), so replace it with a working `gofumpt -l` test.
 
 local gofumpt = (Builtins.go_fumpt) {
     check = "test -z \"$(go tool gofumpt -l {{ files }})\""
@@ -18,15 +23,23 @@ local govulncheck = (Builtins.go_vuln_check) {
     check = "cd {{workspace}} && go tool govulncheck ./..."
 }
 
+local shellcheck = (Builtins.shellcheck) {
+    glob = List("**/*.sh", ".mise/tasks/build", ".mise/tasks/install", ".mise/tasks/version", ".mise/tasks/deps-update", ".mise/tasks/release")
+    check = "shellcheck -x {{ files }}"
+}
+
+// Steps run on every pre-commit / pre-push.
 local linters = new Mapping<String, Step> {
     ["gofumpt"] = gofumpt
     ["go-vet"] = Builtins.go_vet
     ["golangci-lint"] = golangciLint
+    ["shellcheck"] = shellcheck
     ["rumdl"] = Builtins.rumdl
     ["actionlint"] = Builtins.actionlint
     ["zizmor"] = Builtins.zizmor
 }
 
+// Slow / network-dependent, so gate behind pre-push and on-demand check.
 local linters_with_security = (linters) {
     ["govulncheck"] = (govulncheck) { exclusive = true }
 }

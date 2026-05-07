@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# shellcheck source=.mise/tasks/lib/build-env.sh
+source .mise/tasks/lib/build-env.sh
+
+go install -ldflags "$(slack_ldflags)" ./cmd/slack

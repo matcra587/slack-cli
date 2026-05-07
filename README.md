@@ -7,11 +7,11 @@ commands take flags, stdin, or environment variables. They do not prompt.
 
 ```sh
 mise install
-task install
+mise run install
 slack version
 ```
 
-From a checkout, `task install` runs `go install ./cmd/slack` with version
+From a checkout, `mise run install` runs `go install ./cmd/slack` with version
 metadata. Once the module is published, you can also install it directly:
 
 ```sh
@@ -23,10 +23,10 @@ The examples below assume `slack` is on `PATH`.
 To build a local dist binary instead:
 
 ```sh
-task build
+mise run build
 ```
 
-`task build` writes the binary to `./dist/slack-<goos>-<goarch>`.
+`mise run build` writes the binary to `./dist/slack-<goos>-<goarch>`.
 
 ## Create a Slack App Manifest
 

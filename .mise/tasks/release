@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+	cat <<'EOF'
+usage: mise run release -- [--dry-run] <version>
+
+Create and push the semver tag that triggers .github/workflows/release.yml.
+The version may be passed with or without the leading "v".
+
+examples:
+  mise run release -- v0.8.1
+  mise run release -- --dry-run 0.8.1
+EOF
+}
+
+fail() {
+	echo "release failed: $*" >&2
+	exit 1
+}
+
+dry_run=0
+if [[ "${1:-}" == "--dry-run" ]]; then
+	dry_run=1
+	shift
+fi
+
+if [[ $# -ne 1 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+	usage
+	exit 2
+fi
+
+version="$1"
+tag="${version#v}"
+tag="v${tag}"
+
+[[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "version must match vMAJOR.MINOR.PATCH"
+
+branch="$(git branch --show-current)"
+[[ "$branch" == "main" ]] || fail "must release from main, currently on ${branch:-detached HEAD}"
+
+[[ -z "$(git status --porcelain)" ]] || fail "working tree must be clean"
+
+timeout 60s git fetch --tags origin +refs/heads/main:refs/remotes/origin/main || fail "timed out fetching origin/main and tags"
+
+head_sha="$(git rev-parse HEAD)"
+origin_sha="$(git rev-parse origin/main)"
+[[ "$head_sha" == "$origin_sha" ]] || fail "main must be up to date with origin/main"
+
+if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+	fail "local tag already exists: ${tag}"
+fi
+
+remote_tag_status=0
+timeout 30s git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1 || remote_tag_status=$?
+case "$remote_tag_status" in
+0)
+	fail "remote tag already exists: ${tag}"
+	;;
+2)
+	;;
+124)
+	fail "timed out checking remote tag: ${tag}"
+	;;
+*)
+	fail "could not check remote tag ${tag} (git ls-remote exited ${remote_tag_status})"
+	;;
+esac
+
+mise run ci
+mise run release:check
+
+if ((dry_run)); then
+	echo "dry run: would create annotated tag ${tag} at ${head_sha}"
+	echo "dry run: would push ${tag} to origin"
+	exit 0
+fi
+
+git tag -a "$tag" -m "$tag"
+git push origin "$tag"
+
+echo "release tag pushed: ${tag}"
+echo "GitHub Actions release workflow will run for ${tag}."

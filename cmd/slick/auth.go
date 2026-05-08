@@ -20,7 +20,6 @@ import (
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	clibtheme "github.com/gechr/clib/theme"
-	"github.com/gechr/clog"
 	"github.com/gechr/x/human"
 	"github.com/gechr/x/shell"
 	"github.com/matcra587/slack-cli/internal/config"
@@ -145,13 +144,18 @@ func runAuthLogin(cmd *cobra.Command, runtime *RootRuntime, input authLoginInput
 	}
 	ctx, _, _, err := commandContext(cmd, runtime)
 	if err != nil {
+		mode := opts.Output.Resolve(runtime.IsTTY, false)
+		sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
+		applyRenderMode(sl, mode)
 		ctx = &CommandContext{
 			Workspace: "default",
-			Mode:      opts.Output.Resolve(runtime.IsTTY, false),
+			Mode:      mode,
 			Stdout:    runtime.Stdout,
 			Stderr:    runtime.Stderr,
 			Now:       runtime.Now,
 			RequestID: runtime.RequestID,
+			stdoutLog: sl,
+			stderrLog: el,
 		}
 	}
 	interactive := runtime.IsTTY && input.WorkspaceName == "" && !input.HasTokenSource() && input.AuthMethod == ""
@@ -624,8 +628,7 @@ func completeOAuthLogin(ctx *CommandContext, runtime *RootRuntime, input *authLo
 		State:         state,
 		CodeChallenge: slackgo.GenerateCodeChallenge(verifier),
 	})
-	ctx.stderrLogger().Info().
-		Parts(clog.PartLevel, clog.PartMessage, clog.PartFields).
+	ctx.stderrLogger().Hint().
 		URL("authorize_url", authorizeURL).
 		URL("redirect_url", redirectURL.String()).
 		Msg("open OAuth authorize URL")
@@ -655,8 +658,7 @@ func completeOAuthLogin(ctx *CommandContext, runtime *RootRuntime, input *authLo
 	if err := applyOAuthResponse(input, response); err != nil {
 		return false, err
 	}
-	ctx.stderrLogger().Info().
-		Parts(clog.PartLevel, clog.PartMessage, clog.PartFields).
+	ctx.stderrLogger().Hint().
 		Bool("authenticated", true).
 		Str("token_type", string(input.resolvedTokenType())).
 		Str("team_id", input.TeamID).

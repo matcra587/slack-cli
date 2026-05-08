@@ -85,7 +85,7 @@ func runFileUpload(cmd *cobra.Command, runtime *RootRuntime, opts uploadOptions)
 		return writeCommandError(ctx, validationCLIError(err.Error()))
 	}
 
-	ctx.stderrLogger().Info().Parts(clog.PartMessage).Msg("uploading file")
+	ctx.stderrLogger().Debug().Parts(clog.PartMessage).Msg("uploading file")
 	if opts.DryRun {
 		return ctx.WriteResult("file.upload", uploadFileResult{
 			File:    cliFile{ID: "dry-run", Name: filename, Size: len(content)},

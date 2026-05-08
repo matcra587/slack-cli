@@ -20,29 +20,29 @@ func TestOutputModeSelection(t *testing.T) {
 		flags OutputFlags
 		tty   bool
 		agent bool
-		want  OutputMode
+		want  RenderMode
 	}{
-		{name: "tty defaults to plain", tty: true, want: OutputModePlain},
-		{name: "non tty defaults to json", want: OutputModeJSON},
-		{name: "agent defaults to json", tty: true, agent: true, want: OutputModeJSON},
-		{name: "json flag wins", flags: OutputFlags{JSON: true}, tty: true, want: OutputModeJSON},
-		{name: "plain flag wins", flags: OutputFlags{Plain: true}, agent: true, want: OutputModePlain},
-		{name: "compact flag wins", flags: OutputFlags{Compact: true}, tty: true, want: OutputModeCompact},
-		{name: "raw flag wins", flags: OutputFlags{Raw: true}, want: OutputModeRaw},
+		{name: "tty defaults to plain", tty: true, want: RenderModePlain},
+		{name: "non tty defaults to json", want: RenderModeEnvelope},
+		{name: "agent defaults to json", tty: true, agent: true, want: RenderModeEnvelope},
+		{name: "json flag wins", flags: OutputFlags{JSON: true}, tty: true, want: RenderModeEnvelope},
+		{name: "plain flag wins", flags: OutputFlags{Plain: true}, agent: true, want: RenderModePlain},
+		{name: "compact flag wins", flags: OutputFlags{Compact: true}, tty: true, want: RenderModeCompact},
+		{name: "raw flag wins", flags: OutputFlags{Raw: true}, want: RenderModeRaw},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.flags.Resolve(tt.tty, tt.agent)
 			if got != tt.want {
-				t.Fatalf("Resolve() = %q, want %q", got, tt.want)
+				t.Fatalf("Resolve() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestWriteResultJSONEnvelope(t *testing.T) {
-	ctx, stdout, stderr := newOutputTestContext(OutputModeJSON)
+	ctx, stdout, stderr := newOutputTestContext(RenderModeEnvelope)
 
 	err := ctx.WriteResult("message.send", map[string]any{
 		"ts":      "1746284582.123456",
@@ -75,7 +75,7 @@ func TestWriteResultJSONEnvelope(t *testing.T) {
 }
 
 func TestWriteResultCompactOutputsDataOnly(t *testing.T) {
-	ctx, stdout, _ := newOutputTestContext(OutputModeCompact)
+	ctx, stdout, _ := newOutputTestContext(RenderModeCompact)
 
 	err := ctx.WriteResult("message.send", map[string]any{"ts": "1746284582.123456"})
 	if err != nil {
@@ -95,7 +95,7 @@ func TestWriteResultCompactOutputsDataOnly(t *testing.T) {
 }
 
 func TestWritePlainUsesClogDataOutput(t *testing.T) {
-	ctx, stdout, _ := newOutputTestContext(OutputModePlain)
+	ctx, stdout, _ := newOutputTestContext(RenderModePlain)
 
 	err := ctx.WritePlain("Message sent to #alerts")
 	if err != nil {
@@ -112,7 +112,7 @@ func TestWritePlainUsesClogDataOutput(t *testing.T) {
 }
 
 func TestWriteErrorPlainUsesClogDiagnosticFields(t *testing.T) {
-	ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
+	ctx, stdout, stderr := newOutputTestContext(RenderModePlain)
 
 	exitCode := ctx.WriteError(CLIError{
 		Type:     ErrorTypeValidation,
@@ -146,8 +146,7 @@ func TestWriteErrorPlainUsesClogDiagnosticFields(t *testing.T) {
 }
 
 func TestWriteResultPlainAuthStatusUsesClogFields(t *testing.T) {
-	ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
-	ctx.ColorMode = clog.ColorAlways
+	ctx, stdout, stderr := newOutputTestContext(RenderModePlain, clog.ColorAlways)
 
 	err := ctx.WriteResult("auth.status", authStatusData{Workspaces: []authWorkspaceData{
 		{
@@ -195,9 +194,9 @@ func TestWriteResultPlainAuthStatusUsesClogFields(t *testing.T) {
 }
 
 func TestWriteResultPlainMessageSendUsesClogFieldsAndDebugDetails(t *testing.T) {
-	t.Setenv("DEBUG", "1")
-	ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
-	ctx.ColorMode = clog.ColorAlways
+	clog.SetVerbose(true)
+	t.Cleanup(func() { clog.SetVerbose(false) })
+	ctx, stdout, stderr := newOutputTestContext(RenderModePlain, clog.ColorAlways)
 
 	err := ctx.WriteResult("message.send", sendCommandData{
 		Message: cliMessage{
@@ -218,7 +217,6 @@ func TestWriteResultPlainMessageSendUsesClogFieldsAndDebugDetails(t *testing.T) 
 	plain := ansi.Strip(got)
 	for _, fragment := range []string{
 		"INF",
-		"message send",
 		"command=message.send",
 		"channel=C7N2Q8L4P",
 		"ts=1746284582.123456",
@@ -259,7 +257,6 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			},
 			want: []string{
 				"INF",
-				"auth login",
 				"command=auth.login",
 				"workspace=default",
 				"authenticated=true",
@@ -272,7 +269,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			name: "auth switch",
 			cmd:  "auth.switch",
 			data: authWorkspaceData{Workspace: "example"},
-			want: []string{"INF", "auth switch", "command=auth.switch", "workspace=example"},
+			want: []string{"INF", "command=auth.switch", "workspace=example"},
 			deny: []string{"data="},
 		},
 		{
@@ -286,7 +283,6 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			},
 			want: []string{
 				"INF",
-				"message delete",
 				"command=message.delete",
 				"channel=C7N2Q8L4P",
 				"ts=1746284582.123456",
@@ -308,7 +304,6 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			},
 			want: []string{
 				"INF",
-				"file upload",
 				"command=file.upload",
 				"channel=C7N2Q8L4P",
 				"file_id=F123",
@@ -328,7 +323,6 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			}},
 			want: []string{
 				"INF",
-				"react add",
 				"command=react.add",
 				"channel=C7N2Q8L4P",
 				"ts=1746284582.123456",
@@ -347,7 +341,6 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			},
 			want: []string{
 				"INF",
-				"config init",
 				"command=config.init",
 				"path=/tmp/slick/config.toml",
 				"profile=default",
@@ -361,7 +354,6 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			data: configPathData{Path: "/tmp/slick/config.toml", Exists: true},
 			want: []string{
 				"INF",
-				"config path",
 				"command=config.path",
 				"path=/tmp/slick/config.toml",
 				"exists=true",
@@ -374,7 +366,6 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			data: configGetData{Key: "workspaces.default.default_channel", Value: "C7N2Q8L4P"},
 			want: []string{
 				"INF",
-				"config get",
 				"command=config.get",
 				"key=workspaces.default.default_channel",
 				"value=C7N2Q8L4P",
@@ -391,7 +382,6 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			},
 			want: []string{
 				"INF",
-				"config set",
 				"command=config.set",
 				"path=/tmp/slick/config.toml",
 				"key=workspaces.default.attribution.message",
@@ -408,7 +398,6 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			},
 			want: []string{
 				"INF",
-				"config unset",
 				"command=config.unset",
 				"path=/tmp/slick/config.toml",
 				"key=workspaces.default.attribution.message",
@@ -419,7 +408,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
+			ctx, stdout, stderr := newOutputTestContext(RenderModePlain)
 			if err := ctx.WriteResult(tt.cmd, tt.data); err != nil {
 				t.Fatalf("WriteResult returned error: %v", err)
 			}
@@ -444,7 +433,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 }
 
 func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
-	ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
+	ctx, stdout, stderr := newOutputTestContext(RenderModePlain)
 
 	err := ctx.WriteResult("lookup.channel", channelInfoData{Channel: cliChannel{
 		ID:         "C7N2Q8L4P",
@@ -465,7 +454,6 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 	plain := ansi.Strip(got)
 	for _, fragment := range []string{
 		"INF",
-		"lookup channel",
 		"command=lookup.channel",
 		"channel=C7N2Q8L4P",
 		"name=alerts",
@@ -498,7 +486,6 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 	plain = ansi.Strip(got)
 	for _, fragment := range []string{
 		"INF",
-		"lookup user",
 		"command=lookup.user",
 		"user=U7N2Q8L4P",
 		"name=matt",
@@ -516,7 +503,7 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 }
 
 func TestWriteResultPlainConfigListUsesPerSettingClogLines(t *testing.T) {
-	ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
+	ctx, stdout, stderr := newOutputTestContext(RenderModePlain)
 
 	err := ctx.WriteResult("config.list", configListData{
 		Path:             "/tmp/slick/config.toml",
@@ -536,7 +523,6 @@ func TestWriteResultPlainConfigListUsesPerSettingClogLines(t *testing.T) {
 	plain := ansi.Strip(got)
 	for _, fragment := range []string{
 		"INF",
-		"config list",
 		"command=config.list",
 		"path=/tmp/slick/config.toml",
 		"default_workspace=default",
@@ -563,7 +549,7 @@ func TestWriteResultPlainConfigPathsContractHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	path := filepath.Join(home, ".config", "slick", "config.toml")
-	ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
+	ctx, stdout, stderr := newOutputTestContext(RenderModePlain)
 
 	err := ctx.WriteResult("config.path", configPathData{Path: path, Exists: true})
 	if err != nil {
@@ -582,7 +568,7 @@ func TestWriteResultPlainConfigPathsContractHome(t *testing.T) {
 }
 
 func TestWriteResultPlainFallbackUsesClogEvent(t *testing.T) {
-	ctx, stdout, stderr := newOutputTestContext(OutputModePlain)
+	ctx, stdout, stderr := newOutputTestContext(RenderModePlain)
 
 	err := ctx.WriteResult("unknown", map[string]any{"ok": true})
 	if err != nil {
@@ -600,19 +586,28 @@ func TestWriteResultPlainFallbackUsesClogEvent(t *testing.T) {
 	}
 }
 
-func newOutputTestContext(mode OutputMode) (*CommandContext, *bytes.Buffer, *bytes.Buffer) {
+func newOutputTestContext(mode RenderMode, colorMode ...clog.ColorMode) (*CommandContext, *bytes.Buffer, *bytes.Buffer) {
+	cm := clog.ColorAuto
+	if len(colorMode) > 0 {
+		cm = colorMode[0]
+	}
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
+	sl, el := buildBaseLoggers(stdout, stderr, cm)
+	applyRenderMode(sl, mode)
 	return &CommandContext{
 		Workspace: "default",
 		Mode:      mode,
 		Stdout:    stdout,
 		Stderr:    stderr,
+		ColorMode: cm,
 		Now: func() time.Time {
 			return time.Date(2026, 5, 3, 13, 8, 0, 0, time.UTC)
 		},
 		RequestID: func() string {
 			return "test-request"
 		},
+		stdoutLog: sl,
+		stderrLog: el,
 	}, stdout, stderr
 }

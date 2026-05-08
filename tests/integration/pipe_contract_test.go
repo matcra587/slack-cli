@@ -31,8 +31,8 @@ func TestPipeContractForMessageEditFileUploadAndHistory(t *testing.T) {
 		{name: "send blocks stdin", args: []string{"message", "send", "--channel", "C123", "--file", "-", "--blocks"}, stdin: `[{"type":"section","text":{"type":"mrkdwn","text":"hello"}}]`},
 		{name: "edit stdin", args: []string{"message", "edit", "--channel", "C123", "--timestamp", "1746284582.123456", "--file", "-"}, stdin: "updated"},
 		{name: "edit blocks stdin", args: []string{"message", "edit", "--channel", "C123", "--timestamp", "1746284582.123456", "--file", "-", "--blocks"}, stdin: `[{"type":"section","text":{"type":"mrkdwn","text":"updated"}}]`},
-		{name: "file upload stdin", args: []string{"file", "upload", "--channel", "C123", "--file", "-", "--filename", "stdin.txt"}, stdin: "artifact", stderr: true},
-		{name: "file upload stdin with block comment", args: []string{"file", "upload", "--channel", "C123", "--file", "-", "--filename", "stdin.txt", "--message", `[{"type":"section","text":{"type":"mrkdwn","text":"artifact"}}]`, "--blocks"}, stdin: "artifact", stderr: true},
+		{name: "file upload stdin", args: []string{"file", "upload", "--channel", "C123", "--file", "-", "--filename", "stdin.txt"}, stdin: "artifact"},
+		{name: "file upload stdin with block comment", args: []string{"file", "upload", "--channel", "C123", "--file", "-", "--filename", "stdin.txt", "--message", `[{"type":"section","text":{"type":"mrkdwn","text":"artifact"}}]`, "--blocks"}, stdin: "artifact"},
 		{name: "history json", args: []string{"history", "list", "--channel", "C123", "--max-items", "1"}},
 	}
 

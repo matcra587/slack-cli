@@ -34,8 +34,8 @@ func TestFileUploadCommandUploadsPathAndWritesJSON(t *testing.T) {
 	if !strings.Contains(stdout, `"permalink":"https://example.slack.com/files/F123"`) {
 		t.Fatalf("stdout = %s, want file permalink metadata", stdout)
 	}
-	if stderr == "" {
-		t.Fatalf("stderr = empty, want clog progress")
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty (upload progress is debug-level only)", stderr)
 	}
 }
 

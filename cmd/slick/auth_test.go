@@ -504,18 +504,14 @@ func TestAuthLoginOAuthLocalFlowUsesPKCEAndStoresUserToken(t *testing.T) {
 	if credential.AccessToken != "xoxe.xoxp-oauth" {
 		t.Fatalf("stored access token = %q, want xoxe.xoxp-oauth", credential.AccessToken)
 	}
-	if !strings.Contains(stdout, `"token_type":"user"`) {
-		t.Fatalf("stdout = %s, want user token type", stdout)
-	}
 	for _, fragment := range []string{
-		"oauth token exchange completed",
-		"authenticated=true",
-		"token_type=user",
-		"team_id=TOAUTH",
-		`team_name="OAuth Workspace"`,
+		`"authenticated":true`,
+		`"token_type":"user"`,
+		`"team_id":"TOAUTH"`,
+		`"team_name":"OAuth Workspace"`,
 	} {
-		if !strings.Contains(stderr, fragment) {
-			t.Fatalf("stderr = %q, want fragment %q", stderr, fragment)
+		if !strings.Contains(stdout, fragment) {
+			t.Fatalf("stdout = %q, want fragment %q", stdout, fragment)
 		}
 	}
 	cfg, err := config.LoadFile(configPath)
@@ -633,7 +629,7 @@ func TestAuthLoginOAuthTTYOutputsClogFields(t *testing.T) {
 	if strings.Contains(stdout, "{") {
 		t.Fatalf("stdout = %q, want clog human output, not JSON", stdout)
 	}
-	for _, fragment := range []string{"INF", "auth login", "workspace=oauth-profile", "authenticated=true", "token_type=user", "team_id=TOAUTH", `team_name="OAuth Workspace"`} {
+	for _, fragment := range []string{"INF", "workspace=oauth-profile", "authenticated=true", "token_type=user", "team_id=TOAUTH", `team_name="OAuth Workspace"`} {
 		if !strings.Contains(stdout, fragment) {
 			t.Fatalf("stdout = %q, want fragment %q", stdout, fragment)
 		}

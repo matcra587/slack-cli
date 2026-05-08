@@ -10,7 +10,7 @@ import (
 )
 
 func TestWriteErrorUsesStructuredStderrOnly(t *testing.T) {
-	ctx, stdout, stderr := newOutputTestContext(OutputModeJSON)
+	ctx, stdout, stderr := newOutputTestContext(RenderModeEnvelope)
 
 	exitCode := ctx.WriteError(CLIError{
 		Type:     ErrorTypeValidation,

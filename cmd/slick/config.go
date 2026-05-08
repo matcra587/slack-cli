@@ -392,13 +392,18 @@ func newConfigUnsetCommand(runtime *RootRuntime) *cobra.Command {
 
 func localConfigContext(cmd *cobra.Command, runtime *RootRuntime) *CommandContext {
 	opts := rootOptionsFromCommand(cmd, runtime)
+	mode := opts.Output.Resolve(runtime.IsTTY, DetectAgentOutputMode(opts.Agent))
+	sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
+	applyRenderMode(sl, mode)
 	return &CommandContext{
 		Workspace: "config",
-		Mode:      opts.Output.Resolve(runtime.IsTTY, DetectAgentOutputMode(opts.Agent)),
+		Mode:      mode,
 		Stdout:    runtime.Stdout,
 		Stderr:    runtime.Stderr,
 		Now:       runtime.Now,
 		RequestID: runtime.RequestID,
+		stdoutLog: sl,
+		stderrLog: el,
 	}
 }
 

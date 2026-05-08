@@ -3,7 +3,6 @@ package main
 import (
 	cobracli "github.com/gechr/clib/cli/cobra"
 	"github.com/gechr/clib/help"
-	"github.com/gechr/clog"
 	"github.com/matcra587/slack-cli/internal/agent"
 	"github.com/matcra587/slack-cli/internal/agenthelp"
 	"github.com/spf13/cobra"
@@ -64,10 +63,10 @@ func newAgentSchemaCommand(runtime *RootRuntime) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := agentCommandContext(cmd, runtime)
 			if compact {
-				ctx.stdoutLogger().Print().Mode(clog.JSONFlat).JSON(agenthelp.GenerateCompactSchema(cmd.Root()))
+				ctx.stdoutLogger().Print().JSON(agenthelp.GenerateCompactSchema(cmd.Root()))
 				return nil
 			}
-			ctx.stdoutLogger().Print().Mode(clog.JSONFlat).JSON(agenthelp.GenerateSchema(cmd.Root()))
+			ctx.stdoutLogger().Print().JSON(agenthelp.GenerateSchema(cmd.Root()))
 			return nil
 		},
 	}
@@ -110,12 +109,17 @@ func agentGuideHelpFunc(renderer *help.Renderer) func(*cobra.Command, []string) 
 
 func agentCommandContext(cmd *cobra.Command, runtime *RootRuntime) *CommandContext {
 	opts := rootOptionsFromCommand(cmd, runtime)
+	mode := opts.Output.Resolve(runtime.IsTTY, true)
+	sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
+	applyRenderMode(sl, mode)
 	return &CommandContext{
 		Workspace: "agent",
-		Mode:      opts.Output.Resolve(runtime.IsTTY, true),
+		Mode:      mode,
 		Stdout:    runtime.Stdout,
 		Stderr:    runtime.Stderr,
 		Now:       runtime.Now,
 		RequestID: runtime.RequestID,
+		stdoutLog: sl,
+		stderrLog: el,
 	}
 }

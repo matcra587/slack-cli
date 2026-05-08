@@ -303,8 +303,8 @@ func TestNewCommandContextResolvesWorkspaceAndOutputMode(t *testing.T) {
 	if ctx.Workspace != "default" {
 		t.Fatalf("Workspace = %q, want default", ctx.Workspace)
 	}
-	if ctx.Mode != OutputModeJSON {
-		t.Fatalf("Mode = %q, want json", ctx.Mode)
+	if ctx.Mode != RenderModeEnvelope {
+		t.Fatalf("Mode = %v, want RenderModeEnvelope", ctx.Mode)
 	}
 	if attribution.Enabled {
 		t.Fatalf("Attribution enabled without agent trigger: %#v", attribution)
@@ -350,8 +350,8 @@ func TestNewCommandContextUsesNestedProfileAttributionConfig(t *testing.T) {
 	if attribution.Emoji != ":rocket:" {
 		t.Fatalf("Attribution Emoji = %q, want config emoji", attribution.Emoji)
 	}
-	if ctx.Mode != OutputModePlain {
-		t.Fatalf("profile-attributed TTY mode = %q, want plain", ctx.Mode)
+	if ctx.Mode != RenderModePlain {
+		t.Fatalf("profile-attributed TTY mode = %v, want RenderModePlain", ctx.Mode)
 	}
 }
 
@@ -389,8 +389,8 @@ func TestNewCommandContextProfileAttributionUsesSlackCLIMessageUntilAgentDetecte
 	if attribution.Message != "Sent via slick" {
 		t.Fatalf("Attribution Message = %q, want slack-cli message", attribution.Message)
 	}
-	if ctx.Mode != OutputModePlain {
-		t.Fatalf("profile-attributed TTY mode = %q, want plain", ctx.Mode)
+	if ctx.Mode != RenderModePlain {
+		t.Fatalf("profile-attributed TTY mode = %v, want RenderModePlain", ctx.Mode)
 	}
 
 	t.Setenv("CLAUDE_CODE", "1")
@@ -406,8 +406,8 @@ func TestNewCommandContextProfileAttributionUsesSlackCLIMessageUntilAgentDetecte
 	if attribution.Message != "Sent via slick (agent mode)" {
 		t.Fatalf("Attribution Message = %q, want agent-mode suffix", attribution.Message)
 	}
-	if ctx.Mode != OutputModeJSON {
-		t.Fatalf("agent-detected TTY mode = %q, want json", ctx.Mode)
+	if ctx.Mode != RenderModeEnvelope {
+		t.Fatalf("agent-detected TTY mode = %v, want RenderModeEnvelope", ctx.Mode)
 	}
 }
 
@@ -449,8 +449,8 @@ func TestNewCommandContextNestedProfileAttributionOptOutBeatsAgentEnv(t *testing
 	if attribution.Enabled {
 		t.Fatalf("Attribution enabled despite profile opt-out: %#v", attribution)
 	}
-	if ctx.Mode != OutputModeJSON {
-		t.Fatalf("agent-detected TTY mode = %q, want json even when attribution is disabled", ctx.Mode)
+	if ctx.Mode != RenderModeEnvelope {
+		t.Fatalf("agent-detected TTY mode = %v, want RenderModeEnvelope", ctx.Mode)
 	}
 }
 
@@ -473,8 +473,8 @@ func TestNewCommandContextWiresAgentDetection(t *testing.T) {
 	if attribution.Category != agent.CategoryAI {
 		t.Fatalf("Attribution Category = %q, want AI", attribution.Category)
 	}
-	if ctx.Mode != OutputModeJSON {
-		t.Fatalf("agent TTY mode = %q, want JSON", ctx.Mode)
+	if ctx.Mode != RenderModeEnvelope {
+		t.Fatalf("agent TTY mode = %v, want RenderModeEnvelope", ctx.Mode)
 	}
 }
 

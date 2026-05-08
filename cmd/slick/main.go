@@ -27,19 +27,18 @@ import (
 	"github.com/gechr/x/human"
 	"github.com/gechr/x/shell"
 	"github.com/gechr/x/terminal"
-	"github.com/matcra587/slack-cli/internal/agent"
 	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
 
-type OutputMode string
+type RenderMode int
 
 const (
-	OutputModeJSON    OutputMode = "json"
-	OutputModePlain   OutputMode = "plain"
-	OutputModeCompact OutputMode = "compact"
-	OutputModeRaw     OutputMode = "raw"
+	RenderModePlain    RenderMode = iota // human-readable clog fields
+	RenderModeEnvelope                   // JSON with meta envelope (default non-TTY)
+	RenderModeCompact                    // JSON data only, no envelope
+	RenderModeRaw                        // raw Slack JSON pass-through
 )
 
 type OutputFlags struct {
@@ -49,18 +48,18 @@ type OutputFlags struct {
 	Raw     bool
 }
 
-func (f OutputFlags) Resolve(isTTY, agentMode bool) OutputMode {
+func (f OutputFlags) Resolve(isTTY, agentMode bool) RenderMode {
 	switch {
 	case f.Raw:
-		return OutputModeRaw
+		return RenderModeRaw
 	case f.Compact:
-		return OutputModeCompact
+		return RenderModeCompact
 	case f.Plain:
-		return OutputModePlain
+		return RenderModePlain
 	case f.JSON || !isTTY || agentMode:
-		return OutputModeJSON
+		return RenderModeEnvelope
 	default:
-		return OutputModePlain
+		return RenderModePlain
 	}
 }
 
@@ -82,7 +81,7 @@ const (
 
 type CommandContext struct {
 	Workspace string
-	Mode      OutputMode
+	Mode      RenderMode
 	Stdout    io.Writer
 	Stderr    io.Writer
 	Now       func() time.Time
@@ -90,6 +89,8 @@ type CommandContext struct {
 	ColorMode clog.ColorMode
 	IsTTY     bool
 	Theme     *theme.Theme
+	stdoutLog *clog.Logger
+	stderrLog *clog.Logger
 }
 
 type RootOptions struct {
@@ -100,6 +101,7 @@ type RootOptions struct {
 	Stdout    io.Writer
 	Stderr    io.Writer
 	IsTTY     bool
+	ColorMode clog.ColorMode
 	Now       func() time.Time
 	RequestID func() string
 	Theme     *theme.Theme
@@ -120,6 +122,7 @@ type RootRuntime struct {
 	Stdout          io.Writer
 	Stderr          io.Writer
 	IsTTY           bool
+	ColorMode       clog.ColorMode
 	Now             func() time.Time
 	RequestID       func() string
 	Theme           *theme.Theme
@@ -407,6 +410,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	root.SetErr(runtime.Stderr)
 	setupClibCompletion(root, runtime)
 
+	clog.SetEnvPrefix("SLICK")
 	theme.SetEnvPrefix("SLICK")
 	getTheme := sync.OnceValue(theme.Default)
 	th := getTheme()
@@ -426,16 +430,25 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	flags.StringP("agent-emoji", "Y", "", "Override agent attribution emoji")
 	flags.StringP("agent-message", "O", "", "Override agent attribution message")
 	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
+	flags.BoolP("debug", "D", false, "Enable debug-level output")
+	flags.TextVarP(&runtime.ColorMode, "color", "V", clog.ColorAuto, "Color mode (auto, always, never)")
 	root.MarkFlagsMutuallyExclusive("json", "plain", "compact", "raw")
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		if debug, _ := cmd.Root().PersistentFlags().GetBool("debug"); debug {
+			clog.SetVerbose(true)
+		}
 		if err := cmd.ValidateFlagGroups(); err != nil {
+			sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
+			applyRenderMode(sl, RenderModeEnvelope)
 			ctx := &CommandContext{
 				Workspace: "default",
-				Mode:      OutputModeJSON,
+				Mode:      RenderModeEnvelope,
 				Stdout:    runtime.Stdout,
 				Stderr:    runtime.Stderr,
 				Now:       runtime.Now,
 				RequestID: runtime.RequestID,
+				stdoutLog: sl,
+				stderrLog: el,
 			}
 			return writeCommandError(ctx, validationCLIError(err.Error()))
 		}
@@ -574,6 +587,7 @@ func rootOptionsFromCommand(cmd *cobra.Command, runtime *RootRuntime) RootOption
 		Stdout:    runtime.Stdout,
 		Stderr:    runtime.Stderr,
 		IsTTY:     runtime.IsTTY,
+		ColorMode: runtime.ColorMode,
 		Now:       runtime.Now,
 		RequestID: runtime.RequestID,
 		Theme:     runtime.Theme,
@@ -583,14 +597,19 @@ func rootOptionsFromCommand(cmd *cobra.Command, runtime *RootRuntime) RootOption
 func commandContext(cmd *cobra.Command, runtime *RootRuntime) (*CommandContext, config.WorkspaceProfile, Attribution, error) {
 	opts := rootOptionsFromCommand(cmd, runtime)
 	if runtime.ConfigLoadError != nil {
+		mode := opts.Output.Resolve(runtime.IsTTY, DetectAgentOutputMode(opts.Agent))
+		sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
+		applyRenderMode(sl, mode)
 		ctx := &CommandContext{
 			Workspace: "default",
-			Mode:      opts.Output.Resolve(runtime.IsTTY, DetectAgentOutputMode(opts.Agent)),
+			Mode:      mode,
 			Stdout:    runtime.Stdout,
 			Stderr:    runtime.Stderr,
 			Now:       runtime.Now,
 			RequestID: runtime.RequestID,
 			Theme:     runtime.Theme,
+			stdoutLog: sl,
+			stderrLog: el,
 		}
 		return ctx, config.WorkspaceProfile{}, Attribution{}, runtime.ConfigLoadError
 	}
@@ -632,17 +651,47 @@ func NewCommandContext(opts RootOptions) (*CommandContext, Attribution, error) {
 		workspace = opts.Workspace
 	}
 
+	mode := opts.Output.Resolve(opts.IsTTY, DetectAgentOutputMode(agentFlags))
 	attribution := DetectAgentMode(agentFlags)
+	stdoutLog, stderrLog := buildBaseLoggers(opts.Stdout, opts.Stderr, opts.ColorMode)
+	applyRenderMode(stdoutLog, mode)
 	return &CommandContext{
 		Workspace: workspace,
-		Mode:      opts.Output.Resolve(opts.IsTTY, DetectAgentOutputMode(agentFlags)),
+		Mode:      mode,
 		Stdout:    opts.Stdout,
 		Stderr:    opts.Stderr,
 		Now:       opts.Now,
 		RequestID: opts.RequestID,
 		IsTTY:     opts.IsTTY,
+		ColorMode: opts.ColorMode,
 		Theme:     opts.Theme,
+		stdoutLog: stdoutLog,
+		stderrLog: stderrLog,
 	}, attribution, nil
+}
+
+func buildBaseLoggers(stdout, stderr io.Writer, colorMode clog.ColorMode) (*clog.Logger, *clog.Logger) {
+	sl := clog.New(clog.NewOutput(stdout, colorMode))
+	sl.SetOmitZero(true)
+	sl.SetParts(clog.PartLevel, clog.PartMessage, clog.PartFields)
+
+	el := clog.New(clog.NewOutput(stderr, colorMode))
+	el.SetOmitZero(true)
+	el.SetParts(clog.PartLevel, clog.PartMessage, clog.PartFields)
+	el.SetNonTTYLevel(clog.LevelWarn)
+	el.SetJSONPrintMode(clog.JSONFlat)
+
+	return sl, el
+}
+
+func applyRenderMode(sl *clog.Logger, mode RenderMode) {
+	switch mode {
+	case RenderModeRaw:
+		sl.SetJSONPrintMode(clog.JSONPreserve)
+	case RenderModeCompact, RenderModeEnvelope:
+		sl.SetJSONPrintMode(clog.JSONFlat)
+	}
+	// RenderModePlain: no JSON print mode needed; logger emits human-readable clog events.
 }
 
 func profileAttributionSetting(profile config.WorkspaceProfile) *bool {
@@ -696,22 +745,21 @@ func (c *CommandContext) WriteResult(command string, data any) error {
 
 func (c *CommandContext) WriteResultWithPagination(command string, data any, pagination *Pagination) error {
 	switch c.Mode {
-	case OutputModePlain:
+	case RenderModePlain:
 		return c.WritePlainResult(command, data, pagination)
-	case OutputModeCompact:
-		c.stdoutLogger().Print().Mode(clog.JSONFlat).JSON(data)
-	case OutputModeRaw:
-		if raw, ok := data.([]byte); ok {
-			c.stdoutLogger().Print().Mode(clog.JSONPreserve).RawJSON(raw)
-			return nil
+	case RenderModeCompact:
+		c.stdoutLogger().Print().JSON(data)
+	case RenderModeRaw:
+		switch raw := data.(type) {
+		case []byte:
+			c.stdoutLogger().Print().RawJSON(raw)
+		case json.RawMessage:
+			c.stdoutLogger().Print().RawJSON(raw)
+		default:
+			c.stdoutLogger().Print().JSON(data)
 		}
-		if raw, ok := data.(json.RawMessage); ok {
-			c.stdoutLogger().Print().Mode(clog.JSONPreserve).RawJSON(raw)
-			return nil
-		}
-		c.stdoutLogger().Print().Mode(clog.JSONPreserve).JSON(data)
 	default:
-		c.stdoutLogger().Print().Mode(clog.JSONFlat).JSON(Envelope{
+		c.stdoutLogger().Print().JSON(Envelope{
 			Meta: EnvelopeMeta{
 				Command:    command,
 				Workspace:  c.workspace(),
@@ -777,7 +825,7 @@ func (c *CommandContext) WritePlainResult(command string, data any, pagination *
 	default:
 		event := c.resultEvent(command).Any("data", data)
 		addPaginationFields(event, pagination)
-		event.Msg(commandMessage(command))
+		event.Send()
 		return nil
 	}
 }
@@ -788,16 +836,13 @@ func (c *CommandContext) WriteCacheClear(command string, data cacheClearData) er
 		When(data.Resource != "", func(e *clog.Event) {
 			e.Str("resource", data.Resource).Bool("removed", data.Removed)
 		}).
-		When(data.RemovedCount > 0, func(e *clog.Event) {
-			e.Int("removed_count", data.RemovedCount)
-		}).
-		Msg(commandMessage(command))
+		Int("removed_count", data.RemovedCount).
+		Send()
 	return nil
 }
 
 func (c *CommandContext) resultEvent(command string) *clog.Event {
 	return c.stdoutLogger().Info().
-		Parts(clog.PartLevel, clog.PartMessage, clog.PartFields).
 		Str("command", command)
 }
 
@@ -814,12 +859,7 @@ func (c *CommandContext) resultEventWithStyles(command string, styles ...fieldSt
 	logger := c.stdoutLogger()
 	applyFieldStyles(logger, c.Theme, styles...)
 	return logger.Info().
-		Parts(clog.PartLevel, clog.PartMessage, clog.PartFields).
 		Str("command", command)
-}
-
-func commandMessage(command string) string {
-	return strings.ReplaceAll(command, ".", " ")
 }
 
 func addPaginationFields(event *clog.Event, pagination *Pagination) *clog.Event {
@@ -842,24 +882,16 @@ func addPaginationFields(event *clog.Event, pagination *Pagination) *clog.Event 
 		})
 }
 
-func addStringField(event *clog.Event, key string, value *string) *clog.Event {
-	return event.When(value != nil && *value != "", func(e *clog.Event) {
-		e.Str(key, *value)
-	})
-}
-
-func addSlackTimestampFields(event *clog.Event, ts string, debug bool, now time.Time) *clog.Event {
-	event = event.Str("ts", ts)
-	if !debug {
-		return event
-	}
-	parsed, ok := parseSlackTimestamp(ts)
-	if !ok {
-		return event
-	}
-	return event.
-		Time("time", parsed).
-		Str("age", human.FormatTimeAgoCompactFrom(parsed, now))
+func addSlackTimestampFields(event *clog.Event, ts string, now time.Time) *clog.Event {
+	return event.Str("ts", ts).
+		When(clog.IsVerbose(), func(e *clog.Event) {
+			parsed, ok := parseSlackTimestamp(ts)
+			if !ok {
+				return
+			}
+			e.Time("time", parsed).
+				Str("age", human.FormatTimeAgoCompactFrom(parsed, now))
+		})
 }
 
 func parseSlackTimestamp(ts string) (time.Time, bool) {
@@ -902,23 +934,14 @@ func (c *CommandContext) WriteAuthWorkspace(command string, workspace authWorksp
 		applyTeamIDStyle(logger, c.Theme, workspace.TeamID)
 	}
 	event := logger.Info().
-		Parts(clog.PartLevel, clog.PartMessage, clog.PartFields).
 		Str("command", command).
 		Str("workspace", workspace.Workspace).
 		Bool("authenticated", workspace.Authenticated).
-		When(workspace.TokenType != "", func(e *clog.Event) {
-			e.Str("token_type", string(workspace.TokenType))
-		}).
-		When(workspace.TeamID != "", func(e *clog.Event) {
-			e.Str("team_id", workspace.TeamID)
-		}).
-		When(workspace.TeamName != "", func(e *clog.Event) {
-			e.Str("team_name", workspace.TeamName)
-		}).
-		When(workspace.ValidationError != "", func(e *clog.Event) {
-			e.Str("validation_error", workspace.ValidationError)
-		})
-	event.Msg(commandMessage(command))
+		Str("token_type", string(workspace.TokenType)).
+		Str("team_id", workspace.TeamID).
+		Str("team_name", workspace.TeamName).
+		Str("validation_error", workspace.ValidationError)
+	event.Send()
 	return nil
 }
 
@@ -928,25 +951,31 @@ func (c *CommandContext) WriteSend(command string, data sendCommandData) error {
 		channel = *data.Message.Channel
 	}
 	event := c.resultEventWithStyles(command, entityFieldStyle("channel", channel))
-	event = addSlackTimestampFields(event, data.Message.TS, c.debugOutput(), c.now()).
+	event = addSlackTimestampFields(event, data.Message.TS, c.now()).
 		Bool("dry_run", data.DryRun).
-		When(c.debugOutput(), func(e *clog.Event) {
+		When(clog.IsVerbose(), func(e *clog.Event) {
 			e.Bool("attribution", data.Attribution)
-			addStringField(e, "thread_ts", data.Message.ThreadTS)
-			addStringField(e, "permalink", data.Permalink)
+			if data.Message.ThreadTS != nil {
+				e.Str("thread_ts", *data.Message.ThreadTS)
+			}
+			if data.Permalink != nil {
+				e.Str("permalink", *data.Permalink)
+			}
 		})
-	event = addStringField(event, "channel", data.Message.Channel)
-	event.Msg(commandMessage(command))
+	if data.Message.Channel != nil {
+		event = event.Str("channel", *data.Message.Channel)
+	}
+	event.Send()
 	return nil
 }
 
 func (c *CommandContext) WriteDelete(command string, data deleteMessageData) error {
 	event := c.resultEventWithStyles(command, entityFieldStyle("channel", data.Channel)).
 		Str("channel", data.Channel)
-	event = addSlackTimestampFields(event, data.Timestamp, c.debugOutput(), c.now()).
+	event = addSlackTimestampFields(event, data.Timestamp, c.now()).
 		Bool("deleted", data.Deleted).
 		Bool("dry_run", data.DryRun)
-	event.Msg(commandMessage(command))
+	event.Send()
 	return nil
 }
 
@@ -958,7 +987,7 @@ func (c *CommandContext) WriteUpload(command string, data uploadFileResult) erro
 		Int("size", data.File.Size).
 		Str("size_human", human.FormatIECBytes(float64(data.File.Size))).
 		Bool("dry_run", data.DryRun).
-		Msg(commandMessage(command))
+		Send()
 	return nil
 }
 
@@ -966,11 +995,11 @@ func (c *CommandContext) WriteReaction(command string, data reactionCommandData)
 	if data.Reaction != nil {
 		event := c.resultEventWithStyles(command, entityFieldStyle("channel", data.Reaction.Channel)).
 			Str("channel", data.Reaction.Channel)
-		event = addSlackTimestampFields(event, data.Reaction.Timestamp, c.debugOutput(), c.now()).
+		event = addSlackTimestampFields(event, data.Reaction.Timestamp, c.now()).
 			Str("emoji", data.Reaction.Emoji).
 			Bool("removed", data.Reaction.Removed).
 			Bool("dry_run", data.Reaction.DryRun)
-		event.Msg(commandMessage(command))
+		event.Send()
 		return nil
 	}
 	if len(data.Reactions) > 0 {
@@ -979,18 +1008,18 @@ func (c *CommandContext) WriteReaction(command string, data reactionCommandData)
 	if len(data.Reactions) == 0 {
 		event := c.resultEventWithStyles(command, entityFieldStyle("channel", data.Target.Channel)).
 			Str("channel", data.Target.Channel)
-		addSlackTimestampFields(event, data.Target.Timestamp, c.debugOutput(), c.now()).
-			Msg(commandMessage(command))
+		addSlackTimestampFields(event, data.Target.Timestamp, c.now()).
+			Send()
 		return nil
 	}
 	for _, reaction := range data.Reactions {
 		event := c.resultEventWithStyles(command, entityFieldStyle("channel", data.Target.Channel)).
 			Str("channel", data.Target.Channel)
-		event = addSlackTimestampFields(event, data.Target.Timestamp, c.debugOutput(), c.now()).
+		event = addSlackTimestampFields(event, data.Target.Timestamp, c.now()).
 			Str("emoji", reaction.Name).
 			Int("count", reaction.Count).
 			Strs("users", reaction.Users)
-		event.Msg(commandMessage(command))
+		event.Send()
 	}
 	return nil
 }
@@ -1004,7 +1033,7 @@ func (c *CommandContext) WriteStatus(command string, data statusCommandData) err
 		When(data.Expiration > 0, func(e *clog.Event) {
 			e.Int64("expiration", data.Expiration)
 		})
-	event.Msg(commandMessage(command))
+	event.Send()
 	return nil
 }
 
@@ -1015,7 +1044,7 @@ func (c *CommandContext) WriteMessages(command string, messages []cliMessage, pa
 	if len(messages) == 0 {
 		event := c.resultEvent(command)
 		addPaginationFields(event, pagination)
-		event.Msg(commandMessage(command))
+		event.Send()
 		return nil
 	}
 	for _, message := range messages {
@@ -1024,14 +1053,24 @@ func (c *CommandContext) WriteMessages(command string, messages []cliMessage, pa
 			channel = *message.Channel
 		}
 		event := c.resultEventWithStyles(command, entityFieldStyle("channel", channel))
-		event = addSlackTimestampFields(event, message.TS, c.debugOutput(), c.now())
-		event = addStringField(event, "channel", message.Channel)
-		event = addStringField(event, "user", message.User)
-		event = addStringField(event, "bot_id", message.BotID)
-		event = addStringField(event, "thread_ts", message.ThreadTS)
-		event = addStringField(event, "text", message.Text)
+		event = addSlackTimestampFields(event, message.TS, c.now())
+		if message.Channel != nil {
+			event = event.Str("channel", *message.Channel)
+		}
+		if message.User != nil {
+			event = event.Str("user", *message.User)
+		}
+		if message.BotID != nil {
+			event = event.Str("bot_id", *message.BotID)
+		}
+		if message.ThreadTS != nil {
+			event = event.Str("thread_ts", *message.ThreadTS)
+		}
+		if message.Text != nil {
+			event = event.Str("text", *message.Text)
+		}
 		event = addIntField(event, "reply_count", message.ReplyCount)
-		event.Msg(commandMessage(command))
+		event.Send()
 	}
 	return nil
 }
@@ -1043,7 +1082,7 @@ func (c *CommandContext) WriteSearch(command string, data searchCommandData, pag
 	if len(data.Matches) == 0 {
 		event := c.resultEvent(command)
 		addPaginationFields(event, pagination)
-		event.Msg(commandMessage(command))
+		event.Send()
 		return nil
 	}
 	for _, match := range data.Matches {
@@ -1055,10 +1094,10 @@ func (c *CommandContext) WriteSearch(command string, data searchCommandData, pag
 			Str("channel", match.Channel.ID).
 			Str("channel_name", match.Channel.Name).
 			Str("user", match.User)
-		event = addSlackTimestampFields(event, match.TS, c.debugOutput(), c.now()).
+		event = addSlackTimestampFields(event, match.TS, c.now()).
 			Str("text", text).
 			Str("permalink", match.Permalink)
-		event.Msg(commandMessage(command))
+		event.Send()
 	}
 	return nil
 }
@@ -1071,10 +1110,14 @@ func (c *CommandContext) WriteChannelInfo(command string, channel cliChannel) er
 	event = addBoolField(event, "is_member", channel.IsMember)
 	event = addBoolField(event, "is_im", channel.IsIM)
 	event = addBoolField(event, "is_archived", channel.IsArchived)
-	event = addStringField(event, "user", channel.User)
-	event = addStringField(event, "topic", channel.Topic)
+	if channel.User != nil {
+		event = event.Str("user", *channel.User)
+	}
+	if channel.Topic != nil {
+		event = event.Str("topic", *channel.Topic)
+	}
 	event = addIntField(event, "num_members", channel.NumMembers)
-	event.Msg(commandMessage(command))
+	event.Send()
 	return nil
 }
 
@@ -1085,7 +1128,7 @@ func (c *CommandContext) WriteChannels(command string, channels []cliChannel, pa
 	if len(channels) == 0 {
 		event := c.resultEvent(command)
 		addPaginationFields(event, pagination)
-		event.Msg(commandMessage(command))
+		event.Send()
 		return nil
 	}
 	for _, channel := range channels {
@@ -1096,10 +1139,14 @@ func (c *CommandContext) WriteChannels(command string, channels []cliChannel, pa
 		event = addBoolField(event, "is_member", channel.IsMember)
 		event = addBoolField(event, "is_im", channel.IsIM)
 		event = addBoolField(event, "is_archived", channel.IsArchived)
-		event = addStringField(event, "user", channel.User)
-		event = addStringField(event, "topic", channel.Topic)
+		if channel.User != nil {
+			event = event.Str("user", *channel.User)
+		}
+		if channel.Topic != nil {
+			event = event.Str("topic", *channel.Topic)
+		}
 		event = addIntField(event, "num_members", channel.NumMembers)
-		event.Msg(commandMessage(command))
+		event.Send()
 	}
 	return nil
 }
@@ -1109,10 +1156,16 @@ func (c *CommandContext) WriteUserInfo(command string, user cliUser) error {
 		Str("user", user.ID).
 		Str("name", user.Name)
 	event = addBoolField(event, "deleted", user.Deleted)
-	event = addStringField(event, "timezone", user.Timezone)
-	event = addStringField(event, "presence", user.Presence)
-	event = addStringField(event, "status_text", user.StatusText)
-	event.Msg(commandMessage(command))
+	if user.Timezone != nil {
+		event = event.Str("timezone", *user.Timezone)
+	}
+	if user.Presence != nil {
+		event = event.Str("presence", *user.Presence)
+	}
+	if user.StatusText != nil {
+		event = event.Str("status_text", *user.StatusText)
+	}
+	event.Send()
 	return nil
 }
 
@@ -1123,7 +1176,7 @@ func (c *CommandContext) WriteUsers(command string, users []cliUser, pagination 
 	if len(users) == 0 {
 		event := c.resultEvent(command)
 		addPaginationFields(event, pagination)
-		event.Msg(commandMessage(command))
+		event.Send()
 		return nil
 	}
 	for _, user := range users {
@@ -1131,10 +1184,16 @@ func (c *CommandContext) WriteUsers(command string, users []cliUser, pagination 
 			Str("user", user.ID).
 			Str("name", user.Name)
 		event = addBoolField(event, "deleted", user.Deleted)
-		event = addStringField(event, "timezone", user.Timezone)
-		event = addStringField(event, "presence", user.Presence)
-		event = addStringField(event, "status_text", user.StatusText)
-		event.Msg(commandMessage(command))
+		if user.Timezone != nil {
+			event = event.Str("timezone", *user.Timezone)
+		}
+		if user.Presence != nil {
+			event = event.Str("presence", *user.Presence)
+		}
+		if user.StatusText != nil {
+			event = event.Str("status_text", *user.StatusText)
+		}
+		event.Send()
 	}
 	return nil
 }
@@ -1146,7 +1205,7 @@ func (c *CommandContext) WriteWorkspaces(command string, workspaces []config.Wor
 	if len(workspaces) == 0 {
 		event := c.resultEvent(command)
 		addPaginationFields(event, pagination)
-		event.Msg(commandMessage(command))
+		event.Send()
 		return nil
 	}
 	for _, workspace := range workspaces {
@@ -1155,16 +1214,13 @@ func (c *CommandContext) WriteWorkspaces(command string, workspaces []config.Wor
 			applyTeamIDStyle(logger, c.Theme, workspace.TeamID)
 		}
 		event := logger.Info().
-			Parts(clog.PartLevel, clog.PartMessage, clog.PartFields).
 			Str("command", command).
 			Str("workspace", workspace.Name).
 			Str("team_id", workspace.TeamID).
 			Str("token_type", string(workspace.TokenType)).
 			Str("token", workspace.TokenRef).
-			When(workspace.TeamName != "", func(e *clog.Event) {
-				e.Str("team_name", workspace.TeamName)
-			})
-		event.Msg(commandMessage(command))
+			Str("team_name", workspace.TeamName)
+		event.Send()
 	}
 	return nil
 }
@@ -1181,28 +1237,28 @@ func (c *CommandContext) WriteVersion(data versionData) error {
 
 func (c *CommandContext) WriteConfigInit(data configInitData) error {
 	c.resultEvent("config.init").
-		Str("path", human.ContractHome(data.Path)).
+		Link("path", data.Path, human.ContractHome(data.Path)).
 		Str("profile", data.Profile).
 		Str("workspace", data.Workspace).
 		Bool("written", data.Written).
-		Msg("config init")
+		Send()
 	return nil
 }
 
 func (c *CommandContext) WriteConfigPath(command string, data configPathData) error {
 	c.resultEvent(command).
-		Str("path", human.ContractHome(data.Path)).
+		Link("path", data.Path, human.ContractHome(data.Path)).
 		Bool("exists", data.Exists).
-		Msg(commandMessage(command))
+		Send()
 	return nil
 }
 
 func (c *CommandContext) WriteConfigList(command string, data configListData) error {
 	c.resultEvent(command).
-		Str("path", human.ContractHome(data.Path)).
+		Link("path", data.Path, human.ContractHome(data.Path)).
 		Str("default_workspace", data.DefaultWorkspace).
 		Int("settings", len(data.Settings)).
-		Msg(commandMessage(command))
+		Send()
 	if len(data.Settings) == 0 {
 		return nil
 	}
@@ -1219,18 +1275,16 @@ func (c *CommandContext) WriteConfigGet(command string, data configGetData) erro
 	c.resultEvent(command).
 		Str("key", data.Key).
 		Str("value", data.Value).
-		Msg(commandMessage(command))
+		Send()
 	return nil
 }
 
 func (c *CommandContext) WriteConfigMutation(command string, data configMutationData) error {
 	c.resultEvent(command).
-		Str("path", human.ContractHome(data.Path)).
+		Link("path", data.Path, human.ContractHome(data.Path)).
 		Str("key", data.Key).
-		When(data.Value != "", func(e *clog.Event) {
-			e.Str("value", data.Value)
-		}).
-		Msg(commandMessage(command))
+		Str("value", data.Value).
+		Send()
 	return nil
 }
 
@@ -1254,24 +1308,17 @@ func (c *CommandContext) WriteAuthStatus(data authStatusData) error {
 				state = "missing"
 			}
 		}
+		if workspace.TeamID != "" {
+			applyTeamIDStyle(logger, c.Theme, workspace.TeamID)
+		}
 		event := logger.Info().
-			Parts(clog.PartLevel, clog.PartMessage, clog.PartFields).
 			Str("workspace", workspace.Workspace).
 			Bool("authenticated", workspace.Authenticated).
-			When(workspace.TokenType != "", func(e *clog.Event) {
-				e.Str("token_type", string(workspace.TokenType))
-			}).
-			When(workspace.TeamID != "", func(e *clog.Event) {
-				applyTeamIDStyle(logger, c.Theme, workspace.TeamID)
-				e.Str("team_id", workspace.TeamID)
-			}).
-			When(workspace.TeamName != "", func(e *clog.Event) {
-				e.Str("team_name", workspace.TeamName)
-			}).
+			Str("token_type", string(workspace.TokenType)).
+			Str("team_id", workspace.TeamID).
+			Str("team_name", workspace.TeamName).
 			Bool("valid", state == "valid").
-			When(workspace.ValidationError != "", func(e *clog.Event) {
-				e.Str("validation_error", workspace.ValidationError)
-			})
+			Str("validation_error", workspace.ValidationError)
 		event.Msg("auth status")
 	}
 	return nil
@@ -1310,14 +1357,14 @@ func hashEntityStyle(th *theme.Theme, key string) *lipgloss.Style {
 }
 
 func (c *CommandContext) WriteError(err CLIError) int {
-	if c.Mode == OutputModePlain {
+	if c.Mode == RenderModePlain {
 		event := c.stderrLogger().Error().
 			Str("type", err.Type).
 			Int("exit_code", err.ExitCode)
 		event = addCLIErrorDetails(event, err.Details)
 		event.Msg(err.Message)
 	} else {
-		c.stderrLogger().Print().Mode(clog.JSONFlat).JSON(struct {
+		c.stderrLogger().Print().JSON(struct {
 			Errors []CLIError `json:"errors"`
 		}{
 			Errors: []CLIError{err},
@@ -1350,28 +1397,24 @@ func addCLIErrorDetails(event *clog.Event, details map[string]any) *clog.Event {
 	return event
 }
 
-func (c *CommandContext) debugOutput() bool {
-	for _, key := range []string{"DEBUG", "SLACK_CLI_DEBUG"} {
-		if agent.TruthyEnv(os.Getenv(key)) {
-			return true
-		}
-	}
-	return false
-}
-
 func writeCommandError(ctx *CommandContext, err CLIError) error {
 	ctx.WriteError(err)
 	return CommandError{CLIError: err}
 }
 
 func writeRuntimeError(runtime *RootRuntime, err CLIError) error {
+	mode := OutputFlags{}.Resolve(runtime.IsTTY, false)
+	sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
+	applyRenderMode(sl, mode)
 	ctx := &CommandContext{
 		Workspace: "default",
-		Mode:      OutputFlags{}.Resolve(runtime.IsTTY, false),
+		Mode:      mode,
 		Stdout:    runtime.Stdout,
 		Stderr:    runtime.Stderr,
 		Now:       runtime.Now,
 		RequestID: runtime.RequestID,
+		stdoutLog: sl,
+		stderrLog: el,
 	}
 	return writeCommandError(ctx, err)
 }
@@ -1384,28 +1427,12 @@ func authCLIError(message string) CLIError {
 	return CLIError{Type: ErrorTypeAuth, Message: message, ExitCode: ExitCodeAuthFailure}
 }
 
-func (c *CommandContext) stdoutLogger() *clog.Logger {
-	logger := clog.New(clog.NewOutput(c.stdout(), c.ColorMode))
-	logger.SetOmitZero(true)
-	return logger
-}
-
-func (c *CommandContext) stderrLogger() *clog.Logger {
-	logger := clog.New(clog.NewOutput(c.stderr(), c.ColorMode))
-	logger.SetOmitZero(true)
-	return logger
-}
+func (c *CommandContext) stdoutLogger() *clog.Logger { return c.stdoutLog }
+func (c *CommandContext) stderrLogger() *clog.Logger { return c.stderrLog }
 
 func (c *CommandContext) stdout() io.Writer {
 	if c.Stdout != nil {
 		return c.Stdout
-	}
-	return io.Discard
-}
-
-func (c *CommandContext) stderr() io.Writer {
-	if c.Stderr != nil {
-		return c.Stderr
 	}
 	return io.Discard
 }
@@ -1438,11 +1465,16 @@ func main() {
 		if errors.As(err, &commandErr) {
 			os.Exit(commandErr.CLIError.ExitCode)
 		}
+		mode := outputFlagsFromCommand(root).Resolve(terminal.Is(os.Stdout), false)
+		sl, el := buildBaseLoggers(os.Stdout, os.Stderr, clog.ColorAuto)
+		applyRenderMode(sl, mode)
 		ctx := &CommandContext{
 			Workspace: "default",
-			Mode:      outputFlagsFromCommand(root).Resolve(terminal.Is(os.Stdout), false),
+			Mode:      mode,
 			Stdout:    os.Stdout,
 			Stderr:    os.Stderr,
+			stdoutLog: sl,
+			stderrLog: el,
 		}
 		os.Exit(ctx.WriteError(validationCLIError(err.Error())))
 	}

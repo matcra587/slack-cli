@@ -147,7 +147,7 @@ func TestMessageSendCommandPlainDryRunUsesClogFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
 	}
-	for _, fragment := range []string{"INF", "message send", "command=message.send", "channel=C123", "ts=dry-run", "dry_run=true"} {
+	for _, fragment := range []string{"INF", "command=message.send", "channel=C123", "ts=dry-run", "dry_run=true"} {
 		if !strings.Contains(stdout, fragment) {
 			t.Fatalf("stdout = %q, want fragment %q", stdout, fragment)
 		}

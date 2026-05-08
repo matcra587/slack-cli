@@ -412,6 +412,35 @@ func TestNewCommandContextProfileAttributionUsesSlackCLIMessageUntilAgentDetecte
 	}
 }
 
+func TestWriteWorkspacesPopulatedSliceGoesViaTableRenderer(t *testing.T) {
+	ctx, stdout, stderr := newOutputTestContext(RenderModePlain)
+
+	workspaces := []config.WorkspaceProfile{
+		{
+			Name:      "default",
+			TeamID:    "T8KQ42P9D",
+			TeamName:  "Example",
+			TokenType: config.TokenTypeBot,
+			TokenRef:  "keychain:slack-cli/default",
+		},
+	}
+
+	if err := ctx.WriteWorkspaces("workspace.list", workspaces, nil); err != nil {
+		t.Fatalf("WriteWorkspaces returned error: %v", err)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+
+	got := stdout.String()
+	if strings.Contains(got, "token=") || strings.Contains(got, "token_ref=") {
+		t.Fatalf("stdout = %q, WriteWorkspaces populated path must not emit per-row events — only table renderer output", got)
+	}
+	if !strings.Contains(got, "default") {
+		t.Fatalf("stdout = %q, want workspace name in table output", got)
+	}
+}
+
 func clearAgentEnvironment(t *testing.T) {
 	t.Helper()
 	for _, key := range agent.KnownEnvVars() {
@@ -682,16 +711,14 @@ func TestCredentialTokenResolverReadsStructuredOnePasswordSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode credential: %v", err)
 	}
-	old := readOnePasswordSecret
-	readOnePasswordSecret = func(ref string) (string, error) {
+	reader := SecretReaderFunc(func(_ context.Context, ref string) (string, error) {
 		if ref != "op://Slack CLI/test/credential" {
 			t.Fatalf("1Password ref = %q", ref)
 		}
 		return secret, nil
-	}
-	t.Cleanup(func() { readOnePasswordSecret = old })
+	})
 
-	token, err := (CredentialTokenResolver{}).ResolveToken(context.Background(), config.WorkspaceProfile{
+	token, err := (CredentialTokenResolver{SecretReader: reader}).ResolveToken(context.Background(), config.WorkspaceProfile{
 		Name:      "test",
 		TeamID:    "T123",
 		TokenType: config.TokenTypeUser,

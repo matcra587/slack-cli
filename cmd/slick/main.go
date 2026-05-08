@@ -241,14 +241,32 @@ type CredentialTokenResolver struct {
 	SlackBaseURL string
 	HTTPClient   *http.Client
 	Now          func() time.Time
+	SecretReader SecretReader
 }
 
-var readOnePasswordSecret = func(ref string) (string, error) {
-	out, err := exec.Command("op", "read", ref).Output() //nolint:gosec // The 1Password reference is explicit user configuration, not shell-expanded input.
+type SecretReader interface {
+	Read(ctx context.Context, ref string) (string, error)
+}
+
+type SecretReaderFunc func(ctx context.Context, ref string) (string, error)
+
+func (f SecretReaderFunc) Read(ctx context.Context, ref string) (string, error) { return f(ctx, ref) }
+
+type opSecretReader struct{}
+
+func (opSecretReader) Read(ctx context.Context, ref string) (string, error) {
+	out, err := exec.CommandContext(ctx, "op", "read", ref).Output() //nolint:gosec // The 1Password reference is explicit user configuration, not shell-expanded input.
 	if err != nil {
 		return "", fmt.Errorf("reading 1Password secret: %w", err)
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+func (r CredentialTokenResolver) secretReader() SecretReader {
+	if r.SecretReader != nil {
+		return r.SecretReader
+	}
+	return opSecretReader{}
 }
 
 func (r CredentialTokenResolver) ResolveToken(ctx context.Context, profile config.WorkspaceProfile) (string, error) {
@@ -273,7 +291,7 @@ func (r CredentialTokenResolver) ResolveToken(ctx context.Context, profile confi
 		return r.resolveStoredCredential(ctx, name, secret)
 	}
 	if strings.HasPrefix(profile.TokenRef, "op://") {
-		secret, err := readOnePasswordSecret(profile.TokenRef)
+		secret, err := r.secretReader().Read(ctx, profile.TokenRef)
 		if err != nil {
 			return "", err
 		}
@@ -360,7 +378,7 @@ func (r CredentialTokenResolver) oauthHTTPClient() *http.Client {
 	if r.HTTPClient != nil {
 		return r.HTTPClient
 	}
-	return http.DefaultClient
+	return &http.Client{}
 }
 
 func credentialPayloadFromOAuthRefresh(clientID string, now time.Time, response *slackgo.OAuthV2Response) config.CredentialPayload {
@@ -1062,37 +1080,9 @@ func (c *CommandContext) WriteMessages(command string, messages []cliMessage, pa
 	if len(messages) > 0 {
 		return c.WriteMessageTable(messages)
 	}
-	if len(messages) == 0 {
-		event := c.resultEvent(command)
-		addPaginationFields(event, pagination)
-		event.Send()
-		return nil
-	}
-	for _, message := range messages {
-		channel := ""
-		if message.Channel != nil {
-			channel = *message.Channel
-		}
-		event := c.resultEventWithStyles(command, entityFieldStyle("channel", channel))
-		event = addSlackTimestampFields(event, message.TS, c.now())
-		if message.Channel != nil {
-			event = event.Str("channel", *message.Channel)
-		}
-		if message.User != nil {
-			event = event.Str("user", *message.User)
-		}
-		if message.BotID != nil {
-			event = event.Str("bot_id", *message.BotID)
-		}
-		if message.ThreadTS != nil {
-			event = event.Str("thread_ts", *message.ThreadTS)
-		}
-		if message.Text != nil {
-			event = event.Str("text", *message.Text)
-		}
-		event = addIntField(event, "reply_count", message.ReplyCount)
-		event.Send()
-	}
+	event := c.resultEvent(command)
+	addPaginationFields(event, pagination)
+	event.Send()
 	return nil
 }
 
@@ -1100,26 +1090,9 @@ func (c *CommandContext) WriteSearch(command string, data searchCommandData, pag
 	if len(data.Matches) > 0 {
 		return c.WriteSearchTable(data)
 	}
-	if len(data.Matches) == 0 {
-		event := c.resultEvent(command)
-		addPaginationFields(event, pagination)
-		event.Send()
-		return nil
-	}
-	for _, match := range data.Matches {
-		text := match.Text
-		if !data.Full {
-			text = truncateText(text, 300)
-		}
-		event := c.resultEventWithStyles(command, entityFieldStyle("channel", match.Channel.ID)).
-			Str("channel", match.Channel.ID).
-			Str("channel_name", match.Channel.Name).
-			Str("user", match.User)
-		event = addSlackTimestampFields(event, match.TS, c.now()).
-			Str("text", text).
-			Str("permalink", match.Permalink)
-		event.Send()
-	}
+	event := c.resultEvent(command)
+	addPaginationFields(event, pagination)
+	event.Send()
 	return nil
 }
 
@@ -1146,29 +1119,9 @@ func (c *CommandContext) WriteChannels(command string, channels []cliChannel, pa
 	if len(channels) > 0 {
 		return c.WriteChannelTable(command, channels)
 	}
-	if len(channels) == 0 {
-		event := c.resultEvent(command)
-		addPaginationFields(event, pagination)
-		event.Send()
-		return nil
-	}
-	for _, channel := range channels {
-		event := c.resultEventWithStyles(command, entityFieldStyle("channel", channel.ID)).
-			Str("channel", channel.ID).
-			Str("name", channel.Name).
-			Str("type", channel.Type)
-		event = addBoolField(event, "is_member", channel.IsMember)
-		event = addBoolField(event, "is_im", channel.IsIM)
-		event = addBoolField(event, "is_archived", channel.IsArchived)
-		if channel.User != nil {
-			event = event.Str("user", *channel.User)
-		}
-		if channel.Topic != nil {
-			event = event.Str("topic", *channel.Topic)
-		}
-		event = addIntField(event, "num_members", channel.NumMembers)
-		event.Send()
-	}
+	event := c.resultEvent(command)
+	addPaginationFields(event, pagination)
+	event.Send()
 	return nil
 }
 
@@ -1194,28 +1147,9 @@ func (c *CommandContext) WriteUsers(command string, users []cliUser, pagination 
 	if len(users) > 0 {
 		return c.WriteUserTable(users)
 	}
-	if len(users) == 0 {
-		event := c.resultEvent(command)
-		addPaginationFields(event, pagination)
-		event.Send()
-		return nil
-	}
-	for _, user := range users {
-		event := c.resultEvent(command).
-			Str("user", user.ID).
-			Str("name", user.Name)
-		event = addBoolField(event, "deleted", user.Deleted)
-		if user.Timezone != nil {
-			event = event.Str("timezone", *user.Timezone)
-		}
-		if user.Presence != nil {
-			event = event.Str("presence", *user.Presence)
-		}
-		if user.StatusText != nil {
-			event = event.Str("status_text", *user.StatusText)
-		}
-		event.Send()
-	}
+	event := c.resultEvent(command)
+	addPaginationFields(event, pagination)
+	event.Send()
 	return nil
 }
 
@@ -1223,26 +1157,9 @@ func (c *CommandContext) WriteWorkspaces(command string, workspaces []config.Wor
 	if len(workspaces) > 0 {
 		return c.WriteWorkspaceTable(workspaces)
 	}
-	if len(workspaces) == 0 {
-		event := c.resultEvent(command)
-		addPaginationFields(event, pagination)
-		event.Send()
-		return nil
-	}
-	for _, workspace := range workspaces {
-		logger := c.stdoutLogger()
-		if workspace.TeamID != "" {
-			applyTeamIDStyle(logger, c.Theme, workspace.TeamID)
-		}
-		event := logger.Info().
-			Str("command", command).
-			Str("workspace", workspace.Name).
-			Str("team_id", workspace.TeamID).
-			Str("token_type", string(workspace.TokenType)).
-			Str("token", workspace.TokenRef).
-			Str("team_name", workspace.TeamName)
-		event.Send()
-	}
+	event := c.resultEvent(command)
+	addPaginationFields(event, pagination)
+	event.Send()
 	return nil
 }
 

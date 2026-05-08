@@ -30,6 +30,7 @@ func newReactionMutationCommand(runtime *RootRuntime, action string) *cobra.Comm
 	cmd := &cobra.Command{
 		Use:          action,
 		Short:        action + " a Slack reaction",
+		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runReactionMutation(cmd, runtime, action, dryRun)

@@ -59,6 +59,7 @@ func newAuthCommand(runtime *RootRuntime) *cobra.Command {
 	loginCmd := &cobra.Command{
 		Use:          "login",
 		Short:        "Create a workspace profile",
+		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if oauthCallbackPort != "" {

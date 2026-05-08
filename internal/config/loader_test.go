@@ -254,6 +254,59 @@ token = "keychain:slack-cli/default"
 	}
 }
 
+func TestLoadFileAcceptsLegacyTokenKeyAndMigratesToTokenRef(t *testing.T) {
+	path := writeConfig(t, `
+schema_version = "1"
+default_workspace = "default"
+
+[workspaces.default]
+name = "default"
+team_id = "T123"
+token_type = "bot"
+token = "keychain:slack-cli/default"
+`)
+
+	cfg, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile returned error for legacy token key: %v", err)
+	}
+
+	workspace, err := cfg.ResolveWorkspace("")
+	if err != nil {
+		t.Fatalf("ResolveWorkspace returned error: %v", err)
+	}
+	if workspace.TokenRef != "keychain:slack-cli/default" {
+		t.Fatalf("TokenRef = %q, want keychain ref migrated from legacy token key", workspace.TokenRef)
+	}
+}
+
+func TestLoadFilePreferTokenRefOverLegacyToken(t *testing.T) {
+	path := writeConfig(t, `
+schema_version = "1"
+default_workspace = "default"
+
+[workspaces.default]
+name = "default"
+team_id = "T123"
+token_type = "bot"
+token = "keychain:slack-cli/legacy"
+token_ref = "keychain:slack-cli/current"
+`)
+
+	cfg, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile returned error when both token keys present: %v", err)
+	}
+
+	workspace, err := cfg.ResolveWorkspace("")
+	if err != nil {
+		t.Fatalf("ResolveWorkspace returned error: %v", err)
+	}
+	if workspace.TokenRef != "keychain:slack-cli/current" {
+		t.Fatalf("TokenRef = %q, want token_ref to take precedence over legacy token", workspace.TokenRef)
+	}
+}
+
 func writeConfig(t *testing.T, body string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "config.toml")

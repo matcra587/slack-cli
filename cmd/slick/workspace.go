@@ -14,13 +14,14 @@ func newWorkspaceCommand(runtime *RootRuntime) *cobra.Command {
 	listCmd := &cobra.Command{
 		Use:          "list",
 		Short:        "List configured workspaces",
+		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx, _, _, err := commandContext(cmd, runtime)
 			if err != nil {
 				return writeRuntimeError(runtime, validationCLIError(err.Error()))
 			}
-			var workspaces []config.WorkspaceProfile
+			workspaces := make([]config.WorkspaceProfile, 0)
 			if runtime.Config != nil {
 				for _, profile := range runtime.Config.Workspaces {
 					workspaces = append(workspaces, profile)

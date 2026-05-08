@@ -31,6 +31,7 @@ func newFileCommand(runtime *RootRuntime) *cobra.Command {
 	uploadCmd := &cobra.Command{
 		Use:          "upload",
 		Short:        "Upload a file to Slack",
+		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runFileUpload(cmd, runtime, uploadOptions{

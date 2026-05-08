@@ -28,6 +28,7 @@ func newLookupUserCommand(runtime *RootRuntime) *cobra.Command {
 	userCmd := &cobra.Command{
 		Use:          "user",
 		Short:        "Look up Slack users",
+		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			userID, _ := cmd.Flags().GetString("user")
@@ -130,7 +131,7 @@ func filterUsers(users []cliUser, filter string) []cliUser {
 		return users
 	}
 	filter = strings.ToLower(filter)
-	var out []cliUser
+	out := make([]cliUser, 0, len(users))
 	for _, user := range users {
 		if strings.Contains(strings.ToLower(user.ID), filter) || strings.Contains(strings.ToLower(user.Name), filter) {
 			out = append(out, user)

@@ -22,11 +22,13 @@ type Config struct {
 }
 
 type WorkspaceProfile struct {
-	Name             string            `toml:"name" json:"name"`
-	TeamID           string            `toml:"team_id" json:"team_id"`
-	TeamName         string            `toml:"team_name,omitempty" json:"team_name,omitempty"`
-	TokenType        TokenType         `toml:"token_type" json:"token_type"`
-	TokenRef         string            `toml:"token" json:"token"`
+	Name      string    `toml:"name" json:"name"`
+	TeamID    string    `toml:"team_id" json:"team_id"`
+	TeamName  string    `toml:"team_name,omitempty" json:"team_name,omitempty"`
+	TokenType TokenType `toml:"token_type" json:"token_type"`
+	TokenRef  string    `toml:"token_ref" json:"token_ref"`
+	// LegacyToken reads the deprecated `token` TOML key. Read only inside migrateTokenRefs.
+	LegacyToken      string            `toml:"token" json:"-"`
 	DefaultChannel   string            `toml:"default_channel,omitempty" json:"default_channel,omitempty"`
 	AgentAttribution *bool             `toml:"agent_attribution,omitempty" json:"agent_attribution,omitempty"`
 	AgentLabel       string            `toml:"agent_label,omitempty" json:"agent_label,omitempty"`

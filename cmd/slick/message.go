@@ -46,6 +46,7 @@ func newMessageCommand(runtime *RootRuntime) *cobra.Command {
 	sendCmd := &cobra.Command{
 		Use:   "send",
 		Short: "Send a Slack message",
+		Args:  cobra.NoArgs,
 		Example: `  # Send a message to a channel
   $ slick message send --channel <channel-id-or-alias> --message <markdown> --json
 
@@ -81,6 +82,7 @@ func newMessageCommand(runtime *RootRuntime) *cobra.Command {
 	editCmd := &cobra.Command{
 		Use:          "edit",
 		Short:        "Edit an owned Slack message",
+		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runMessageEdit(cmd, runtime, editSource, editDryRun)
@@ -99,6 +101,7 @@ func newMessageCommand(runtime *RootRuntime) *cobra.Command {
 	deleteCmd := &cobra.Command{
 		Use:          "delete",
 		Short:        "Delete an owned Slack message",
+		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runMessageDelete(cmd, runtime, deleteDryRun, force)
@@ -208,7 +211,7 @@ func (t messageSendTarget) previewChannel() string {
 }
 
 func resolveUserTargets(profile config.WorkspaceProfile, values []string) []string {
-	var out []string
+	out := make([]string, 0, len(values))
 	for _, value := range values {
 		for _, part := range xstrings.SplitCSV(value) {
 			out = append(out, resolveAlias(profile, part))

@@ -617,7 +617,7 @@ func parseWorkspaceConfigKey(key string) (string, string, error) {
 
 func configAuthOwnedField(field string) bool {
 	switch field {
-	case "team_id", "team_name", "token_type", "token":
+	case "team_id", "team_name", "token_type", "token", "token_ref":
 		return true
 	default:
 		return false

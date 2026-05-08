@@ -13,6 +13,7 @@ func newReplyCommand(runtime *RootRuntime) *cobra.Command {
 	replyCmd := &cobra.Command{
 		Use:   "reply",
 		Short: "Reply to a Slack thread",
+		Args:  cobra.NoArgs,
 		Example: `  # Reply to a thread with a message
   $ slick reply --channel <channel-id> --parent <parent-message-ts> --message <markdown> --json
 

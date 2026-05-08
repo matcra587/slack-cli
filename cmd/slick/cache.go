@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	slackcache "github.com/matcra587/slack-cli/internal/cache"
@@ -107,9 +106,10 @@ func newCacheChannelsCommand(runtime *RootRuntime) *cobra.Command {
 
 func newCacheClearCommand(runtime *RootRuntime) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "clear <resource>",
+		Use:          "clear [resource]",
 		Short:        "Clear local Slack metadata caches",
-		Args:         cobra.MaximumNArgs(1),
+		Args:         cobra.MatchAll(cobra.MaximumNArgs(1), cobra.OnlyValidArgs),
+		ValidArgs:    cacheResources,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCacheClear(cmd, runtime, args)
@@ -196,9 +196,6 @@ func runCacheClear(cmd *cobra.Command, runtime *RootRuntime, args []string) erro
 		return ctx.WriteResult("cache.clear", cacheClearData{Profile: profile.Name, RemovedCount: count})
 	}
 	resource := args[0]
-	if !isCacheResource(resource) {
-		return writeCommandError(ctx, validationCLIError("cache resource must be users or channels"))
-	}
 	removed, err := slackcache.Clear(profile.Name, resource)
 	if err != nil {
 		return writeCommandError(ctx, validationCLIError(err.Error()))
@@ -326,10 +323,6 @@ func normalizeCacheMaxPages(value int) int {
 		return defaultCacheMaxPages
 	}
 	return value
-}
-
-func isCacheResource(value string) bool {
-	return slices.Contains(cacheResources, value)
 }
 
 type cacheFetchError struct {

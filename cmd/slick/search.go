@@ -22,6 +22,7 @@ func newLookupMessagesCommand(runtime *RootRuntime) *cobra.Command {
 	messagesCmd := &cobra.Command{
 		Use:   "messages",
 		Short: "Search Slack messages",
+		Args:  cobra.NoArgs,
 		Example: `  # Search for messages matching a query
   $ slick lookup messages --query <query> --max-items <n> --json
 

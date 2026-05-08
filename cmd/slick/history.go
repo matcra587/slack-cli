@@ -29,6 +29,7 @@ func newHistoryCommand(runtime *RootRuntime) *cobra.Command {
 	listCmd := &cobra.Command{
 		Use:          "list",
 		Short:        "List channel or thread history",
+		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			_ = includeReplies
@@ -172,7 +173,7 @@ func filterMessagesByUser(messages []cliMessage, user string) []cliMessage {
 	if user == "" {
 		return messages
 	}
-	var out []cliMessage
+	out := make([]cliMessage, 0, len(messages))
 	for _, message := range messages {
 		if message.User != nil && *message.User == user {
 			out = append(out, message)
@@ -182,7 +183,7 @@ func filterMessagesByUser(messages []cliMessage, user string) []cliMessage {
 }
 
 func repliesOnly(parent string, messages []cliMessage) []cliMessage {
-	var out []cliMessage
+	out := make([]cliMessage, 0, len(messages))
 	for _, message := range messages {
 		if message.TS == parent {
 			continue

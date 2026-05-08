@@ -17,6 +17,7 @@ func LoadFile(path string) (*Config, error) {
 		return nil, fmt.Errorf("loading config file: %w", err)
 	}
 
+	migrateTokenRefs(cfg)
 	applyEnv(cfg)
 	if err := Migrate(cfg); err != nil {
 		return nil, err
@@ -26,6 +27,22 @@ func LoadFile(path string) (*Config, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// migrateTokenRefs upgrades workspaces that still use the legacy "token" TOML
+// key to the current "token_ref" key. LegacyToken is always zeroed so it cannot
+// round-trip back into TOML via SaveFile.
+func migrateTokenRefs(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+	for key, workspace := range cfg.Workspaces {
+		if workspace.TokenRef == "" && workspace.LegacyToken != "" {
+			workspace.TokenRef = workspace.LegacyToken
+		}
+		workspace.LegacyToken = ""
+		cfg.Workspaces[key] = workspace
+	}
 }
 
 func Migrate(cfg *Config) error {
@@ -77,7 +94,7 @@ func encodeConfigTOML(cfg *Config) string {
 		writeOptionalTOMLString(&b, "team_id", workspace.TeamID)
 		writeOptionalTOMLString(&b, "team_name", workspace.TeamName)
 		writeOptionalTOMLString(&b, "token_type", string(workspace.TokenType))
-		writeOptionalTOMLString(&b, "token", workspace.TokenRef)
+		writeOptionalTOMLString(&b, "token_ref", workspace.TokenRef)
 		writeOptionalTOMLString(&b, "default_channel", workspace.DefaultChannel)
 		writeOptionalTOMLString(&b, "rate_limit_tier", workspace.RateLimitTier)
 

@@ -35,6 +35,7 @@ func newLookupChannelCommand(runtime *RootRuntime) *cobra.Command {
 	channelCmd := &cobra.Command{
 		Use:          "channel",
 		Short:        "Look up Slack channels and conversations",
+		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			channel, _ := cmd.Flags().GetString("channel")
@@ -127,7 +128,7 @@ func filterChannels(result channelListResult, filter string) channelListResult {
 		return result
 	}
 	filter = strings.ToLower(filter)
-	var out []cliChannel
+	out := make([]cliChannel, 0, len(result.Channels))
 	for _, channel := range result.Channels {
 		if strings.Contains(strings.ToLower(channel.ID), filter) || strings.Contains(strings.ToLower(channel.Name), filter) {
 			out = append(out, channel)

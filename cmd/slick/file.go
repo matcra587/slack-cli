@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/gechr/clog"
-	"github.com/gechr/x/shell"
+	"github.com/gechr/x/human"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
@@ -149,7 +149,7 @@ func readUploadSource(stdin io.Reader, filePath, filename string) ([]byte, strin
 		content, err := io.ReadAll(stdin)
 		return content, filename, err
 	}
-	expandedPath := shell.ExpandPath(filePath)
+	expandedPath := human.ExpandPath(filePath)
 	content, err := os.ReadFile(expandedPath) //nolint:gosec // File upload intentionally reads the caller-supplied path.
 	if err != nil {
 		return nil, "", err

@@ -22,9 +22,11 @@ import (
 	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
 	clogstyle "github.com/gechr/clog/style"
+	termansi "github.com/gechr/x/ansi"
 	"github.com/gechr/x/human"
 	"github.com/gechr/x/shell"
 	"github.com/gechr/x/terminal"
+	"github.com/matcra587/slack-cli/internal/agent"
 	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
@@ -474,10 +476,10 @@ func validateOutputModeFlags(root *cobra.Command) error {
 
 func defaultConfigPath() string {
 	if path := os.Getenv("SLICK_CONFIG"); path != "" {
-		return shell.ExpandPath(path)
+		return human.ExpandPath(path)
 	}
 	if path := os.Getenv("SLACK_CLI_CONFIG"); path != "" {
-		return shell.ExpandPath(path)
+		return human.ExpandPath(path)
 	}
 	dir, err := shell.XDGConfigHome()
 	if err != nil {
@@ -915,6 +917,7 @@ func (c *CommandContext) WriteUpload(command string, data uploadFileResult) erro
 		Str("file_id", data.File.ID).
 		Str("file_name", data.File.Name).
 		Int("size", data.File.Size).
+		Str("size_human", human.FormatIECBytes(float64(data.File.Size))).
 		Bool("dry_run", data.DryRun).
 		Msg(commandMessage(command))
 	return nil
@@ -1193,13 +1196,7 @@ func (c *CommandContext) WriteConfigMutation(command string, data configMutation
 }
 
 func truncateText(value string, limit int) string {
-	if len(value) <= limit {
-		return value
-	}
-	if limit <= 3 {
-		return value[:limit]
-	}
-	return value[:limit-3] + "..."
+	return termansi.Truncate(value, limit, "...")
 }
 
 func (c *CommandContext) WritePlain(message string) error {
@@ -1316,23 +1313,11 @@ func addCLIErrorDetails(event *clog.Event, details map[string]any) *clog.Event {
 
 func (c *CommandContext) debugOutput() bool {
 	for _, key := range []string{"DEBUG", "SLACK_CLI_DEBUG"} {
-		if truthyEnv(os.Getenv(key)) {
+		if agent.TruthyEnv(os.Getenv(key)) {
 			return true
 		}
 	}
 	return false
-}
-
-func truthyEnv(value string) bool {
-	if value == "" {
-		return false
-	}
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "0", "false", "no", "off":
-		return false
-	default:
-		return true
-	}
 }
 
 func writeCommandError(ctx *CommandContext, err CLIError) error {

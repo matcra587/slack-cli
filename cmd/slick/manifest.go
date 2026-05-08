@@ -10,6 +10,7 @@ import (
 	"github.com/gechr/clib/help"
 	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
+	xslices "github.com/gechr/x/slices"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
@@ -422,9 +423,9 @@ func manifestScopeHelp(template string) help.CommandGroup {
 }
 
 func normalizeScopes(scopes []string) []string {
-	out := cleanStrings(scopes)
+	out := xslices.Unique(cleanStrings(scopes))
 	slices.Sort(out)
-	return slices.Compact(out)
+	return out
 }
 
 func cleanStrings(values []string) []string {

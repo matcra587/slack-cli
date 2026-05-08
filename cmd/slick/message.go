@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gechr/x/shell"
+	"github.com/gechr/x/human"
 	xstrings "github.com/gechr/x/strings"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/pkg/blockkit"
@@ -382,7 +382,7 @@ func readMessageSource(stdin io.Reader, source messageSource) (string, error) {
 		}
 		return string(raw), nil
 	}
-	raw, err := os.ReadFile(shell.ExpandPath(source.File))
+	raw, err := os.ReadFile(human.ExpandPath(source.File))
 	if err != nil {
 		return "", err
 	}

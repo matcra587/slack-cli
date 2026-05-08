@@ -8,13 +8,47 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
+	termansi "github.com/gechr/x/ansi"
 	"github.com/matcra587/slack-cli/internal/agent"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/internal/testutil"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
+
+func TestTruncateText(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		input      string
+		limit      int
+		wantExact  string
+		checkExact bool
+	}{
+		// UTF-8: each 🌍 is 4 bytes; old byte-slicing at limit-3 would corrupt the rune boundary.
+		{name: "utf8_multibyte", input: "Hello 🌍🌍🌍🌍", limit: 10},
+		// Empty input must pass through unchanged.
+		{name: "empty_input", input: "", limit: 300, wantExact: "", checkExact: true},
+		// limit < tail width ("..."=3 cells): xansi.Truncate returns ""; old code returned value[:limit].
+		{name: "limit_less_than_tail", input: "hello", limit: 2, wantExact: "", checkExact: true},
+		// Input shorter than limit: no truncation.
+		{name: "short_input", input: "hi", limit: 300, wantExact: "hi", checkExact: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := truncateText(tc.input, tc.limit)
+			if !utf8.ValidString(got) {
+				t.Fatalf("truncateText(%q, %d) = %q: invalid UTF-8", tc.input, tc.limit, got)
+			}
+			if tc.checkExact && got != tc.wantExact {
+				t.Fatalf("truncateText(%q, %d) = %q, want %q", tc.input, tc.limit, got, tc.wantExact)
+			}
+			if termansi.StringWidth(got) > tc.limit {
+				t.Fatalf("truncateText(%q, %d) = %q: display width %d exceeds limit", tc.input, tc.limit, got, termansi.StringWidth(got))
+			}
+		})
+	}
+}
 
 func TestMain(m *testing.M) {
 	clearAmbientAgentEnvironment()

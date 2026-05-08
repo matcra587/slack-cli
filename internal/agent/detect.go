@@ -1,9 +1,6 @@
 package agent
 
-import (
-	"os"
-	"strings"
-)
+import "os"
 
 type Category string
 
@@ -88,7 +85,7 @@ func Detect(opts Options) Detection {
 	}
 
 	for _, trigger := range envTriggers {
-		if isTruthy(os.Getenv(trigger.Key)) {
+		if TruthyEnv(os.Getenv(trigger.Key)) {
 			return Detection{
 				Active:   true,
 				Source:   trigger.Key,
@@ -105,16 +102,4 @@ func Detect(opts Options) Detection {
 		return Detection{Active: true, Source: "profile", Name: "profile", Category: CategoryCLI}
 	}
 	return Detection{}
-}
-
-func isTruthy(value string) bool {
-	if value == "" {
-		return false
-	}
-	switch strings.ToLower(value) {
-	case "0", "false", "no":
-		return false
-	default:
-		return true
-	}
 }

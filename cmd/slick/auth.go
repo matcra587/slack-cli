@@ -21,6 +21,7 @@ import (
 	"charm.land/lipgloss/v2"
 	clibtheme "github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
+	"github.com/gechr/x/human"
 	"github.com/gechr/x/shell"
 	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
@@ -290,7 +291,7 @@ func resolveLoginTokenSource(runtime *RootRuntime, input *authLoginInput) error 
 			}
 			input.Token = trimTokenSource(raw)
 		case input.TokenFile != "":
-			raw, err := os.ReadFile(shell.ExpandPath(input.TokenFile))
+			raw, err := os.ReadFile(human.ExpandPath(input.TokenFile))
 			if err != nil {
 				return fmt.Errorf("reading token file: %w", err)
 			}

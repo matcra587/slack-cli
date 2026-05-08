@@ -314,6 +314,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				"file_id=F123",
 				"file_name=report.txt",
 				"size=128",
+				`size_human="128 B"`,
 				"dry_run=true",
 			},
 		},

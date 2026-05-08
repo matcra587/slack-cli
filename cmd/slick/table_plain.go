@@ -75,7 +75,7 @@ func (c *CommandContext) WriteSearchTable(data searchCommandData) error {
 		{Name: "text", Header: "TEXT", Flex: true, Render: func(row cliSearchMessage, _ *table.RenderContext) table.Cell {
 			text := row.Text
 			if !data.Full {
-				text = truncateText(text, 300)
+				text = termansi.Truncate(text, 300, "...")
 			}
 			return table.TextCell(text)
 		}},

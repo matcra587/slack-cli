@@ -12,8 +12,13 @@ func newReplyCommand(runtime *RootRuntime) *cobra.Command {
 	var source messageSource
 	var dryRun bool
 	replyCmd := &cobra.Command{
-		Use:          "reply",
-		Short:        "Reply to a Slack thread",
+		Use:   "reply",
+		Short: "Reply to a Slack thread",
+		Example: `  # Reply to a thread with a message
+  $ slick reply --channel <channel-id> --parent <parent-message-ts> --message <markdown> --json
+
+  # Reply to a thread from stdin
+  $ printf '%s\n' "$reply" | slick reply --channel <channel-id> --parent <parent-message-ts> --file - --json`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runThreadReply(cmd, runtime, source, dryRun)

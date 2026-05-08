@@ -3,7 +3,6 @@ package main
 import (
 	cobracli "github.com/gechr/clib/cli/cobra"
 	"github.com/gechr/clib/help"
-	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
 	"github.com/matcra587/slack-cli/internal/agent"
 	"github.com/matcra587/slack-cli/internal/agenthelp"
@@ -91,12 +90,11 @@ func newAgentGuideCommand(runtime *RootRuntime) *cobra.Command {
 			return ctx.WritePlain(agenthelp.GetGuideSection(args[0]))
 		},
 	}
-	cmd.SetHelpFunc(agentGuideHelpFunc())
+	cmd.SetHelpFunc(agentGuideHelpFunc(runtime.HelpRenderer))
 	return cmd
 }
 
-func agentGuideHelpFunc() func(*cobra.Command, []string) {
-	renderer := help.NewRenderer(theme.Default())
+func agentGuideHelpFunc(renderer *help.Renderer) func(*cobra.Command, []string) {
 	return cobracli.HelpFunc(renderer, func(cmd *cobra.Command) []help.Section {
 		sections := cobracli.Sections(cmd)
 		sections = append(sections, help.Section{

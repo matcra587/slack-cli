@@ -44,8 +44,16 @@ func newMessageCommand(runtime *RootRuntime) *cobra.Command {
 	var filename string
 	var dryRun bool
 	sendCmd := &cobra.Command{
-		Use:          "send",
-		Short:        "Send a Slack message",
+		Use:   "send",
+		Short: "Send a Slack message",
+		Example: `  # Send a message to a channel
+  $ slick message send --channel <channel-id-or-alias> --message <markdown> --json
+
+  # Send a message from stdin
+  $ printf '%s\n' "$body" | slick message send --channel <channel-id-or-alias> --file - --json
+
+  # Send a direct message
+  $ slick message send --user <user-id-or-email> --message <markdown> --json`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			_ = filename

@@ -79,13 +79,20 @@ func TestConfigInitExposesCanonicalAttributionFlags(t *testing.T) {
 			t.Fatalf("config init flag %q is hidden; canonical attribution flags must be discoverable", name)
 		}
 	}
-	for _, name := range []string{"agent-attribution", "agent-label", "agent-emoji", "agent-message"} {
-		flag := initCmd.Flags().Lookup(name)
-		if flag == nil {
-			t.Fatalf("legacy config init alias %q is missing", name)
+	// Legacy agent-* names are normalised to attribution-* via SetNormalizeFunc and are
+	// no longer registered as local pflags. Verify they are not local to config init.
+	aliases := map[string]string{
+		"agent-attribution": "attribution-enabled",
+		"agent-label":       "attribution-label",
+		"agent-emoji":       "attribution-emoji",
+		"agent-message":     "attribution-message",
+	}
+	for alias, canonical := range aliases {
+		if got := initCmd.LocalFlags().Lookup(alias); got != nil {
+			t.Errorf("legacy alias %q should not be a local pflag on config init; use SetNormalizeFunc instead", alias)
 		}
-		if !flag.Hidden {
-			t.Fatalf("legacy config init alias %q is visible; docs/schema should expose attribution.* flags", name)
+		if got := initCmd.LocalFlags().Lookup(canonical); got == nil {
+			t.Errorf("canonical local flag %q missing after alias %q check", canonical, alias)
 		}
 	}
 }

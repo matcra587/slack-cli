@@ -106,7 +106,7 @@ func newCacheChannelsCommand(runtime *RootRuntime) *cobra.Command {
 
 func newCacheClearCommand(runtime *RootRuntime) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "clear [users|channels]",
+		Use:          "clear <resource>",
 		Short:        "Clear local Slack metadata caches",
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,

@@ -8,11 +8,11 @@ import (
 
 	cobracli "github.com/gechr/clib/cli/cobra"
 	"github.com/gechr/clib/help"
-	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
 	xslices "github.com/gechr/x/slices"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func newManifestCommand(runtime *RootRuntime) *cobra.Command {
@@ -99,8 +99,12 @@ func newManifestTemplateCommand(runtime *RootRuntime) *cobra.Command {
 	cmd.Flags().StringVarP(&opts.Description, "description", "d", opts.Description, "Short app description")
 	cmd.Flags().StringVarP(&opts.LongDescription, "long-description", "L", "", "Long app description")
 	cmd.Flags().StringVarP(&opts.Preset, "preset", "p", opts.Preset, "Scope preset: readonly, messaging, files, search, or full")
-	cmd.Flags().StringVar(&opts.Preset, "template", opts.Preset, "Alias for --preset")
-	_ = cmd.Flags().MarkHidden("template")
+	cmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
+		if name == "template" {
+			return pflag.NormalizedName("preset")
+		}
+		return pflag.NormalizedName(name)
+	})
 	cmd.Flags().StringVarP(&opts.Type, "type", "t", opts.Type, "Auth shape: user, bot, or both")
 	cmd.Flags().StringVarP(&opts.BackgroundColor, "background-color", "B", opts.BackgroundColor, "App background color")
 	cmd.Flags().StringArrayVarP(&opts.BotScopes, "bot-scope", "S", nil, "Override bot OAuth scope")
@@ -108,12 +112,11 @@ func newManifestTemplateCommand(runtime *RootRuntime) *cobra.Command {
 	cmd.Flags().StringArrayVarP(&opts.RedirectURLs, "redirect-url", "r", opts.RedirectURLs, "OAuth redirect URL")
 	cmd.Flags().StringVarP(&opts.CallbackPort, "callback-port", "C", "", "Local OAuth callback port for the generated redirect URL")
 	cmd.Flags().StringVarP(&opts.Format, "format", "f", "json", "Output format: json or yaml")
-	cmd.SetHelpFunc(manifestTemplateHelpFunc())
+	cmd.SetHelpFunc(manifestTemplateHelpFunc(runtime.HelpRenderer))
 	return cmd
 }
 
-func manifestTemplateHelpFunc() func(*cobra.Command, []string) {
-	renderer := help.NewRenderer(theme.Default())
+func manifestTemplateHelpFunc(renderer *help.Renderer) func(*cobra.Command, []string) {
 	return cobracli.HelpFunc(renderer, func(cmd *cobra.Command) []help.Section {
 		sections := cobracli.Sections(cmd)
 		sections = append(sections, help.Section{

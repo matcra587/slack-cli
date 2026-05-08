@@ -43,7 +43,7 @@ func (t slackTableTheme) EntityColors() []color.Color {
 func (c *CommandContext) tableContext() *table.RenderContext {
 	styled := c.ColorMode == clog.ColorAlways || c.ColorMode == clog.ColorAuto && c.IsTTY
 	return table.NewRenderContext(
-		slackTableTheme{theme: clibtheme.Default(), styled: styled},
+		slackTableTheme{theme: c.Theme, styled: styled},
 		termansi.New(termansi.WithTerminal(styled), termansi.WithHyperlinkFallback(termansi.HyperlinkFallbackText)),
 	)
 }

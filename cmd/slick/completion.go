@@ -488,11 +488,9 @@ func extendAuthCompletionMetadata(root *cobra.Command) {
 	cobracli.Extend(flag(login, "token-env"), cobracli.FlagExtra{Placeholder: "VAR", Terse: "token env"})
 	cobracli.Extend(flag(login, "team-id"), cobracli.FlagExtra{Placeholder: "T1234567890", Terse: "workspace ID"})
 	cobracli.Extend(flag(login, "team-name"), cobracli.FlagExtra{Placeholder: "NAME", Terse: "workspace name"})
-	methodExtra := cobracli.FlagExtra{Enum: []string{"oauth", "token"}, Placeholder: "METHOD", Terse: "auth method"}
+	methodExtra := cobracli.FlagExtra{Enum: []string{"oauth", "token"}, EnumDefault: "token", Placeholder: "METHOD", Terse: "auth method"}
 	cobracli.Extend(flag(login, "method"), methodExtra)
-	cobracli.Extend(flag(login, "auth-method"), methodExtra)
 	cobracli.Extend(flag(login, "oauth-client-id"), cobracli.FlagExtra{Placeholder: "CLIENT_ID", Terse: "client ID"})
-	cobracli.Extend(flag(login, "client-id"), cobracli.FlagExtra{Placeholder: "CLIENT_ID", Terse: "client ID"})
 	cobracli.Extend(flag(login, "oauth-redirect-url"), cobracli.FlagExtra{Hint: complete.HintURL, Placeholder: "URL", Terse: "redirect URL"})
 	cobracli.Extend(flag(login, "oauth-callback-port"), cobracli.FlagExtra{Placeholder: "PORT", Terse: "callback port"})
 	extendForceFlag(login)

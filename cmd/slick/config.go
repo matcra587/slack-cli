@@ -13,6 +13,7 @@ import (
 	xfs "github.com/gechr/x/fs"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 type configInitOptions struct {
@@ -115,11 +116,19 @@ func newConfigInitCommand(runtime *RootRuntime) *cobra.Command {
 	cmd.Flags().StringVarP(&opts.AgentLabel, "attribution-label", "l", "", "Attribution label")
 	cmd.Flags().StringVarP(&opts.AgentEmoji, "attribution-emoji", "e", "", "Attribution emoji")
 	cmd.Flags().StringVarP(&opts.AgentMessage, "attribution-message", "m", "", "Attribution message")
-	cmd.Flags().BoolVar(&opts.AgentAttribution, "agent-attribution", opts.AgentAttribution, "Legacy alias for --attribution-enabled")
-	cmd.Flags().StringVar(&opts.AgentLabel, "agent-label", "", "Legacy alias for --attribution-label")
-	cmd.Flags().StringVar(&opts.AgentEmoji, "agent-emoji", "", "Legacy alias for --attribution-emoji")
-	cmd.Flags().StringVar(&opts.AgentMessage, "agent-message", "", "Legacy alias for --attribution-message")
-	hideFlags(cmd, "agent-attribution", "agent-label", "agent-emoji", "agent-message")
+	cmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
+		switch name {
+		case "agent-attribution":
+			return pflag.NormalizedName("attribution-enabled")
+		case "agent-label":
+			return pflag.NormalizedName("attribution-label")
+		case "agent-emoji":
+			return pflag.NormalizedName("attribution-emoji")
+		case "agent-message":
+			return pflag.NormalizedName("attribution-message")
+		}
+		return pflag.NormalizedName(name)
+	})
 	cmd.Flags().BoolVarP(&opts.Force, "force", "F", false, "Overwrite an existing config")
 	extendConfigInitFlags(cmd)
 	return cmd
@@ -180,10 +189,6 @@ func shouldPromptConfigInit(cmd *cobra.Command) bool {
 		"attribution-label",
 		"attribution-emoji",
 		"attribution-message",
-		"agent-attribution",
-		"agent-label",
-		"agent-emoji",
-		"agent-message",
 	} {
 		if flags.Changed(name) {
 			return false
@@ -671,10 +676,4 @@ func extendConfigInitFlags(cmd *cobra.Command) {
 	clib.Extend(f.Lookup("attribution-emoji"), clib.FlagExtra{Group: "Attribution", Placeholder: ":robot_face:", Terse: "attribution emoji"})
 	clib.Extend(f.Lookup("attribution-message"), clib.FlagExtra{Group: "Attribution", Placeholder: "TEXT", Terse: "attribution message"})
 	clib.Extend(f.Lookup("force"), clib.FlagExtra{Group: "Safety", Terse: "overwrite config"})
-}
-
-func hideFlags(cmd *cobra.Command, names ...string) {
-	for _, name := range names {
-		_ = cmd.Flags().MarkHidden(name)
-	}
 }

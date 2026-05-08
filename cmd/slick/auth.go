@@ -26,6 +26,7 @@ import (
 	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 type authWorkspaceData struct {
@@ -64,6 +65,10 @@ func newAuthCommand(runtime *RootRuntime) *cobra.Command {
 			if oauthCallbackPort != "" {
 				oauthRedirectURL = oauthRedirectURLForPort(oauthCallbackPort)
 			}
+			method := authMethod
+			if !cmd.Flags().Changed("method") {
+				method = ""
+			}
 			return runAuthLogin(cmd, runtime, authLoginInput{
 				WorkspaceName: workspaceName,
 				TokenStdin:    tokenStdin,
@@ -71,7 +76,7 @@ func newAuthCommand(runtime *RootRuntime) *cobra.Command {
 				TokenEnv:      tokenEnv,
 				TeamID:        teamID,
 				TeamName:      teamName,
-				AuthMethod:    authMethod,
+				AuthMethod:    method,
 				ClientID:      clientID,
 				OAuthRedirect: oauthRedirectURL,
 				Force:         force,
@@ -84,16 +89,21 @@ func newAuthCommand(runtime *RootRuntime) *cobra.Command {
 	loginCmd.Flags().StringVarP(&tokenEnv, "token-env", "e", "", "Read Slack token from named environment variable")
 	loginCmd.Flags().StringVarP(&teamID, "team-id", "T", "", "Slack workspace ID")
 	loginCmd.Flags().StringVarP(&teamName, "team-name", "N", "", "Slack workspace display name")
-	loginCmd.Flags().StringVarP(&authMethod, "method", "m", "", "Auth mechanism: oauth or token")
-	loginCmd.Flags().StringVar(&authMethod, "auth-method", "", "Auth mechanism: oauth or token")
+	loginCmd.Flags().StringVarP(&authMethod, "method", "m", "token", "Auth mechanism: oauth or token")
 	loginCmd.Flags().StringVarP(&clientID, "oauth-client-id", "C", "", "Slack OAuth client ID")
-	loginCmd.Flags().StringVar(&clientID, "client-id", "", "Slack OAuth client ID")
 	loginCmd.Flags().StringVarP(&oauthRedirectURL, "oauth-redirect-url", "r", defaultOAuthRedirectURL(), "Slack OAuth redirect URL configured on the app")
 	loginCmd.Flags().StringVarP(&oauthCallbackPort, "oauth-callback-port", "p", "", "Local OAuth callback port; use 0 for an OS-assigned port")
 	loginCmd.Flags().BoolVarP(&force, "force", "F", false, "Overwrite an existing authenticated profile")
 	_ = loginCmd.Flags().MarkHidden("workspace-name")
-	_ = loginCmd.Flags().MarkHidden("auth-method")
-	_ = loginCmd.Flags().MarkHidden("client-id")
+	loginCmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
+		switch name {
+		case "auth-method":
+			return pflag.NormalizedName("method")
+		case "client-id":
+			return pflag.NormalizedName("oauth-client-id")
+		}
+		return pflag.NormalizedName(name)
+	})
 
 	statusCmd := &cobra.Command{
 		Use:          "status",

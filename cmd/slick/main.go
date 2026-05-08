@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"charm.land/lipgloss/v2"
@@ -88,6 +89,7 @@ type CommandContext struct {
 	RequestID func() string
 	ColorMode clog.ColorMode
 	IsTTY     bool
+	Theme     *theme.Theme
 }
 
 type RootOptions struct {
@@ -100,6 +102,7 @@ type RootOptions struct {
 	IsTTY     bool
 	Now       func() time.Time
 	RequestID func() string
+	Theme     *theme.Theme
 }
 
 type RootRuntime struct {
@@ -119,6 +122,8 @@ type RootRuntime struct {
 	IsTTY           bool
 	Now             func() time.Time
 	RequestID       func() string
+	Theme           *theme.Theme
+	HelpRenderer    *help.Renderer
 }
 
 type RootOption func(*RootRuntime)
@@ -402,11 +407,28 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	root.SetErr(runtime.Stderr)
 	setupClibCompletion(root, runtime)
 
-	th := theme.Default()
+	theme.SetEnvPrefix("SLICK")
+	getTheme := sync.OnceValue(theme.Default)
+	th := getTheme()
 	renderer := help.NewRenderer(th)
+	runtime.Theme = th
+	runtime.HelpRenderer = renderer
 	root.SetHelpFunc(cobracli.HelpFunc(renderer, cobracli.Sections))
+	flags := root.PersistentFlags()
+	flags.StringP("workspace", "w", "", "Workspace profile")
+	flags.BoolP("json", "j", false, "Force JSON output")
+	flags.BoolP("plain", "P", false, "Force plain text output")
+	flags.BoolP("compact", "k", false, "Output command data without envelope")
+	flags.BoolP("raw", "X", false, "Output Slack-native data")
+	flags.BoolP("agent", "a", false, "Force agent mode")
+	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
+	flags.StringP("agent-label", "G", "", "Override agent attribution label")
+	flags.StringP("agent-emoji", "Y", "", "Override agent attribution emoji")
+	flags.StringP("agent-message", "O", "", "Override agent attribution message")
+	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
+	root.MarkFlagsMutuallyExclusive("json", "plain", "compact", "raw")
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
-		if err := validateOutputModeFlags(cmd.Root()); err != nil {
+		if err := cmd.ValidateFlagGroups(); err != nil {
 			ctx := &CommandContext{
 				Workspace: "default",
 				Mode:      OutputModeJSON,
@@ -420,58 +442,72 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 		return nil
 	}
 
-	flags := root.PersistentFlags()
-	flags.StringP("workspace", "w", "", "Workspace profile")
-	flags.BoolP("json", "j", false, "Force JSON output")
-	flags.BoolP("plain", "P", false, "Force plain text output")
-	flags.BoolP("compact", "k", false, "Output command data without envelope")
-	flags.BoolP("raw", "X", false, "Output Slack-native data")
-	flags.BoolP("agent", "a", false, "Force agent mode")
-	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
-	flags.StringP("agent-label", "G", "", "Override agent attribution label")
-	flags.StringP("agent-emoji", "Y", "", "Override agent attribution emoji")
-	flags.StringP("agent-message", "O", "", "Override agent attribution message")
-	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
+	root.AddGroup(
+		&cobra.Group{ID: "messaging", Title: "Messaging Commands:"},
+		&cobra.Group{ID: "discovery", Title: "Discovery Commands:"},
+		&cobra.Group{ID: "admin", Title: "Auth & Config Commands:"},
+		&cobra.Group{ID: "meta", Title: "Agent & Tools:"},
+	)
 
-	root.AddCommand(newMessageCommand(runtime))
-	root.AddCommand(newHistoryCommand(runtime))
-	root.AddCommand(newReplyCommand(runtime))
-	root.AddCommand(newReactCommand(runtime))
-	root.AddCommand(newLookupCommand(runtime))
-	root.AddCommand(newFileCommand(runtime))
-	root.AddCommand(newStatusCommand(runtime))
-	root.AddCommand(newCacheCommand(runtime))
-	root.AddCommand(newManifestCommand(runtime))
-	root.AddCommand(newConfigCommand(runtime))
-	root.AddCommand(newAgentCommand(runtime))
-	root.AddCommand(newAuthCommand(runtime))
-	root.AddCommand(newWorkspaceCommand(runtime))
-	root.AddCommand(newVersionCommand(runtime))
+	msgCmd := newMessageCommand(runtime)
+	msgCmd.GroupID = "messaging"
+	root.AddCommand(msgCmd)
+
+	historyCmd := newHistoryCommand(runtime)
+	historyCmd.GroupID = "messaging"
+	root.AddCommand(historyCmd)
+
+	replyCmd := newReplyCommand(runtime)
+	replyCmd.GroupID = "messaging"
+	root.AddCommand(replyCmd)
+
+	reactCmd := newReactCommand(runtime)
+	reactCmd.GroupID = "messaging"
+	root.AddCommand(reactCmd)
+
+	statusCmd := newStatusCommand(runtime)
+	statusCmd.GroupID = "messaging"
+	root.AddCommand(statusCmd)
+
+	lookupCmd := newLookupCommand(runtime)
+	lookupCmd.GroupID = "discovery"
+	root.AddCommand(lookupCmd)
+
+	cacheCmd := newCacheCommand(runtime)
+	cacheCmd.GroupID = "discovery"
+	root.AddCommand(cacheCmd)
+
+	authCmd := newAuthCommand(runtime)
+	authCmd.GroupID = "admin"
+	root.AddCommand(authCmd)
+
+	configCmd := newConfigCommand(runtime)
+	configCmd.GroupID = "admin"
+	root.AddCommand(configCmd)
+
+	workspaceCmd := newWorkspaceCommand(runtime)
+	workspaceCmd.GroupID = "admin"
+	root.AddCommand(workspaceCmd)
+
+	manifestCmd := newManifestCommand(runtime)
+	manifestCmd.GroupID = "admin"
+	root.AddCommand(manifestCmd)
+
+	agentCmd := newAgentCommand(runtime)
+	agentCmd.GroupID = "meta"
+	root.AddCommand(agentCmd)
+
+	fileCmd := newFileCommand(runtime)
+	fileCmd.GroupID = "meta"
+	root.AddCommand(fileCmd)
+
+	versionCmd := newVersionCommand(runtime)
+	versionCmd.GroupID = "meta"
+	root.AddCommand(versionCmd)
 	extendSlackCompletionMetadata(root)
 	addClibCompletionCommand(root)
 
 	return root
-}
-
-func validateOutputModeFlags(root *cobra.Command) error {
-	if root == nil {
-		return nil
-	}
-	flags := root.PersistentFlags()
-	selected := make([]string, 0, 4)
-	for _, name := range []string{"json", "plain", "compact", "raw"} {
-		value, err := flags.GetBool(name)
-		if err != nil {
-			return err
-		}
-		if value {
-			selected = append(selected, "--"+name)
-		}
-	}
-	if len(selected) > 1 {
-		return fmt.Errorf("output mode flags are mutually exclusive: %s", strings.Join(selected, ", "))
-	}
-	return nil
 }
 
 func defaultConfigPath() string {
@@ -540,6 +576,7 @@ func rootOptionsFromCommand(cmd *cobra.Command, runtime *RootRuntime) RootOption
 		IsTTY:     runtime.IsTTY,
 		Now:       runtime.Now,
 		RequestID: runtime.RequestID,
+		Theme:     runtime.Theme,
 	}
 }
 
@@ -553,6 +590,7 @@ func commandContext(cmd *cobra.Command, runtime *RootRuntime) (*CommandContext, 
 			Stderr:    runtime.Stderr,
 			Now:       runtime.Now,
 			RequestID: runtime.RequestID,
+			Theme:     runtime.Theme,
 		}
 		return ctx, config.WorkspaceProfile{}, Attribution{}, runtime.ConfigLoadError
 	}
@@ -603,6 +641,7 @@ func NewCommandContext(opts RootOptions) (*CommandContext, Attribution, error) {
 		Now:       opts.Now,
 		RequestID: opts.RequestID,
 		IsTTY:     opts.IsTTY,
+		Theme:     opts.Theme,
 	}, attribution, nil
 }
 
@@ -773,7 +812,7 @@ func entityFieldStyle(field, value string) fieldStyle {
 
 func (c *CommandContext) resultEventWithStyles(command string, styles ...fieldStyle) *clog.Event {
 	logger := c.stdoutLogger()
-	applyFieldStyles(logger, styles...)
+	applyFieldStyles(logger, c.Theme, styles...)
 	return logger.Info().
 		Parts(clog.PartLevel, clog.PartMessage, clog.PartFields).
 		Str("command", command)
@@ -860,7 +899,7 @@ func addIntField(event *clog.Event, key string, value *int) *clog.Event {
 func (c *CommandContext) WriteAuthWorkspace(command string, workspace authWorkspaceData) error {
 	logger := c.stdoutLogger()
 	if workspace.TeamID != "" {
-		applyTeamIDStyle(logger, workspace.TeamID)
+		applyTeamIDStyle(logger, c.Theme, workspace.TeamID)
 	}
 	event := logger.Info().
 		Parts(clog.PartLevel, clog.PartMessage, clog.PartFields).
@@ -1113,7 +1152,7 @@ func (c *CommandContext) WriteWorkspaces(command string, workspaces []config.Wor
 	for _, workspace := range workspaces {
 		logger := c.stdoutLogger()
 		if workspace.TeamID != "" {
-			applyTeamIDStyle(logger, workspace.TeamID)
+			applyTeamIDStyle(logger, c.Theme, workspace.TeamID)
 		}
 		event := logger.Info().
 			Parts(clog.PartLevel, clog.PartMessage, clog.PartFields).
@@ -1223,7 +1262,7 @@ func (c *CommandContext) WriteAuthStatus(data authStatusData) error {
 				e.Str("token_type", string(workspace.TokenType))
 			}).
 			When(workspace.TeamID != "", func(e *clog.Event) {
-				applyTeamIDStyle(logger, workspace.TeamID)
+				applyTeamIDStyle(logger, c.Theme, workspace.TeamID)
 				e.Str("team_id", workspace.TeamID)
 			}).
 			When(workspace.TeamName != "", func(e *clog.Event) {
@@ -1238,17 +1277,17 @@ func (c *CommandContext) WriteAuthStatus(data authStatusData) error {
 	return nil
 }
 
-func applyTeamIDStyle(logger *clog.Logger, teamID string) {
-	applyFieldStyles(logger, entityFieldStyle("team_id", teamID))
+func applyTeamIDStyle(logger *clog.Logger, th *theme.Theme, teamID string) {
+	applyFieldStyles(logger, th, entityFieldStyle("team_id", teamID))
 }
 
-func applyFieldStyles(logger *clog.Logger, fields ...fieldStyle) {
+func applyFieldStyles(logger *clog.Logger, th *theme.Theme, fields ...fieldStyle) {
 	styles := clogstyle.Map{}
 	for _, field := range fields {
 		if field.Field == "" || field.Seed == "" {
 			continue
 		}
-		if style := hashEntityStyle(theme.Default(), field.Seed); style != nil {
+		if style := hashEntityStyle(th, field.Seed); style != nil {
 			styles[field.Field] = style
 		}
 	}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"strings"
 
 	slackgo "github.com/slack-go/slack"
@@ -84,17 +83,17 @@ func runReactionMutation(cmd *cobra.Command, runtime *RootRuntime, action string
 		return writeCommandError(ctx, authCLIError(err.Error()))
 	}
 	if err := requireSlackScopes(cmd.Context(), client, allScopes("reactions:write")); err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 	switch action {
 	case "remove":
 		result.Removed = true
-		err = client.RemoveReactionContext(context.Background(), emoji, slackgo.NewRefToMessage(target.Channel, target.Timestamp))
+		err = client.RemoveReactionContext(cmd.Context(), emoji, slackgo.NewRefToMessage(target.Channel, target.Timestamp))
 	default:
-		err = client.AddReactionContext(context.Background(), emoji, slackgo.NewRefToMessage(target.Channel, target.Timestamp))
+		err = client.AddReactionContext(cmd.Context(), emoji, slackgo.NewRefToMessage(target.Channel, target.Timestamp))
 	}
 	if err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 	return ctx.WriteResult("react."+action, reactionCommandData{Reaction: &result, Target: target})
 }
@@ -114,11 +113,11 @@ func runReactionList(cmd *cobra.Command, runtime *RootRuntime) error {
 		return writeCommandError(ctx, authCLIError(err.Error()))
 	}
 	if err := requireSlackScopes(cmd.Context(), client, allScopes("reactions:read")); err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
-	item, err := client.GetReactionsContext(context.Background(), slackgo.NewRefToMessage(target.Channel, target.Timestamp), slackgo.GetReactionsParameters{})
+	item, err := client.GetReactionsContext(cmd.Context(), slackgo.NewRefToMessage(target.Channel, target.Timestamp), slackgo.GetReactionsParameters{})
 	if err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 	return ctx.WriteResult("react.list", reactionCommandData{Reactions: cliReactionsFromSlack(item.Reactions), Target: target})
 }

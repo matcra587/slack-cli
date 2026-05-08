@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
-	"net/url"
 	"strings"
 
 	xstrings "github.com/gechr/x/strings"
@@ -30,6 +28,7 @@ type cliMessage struct {
 	ReplyCount *int                 `json:"reply_count,omitempty"`
 	Replies    []cliMessage         `json:"replies,omitempty"`
 	Reactions  []cliReactionSummary `json:"reactions,omitempty"`
+	Blocks     *slackgo.Blocks      `json:"blocks,omitempty"`
 }
 
 type cliReactionSummary struct {
@@ -99,8 +98,6 @@ type reactionResult struct {
 	DryRun    bool   `json:"dry_run,omitempty"`
 }
 
-var errNotOwned = errors.New("message is not owned by authenticated actor")
-
 type scopeRequirement struct {
 	all []string
 	any []string
@@ -139,7 +136,7 @@ func slackClient(cmd *cobra.Command, profile config.WorkspaceProfile, runtime *R
 			Now:          runtime.Now,
 		}
 	}
-	token, err := resolver.ResolveToken(profile)
+	token, err := resolver.ResolveToken(cmd.Context(), profile)
 	if err != nil {
 		if errors.Is(err, config.ErrCredentialNotFound) {
 			workspace := profile.Name
@@ -151,70 +148,7 @@ func slackClient(cmd *cobra.Command, profile config.WorkspaceProfile, runtime *R
 		return nil, err
 	}
 
-	options := []slackgo.Option{
-		slackgo.OptionHTTPClient(slackHTTPClient(cmd, runtime)),
-		slackgo.OptionRetryConfig(slackRetryConfig()),
-	}
-	if runtime.SlackBaseURL != "" {
-		options = append(options, slackgo.OptionAPIURL(slackAPIURL(runtime.SlackBaseURL)))
-	}
-	return slackgo.New(token, options...), nil
-}
-
-func slackHTTPClient(cmd *cobra.Command, runtime *RootRuntime) *http.Client {
-	base := http.DefaultClient
-	if runtime.HTTPClient != nil {
-		base = runtime.HTTPClient
-	}
-	client := *base
-	transport := client.Transport
-	if transport == nil {
-		transport = http.DefaultTransport
-	}
-	noThrottle, _ := cmd.Root().PersistentFlags().GetBool("no-throttle")
-	client.Transport = rateLimitTransport{
-		base:      slackBearerTransport{base: transport},
-		throttler: ratelimit.NewThrottler(),
-		disabled:  noThrottle,
-	}
-	return &client
-}
-
-type slackBearerTransport struct {
-	base http.RoundTripper
-}
-
-func (t slackBearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Body == nil || req.Header.Get("Authorization") != "" || !strings.HasPrefix(req.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
-		return t.base.RoundTrip(req)
-	}
-	body, err := io.ReadAll(req.Body)
-	_ = req.Body.Close()
-	if err != nil {
-		return nil, err
-	}
-	values, err := url.ParseQuery(string(body))
-	if err != nil {
-		resetRequestBody(req, string(body))
-		return t.base.RoundTrip(req)
-	}
-	token := values.Get("token")
-	if token == "" {
-		resetRequestBody(req, string(body))
-		return t.base.RoundTrip(req)
-	}
-	values.Del("token")
-	req.Header.Set("Authorization", "Bearer "+token)
-	resetRequestBody(req, values.Encode())
-	return t.base.RoundTrip(req)
-}
-
-func resetRequestBody(req *http.Request, body string) {
-	req.Body = io.NopCloser(strings.NewReader(body))
-	req.ContentLength = int64(len(body))
-	req.GetBody = func() (io.ReadCloser, error) {
-		return io.NopCloser(strings.NewReader(body)), nil
-	}
+	return newSlackClient(cmd.Context(), cmd, runtime, token), nil
 }
 
 type rateLimitTransport struct {
@@ -306,10 +240,7 @@ func validateScopeRequirement(scopes map[string]bool, requirement scopeRequireme
 	return missingScopeError{any: requirement.any}
 }
 
-func cliErrorFromSlack(err error) CLIError {
-	if errors.Is(err, errNotOwned) {
-		return CLIError{Type: ErrorTypeValidation, Message: err.Error(), ExitCode: ExitCodeValidation}
-	}
+func cliErrorFromSlack(ctx context.Context, err error) CLIError {
 	var scopeErr missingScopeError
 	if errors.As(err, &scopeErr) {
 		return CLIError{Type: ErrorTypeAuth, Message: scopeErr.Error(), ExitCode: ExitCodeAuthFailure}
@@ -332,7 +263,7 @@ func cliErrorFromSlack(err error) CLIError {
 		switch slackErr.Err {
 		case "channel_not_found", "user_not_found", "message_not_found", "not_in_channel":
 			return CLIError{Type: ErrorTypeNotFound, Message: slackErr.Err, ExitCode: ExitCodeNotFound}
-		case "not_allowed_token_type", "invalid_arguments":
+		case "not_allowed_token_type", "invalid_arguments", "cant_update_message", "cant_delete_message":
 			return CLIError{Type: ErrorTypeValidation, Message: slackErr.Err, ExitCode: ExitCodeValidation}
 		case "invalid_auth", "not_authed", "account_inactive", "token_revoked", "missing_scope", "no_permission":
 			return CLIError{Type: ErrorTypeAuth, Message: slackErr.Err, ExitCode: ExitCodeAuthFailure}
@@ -341,6 +272,14 @@ func cliErrorFromSlack(err error) CLIError {
 		default:
 			return CLIError{Type: ErrorTypeServer, Message: slackErr.Err, ExitCode: ExitCodeServer}
 		}
+	}
+	if errors.Is(err, context.DeadlineExceeded) || ctx.Err() == context.DeadlineExceeded {
+		return CLIError{Type: ErrorTypeTimeout, Message: "timeout", ExitCode: ExitCodeTimeout}
+	}
+	// context.Canceled covers both explicit cancel and signal cancellation;
+	// errors.Is against context.Cause catches signal.signalError wrapped by url.Error.
+	if ctx.Err() == context.Canceled || errors.Is(err, context.Cause(ctx)) {
+		return CLIError{Type: ErrorTypeCanceled, Message: "canceled", ExitCode: ExitCodeCanceled}
 	}
 	return CLIError{Type: ErrorTypeServer, Message: err.Error(), ExitCode: ExitCodeServer}
 }
@@ -376,6 +315,10 @@ func cliMessageFromSlack(message slackgo.Message, fallbackChannel string) cliMes
 		out.ReplyCount = intPtr(message.ReplyCount)
 	}
 	out.Reactions = cliReactionsFromSlack(message.Reactions)
+	if len(message.Blocks.BlockSet) > 0 {
+		blocks := message.Blocks
+		out.Blocks = &blocks
+	}
 	return out
 }
 

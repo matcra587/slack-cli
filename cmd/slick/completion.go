@@ -55,7 +55,7 @@ func slackCompletionHandlerForRuntime(runtime *RootRuntime) complete.Handler {
 		cfg = nil
 	}
 	token := slackCompletionToken(runtime, cfg)
-	return slackCompletionHandler(token, cfg, runtime.SlackBaseURL)
+	return slackCompletionHandler(token, cfg, runtime)
 }
 
 func slackCompletionToken(runtime *RootRuntime, cfg *config.Config) string {
@@ -81,14 +81,14 @@ func slackCompletionToken(runtime *RootRuntime, cfg *config.Config) string {
 			Now:          runtime.Now,
 		}
 	}
-	token, err := resolver.ResolveToken(profile)
+	token, err := resolver.ResolveToken(context.Background(), profile)
 	if err != nil {
 		return ""
 	}
 	return token
 }
 
-func slackCompletionHandler(token string, cfg *config.Config, baseURL string) complete.Handler {
+func slackCompletionHandler(token string, cfg *config.Config, runtime *RootRuntime) complete.Handler {
 	profileName := slackCompletionProfileName(cfg)
 	return func(shell, kind string, args []string) {
 		switch kind {
@@ -114,7 +114,7 @@ func slackCompletionHandler(token string, cfg *config.Config, baseURL string) co
 				if token == "" {
 					return
 				}
-				completeSlackChannels(shell, slackCompletionClient(token, baseURL))
+				completeSlackChannels(shell, slackCompletionClient(token, runtime))
 				return
 			}
 			for _, value := range slackConfigValueCompletions(args[0], cfg) {
@@ -144,7 +144,7 @@ func slackCompletionHandler(token string, cfg *config.Config, baseURL string) co
 		if token == "" {
 			return
 		}
-		client := slackCompletionClient(token, baseURL)
+		client := slackCompletionClient(token, runtime)
 		ctx, cancel := context.WithTimeout(context.Background(), completionTimeout)
 		defer cancel()
 
@@ -235,14 +235,8 @@ func completionUserActive(user cliUser) bool {
 	return user.Deleted == nil || !*user.Deleted
 }
 
-func slackCompletionClient(token, baseURL string) *slackgo.Client {
-	options := []slackgo.Option{
-		slackgo.OptionRetryConfig(slackRetryConfig()),
-	}
-	if baseURL != "" {
-		options = append(options, slackgo.OptionAPIURL(slackAPIURL(baseURL)))
-	}
-	return slackgo.New(token, options...)
+func slackCompletionClient(token string, runtime *RootRuntime) *slackgo.Client {
+	return newSlackClient(context.Background(), nil, runtime, token)
 }
 
 func completionWorkspaceNames(cfg *config.Config) []string {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"strings"
 
 	slackgo "github.com/slack-go/slack"
@@ -57,7 +56,7 @@ func runUserListWithCommand(cmd *cobra.Command, runtime *RootRuntime, command st
 		return writeCommandError(ctx, authCLIError(err.Error()))
 	}
 	if err := requireSlackScopes(cmd.Context(), client, allScopes("users:read")); err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 	options := []slackgo.GetUsersOption{}
 	if opts.MaxItems > 0 {
@@ -68,9 +67,9 @@ func runUserListWithCommand(cmd *cobra.Command, runtime *RootRuntime, command st
 	}
 	options = append(options, slackgo.GetUsersOptionPresence(opts.Presence))
 	pager := client.GetUsersPaginated(options...)
-	page, err := pager.Next(context.Background())
+	page, err := pager.Next(cmd.Context())
 	if err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 	users := filterUsers(cliUsersFromSlack(page.Users, opts.IncludeDeleted), opts.Filter)
 	return ctx.WriteResultWithPagination(command, userListData{Users: users}, &Pagination{
@@ -96,17 +95,17 @@ func runUserInfoValue(cmd *cobra.Command, runtime *RootRuntime, command, userID 
 		return writeCommandError(ctx, authCLIError(err.Error()))
 	}
 	if err := requireSlackScopes(cmd.Context(), client, allScopes("users:read")); err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
-	user, err := client.GetUserInfoContext(context.Background(), userID)
+	user, err := client.GetUserInfoContext(cmd.Context(), userID)
 	if err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 	result := cliUserFromSlack(*user)
 	if presence {
-		presenceResult, err := client.GetUserPresenceContext(context.Background(), userID)
+		presenceResult, err := client.GetUserPresenceContext(cmd.Context(), userID)
 		if err != nil {
-			return writeCommandError(ctx, cliErrorFromSlack(err))
+			return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 		}
 		if strings.TrimSpace(presenceResult.Presence) != "" {
 			result.Presence = stringPtr(presenceResult.Presence)

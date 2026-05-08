@@ -1368,3 +1368,110 @@ func authTestConfig() *config.Config {
 		},
 	}
 }
+
+func TestAuthLogoutCallsAuthRevoke(t *testing.T) {
+	store := testutil.NewFakeKeychain()
+	secret, err := config.EncodeCredential(config.CredentialPayload{AccessToken: "xoxb-revoke-me"})
+	if err != nil {
+		t.Fatalf("encode credential: %v", err)
+	}
+	if err := store.Set("slack-cli", "default", secret); err != nil {
+		t.Fatalf("store credential: %v", err)
+	}
+
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"auth.revoke": func(req testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"revoked":true}`)
+		},
+	})
+	defer server.Close()
+
+	cfg := authTestConfig()
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	_, stderr, err := executeAuthRoot(t, cfg, configPath, store, server.BaseURL(),
+		[]string{"auth", "logout", "default"},
+	)
+	if err != nil {
+		t.Fatalf("auth logout returned error: %v\nstderr=%s", err, stderr)
+	}
+	if got := len(server.Requests("auth.revoke")); got != 1 {
+		t.Fatalf("auth.revoke called %d times, want 1", got)
+	}
+	if _, err := store.Get("slack-cli", "default"); err == nil {
+		t.Fatal("credential still present after logout")
+	}
+}
+
+func TestAuthLogoutKeepTokenSkipsRevoke(t *testing.T) {
+	store := testutil.NewFakeKeychain()
+	secret, err := config.EncodeCredential(config.CredentialPayload{AccessToken: "xoxb-keep-me"})
+	if err != nil {
+		t.Fatalf("encode credential: %v", err)
+	}
+	if err := store.Set("slack-cli", "default", secret); err != nil {
+		t.Fatalf("store credential: %v", err)
+	}
+
+	server := testutil.NewSlackServer(t, nil)
+	defer server.Close()
+
+	cfg := authTestConfig()
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	_, stderr, err := executeAuthRoot(t, cfg, configPath, store, server.BaseURL(),
+		[]string{"auth", "logout", "--keep-token", "default"},
+	)
+	if err != nil {
+		t.Fatalf("auth logout --keep-token returned error: %v\nstderr=%s", err, stderr)
+	}
+	if got := len(server.Requests("auth.revoke")); got != 0 {
+		t.Fatalf("auth.revoke called %d times, want 0 for --keep-token", got)
+	}
+	// Credential must still be present.
+	if _, err := store.Get("slack-cli", "default"); err != nil {
+		t.Fatalf("credential deleted after --keep-token logout: %v", err)
+	}
+	// Auth fields must be cleared from the profile.
+	profile := cfg.Workspaces["default"]
+	if profile.TokenRef != "" || profile.TokenType != "" {
+		t.Fatalf("profile auth fields not cleared after --keep-token: %#v", profile)
+	}
+	// Warning about token remaining live must appear on stderr.
+	if !strings.Contains(stderr, "keep-token") || !strings.Contains(stderr, "still valid") {
+		t.Fatalf("stderr = %q, want --keep-token warning about token remaining live", stderr)
+	}
+}
+
+func TestAuthLogoutRevokeFailureProceedsWithCleanup(t *testing.T) {
+	store := testutil.NewFakeKeychain()
+	secret, err := config.EncodeCredential(config.CredentialPayload{AccessToken: "xoxb-revoke-fails"})
+	if err != nil {
+		t.Fatalf("encode credential: %v", err)
+	}
+	if err := store.Set("slack-cli", "default", secret); err != nil {
+		t.Fatalf("store credential: %v", err)
+	}
+
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"auth.revoke": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.SlackResponse{Status: http.StatusInternalServerError, Body: `{"ok":false,"error":"internal_error"}`}
+		},
+	})
+	defer server.Close()
+
+	cfg := authTestConfig()
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	_, stderr, err := executeAuthRoot(t, cfg, configPath, store, server.BaseURL(),
+		[]string{"auth", "logout", "default"},
+	)
+	if err != nil {
+		t.Fatalf("auth logout returned error on revoke failure: %v\nstderr=%s", err, stderr)
+	}
+	// Local credential must still be deleted despite the revoke failure.
+	if _, err := store.Get("slack-cli", "default"); err == nil {
+		t.Fatal("credential still present after logout despite revoke failure")
+	}
+	// Revoke failure must be logged to stderr.
+	if !strings.Contains(stderr, "token revocation failed") {
+		t.Fatalf("stderr = %q, want token revocation failure message", stderr)
+	}
+}

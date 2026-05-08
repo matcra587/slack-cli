@@ -141,7 +141,7 @@ func runCacheUsers(cmd *cobra.Command, runtime *RootRuntime, opts cacheOptions) 
 		return fetchUsersForCache(cmd, runtime, profile, opts)
 	})
 	if err != nil {
-		return writeCommandError(ctx, cacheCLIError(err))
+		return writeCommandError(ctx, cacheCLIError(cmd.Context(), err))
 	}
 	var payload cachedUsersPayload
 	if err := json.Unmarshal(data, &payload); err != nil {
@@ -166,7 +166,7 @@ func runCacheChannels(cmd *cobra.Command, runtime *RootRuntime, opts cacheOption
 		return fetchChannelsForCache(cmd, runtime, profile, opts)
 	})
 	if err != nil {
-		return writeCommandError(ctx, cacheCLIError(err))
+		return writeCommandError(ctx, cacheCLIError(cmd.Context(), err))
 	}
 	var payload cachedChannelsPayload
 	if err := json.Unmarshal(data, &payload); err != nil {
@@ -228,7 +228,7 @@ func fetchUsersForCache(cmd *cobra.Command, runtime *RootRuntime, profile config
 		return nil, cacheFetchError{err: authCLIError(err.Error())}
 	}
 	if err := requireSlackScopes(cmd.Context(), client, allScopes("users:read")); err != nil {
-		return nil, cacheFetchError{err: cliErrorFromSlack(err)}
+		return nil, cacheFetchError{err: cliErrorFromSlack(cmd.Context(), err)}
 	}
 	users, truncated, err := drainUsersForCache(cmd.Context(), client, opts)
 	if err != nil {
@@ -244,7 +244,7 @@ func fetchChannelsForCache(cmd *cobra.Command, runtime *RootRuntime, profile con
 	}
 	types := []string{"public_channel", "private_channel", "im", "mpim"}
 	if err := requireSlackScopes(cmd.Context(), client, conversationReadScopeRequirement(types)); err != nil {
-		return nil, cacheFetchError{err: cliErrorFromSlack(err)}
+		return nil, cacheFetchError{err: cliErrorFromSlack(cmd.Context(), err)}
 	}
 	channels, truncated, err := drainChannelsForCache(cmd.Context(), client, opts, types)
 	if err != nil {
@@ -344,10 +344,10 @@ func (e cacheFetchError) Error() string {
 	return e.err.Message
 }
 
-func cacheCLIError(err error) CLIError {
+func cacheCLIError(ctx context.Context, err error) CLIError {
 	var fetchErr cacheFetchError
 	if errors.As(err, &fetchErr) {
 		return fetchErr.err
 	}
-	return cliErrorFromSlack(err)
+	return cliErrorFromSlack(ctx, err)
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"strconv"
 	"strings"
@@ -117,10 +116,10 @@ func mutateSlackStatus(cmd *cobra.Command, runtime *RootRuntime, ctx *CommandCon
 		return writeCommandError(ctx, authCLIError(err.Error()))
 	}
 	if err := requireSlackScopes(cmd.Context(), client, allScopes("users.profile:write")); err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
-	if err := client.SetUserCustomStatusContext(context.Background(), text, emoji, expiration); err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+	if err := client.SetUserCustomStatusContext(cmd.Context(), text, emoji, expiration); err != nil {
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 	return ctx.WriteResult(command, data)
 }

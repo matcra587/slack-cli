@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -490,7 +491,7 @@ func TestCredentialTokenResolverPrefersRuntimeEnvOverrides(t *testing.T) {
 	t.Setenv("SLACK_CLI_TOKEN_DEFAULT", "xoxb-profile-env")
 	t.Setenv("SLACK_CLI_TOKEN", "xoxb-global-env")
 
-	token, err := (CredentialTokenResolver{Store: store}).ResolveToken(config.WorkspaceProfile{
+	token, err := (CredentialTokenResolver{Store: store}).ResolveToken(context.Background(), config.WorkspaceProfile{
 		Name:      "default",
 		TeamID:    "T123",
 		TokenType: config.TokenTypeBot,
@@ -507,7 +508,7 @@ func TestCredentialTokenResolverPrefersRuntimeEnvOverrides(t *testing.T) {
 func TestCredentialTokenResolverUsesNormalizedProfileEnvName(t *testing.T) {
 	t.Setenv("SLACK_CLI_TOKEN_PROD_ENV", "xoxp-profile-env")
 
-	token, err := (CredentialTokenResolver{}).ResolveToken(config.WorkspaceProfile{
+	token, err := (CredentialTokenResolver{}).ResolveToken(context.Background(), config.WorkspaceProfile{
 		Name:      "prod-env",
 		TeamID:    "T123",
 		TokenType: config.TokenTypeUser,
@@ -533,7 +534,7 @@ func TestCredentialTokenResolverFallsBackThroughEnvPrecedence(t *testing.T) {
 	t.Setenv("SLACK_CLI_TOKEN_DEFAULT", "")
 	t.Setenv("SLACK_CLI_TOKEN", "xoxb-global-env")
 
-	token, err := (CredentialTokenResolver{Store: store}).ResolveToken(config.WorkspaceProfile{
+	token, err := (CredentialTokenResolver{Store: store}).ResolveToken(context.Background(), config.WorkspaceProfile{
 		Name:      "default",
 		TeamID:    "T123",
 		TokenType: config.TokenTypeBot,
@@ -547,7 +548,7 @@ func TestCredentialTokenResolverFallsBackThroughEnvPrecedence(t *testing.T) {
 	}
 
 	t.Setenv("SLACK_CLI_TOKEN", "")
-	token, err = (CredentialTokenResolver{Store: store}).ResolveToken(config.WorkspaceProfile{
+	token, err = (CredentialTokenResolver{Store: store}).ResolveToken(context.Background(), config.WorkspaceProfile{
 		Name:      "default",
 		TeamID:    "T123",
 		TokenType: config.TokenTypeBot,
@@ -662,7 +663,7 @@ func TestCredentialTokenResolverRejectsLegacyRawSecret(t *testing.T) {
 		t.Fatalf("store raw credential: %v", err)
 	}
 
-	_, err := (CredentialTokenResolver{Store: store}).ResolveToken(config.WorkspaceProfile{
+	_, err := (CredentialTokenResolver{Store: store}).ResolveToken(context.Background(), config.WorkspaceProfile{
 		Name:      "default",
 		TeamID:    "T123",
 		TokenType: config.TokenTypeBot,
@@ -690,7 +691,7 @@ func TestCredentialTokenResolverReadsStructuredOnePasswordSecret(t *testing.T) {
 	}
 	t.Cleanup(func() { readOnePasswordSecret = old })
 
-	token, err := (CredentialTokenResolver{}).ResolveToken(config.WorkspaceProfile{
+	token, err := (CredentialTokenResolver{}).ResolveToken(context.Background(), config.WorkspaceProfile{
 		Name:      "test",
 		TeamID:    "T123",
 		TokenType: config.TokenTypeUser,
@@ -743,7 +744,7 @@ func TestCredentialTokenResolverRefreshesExpiringKeychainCredential(t *testing.T
 		Store:        store,
 		SlackBaseURL: server.BaseURL(),
 		Now:          func() time.Time { return now },
-	}).ResolveToken(config.WorkspaceProfile{
+	}).ResolveToken(context.Background(), config.WorkspaceProfile{
 		Name:      "default",
 		TeamID:    "T123",
 		TokenType: config.TokenTypeUser,
@@ -768,5 +769,60 @@ func TestCredentialTokenResolverRefreshesExpiringKeychainCredential(t *testing.T
 	}
 	if updated.ExpiresAt == nil || !updated.ExpiresAt.Equal(now.Add(2*time.Hour)) {
 		t.Fatalf("updated ExpiresAt = %v, want %v", updated.ExpiresAt, now.Add(2*time.Hour))
+	}
+}
+
+func TestTokenResolverInterfacePropagatesContext(t *testing.T) {
+	// Verify that TokenResolverFunc satisfies the TokenResolver interface with the new ctx signature.
+	called := false
+	var resolver TokenResolver = TokenResolverFunc(func(ctx context.Context, profile config.WorkspaceProfile) (string, error) {
+		if ctx == nil {
+			t.Fatal("context was nil")
+		}
+		called = true
+		return "xoxb-test", nil
+	})
+	token, err := resolver.ResolveToken(context.Background(), config.WorkspaceProfile{})
+	if err != nil {
+		t.Fatalf("ResolveToken returned error: %v", err)
+	}
+	if token != "xoxb-test" {
+		t.Fatalf("token = %q, want xoxb-test", token)
+	}
+	if !called {
+		t.Fatal("TokenResolverFunc was not called")
+	}
+}
+
+func TestCredentialTokenResolverRefreshPropagatesCancelledContext(t *testing.T) {
+	// Verify that a canceled context propagates through resolveStoredCredential into refreshOAuthUserToken.
+	now := time.Date(2026, 5, 3, 20, 10, 0, 0, time.UTC)
+	expiresAt := now.Add(time.Minute)
+	store := config.NewMemoryCredentialStore()
+	secret, err := config.EncodeCredential(config.CredentialPayload{
+		AccessToken:  "xoxp-old",
+		RefreshToken: "refresh-old",
+		ExpiresAt:    &expiresAt,
+		ClientID:     "C123",
+	})
+	if err != nil {
+		t.Fatalf("encode credential: %v", err)
+	}
+	if err := store.Set("slack-cli", "default", secret); err != nil {
+		t.Fatalf("store credential: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // already canceled
+
+	_, err = (CredentialTokenResolver{
+		Store: store,
+		Now:   func() time.Time { return now },
+	}).ResolveToken(ctx, config.WorkspaceProfile{
+		Name:     "default",
+		TokenRef: "keychain:slack-cli/default",
+	})
+	if err == nil {
+		t.Fatal("expected error from canceled context, got nil")
 	}
 }

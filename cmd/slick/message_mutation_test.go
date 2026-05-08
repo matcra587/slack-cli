@@ -124,7 +124,7 @@ func TestMessageEditCommandRejectsInvalidRawBlockRequiredFieldsBeforeSlackReques
 			t.Fatalf("%s requests = %d, want 0", method, got)
 		}
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "image_url is required") {
+	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "image_url or slack_file is required") {
 		t.Fatalf("stderr = %s, want image validation error", stderr)
 	}
 }
@@ -150,8 +150,12 @@ func TestMessageEditCommandDryRunSkipsOwnershipAndMutation(t *testing.T) {
 	}
 }
 
-func TestMessageEditCommandRejectsNonOwnedMessageBeforeMutation(t *testing.T) {
-	server := nonOwnedMessageMutationServer(t, "chat.update")
+func TestMessageEditCommandMapsCantUpdateMessageToValidationError(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"chat.update": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":false,"error":"cant_update_message"}`)
+		},
+	})
 	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
@@ -159,16 +163,13 @@ func TestMessageEditCommandRejectsNonOwnedMessageBeforeMutation(t *testing.T) {
 		[]string{"message", "edit", "--channel", "C123", "--timestamp", "1746284582.123456", "--message", "new"},
 	)
 	if err == nil {
-		t.Fatal("Execute returned nil error, want ownership validation error")
+		t.Fatal("Execute returned nil error, want validation_error for cant_update_message")
 	}
 	if stdout != "" {
 		t.Fatalf("stdout = %q, want empty", stdout)
 	}
-	if got := len(server.Requests("chat.update")); got != 0 {
-		t.Fatalf("chat.update requests = %d, want 0", got)
-	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "not owned") {
-		t.Fatalf("stderr = %s, want non-owned validation error", stderr)
+	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "cant_update_message") {
+		t.Fatalf("stderr = %s, want validation_error containing cant_update_message", stderr)
 	}
 }
 
@@ -228,35 +229,17 @@ func TestMessageDeleteCommandDeletesOwnedMessageWithForce(t *testing.T) {
 	}
 }
 
-func TestMessageDeleteCommandUsesHistoryForNonThreadMessage(t *testing.T) {
+func TestMessageDeleteCommandDeletesThreadReplyWithForce(t *testing.T) {
 	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
-		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
-			return testutil.JSONResponse(`{"ok":true,"user_id":"U123"}`)
-		},
-		"conversations.replies": func(testutil.SlackRequest) testutil.SlackResponse {
-			return testutil.JSONResponse(`{"ok":false,"error":"thread_not_found"}`)
-		},
-		"conversations.history": func(req testutil.SlackRequest) testutil.SlackResponse {
-			if got := req.Form.Get("oldest"); got != "1746284582.123456" {
-				t.Fatalf("oldest = %q, want target timestamp", got)
-			}
-			if got := req.Form.Get("latest"); got != "1746284582.123456" {
-				t.Fatalf("latest = %q, want target timestamp", got)
-			}
-			if got := req.Form.Get("inclusive"); got != "1" {
-				t.Fatalf("inclusive = %q, want 1", got)
-			}
-			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"U123","text":"old","ts":"1746284582.123456"}]}`)
-		},
 		"chat.delete": func(testutil.SlackRequest) testutil.SlackResponse {
-			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456"}`)
+			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.999999"}`)
 		},
 	})
 	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"message", "delete", "--channel", "C123", "--timestamp", "1746284582.123456", "--force"},
+		[]string{"message", "delete", "--channel", "C123", "--timestamp", "1746284582.999999", "--force"},
 	)
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
@@ -266,8 +249,12 @@ func TestMessageDeleteCommandUsesHistoryForNonThreadMessage(t *testing.T) {
 	}
 }
 
-func TestMessageDeleteCommandRejectsNonOwnedMessageBeforeMutation(t *testing.T) {
-	server := nonOwnedMessageMutationServer(t, "chat.delete")
+func TestMessageDeleteCommandMapsCantDeleteMessageToValidationError(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"chat.delete": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":false,"error":"cant_delete_message"}`)
+		},
+	})
 	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
@@ -275,50 +262,25 @@ func TestMessageDeleteCommandRejectsNonOwnedMessageBeforeMutation(t *testing.T) 
 		[]string{"message", "delete", "--channel", "C123", "--timestamp", "1746284582.123456", "--force"},
 	)
 	if err == nil {
-		t.Fatal("Execute returned nil error, want ownership validation error")
+		t.Fatal("Execute returned nil error, want validation_error for cant_delete_message")
 	}
 	if stdout != "" {
 		t.Fatalf("stdout = %q, want empty", stdout)
 	}
-	if got := len(server.Requests("chat.delete")); got != 0 {
-		t.Fatalf("chat.delete requests = %d, want 0", got)
-	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "not owned") {
-		t.Fatalf("stderr = %s, want non-owned validation error", stderr)
+	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "cant_delete_message") {
+		t.Fatalf("stderr = %s, want validation_error containing cant_delete_message", stderr)
 	}
 }
 
 func ownedMessageMutationServer(t *testing.T, mutation string) *testutil.SlackServer {
 	t.Helper()
-	return testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
-		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
-			return testutil.JSONResponse(`{"ok":true,"user_id":"U123"}`)
-		},
-		"conversations.history": func(testutil.SlackRequest) testutil.SlackResponse {
-			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"U123","text":"old","ts":"1746284582.123456"}]}`)
-		},
+	handlers := map[string]testutil.SlackHandler{
 		mutation: func(testutil.SlackRequest) testutil.SlackResponse {
 			if mutation == "chat.delete" {
 				return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456"}`)
 			}
 			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","user":"U123","text":"new","ts":"1746284582.123456"}}`)
 		},
-	})
-}
-
-func nonOwnedMessageMutationServer(t *testing.T, mutation string) *testutil.SlackServer {
-	t.Helper()
-	handlers := map[string]testutil.SlackHandler{
-		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
-			return testutil.JSONResponse(`{"ok":true,"user_id":"U123"}`)
-		},
-		"conversations.history": func(testutil.SlackRequest) testutil.SlackResponse {
-			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"U999","text":"old","ts":"1746284582.123456"}]}`)
-		},
-	}
-	handlers[mutation] = func(testutil.SlackRequest) testutil.SlackResponse {
-		t.Fatalf("%s was called for a non-owned message", mutation)
-		return testutil.JSONResponse(`{"ok":false}`)
 	}
 	return testutil.NewSlackServer(t, handlers)
 }

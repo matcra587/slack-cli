@@ -132,6 +132,7 @@ func newAuthCommand(runtime *RootRuntime) *cobra.Command {
 			return runAuthLogout(cmd, runtime, args[0])
 		},
 	}
+	logoutCmd.Flags().BoolP("keep-token", "K", false, "skip token revocation and local credential deletion; only removes the workspace auth fields from config")
 
 	authCmd.AddCommand(loginCmd, statusCmd, switchCmd, logoutCmd)
 	return authCmd
@@ -172,7 +173,7 @@ func runAuthLogin(cmd *cobra.Command, runtime *RootRuntime, input authLoginInput
 	}
 	switch input.AuthMethod {
 	case "oauth":
-		complete, err := completeOAuthLogin(ctx, runtime, &input)
+		complete, err := completeOAuthLogin(cmd.Context(), ctx, runtime, &input)
 		if err != nil {
 			return writeCommandError(ctx, authCLIErrorFromError(err))
 		}
@@ -183,7 +184,7 @@ func runAuthLogin(cmd *cobra.Command, runtime *RootRuntime, input authLoginInput
 		if err := resolveLoginTokenSource(runtime, &input); err != nil {
 			return writeCommandError(ctx, validationCLIError(err.Error()))
 		}
-		auth, err := validateLoginToken(runtime, input.Token)
+		auth, err := validateLoginToken(cmd.Context(), runtime, input.Token)
 		if err != nil {
 			return writeCommandError(ctx, authCLIError(err.Error()))
 		}
@@ -587,7 +588,7 @@ func requiredField(name string) func(string) error {
 	}
 }
 
-func completeOAuthLogin(ctx *CommandContext, runtime *RootRuntime, input *authLoginInput) (bool, error) {
+func completeOAuthLogin(reqCtx context.Context, ctx *CommandContext, runtime *RootRuntime, input *authLoginInput) (bool, error) {
 	if input.ClientID == "" {
 		return false, errors.New("oauth client id is required")
 	}
@@ -651,7 +652,7 @@ func completeOAuthLogin(ctx *CommandContext, runtime *RootRuntime, input *authLo
 	if callback.Err != nil {
 		return false, callback.Err
 	}
-	response, err := exchangeOAuthUserCode(runtime, input.ClientID, callback.Code, redirectURL.String(), verifier)
+	response, err := oauthExchangeCode(reqCtx, runtime, input.ClientID, callback.Code, redirectURL.String(), verifier)
 	if err != nil {
 		return false, err
 	}
@@ -920,19 +921,14 @@ func defaultOpenURL(target string) error {
 	return nil
 }
 
-func validateLoginToken(runtime *RootRuntime, token string) (*slackgo.AuthTestResponse, error) {
-	return slackAuthClient(token, runtime).AuthTestContext(context.Background())
+func validateLoginToken(ctx context.Context, runtime *RootRuntime, token string) (*slackgo.AuthTestResponse, error) {
+	return slackAuthClient(ctx, token, runtime).AuthTestContext(ctx)
 }
 
-func slackAuthClient(token string, runtime *RootRuntime) *slackgo.Client {
-	options := []slackgo.Option{
-		slackgo.OptionHTTPClient(slackHTTPClientForRuntime(runtime)),
-		slackgo.OptionRetryConfig(slackRetryConfig()),
-	}
-	if runtime.SlackBaseURL != "" {
-		options = append(options, slackgo.OptionAPIURL(slackAPIURL(runtime.SlackBaseURL)))
-	}
-	return slackgo.New(token, options...)
+func slackAuthClient(ctx context.Context, token string, runtime *RootRuntime) *slackgo.Client {
+	return newSlackClient(ctx, nil, runtime, token,
+		slackgo.OptionHTTPClient(noThrottleHTTPClient(runtime)),
+	)
 }
 
 func runAuthStatus(cmd *cobra.Command, runtime *RootRuntime) error {
@@ -952,7 +948,7 @@ func runAuthStatus(cmd *cobra.Command, runtime *RootRuntime) error {
 					validationState = "invalid"
 					validationError = clientErr.Error()
 				}
-			} else if _, callErr := client.AuthTestContext(context.Background()); callErr != nil {
+			} else if _, callErr := client.AuthTestContext(cmd.Context()); callErr != nil {
 				validationState = "invalid"
 				validationError = callErr.Error()
 			} else {
@@ -998,7 +994,25 @@ func runAuthLogout(cmd *cobra.Command, runtime *RootRuntime, workspace string) e
 	if err != nil {
 		return writeRuntimeError(runtime, validationCLIError(err.Error()))
 	}
-	_ = runtime.CredentialStore.Delete("slack-cli", workspace)
+
+	keepToken, _ := cmd.Flags().GetBool("keep-token")
+
+	if keepToken {
+		ctx.stderrLogger().Warn().Str("workspace", workspace).Msg("--keep-token preserves the credential in keychain; the token is still valid on Slack's side until manually revoked or it naturally expires")
+	}
+
+	if !keepToken {
+		// Resolve token before deleting credentials so we can revoke it.
+		token := resolveTokenForRevoke(cmd.Context(), runtime, workspace)
+		if token != "" {
+			client := slackAuthClient(cmd.Context(), token, runtime)
+			if _, revokeErr := client.SendAuthRevokeContext(cmd.Context(), token); revokeErr != nil {
+				ctx.stderrLogger().Warn().Err(revokeErr).Str("workspace", workspace).Msg("token revocation failed; proceeding with local cleanup")
+			}
+		}
+		_ = runtime.CredentialStore.Delete("slack-cli", workspace)
+	}
+
 	if runtime.Config != nil && runtime.Config.Workspaces != nil {
 		profile, ok := runtime.Config.Workspaces[workspace]
 		if ok {
@@ -1022,6 +1036,33 @@ func runAuthLogout(cmd *cobra.Command, runtime *RootRuntime, workspace string) e
 		}
 	}
 	return ctx.WriteResult("auth.logout", authWorkspaceData{Workspace: workspace, Authenticated: false})
+}
+
+// resolveTokenForRevoke returns the current token for a workspace, or empty
+// string if the token cannot be resolved (e.g. already deleted, env not set).
+// Errors are swallowed because a missing token is not a logout failure.
+func resolveTokenForRevoke(ctx context.Context, runtime *RootRuntime, workspace string) string {
+	if runtime.Config == nil || runtime.Config.Workspaces == nil {
+		return ""
+	}
+	profile, ok := runtime.Config.Workspaces[workspace]
+	if !ok {
+		return ""
+	}
+	resolver := runtime.TokenResolver
+	if resolver == nil {
+		resolver = CredentialTokenResolver{
+			Store:        runtime.CredentialStore,
+			SlackBaseURL: runtime.SlackBaseURL,
+			HTTPClient:   runtime.HTTPClient,
+			Now:          runtime.Now,
+		}
+	}
+	token, err := resolver.ResolveToken(ctx, profile)
+	if err != nil {
+		return ""
+	}
+	return token
 }
 
 func configManagedProfile(profile config.WorkspaceProfile) bool {
@@ -1054,16 +1095,38 @@ func tokenType(token string) config.TokenType {
 	return config.TokenTypeBot
 }
 
-func slackHTTPClientForRuntime(runtime *RootRuntime) *http.Client {
+func oauthExchangeCode(ctx context.Context, runtime *RootRuntime, clientID, code, redirectURI, verifier string) (*slackgo.OAuthV2Response, error) {
+	oauthHTTPClient := runtime.HTTPClient
+	if oauthHTTPClient == nil {
+		oauthHTTPClient = &http.Client{Timeout: runtime.Timeout}
+	}
+	opts := []slackgo.OAuthOption{slackgo.OAuthOptionCodeVerifier(verifier)}
 	if runtime.SlackBaseURL != "" {
-		_ = runtime.SlackBaseURL
+		opts = append(opts, slackgo.OAuthOptionAPIURL(slackAPIURL(runtime.SlackBaseURL)))
 	}
-	if runtime.HTTPClient != nil {
-		return runtime.HTTPClient
+	resp, err := slackgo.GetOAuthV2ResponseContext(ctx, oauthHTTPClient, clientID, "", code, redirectURI, opts...)
+	if err != nil {
+		return nil, wrapBadClientSecret(err)
 	}
-	return http.DefaultClient
+	return resp, nil
 }
 
-func slackOAuthHTTPClient(runtime *RootRuntime) *http.Client {
-	return slackHTTPClientForRuntime(runtime)
+func oauthRefreshToken(ctx context.Context, httpClient *http.Client, baseURL, clientID, refreshToken string) (*slackgo.OAuthV2Response, error) {
+	var opts []slackgo.OAuthOption
+	if baseURL != "" {
+		opts = append(opts, slackgo.OAuthOptionAPIURL(slackAPIURL(baseURL)))
+	}
+	resp, err := slackgo.RefreshOAuthV2TokenContext(ctx, httpClient, clientID, "", refreshToken, opts...)
+	if err != nil {
+		return nil, wrapBadClientSecret(err)
+	}
+	return resp, nil
+}
+
+func wrapBadClientSecret(err error) error {
+	var slackErr slackgo.SlackErrorResponse
+	if errors.As(err, &slackErr) && slackErr.Err == "bad_client_secret" {
+		return fmt.Errorf("bad_client_secret: Slack treated this as a client-secret OAuth flow. Enable PKCE for the Slack app, or import a manifest with oauth_config.pkce_enabled=true; slack-cli local OAuth intentionally omits the client secret: %w", err)
+	}
+	return err
 }

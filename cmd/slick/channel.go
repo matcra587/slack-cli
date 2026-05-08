@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"strings"
 
 	xstrings "github.com/gechr/x/strings"
@@ -63,16 +62,16 @@ func runChannelListWithTypes(cmd *cobra.Command, runtime *RootRuntime, command s
 		return writeCommandError(ctx, authCLIError(err.Error()))
 	}
 	if err := requireSlackScopes(cmd.Context(), client, conversationReadScopeRequirement(types)); err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 
-	channels, nextCursor, err := client.GetConversationsContext(context.Background(), &slackgo.GetConversationsParameters{
+	channels, nextCursor, err := client.GetConversationsContext(cmd.Context(), &slackgo.GetConversationsParameters{
 		Types:  types,
 		Limit:  maxItems,
 		Cursor: cursor,
 	})
 	if err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 	result := filterChannels(cliChannelsFromSlack(channels), filter)
 	return ctx.WriteResultWithPagination(command, channelListData(result), &Pagination{
@@ -98,14 +97,14 @@ func runChannelInfoValue(cmd *cobra.Command, runtime *RootRuntime, command, chan
 		return writeCommandError(ctx, authCLIError(err.Error()))
 	}
 	if err := requireSlackScopes(cmd.Context(), client, anyScope("channels:read", "groups:read", "im:read", "mpim:read")); err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
-	result, err := client.GetConversationInfoContext(context.Background(), &slackgo.GetConversationInfoInput{
+	result, err := client.GetConversationInfoContext(cmd.Context(), &slackgo.GetConversationInfoInput{
 		ChannelID:         channel,
 		IncludeNumMembers: true,
 	})
 	if err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 	return ctx.WriteResult(command, channelInfoData{Channel: cliChannelFromSlack(*result)})
 }

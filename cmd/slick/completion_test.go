@@ -148,7 +148,7 @@ func TestCompletionHandlerCompletesSlackResourcesAndLocalConfig(t *testing.T) {
 			"ci":      {Name: "ci"},
 		},
 	}
-	handler := slackCompletionHandler("xox-test", cfg, server.BaseURL())
+	handler := slackCompletionHandler("xox-test", cfg, &RootRuntime{SlackBaseURL: server.BaseURL()})
 
 	tests := []struct {
 		name string

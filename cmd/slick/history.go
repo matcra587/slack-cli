@@ -86,16 +86,16 @@ func runHistoryList(cmd *cobra.Command, runtime *RootRuntime, opts historyListOp
 		return writeCommandError(ctx, authCLIError(err.Error()))
 	}
 	if err := requireSlackScopes(cmd.Context(), client, anyScope("channels:history", "groups:history", "im:history", "mpim:history")); err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 	var result historyResult
 	if opts.Thread != "" {
-		result, err = threadHistory(context.Background(), client, channel, opts.Thread, opts.MaxItems, opts.Cursor)
+		result, err = threadHistory(cmd.Context(), client, channel, opts.Thread, opts.MaxItems, opts.Cursor)
 	} else {
-		result, err = channelHistory(context.Background(), client, channel, opts)
+		result, err = channelHistory(cmd.Context(), client, channel, opts)
 	}
 	if err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 
 	return ctx.WriteResultWithPagination("history.list", historyCommandData{Messages: result.Messages}, &Pagination{

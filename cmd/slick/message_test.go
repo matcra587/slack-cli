@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -431,6 +432,22 @@ func TestMessageSendCommandRejectsMalformedBlockKitBeforeSlackRequest(t *testing
 	}
 }
 
+func TestMessageSendCommandAcceptsHeaderBlockInput(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"chat.postMessage": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","text":"header test","ts":"1746284582.123456"}}`)
+		},
+	})
+	defer server.Close()
+
+	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
+		[]string{"message", "send", "--channel", "C123", "--blocks", "--message", `[{"type":"header","text":{"type":"plain_text","text":"Release Notes"}}]`},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+}
+
 func TestMessageSendCommandPreservesUnsupportedMarkdownSourceFallback(t *testing.T) {
 	markdown := strings.Join([]string{
 		"- alpha",
@@ -493,7 +510,7 @@ func TestMessageSendCommandRejectsInvalidRawBlockRequiredFieldsBeforeSlackReques
 	}{
 		{name: "section missing text", raw: `[{"type":"section"}]`, want: "section text or fields are required"},
 		{name: "context empty elements", raw: `[{"type":"context","elements":[]}]`, want: "context elements are required"},
-		{name: "image missing url", raw: `[{"type":"image","alt_text":"diagram"}]`, want: "image_url is required"},
+		{name: "image missing url", raw: `[{"type":"image","alt_text":"diagram"}]`, want: "image_url or slack_file is required"},
 		{name: "image missing alt", raw: `[{"type":"image","image_url":"https://example.com/image.png"}]`, want: "alt_text is required"},
 		{name: "file missing source", raw: `[{"type":"file","external_id":"F123"}]`, want: "file external_id and source are required"},
 		{name: "table too many columns", raw: `[` + rawTableWithColumns(21) + `]`, want: "20 columns"},
@@ -831,7 +848,7 @@ func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, ar
 	cmd := NewRootCommand(
 		WithConfig(cfg),
 		WithSlackBaseURL(baseURL),
-		WithTokenResolver(TokenResolverFunc(func(config.WorkspaceProfile) (string, error) {
+		WithTokenResolver(TokenResolverFunc(func(_ context.Context, _ config.WorkspaceProfile) (string, error) {
 			return "xox-test", nil
 		})),
 		WithIO(strings.NewReader(stdin), stdout, stderr),

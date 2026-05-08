@@ -62,6 +62,26 @@ func TestHistoryListCommandReadsThreadWhenThreadFlagIsSet(t *testing.T) {
 	}
 }
 
+func TestHistoryListCommandSurfacesBlocksFieldForMessageWithBlocks(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"conversations.history": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"U1","text":"hello","ts":"1746284582.123456","blocks":[{"type":"header","text":{"type":"plain_text","text":"Title"}}]}]}`)
+		},
+	})
+	defer server.Close()
+
+	stdout, _, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+		"",
+		[]string{"history", "list", "--channel", "C123", "--max-items", "1"},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v", err)
+	}
+	if !strings.Contains(stdout, `"blocks"`) {
+		t.Fatalf("stdout does not contain blocks field: %s", stdout)
+	}
+}
+
 func TestHistoryListCommandCanIncludeBoundedReplies(t *testing.T) {
 	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
 		"conversations.history": func(testutil.SlackRequest) testutil.SlackResponse {

@@ -121,7 +121,7 @@ func TestCompletionUsesCachedUsersAndChannelsBeforeSlackRequests(t *testing.T) {
 	defer server.Close()
 
 	cfg := workspaceConfig(config.TokenTypeBot)
-	handler := slackCompletionHandler("xox-test", cfg, server.BaseURL())
+	handler := slackCompletionHandler("xox-test", cfg, &RootRuntime{SlackBaseURL: server.BaseURL()})
 
 	userCandidates := captureSlackCompletion(t, handler, "zsh", "user", nil)
 	if !slices.Contains(userCandidates, "UCACHED") {
@@ -140,7 +140,7 @@ func TestCompletionUsesCachedUsersAndChannelsBeforeSlackRequests(t *testing.T) {
 }
 
 func TestCompletionHandlerCompletesCacheResourceArgs(t *testing.T) {
-	got := captureSlackCompletion(t, slackCompletionHandler("", workspaceConfig(config.TokenTypeBot), ""), "zsh", "cache_resource", nil)
+	got := captureSlackCompletion(t, slackCompletionHandler("", workspaceConfig(config.TokenTypeBot), &RootRuntime{}), "zsh", "cache_resource", nil)
 	for _, want := range []string{"users", "channels"} {
 		if !slices.Contains(got, want) {
 			t.Fatalf("cache_resource completion = %#v, want %q", got, want)

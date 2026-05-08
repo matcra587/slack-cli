@@ -8,8 +8,10 @@ type (
 	SectionBlock               = slackgo.SectionBlock
 	ContextBlock               = slackgo.ContextBlock
 	DividerBlock               = slackgo.DividerBlock
+	HeaderBlock                = slackgo.HeaderBlock
 	ImageBlock                 = slackgo.ImageBlock
 	FileBlock                  = slackgo.FileBlock
+	MarkdownBlock              = slackgo.MarkdownBlock
 	TableBlock                 = slackgo.TableBlock
 	RichTextBlock              = slackgo.RichTextBlock
 	RichTextSection            = slackgo.RichTextSection

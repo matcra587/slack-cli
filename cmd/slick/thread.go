@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"strings"
 
 	slackgo "github.com/slack-go/slack"
@@ -67,15 +66,15 @@ func runThreadReply(cmd *cobra.Command, runtime *RootRuntime, source messageSour
 			return writeCommandError(ctx, authCLIError(err.Error()))
 		}
 		if err := requireSlackScopes(cmd.Context(), client, allScopes("chat:write")); err != nil {
-			return writeCommandError(ctx, cliErrorFromSlack(err))
+			return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 		}
 		options := append(messageOptions(content, blocks, attribution), slackgo.MsgOptionTS(parent))
-		respChannel, ts, err := client.PostMessageContext(context.Background(), channel, options...)
+		respChannel, ts, err := client.PostMessageContext(cmd.Context(), channel, options...)
 		if err != nil {
-			return writeCommandError(ctx, cliErrorFromSlack(err))
+			return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 		}
 		result.Message = cliMessage{Type: "message", TS: ts, Channel: stringPtr(respChannel), Text: stringPtr(strings.TrimSpace(content)), ThreadTS: stringPtr(parent)}
-		result.Permalink = permalink(context.Background(), client, respChannel, ts)
+		result.Permalink = permalink(cmd.Context(), client, respChannel, ts)
 	}
 
 	return writeSendResult(ctx, "reply", result)

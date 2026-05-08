@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/gechr/clog"
 	"github.com/gechr/x/human"
+	"github.com/matcra587/slack-cli/pkg/blockkit"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
@@ -98,7 +98,7 @@ func runFileUpload(cmd *cobra.Command, runtime *RootRuntime, opts uploadOptions)
 		return writeCommandError(ctx, authCLIError(err.Error()))
 	}
 	if err := requireSlackScopes(cmd.Context(), client, allScopes("files:write")); err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 	params := slackgo.UploadFileParameters{
 		Channel:         channel,
@@ -113,13 +113,13 @@ func runFileUpload(cmd *cobra.Command, runtime *RootRuntime, opts uploadOptions)
 	} else {
 		params.InitialComment = opts.Message
 	}
-	file, err := client.UploadFileContext(context.Background(), params)
+	file, err := client.UploadFileContext(cmd.Context(), params)
 	if err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(err))
+		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
 	}
 	fileName := firstNonEmpty(file.Title, filename)
 	var filePermalink *string
-	if info, _, _, infoErr := client.GetFileInfoContext(context.Background(), file.ID, 0, 0); infoErr == nil && info != nil {
+	if info, _, _, infoErr := client.GetFileInfoContext(cmd.Context(), file.ID, 0, 0); infoErr == nil && info != nil {
 		filePermalink = stringPtr(info.Permalink)
 	}
 	return ctx.WriteResult("file.upload", uploadFileResult{
@@ -133,7 +133,7 @@ func uploadMessageBlocks(message string, raw bool, attribution Attribution) ([]s
 		return nil, nil
 	}
 	if strings.TrimSpace(message) == "" {
-		return rawBlocks([]map[string]any{attributionMap(attribution)})
+		return []slackgo.Block{blockkit.AttributionBlockWithMessage(attribution.Emoji, attribution.Message)}, nil
 	}
 	return composeBlocks(message, raw, attribution)
 }

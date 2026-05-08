@@ -43,12 +43,18 @@ func ValidateBlocks(blocks []Block) error {
 			if err := validateBlockID(i, b.BlockID); err != nil {
 				return err
 			}
+			if len(b.ContextElements.Elements) == 0 {
+				return fmt.Errorf("block %d context elements are required", i)
+			}
 			if len(b.ContextElements.Elements) > maxContextItems {
 				return fmt.Errorf("block %d context elements exceed %d", i, maxContextItems)
 			}
 		case ContextBlock:
 			if err := validateBlockID(i, b.BlockID); err != nil {
 				return err
+			}
+			if len(b.ContextElements.Elements) == 0 {
+				return fmt.Errorf("block %d context elements are required", i)
 			}
 			if len(b.ContextElements.Elements) > maxContextItems {
 				return fmt.Errorf("block %d context elements exceed %d", i, maxContextItems)
@@ -64,6 +70,28 @@ func ValidateBlocks(blocks []Block) error {
 			if err := validateBlockID(i, b.BlockID); err != nil {
 				return err
 			}
+		case *HeaderBlock:
+			if b == nil {
+				return fmt.Errorf("block %d is nil", i)
+			}
+			if err := validateBlockID(i, b.BlockID); err != nil {
+				return err
+			}
+		case HeaderBlock:
+			if err := validateBlockID(i, b.BlockID); err != nil {
+				return err
+			}
+		case *MarkdownBlock:
+			if b == nil {
+				return fmt.Errorf("block %d is nil", i)
+			}
+			if err := validateBlockID(i, b.BlockID); err != nil {
+				return err
+			}
+		case MarkdownBlock:
+			if err := validateBlockID(i, b.BlockID); err != nil {
+				return err
+			}
 		case *ImageBlock:
 			if b == nil {
 				return fmt.Errorf("block %d is nil", i)
@@ -71,8 +99,8 @@ func ValidateBlocks(blocks []Block) error {
 			if err := validateBlockID(i, b.BlockID); err != nil {
 				return err
 			}
-			if b.ImageURL == "" {
-				return fmt.Errorf("block %d image_url is required", i)
+			if b.ImageURL == "" && b.SlackFile == nil {
+				return fmt.Errorf("block %d image_url or slack_file is required", i)
 			}
 			if b.AltText == "" {
 				return fmt.Errorf("block %d alt_text is required", i)
@@ -81,8 +109,8 @@ func ValidateBlocks(blocks []Block) error {
 			if err := validateBlockID(i, b.BlockID); err != nil {
 				return err
 			}
-			if b.ImageURL == "" {
-				return fmt.Errorf("block %d image_url is required", i)
+			if b.ImageURL == "" && b.SlackFile == nil {
+				return fmt.Errorf("block %d image_url or slack_file is required", i)
 			}
 			if b.AltText == "" {
 				return fmt.Errorf("block %d alt_text is required", i)
@@ -123,6 +151,17 @@ func ValidateBlocks(blocks []Block) error {
 			if err := validateTable(i, &b); err != nil {
 				return err
 			}
+		case *RichTextBlock:
+			if b == nil {
+				return fmt.Errorf("block %d is nil", i)
+			}
+			if err := validateBlockID(i, b.BlockID); err != nil {
+				return err
+			}
+		case RichTextBlock:
+			if err := validateBlockID(i, b.BlockID); err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("block %d has unsupported type %T", i, block)
 		}
@@ -153,7 +192,7 @@ func ValidateRawBlocks(blocks []map[string]any) error {
 			if err := validateRawContextBlock(i, block); err != nil {
 				return err
 			}
-		case "divider":
+		case "divider", "header", "markdown":
 		case "image":
 			if err := validateRawImageBlock(i, block); err != nil {
 				return err
@@ -254,8 +293,10 @@ func validateRawContextBlock(index int, block map[string]any) error {
 }
 
 func validateRawImageBlock(index int, block map[string]any) error {
-	if value, _ := block["image_url"].(string); value == "" {
-		return fmt.Errorf("block %d image_url is required", index)
+	imageURL, _ := block["image_url"].(string)
+	_, hasSlackFile := block["slack_file"].(map[string]any)
+	if imageURL == "" && !hasSlackFile {
+		return fmt.Errorf("block %d image_url or slack_file is required", index)
 	}
 	if value, _ := block["alt_text"].(string); value == "" {
 		return fmt.Errorf("block %d alt_text is required", index)

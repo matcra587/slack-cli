@@ -20,6 +20,28 @@ func TestValidateBlocksAcceptsSupportedBlocks(t *testing.T) {
 	}
 }
 
+func TestValidateBlocksAcceptsHeaderRichTextMarkdownBlocks(t *testing.T) {
+	blocks := []blockkit.Block{
+		blockkit.HeaderBlock{Type: "header", Text: blockkit.PlainText("Title")},
+		blockkit.RichTextBlock{Type: "rich_text"},
+		blockkit.MarkdownBlock{Type: "markdown", Text: "**bold**"},
+	}
+	if err := blockkit.ValidateBlocks(blocks); err != nil {
+		t.Fatalf("ValidateBlocks returned error for header/rich_text/markdown: %v", err)
+	}
+}
+
+func TestValidateBlocksAcceptsImageWithSlackFile(t *testing.T) {
+	block := blockkit.ImageBlock{
+		Type:      "image",
+		AltText:   "diagram",
+		SlackFile: &slackgo.SlackFileObject{ID: "F123"},
+	}
+	if err := blockkit.ValidateBlocks([]blockkit.Block{block}); err != nil {
+		t.Fatalf("ValidateBlocks returned error for slack_file image: %v", err)
+	}
+}
+
 func TestValidateBlocksRejectsTooManyBlocks(t *testing.T) {
 	blocks := make([]blockkit.Block, 51)
 	for i := range blocks {
@@ -153,7 +175,7 @@ func TestValidateRawBlocksRejectsRequiredFieldsAndLimits(t *testing.T) {
 		{
 			name:   "image url required",
 			blocks: []map[string]any{{"type": "image", "alt_text": "diagram"}},
-			want:   "image_url is required",
+			want:   "image_url or slack_file is required",
 		},
 		{
 			name:   "image alt text required",
@@ -281,6 +303,25 @@ func TestValidateRawBlocksAcceptsSupportedRawBlocks(t *testing.T) {
 	}
 	if err := blockkit.ValidateRawBlocks(blocks); err != nil {
 		t.Fatalf("ValidateRawBlocks returned error: %v", err)
+	}
+}
+
+func TestValidateRawBlocksAcceptsHeaderAndMarkdown(t *testing.T) {
+	blocks := []map[string]any{
+		{"type": "header"},
+		{"type": "markdown"},
+	}
+	if err := blockkit.ValidateRawBlocks(blocks); err != nil {
+		t.Fatalf("ValidateRawBlocks returned error for header/markdown: %v", err)
+	}
+}
+
+func TestValidateRawBlocksAcceptsImageWithSlackFile(t *testing.T) {
+	blocks := []map[string]any{
+		{"type": "image", "slack_file": map[string]any{"id": "F123"}, "alt_text": "diagram"},
+	}
+	if err := blockkit.ValidateRawBlocks(blocks); err != nil {
+		t.Fatalf("ValidateRawBlocks returned error for slack_file image: %v", err)
 	}
 }
 

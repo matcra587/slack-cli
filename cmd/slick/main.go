@@ -10,11 +10,13 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"charm.land/lipgloss/v2"
@@ -69,6 +71,8 @@ const (
 	ExitCodeRateLimit   = 3
 	ExitCodeValidation  = 4
 	ExitCodeServer      = 5
+	ExitCodeCanceled    = 6
+	ExitCodeTimeout     = 7
 )
 
 const (
@@ -77,6 +81,8 @@ const (
 	ErrorTypeRateLimit  = "rate_limit"
 	ErrorTypeValidation = "validation_error"
 	ErrorTypeServer     = "server_error"
+	ErrorTypeCanceled   = "canceled"
+	ErrorTypeTimeout    = "timeout"
 )
 
 type CommandContext struct {
@@ -118,6 +124,8 @@ type RootRuntime struct {
 	HTTPClient      *http.Client
 	OpenURL         func(string) error
 	OAuthTimeout    time.Duration
+	Timeout         time.Duration
+	CancelTimeout   context.CancelFunc
 	Stdin           io.Reader
 	Stdout          io.Writer
 	Stderr          io.Writer
@@ -205,18 +213,18 @@ func WithOAuthTimeout(timeout time.Duration) RootOption {
 }
 
 type TokenResolver interface {
-	ResolveToken(config.WorkspaceProfile) (string, error)
+	ResolveToken(ctx context.Context, profile config.WorkspaceProfile) (string, error)
 }
 
-type TokenResolverFunc func(config.WorkspaceProfile) (string, error)
+type TokenResolverFunc func(ctx context.Context, profile config.WorkspaceProfile) (string, error)
 
-func (f TokenResolverFunc) ResolveToken(profile config.WorkspaceProfile) (string, error) {
-	return f(profile)
+func (f TokenResolverFunc) ResolveToken(ctx context.Context, profile config.WorkspaceProfile) (string, error) {
+	return f(ctx, profile)
 }
 
 type EnvTokenResolver struct{}
 
-func (EnvTokenResolver) ResolveToken(profile config.WorkspaceProfile) (string, error) {
+func (EnvTokenResolver) ResolveToken(_ context.Context, profile config.WorkspaceProfile) (string, error) {
 	if strings.HasPrefix(profile.TokenRef, "env:") {
 		name := strings.TrimPrefix(profile.TokenRef, "env:")
 		token := os.Getenv(name)
@@ -243,7 +251,7 @@ var readOnePasswordSecret = func(ref string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func (r CredentialTokenResolver) ResolveToken(profile config.WorkspaceProfile) (string, error) {
+func (r CredentialTokenResolver) ResolveToken(ctx context.Context, profile config.WorkspaceProfile) (string, error) {
 	if token, ok := runtimeEnvToken(profile.Name); ok {
 		return token, nil
 	}
@@ -251,7 +259,7 @@ func (r CredentialTokenResolver) ResolveToken(profile config.WorkspaceProfile) (
 		return "", config.ErrCredentialNotFound
 	}
 	if strings.HasPrefix(profile.TokenRef, "env:") {
-		return EnvTokenResolver{}.ResolveToken(profile)
+		return EnvTokenResolver{}.ResolveToken(ctx, profile)
 	}
 	if strings.HasPrefix(profile.TokenRef, "keychain:slack-cli/") {
 		if r.Store == nil {
@@ -262,7 +270,7 @@ func (r CredentialTokenResolver) ResolveToken(profile config.WorkspaceProfile) (
 		if err != nil {
 			return "", err
 		}
-		return r.resolveStoredCredential(name, secret)
+		return r.resolveStoredCredential(ctx, name, secret)
 	}
 	if strings.HasPrefix(profile.TokenRef, "op://") {
 		secret, err := readOnePasswordSecret(profile.TokenRef)
@@ -306,7 +314,7 @@ func normalizeProfileEnvSuffix(profileName string) string {
 
 const credentialRefreshBuffer = 5 * time.Minute
 
-func (r CredentialTokenResolver) resolveStoredCredential(name, secret string) (string, error) {
+func (r CredentialTokenResolver) resolveStoredCredential(ctx context.Context, name, secret string) (string, error) {
 	credential, err := config.DecodeCredential(secret)
 	if err != nil {
 		return "", err
@@ -317,7 +325,7 @@ func (r CredentialTokenResolver) resolveStoredCredential(name, secret string) (s
 	if credential.ClientID == "" || credential.RefreshToken == "" {
 		return "", errors.New("credential is expiring and cannot be refreshed")
 	}
-	response, err := refreshOAuthUserToken(context.Background(), r.oauthHTTPClient(), r.SlackBaseURL, credential.ClientID, credential.RefreshToken)
+	response, err := oauthRefreshToken(ctx, r.oauthHTTPClient(), r.SlackBaseURL, credential.ClientID, credential.RefreshToken)
 	if err != nil {
 		return "", err
 	}
@@ -383,6 +391,12 @@ func accessTokenFromStructuredSecret(secret string) (string, error) {
 	return credential.AccessToken, nil
 }
 
+func NewRootCommandWithRuntime(options ...RootOption) (*cobra.Command, *RootRuntime) {
+	var rt *RootRuntime
+	cmd := NewRootCommand(append([]RootOption{func(r *RootRuntime) { rt = r }}, options...)...)
+	return cmd, rt
+}
+
 func NewRootCommand(options ...RootOption) *cobra.Command {
 	runtime := &RootRuntime{
 		ConfigPath:      defaultConfigPath(),
@@ -431,11 +445,18 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	flags.StringP("agent-message", "O", "", "Override agent attribution message")
 	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
 	flags.BoolP("debug", "D", false, "Enable debug-level output")
+	flags.DurationP("timeout", "I", 30*time.Second, "Slack API call timeout")
 	flags.TextVarP(&runtime.ColorMode, "color", "V", clog.ColorAuto, "Color mode (auto, always, never)")
 	root.MarkFlagsMutuallyExclusive("json", "plain", "compact", "raw")
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		if debug, _ := cmd.Root().PersistentFlags().GetBool("debug"); debug {
 			clog.SetVerbose(true)
+		}
+		if timeout, err := cmd.Root().PersistentFlags().GetDuration("timeout"); err == nil && timeout > 0 {
+			runtime.Timeout = timeout
+			var timeoutCtx context.Context
+			timeoutCtx, runtime.CancelTimeout = context.WithTimeout(cmd.Context(), timeout)
+			cmd.SetContext(timeoutCtx)
 		}
 		if err := cmd.ValidateFlagGroups(); err != nil {
 			sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
@@ -1459,8 +1480,17 @@ func (c *CommandContext) workspace() string {
 }
 
 func main() {
-	root := NewRootCommand()
-	if err := root.Execute(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	root, runtime := NewRootCommandWithRuntime()
+	defer func() {
+		if runtime.CancelTimeout != nil {
+			runtime.CancelTimeout()
+		}
+	}()
+	root.SetContext(ctx)
+	if err := root.ExecuteContext(ctx); err != nil {
 		var commandErr CommandError
 		if errors.As(err, &commandErr) {
 			os.Exit(commandErr.CLIError.ExitCode)
@@ -1468,7 +1498,7 @@ func main() {
 		mode := outputFlagsFromCommand(root).Resolve(terminal.Is(os.Stdout), false)
 		sl, el := buildBaseLoggers(os.Stdout, os.Stderr, clog.ColorAuto)
 		applyRenderMode(sl, mode)
-		ctx := &CommandContext{
+		cmdCtx := &CommandContext{
 			Workspace: "default",
 			Mode:      mode,
 			Stdout:    os.Stdout,
@@ -1476,7 +1506,7 @@ func main() {
 			stdoutLog: sl,
 			stderrLog: el,
 		}
-		os.Exit(ctx.WriteError(validationCLIError(err.Error())))
+		os.Exit(cmdCtx.WriteError(validationCLIError(err.Error())))
 	}
 }
 

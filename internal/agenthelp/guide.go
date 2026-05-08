@@ -426,8 +426,8 @@ func GetGuideSection(section string) string {
 	var out strings.Builder
 	capturing := false
 	for _, line := range lines {
-		if strings.HasPrefix(line, "## ") {
-			heading := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(line, "## ")))
+		if after, ok := strings.CutPrefix(line, "## "); ok {
+			heading := strings.ToLower(strings.TrimSpace(after))
 			if heading == target {
 				capturing = true
 				out.WriteString(line + "\n")

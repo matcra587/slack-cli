@@ -225,8 +225,8 @@ func (f TokenResolverFunc) ResolveToken(ctx context.Context, profile config.Work
 type EnvTokenResolver struct{}
 
 func (EnvTokenResolver) ResolveToken(_ context.Context, profile config.WorkspaceProfile) (string, error) {
-	if strings.HasPrefix(profile.TokenRef, "env:") {
-		name := strings.TrimPrefix(profile.TokenRef, "env:")
+	if after, ok := strings.CutPrefix(profile.TokenRef, "env:"); ok {
+		name := after
 		token := os.Getenv(name)
 		if token == "" {
 			return "", errors.New("token environment variable is empty")

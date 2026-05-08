@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	slackcache "github.com/matcra587/slack-cli/internal/cache"
@@ -328,12 +329,7 @@ func normalizeCacheMaxPages(value int) int {
 }
 
 func isCacheResource(value string) bool {
-	for _, resource := range cacheResources {
-		if value == resource {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(cacheResources, value)
 }
 
 type cacheFetchError struct {

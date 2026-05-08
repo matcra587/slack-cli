@@ -439,8 +439,8 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 		ID:         "C7N2Q8L4P",
 		Name:       "alerts",
 		Type:       "channel",
-		IsMember:   boolPtr(true),
-		IsArchived: boolPtr(false),
+		IsMember:   new(true),
+		IsArchived: new(false),
 		Topic:      stringPtr("Ops alerts"),
 		NumMembers: intPtr(12),
 	}})
@@ -474,7 +474,7 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 	err = ctx.WriteResult("lookup.user", userInfoData{User: cliUser{
 		ID:         "U7N2Q8L4P",
 		Name:       "matt",
-		Deleted:    boolPtr(false),
+		Deleted:    new(false),
 		Timezone:   stringPtr("America/Toronto"),
 		Presence:   stringPtr("active"),
 		StatusText: stringPtr("Deploying"),

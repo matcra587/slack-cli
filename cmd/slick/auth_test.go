@@ -994,7 +994,7 @@ func TestAuthLoginHuhThemeUsesClibSemanticColors(t *testing.T) {
 func TestOAuthCallbackHandlerWritesStyledHTML(t *testing.T) {
 	resultCh := make(chan oauthCallbackResult, 1)
 	handler := oauthCallbackHandler("state-1", "/callback", resultCh)
-	req := httptest.NewRequest(http.MethodGet, "/callback?code=abc&state=state-1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/callback?code=abc&state=state-1", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)

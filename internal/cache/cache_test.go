@@ -1,6 +1,7 @@
 package cache_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -66,7 +67,7 @@ func jsonEqual(got, want any) bool {
 	if err != nil {
 		return false
 	}
-	return string(gotBody) == string(wantBody)
+	return bytes.Equal(gotBody, wantBody)
 }
 
 func TestCacheReportsStaleAndClearRemovesOnlyOneResource(t *testing.T) {

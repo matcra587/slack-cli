@@ -247,10 +247,7 @@ func cliErrorFromSlack(ctx context.Context, err error) CLIError {
 	}
 	var rateErr *slackgo.RateLimitedError
 	if errors.As(err, &rateErr) {
-		seconds := int(math.Ceil(rateErr.RetryAfter.Seconds()))
-		if seconds < 0 {
-			seconds = 0
-		}
+		seconds := max(int(math.Ceil(rateErr.RetryAfter.Seconds())), 0)
 		return CLIError{
 			Type:              ErrorTypeRateLimit,
 			Message:           "ratelimited",
@@ -338,10 +335,10 @@ func cliChannelFromSlack(channel slackgo.Channel) cliChannel {
 		ID:         channel.ID,
 		Name:       channel.Name,
 		Type:       conversationType(channel),
-		IsMember:   boolPtr(channel.IsMember),
-		IsIM:       boolPtr(channel.IsIM),
+		IsMember:   new(channel.IsMember),
+		IsIM:       new(channel.IsIM),
 		NumMembers: intPtr(channel.NumMembers),
-		IsArchived: boolPtr(channel.IsArchived),
+		IsArchived: new(channel.IsArchived),
 	}
 	if channel.User != "" {
 		out.User = stringPtr(channel.User)
@@ -366,7 +363,7 @@ func cliUserFromSlack(user slackgo.User) cliUser {
 	out := cliUser{
 		ID:       user.ID,
 		Name:     user.Name,
-		Deleted:  boolPtr(user.Deleted),
+		Deleted:  new(user.Deleted),
 		Timezone: stringPtr(user.TZ),
 	}
 	if user.Presence != "" {
@@ -389,10 +386,6 @@ func cliSearchMessageFromSlack(message slackgo.SearchMessage) cliSearchMessage {
 		TS:        message.Timestamp,
 		Permalink: message.Permalink,
 	}
-}
-
-func boolPtr(value bool) *bool {
-	return &value
 }
 
 func firstNonEmpty(values ...string) string {

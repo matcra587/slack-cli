@@ -182,19 +182,14 @@ func runConfigInit(cmd *cobra.Command, runtime *RootRuntime, opts configInitOpti
 
 func shouldPromptConfigInit(cmd *cobra.Command) bool {
 	flags := cmd.Flags()
-	for _, name := range []string{
+	return !slices.ContainsFunc([]string{
 		"profile",
 		"default-channel",
 		"attribution-enabled",
 		"attribution-label",
 		"attribution-emoji",
 		"attribution-message",
-	} {
-		if flags.Changed(name) {
-			return false
-		}
-	}
-	return true
+	}, flags.Changed)
 }
 
 func confirmConfigOverwrite(runtime *RootRuntime, path string) (bool, error) {

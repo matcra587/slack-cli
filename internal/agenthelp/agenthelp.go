@@ -1,6 +1,7 @@
 package agenthelp
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/matcra587/slack-cli/internal/agent"
@@ -296,10 +297,8 @@ func skipCommand(cmd *cobra.Command) bool {
 }
 
 func isReadOnly(name string) bool {
-	for _, verb := range readOnlyVerbs {
-		if name == verb {
-			return true
-		}
+	if slices.Contains(readOnlyVerbs, name) {
+		return true
 	}
 	return strings.HasPrefix(name, "list")
 }

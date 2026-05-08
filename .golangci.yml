@@ -28,6 +28,13 @@ linters:
     - sqlclosecheck
     - nolintlint
 
+    # Import governance and modernization
+    - depguard
+    - modernize
+    # gocritic intentionally not enabled: it produces ~57 findings requiring
+    # pointer-vs-value refactor decisions (hugeParam, rangeValCopy, builtinShadow,
+    # unnamedResult). Enable once those are addressed in a dedicated cleanup pass.
+
   settings:
     depguard:
       rules:
@@ -53,6 +60,10 @@ linters:
         - style
 
     gosec:
+      # gosec.includes is an explicit allow-list. Dropping it would surface
+      # G104/G112/G115/G117/G120/G122/G602; those need real fixes (integer overflow
+      # conversions, ReadHeaderTimeout, unhandled close errors, multipart bounds)
+      # before the allow-list can be removed.
       includes:
         - G101
         - G102
@@ -97,19 +108,30 @@ linters:
     misspell:
       locale: US
 
+    nolintlint:
+      require-specific: true
+      require-explanation: true
+
   exclusions:
     rules:
       - path: '(.+_test\.go|^internal/testutil/)'
         linters:
           - gosec
         text: "G101|G204|G304|G306"
-      - path: '^cmd/slack/file\.go'
+      # Omitempty semantics are intentional for the JSON/YAML contract here:
+      # tests assert empty-struct omission (output_test.go) and the manifest
+      # contract requires stable diffs; converting to omitzero would change
+      # observable output. Do not "fix" until that contract is reviewed.
+      - path: 'cmd/slick/manifest\.go'
         linters:
-          - gosec
-        text: "G304"
-
+          - modernize
+        text: 'Omitempty has no effect on nested struct fields'
+      - path: 'internal/config/workspace\.go'
+        linters:
+          - modernize
+        text: 'Omitempty has no effect on nested struct fields'
 issues:
-  max-issues-per-linter: 50
+  max-issues-per-linter: 0
   max-same-issues: 3
 
 formatters:

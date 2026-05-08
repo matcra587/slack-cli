@@ -146,8 +146,8 @@ func parseStatusExpiration(now time.Time, expiresIn time.Duration, until string)
 	if until == "" {
 		return 0, nil
 	}
-	if strings.HasPrefix(until, "+") {
-		duration, err := time.ParseDuration(strings.TrimPrefix(until, "+"))
+	if after, ok := strings.CutPrefix(until, "+"); ok {
+		duration, err := time.ParseDuration(after)
 		if err != nil {
 			return 0, errors.New("until relative duration is invalid")
 		}

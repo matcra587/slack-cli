@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"os"
 	"sort"
 	"strings"
@@ -276,7 +275,7 @@ func printCompletion(shell, value, desc string) {
 	if shell == "fish" && desc != "" {
 		line += "\t" + desc
 	}
-	_, _ = io.WriteString(os.Stdout, line+"\n")
+	_, _ = os.Stdout.WriteString(line + "\n")
 }
 
 func extendSlackCompletionMetadata(root *cobra.Command) {

@@ -248,19 +248,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 			cmd.SetContext(timeoutCtx)
 		}
 		if err := cmd.ValidateFlagGroups(); err != nil {
-			sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-			applyRenderMode(sl, RenderModeEnvelope)
-			ctx := &CommandContext{
-				Workspace:     "default",
-				Mode:          RenderModeEnvelope,
-				Stdout:        runtime.Stdout,
-				Stderr:        runtime.Stderr,
-				NowFunc:       runtime.Now,
-				RequestIDFunc: runtime.RequestID,
-				StdoutLog:     sl,
-				StderrLog:     el,
-			}
-			return writeCommandError(ctx, validationCLIError(err.Error()))
+			return cliruntime.WriteRuntimeError(runtime, validationCLIError(err.Error()))
 		}
 		return nil
 	}
@@ -345,45 +333,6 @@ func defaultConfigPath() string {
 		return ""
 	}
 	return filepath.Join(dir, "slick", "config.toml")
-}
-
-func rootOptionsFromCommand(cmd *cobra.Command, runtime *RootRuntime) RootOptions {
-	flags := cmd.Root().PersistentFlags()
-	workspace, _ := flags.GetString("workspace")
-	jsonMode, _ := flags.GetBool("json")
-	plain, _ := flags.GetBool("plain")
-	compact, _ := flags.GetBool("compact")
-	raw, _ := flags.GetBool("raw")
-	agent, _ := flags.GetBool("agent")
-	noAttribution, _ := flags.GetBool("no-agent-attribution")
-	agentLabel, _ := flags.GetString("agent-label")
-	agentEmoji, _ := flags.GetString("agent-emoji")
-	agentMessage, _ := flags.GetString("agent-message")
-
-	return RootOptions{
-		Config:    runtime.Config,
-		Workspace: workspace,
-		Output: OutputFlags{
-			JSON:    jsonMode,
-			Plain:   plain,
-			Compact: compact,
-			Raw:     raw,
-		},
-		Agent: AgentFlags{
-			Agent:              agent,
-			NoAgentAttribution: noAttribution,
-			AgentLabel:         agentLabel,
-			AgentEmoji:         agentEmoji,
-			AgentMessage:       agentMessage,
-		},
-		Stdout:    runtime.Stdout,
-		Stderr:    runtime.Stderr,
-		IsTTY:     runtime.IsTTY,
-		ColorMode: runtime.ColorMode,
-		Now:       runtime.Now,
-		RequestID: runtime.RequestID,
-		Theme:     runtime.Theme,
-	}
 }
 
 func commandContext(cmd *cobra.Command, runtime *RootRuntime) (*CommandContext, config.WorkspaceProfile, Attribution, error) {

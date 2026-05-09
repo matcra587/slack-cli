@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 
+	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	"github.com/matcra587/slack-cli/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -34,7 +35,7 @@ func newVersionCommand(runtime *RootRuntime) *cobra.Command {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := localVersionContext(cmd, runtime)
+			ctx := cliruntime.LocalContext(cmd, runtime, "version")
 			return ctx.WriteResult("version", versionData{
 				Version:   version.Version,
 				Commit:    version.Commit,
@@ -43,22 +44,5 @@ func newVersionCommand(runtime *RootRuntime) *cobra.Command {
 				BuildBy:   version.BuildBy,
 			})
 		},
-	}
-}
-
-func localVersionContext(cmd *cobra.Command, runtime *RootRuntime) *CommandContext {
-	opts := rootOptionsFromCommand(cmd, runtime)
-	mode := opts.Output.Resolve(runtime.IsTTY, DetectAgentOutputMode(opts.Agent))
-	sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-	applyRenderMode(sl, mode)
-	return &CommandContext{
-		Workspace:     "version",
-		Mode:          mode,
-		Stdout:        runtime.Stdout,
-		Stderr:        runtime.Stderr,
-		NowFunc:       runtime.Now,
-		RequestIDFunc: runtime.RequestID,
-		StdoutLog:     sl,
-		StderrLog:     el,
 	}
 }

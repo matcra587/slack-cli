@@ -194,25 +194,12 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 }
 
 func runAuthLogin(cmd *cobra.Command, runtime *cliruntime.RootRuntime, input loginInput) error {
-	opts := rootOptionsFromCommand(cmd, runtime)
 	if input.WorkspaceName == "" {
-		input.WorkspaceName = opts.Workspace
+		input.WorkspaceName, _ = cmd.Root().PersistentFlags().GetString("workspace")
 	}
-	ctx, _, err := commandContextFromRuntime(cmd, runtime)
+	ctx, _, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
-		mode := opts.Output.Resolve(runtime.IsTTY, false)
-		sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-		clioutput.ApplyRenderMode(sl, mode)
-		ctx = &clioutput.CommandContext{
-			Workspace:     "default",
-			Mode:          mode,
-			Stdout:        runtime.Stdout,
-			Stderr:        runtime.Stderr,
-			NowFunc:       runtime.Now,
-			RequestIDFunc: runtime.RequestID,
-			StdoutLog:     sl,
-			StderrLog:     el,
-		}
+		ctx = cliruntime.LocalContext(cmd, runtime, "default")
 	}
 	interactive := runtime.IsTTY && input.WorkspaceName == "" && !input.HasTokenSource() && input.AuthMethod == ""
 	if interactive {
@@ -828,9 +815,9 @@ func slackAuthClient(ctx context.Context, token string, runtime *cliruntime.Root
 }
 
 func runAuthStatus(cmd *cobra.Command, runtime *cliruntime.RootRuntime) error {
-	ctx, _, err := commandContextFromRuntime(cmd, runtime)
+	ctx, _, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
-		return writeRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
+		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 	var workspaces []WorkspaceData
 	if runtime.Config != nil {
@@ -866,9 +853,9 @@ func runAuthStatus(cmd *cobra.Command, runtime *cliruntime.RootRuntime) error {
 }
 
 func runAuthSwitch(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspace string) error {
-	ctx, _, err := commandContextFromRuntime(cmd, runtime)
+	ctx, _, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
-		return writeRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
+		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 	if runtime.Config == nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("config is required"))
@@ -886,9 +873,9 @@ func runAuthSwitch(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspac
 }
 
 func runAuthLogout(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspace string) error {
-	ctx, _, err := commandContextFromRuntime(cmd, runtime)
+	ctx, _, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
-		return writeRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
+		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 
 	keepToken, _ := cmd.Flags().GetBool("keep-token")
@@ -1020,100 +1007,4 @@ func wrapBadClientSecret(err error) error {
 		return fmt.Errorf("bad_client_secret: Slack treated this as a client-secret OAuth flow. Enable PKCE for the Slack app, or import a manifest with oauth_config.pkce_enabled=true; slack-cli local OAuth intentionally omits the client secret: %w", err)
 	}
 	return err
-}
-
-// rootOptionsFromCommand extracts output flags from the cobra command.
-// collapse when cmd/slick/main.go moves in a later phase.
-type outputOptions struct {
-	Workspace string
-	Output    clioutput.OutputFlags
-	IsTTY     bool
-}
-
-func rootOptionsFromCommand(cmd *cobra.Command, runtime *cliruntime.RootRuntime) outputOptions {
-	flags := cmd.Root().PersistentFlags()
-	workspace, _ := flags.GetString("workspace")
-	jsonMode, _ := flags.GetBool("json")
-	plain, _ := flags.GetBool("plain")
-	compact, _ := flags.GetBool("compact")
-	raw, _ := flags.GetBool("raw")
-	return outputOptions{
-		Workspace: workspace,
-		Output: clioutput.OutputFlags{
-			JSON:    jsonMode,
-			Plain:   plain,
-			Compact: compact,
-			Raw:     raw,
-		},
-		IsTTY: runtime.IsTTY,
-	}
-}
-
-// commandContextFromRuntime builds a CommandContext from the cobra command and runtime.
-// collapse when cmd/slick/main.go's commandContext moves.
-func commandContextFromRuntime(cmd *cobra.Command, runtime *cliruntime.RootRuntime) (*clioutput.CommandContext, config.WorkspaceProfile, error) {
-	opts := rootOptionsFromCommand(cmd, runtime)
-	mode := opts.Output.Resolve(runtime.IsTTY, false)
-	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-	clioutput.ApplyRenderMode(sl, mode)
-
-	if runtime.ConfigLoadError != nil {
-		ctx := &clioutput.CommandContext{
-			Workspace:     "default",
-			Mode:          mode,
-			Stdout:        runtime.Stdout,
-			Stderr:        runtime.Stderr,
-			NowFunc:       runtime.Now,
-			RequestIDFunc: runtime.RequestID,
-			Theme:         runtime.Theme,
-			StdoutLog:     sl,
-			StderrLog:     el,
-		}
-		return ctx, config.WorkspaceProfile{}, runtime.ConfigLoadError
-	}
-
-	workspace := "default"
-	var profile config.WorkspaceProfile
-	if runtime.Config != nil {
-		var err error
-		profile, err = runtime.Config.ResolveWorkspace(opts.Workspace)
-		if err != nil {
-			return nil, config.WorkspaceProfile{}, err
-		}
-		workspace = profile.Name
-	} else if opts.Workspace != "" {
-		workspace = opts.Workspace
-	}
-
-	ctx := &clioutput.CommandContext{
-		Workspace:     workspace,
-		Mode:          mode,
-		Stdout:        runtime.Stdout,
-		Stderr:        runtime.Stderr,
-		NowFunc:       runtime.Now,
-		RequestIDFunc: runtime.RequestID,
-		IsTTY:         runtime.IsTTY,
-		ColorMode:     runtime.ColorMode,
-		Theme:         runtime.Theme,
-		StdoutLog:     sl,
-		StderrLog:     el,
-	}
-	return ctx, profile, nil
-}
-
-func writeRuntimeError(runtime *cliruntime.RootRuntime, err clioutput.CLIError) error {
-	mode := clioutput.OutputFlags{}.Resolve(runtime.IsTTY, false)
-	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-	clioutput.ApplyRenderMode(sl, mode)
-	ctx := &clioutput.CommandContext{
-		Workspace:     "default",
-		Mode:          mode,
-		Stdout:        runtime.Stdout,
-		Stderr:        runtime.Stderr,
-		NowFunc:       runtime.Now,
-		RequestIDFunc: runtime.RequestID,
-		StdoutLog:     sl,
-		StderrLog:     el,
-	}
-	return clioutput.WriteCommandError(ctx, err)
 }

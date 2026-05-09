@@ -185,28 +185,28 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 }
 
 func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Source, dryRun bool) error {
-	ctx, profile, attribution, err := commandContext(cmd, runtime)
+	ctx, profile, attribution, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return writeRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 	if runtime.Config == nil {
-		return writeCommandError(ctx, clioutput.ValidationCLIError("config is required"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("config is required"))
 	}
 
 	channel, _ := cmd.Flags().GetString("channel")
 	users, _ := cmd.Flags().GetStringArray("user")
 	target, err := resolveMessageSendTarget(profile, channel, users)
 	if err != nil {
-		return writeCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
 
 	content, err := ReadMessageSource(runtime.Stdin, src)
 	if err != nil {
-		return writeCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
 	blocks, err := ComposeBlocks(content, src.Blocks, attribution)
 	if err != nil {
-		return writeCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
 
 	result := SendData{Attribution: attribution.Enabled}
@@ -216,30 +216,30 @@ func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 	} else {
 		client, err := slackclient.Client(cmd, profile, runtime)
 		if err != nil {
-			return writeCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+			return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 		}
 		if len(target.Users) > 0 {
 			if err := cliscope.Require(cmd.Context(), client, messageUserTargetScopes(target.Users)); err != nil {
-				return writeCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+				return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 			}
 			target.Users, err = resolveMessageUserIDs(cmd.Context(), client, target.Users)
 			if err != nil {
-				return writeCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+				return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 			}
 			opened, _, _, err := client.OpenConversationContext(cmd.Context(), &slackgo.OpenConversationParameters{
 				Users:    target.Users,
 				ReturnIM: true,
 			})
 			if err != nil {
-				return writeCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+				return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 			}
 			target.Channel = opened.ID
 		} else if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("chat:write")); err != nil {
-			return writeCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 		}
 		channel, ts, err := client.PostMessageContext(cmd.Context(), target.Channel, MessageOptions(content, blocks, attribution)...)
 		if err != nil {
-			return writeCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 		}
 		result.Message = clioutput.CliMessage{Type: "message", TS: ts, Channel: cliutil.StringPtr(channel), Text: cliutil.StringPtr(strings.TrimSpace(content))}
 		result.Permalink = Permalink(cmd.Context(), client, channel, ts)
@@ -249,25 +249,25 @@ func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 }
 
 func runMessageEdit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Source, dryRun bool) error {
-	ctx, profile, attribution, err := commandContext(cmd, runtime)
+	ctx, profile, attribution, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return writeRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 	channel, _ := cmd.Flags().GetString("channel")
 	if strings.TrimSpace(channel) == "" {
-		return writeCommandError(ctx, clioutput.ValidationCLIError("channel is required"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("channel is required"))
 	}
 	timestamp, _ := cmd.Flags().GetString("timestamp")
 	if strings.TrimSpace(timestamp) == "" {
-		return writeCommandError(ctx, clioutput.ValidationCLIError("timestamp is required"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("timestamp is required"))
 	}
 	content, err := ReadMessageSource(runtime.Stdin, src)
 	if err != nil {
-		return writeCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
 	blocks, err := ComposeBlocks(content, src.Blocks, attribution)
 	if err != nil {
-		return writeCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
 	result := SendData{Attribution: attribution.Enabled}
 	if dryRun {
@@ -276,14 +276,14 @@ func runMessageEdit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 	} else {
 		client, err := slackclient.Client(cmd, profile, runtime)
 		if err != nil {
-			return writeCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+			return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 		}
 		if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("chat:write")); err != nil {
-			return writeCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 		}
 		respChannel, respTS, respText, err := client.UpdateMessageContext(cmd.Context(), channel, timestamp, MessageOptions(content, blocks, attribution)...)
 		if err != nil {
-			return writeCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 		}
 		result.Message = clioutput.CliMessage{
 			Type:    "message",
@@ -300,34 +300,34 @@ func runMessageEdit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 }
 
 func runMessageDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRun, force bool) error {
-	ctx, profile, _, err := commandContext(cmd, runtime)
+	ctx, profile, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return writeRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 	channel, _ := cmd.Flags().GetString("channel")
 	if strings.TrimSpace(channel) == "" {
-		return writeCommandError(ctx, clioutput.ValidationCLIError("channel is required"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("channel is required"))
 	}
 	timestamp, _ := cmd.Flags().GetString("timestamp")
 	if strings.TrimSpace(timestamp) == "" {
-		return writeCommandError(ctx, clioutput.ValidationCLIError("timestamp is required"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("timestamp is required"))
 	}
 	if !dryRun && !force {
-		return writeCommandError(ctx, clioutput.ValidationCLIError("message delete requires --force unless --dry-run is used"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("message delete requires --force unless --dry-run is used"))
 	}
 	if dryRun {
 		return ctx.WriteResult("message.delete", DeleteData{Channel: channel, Timestamp: timestamp, Deleted: true, DryRun: true})
 	}
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return writeCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("chat:write")); err != nil {
-		return writeCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
 	respChannel, respTS, err := client.DeleteMessageContext(cmd.Context(), channel, timestamp)
 	if err != nil {
-		return writeCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
 	return ctx.WriteResult("message.delete", DeleteData{
 		Channel:   cliutil.FirstNonEmpty(respChannel, channel),
@@ -498,14 +498,6 @@ func Permalink(ctx context.Context, client *slackgo.Client, channel, ts string) 
 		return nil
 	}
 	return cliutil.StringPtr(value)
-}
-
-func commandContext(cmd *cobra.Command, runtime *cliruntime.RootRuntime) (*clioutput.CommandContext, config.WorkspaceProfile, agent.Attribution, error) {
-	return cliruntime.CommandContext(cmd, runtime)
-}
-
-func writeCommandError(ctx *clioutput.CommandContext, err clioutput.CLIError) error {
-	return clioutput.WriteCommandError(ctx, err)
 }
 
 func writeRuntimeError(runtime *cliruntime.RootRuntime, err clioutput.CLIError) error {

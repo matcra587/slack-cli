@@ -26,7 +26,6 @@ func TestReactionCommandAddRemoveAndList(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"type":"message","channel":"C123","message":{"reactions":[{"name":"thumbsup","count":1,"users":["U1"]}]}}`)
 		},
 	})
-	defer server.Close()
 
 	for _, args := range [][]string{
 		{"react", "add", "--channel", "C123", "--timestamp", "1746284582.123456", "--emoji", ":thumbsup:"},
@@ -55,7 +54,6 @@ func TestReactionCommandDryRunSkipsMutation(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			server := testutil.NewSlackServer(t, nil)
-			defer server.Close()
 
 			stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 				"",

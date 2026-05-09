@@ -77,7 +77,6 @@ func TestRateLimitErrorIncludesRetryAfterSecondsWhenSlackSuppliesTiming(t *testi
 			}
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 		[]string{"message", "send", "--channel", "C123", "--message", "Rate limited"},

@@ -587,13 +587,21 @@ func TestWriteResultPlainFallbackUsesClogEvent(t *testing.T) {
 }
 
 func newOutputTestContext(mode RenderMode, colorMode ...clog.ColorMode) (*CommandContext, *bytes.Buffer, *bytes.Buffer) {
-	cm := clog.ColorAuto
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	var sl, el *clog.Logger
+	if len(colorMode) > 0 {
+		sl, el = buildBaseLoggers(stdout, stderr, colorMode[0])
+	} else {
+		sl, el = buildTestLoggers(stdout, stderr)
+	}
+
+	cm := clog.ColorNever
 	if len(colorMode) > 0 {
 		cm = colorMode[0]
 	}
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	sl, el := buildBaseLoggers(stdout, stderr, cm)
+
 	applyRenderMode(sl, mode)
 	return &CommandContext{
 		Workspace: "default",
@@ -610,4 +618,18 @@ func newOutputTestContext(mode RenderMode, colorMode ...clog.ColorMode) (*Comman
 		stdoutLog: sl,
 		stderrLog: el,
 	}, stdout, stderr
+}
+
+func buildTestLoggers(stdout, stderr *bytes.Buffer) (*clog.Logger, *clog.Logger) {
+	sl := clog.New(clog.TestOutput(stdout))
+	sl.SetOmitZero(true)
+	sl.SetParts(clog.PartLevel, clog.PartMessage, clog.PartFields)
+
+	el := clog.New(clog.TestOutput(stderr))
+	el.SetOmitZero(true)
+	el.SetParts(clog.PartLevel, clog.PartMessage, clog.PartFields)
+	el.SetNonTTYLevel(clog.LevelWarn)
+	el.SetJSONPrintMode(clog.JSONFlat)
+
+	return sl, el
 }

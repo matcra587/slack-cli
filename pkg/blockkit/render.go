@@ -1,6 +1,13 @@
 package blockkit
 
-import "strings"
+import (
+	"strings"
+	"sync"
+)
+
+var defaultStripReplacer = sync.OnceValue(func() *strings.Replacer {
+	return strings.NewReplacer("*", "", "_", "", "`", "")
+})
 
 func RenderMarkdown(blocks []Block) string {
 	var b strings.Builder
@@ -77,6 +84,5 @@ func writeLine(b *strings.Builder, line string) {
 }
 
 func stripMarkdown(s string) string {
-	replacer := strings.NewReplacer("*", "", "_", "", "`", "")
-	return replacer.Replace(s)
+	return defaultStripReplacer().Replace(s)
 }

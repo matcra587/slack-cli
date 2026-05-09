@@ -30,7 +30,6 @@ func TestStatusSetCommandSetsCustomStatus(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"profile":{"status_text":"Heads down","status_emoji":":headphones:","status_expiration":1777820880}}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(), "",
 		[]string{"status", "set", "--text", "Heads down", "--emoji", "headphones", "--expires-in", "2h"},
@@ -60,7 +59,6 @@ func TestStatusClearCommandClearsCustomStatus(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"profile":{"status_text":"","status_emoji":"","status_expiration":0}}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(), "",
 		[]string{"status", "clear"},

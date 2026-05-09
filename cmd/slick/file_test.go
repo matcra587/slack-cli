@@ -19,7 +19,6 @@ func TestFileUploadCommandUploadsPathAndWritesJSON(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 	server := fileUploadServer(t)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.URL,
 		"",
@@ -47,7 +46,6 @@ func TestFileUploadCommandExpandsFilePath(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 	server := fileUploadServer(t)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.URL,
 		"",
@@ -63,7 +61,6 @@ func TestFileUploadCommandExpandsFilePath(t *testing.T) {
 
 func TestFileUploadCommandReadsStdinWithFilename(t *testing.T) {
 	server := fileUploadServer(t)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.URL,
 		"hello world",
@@ -86,7 +83,6 @@ func TestFileUploadCommandDryRunSkipsSlackUpload(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 	server := fileUploadServer(t)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.URL,
 		"",
@@ -195,7 +191,6 @@ func TestFileUploadCommandSupportsBlockInputForUploadMessage(t *testing.T) {
 
 func TestFileUploadCommandRejectsMalformedBlockComment(t *testing.T) {
 	server := fileUploadServer(t)
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.URL,
 		"hello world",
@@ -251,7 +246,6 @@ func TestFileUploadCommandPreservesUnsupportedMarkdownSourceFallbackInComment(t 
 
 func TestFileUploadCommandRejectsInvalidRawBlockCommentBeforeSlackRequest(t *testing.T) {
 	server := fileUploadServer(t)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.URL,
 		"hello world",
@@ -276,7 +270,7 @@ func TestFileUploadCommandRejectsInvalidRawBlockCommentBeforeSlackRequest(t *tes
 func fileUploadServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	uploadedName := "report.txt"
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/auth.test":
 			w.Header().Set("Content-Type", "application/json")
@@ -302,4 +296,6 @@ func fileUploadServer(t *testing.T) *httptest.Server {
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
 	}))
+	t.Cleanup(s.Close)
+	return s
 }

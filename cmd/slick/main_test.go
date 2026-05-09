@@ -765,7 +765,6 @@ func TestCredentialTokenResolverRefreshesExpiringKeychainCredential(t *testing.T
 			return testutil.JSONResponse(`{"ok":true,"authed_user":{"access_token":"xoxp-new","refresh_token":"refresh-new","expires_in":7200,"token_type":"user"}}`)
 		},
 	})
-	defer server.Close()
 
 	token, err := (CredentialTokenResolver{
 		Store:        store,

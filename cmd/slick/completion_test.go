@@ -138,7 +138,6 @@ func TestCompletionHandlerCompletesSlackResourcesAndLocalConfig(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"members":[{"id":"U123","name":"matt","deleted":false},{"id":"U456","name":"deploy-bot","deleted":false},{"id":"UDELETED","name":"gone","deleted":true}]}`)
 		},
 	})
-	defer server.Close()
 
 	cfg := &config.Config{
 		SchemaVersion:    config.SchemaVersion,

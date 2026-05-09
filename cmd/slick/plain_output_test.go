@@ -30,7 +30,6 @@ func TestPlainOutputForHistorySearchListsAndReactions(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"type":"message","message":{"reactions":[{"name":"thumbsup","count":1,"users":["U1"]}]}}`)
 		},
 	})
-	defer server.Close()
 
 	commands := []struct {
 		args    []string
@@ -73,7 +72,6 @@ func TestSearchPlainOutputTruncatesUnlessFull(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"messages":{"matches":[{"channel":{"id":"C123","name":"alerts"},"user":"U1","text":"` + longText + `","ts":"1746284582.123456"}],"pagination":{"page":1,"page_count":1}}}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(),
 		"",

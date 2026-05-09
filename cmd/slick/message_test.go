@@ -41,7 +41,6 @@ func TestMessageSendCommandReadsStdinAppliesAttributionAndWritesEnvelope(t *test
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"Deploy *complete*\nsecond line\n",
@@ -96,7 +95,6 @@ func TestMessageSendCommandSupportsCustomAttributionPresentation(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 		[]string{
@@ -126,7 +124,6 @@ func TestMessageSendCommandOmitsAttributionForHumanRun(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 		[]string{"message", "send", "--channel", "C123", "--message", "Hello"},
@@ -141,7 +138,6 @@ func TestMessageSendCommandOmitsAttributionForHumanRun(t *testing.T) {
 
 func TestMessageSendCommandPlainDryRunUsesClogFields(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 		[]string{"--plain", "message", "send", "--channel", "C123", "--message", "Preview", "--dry-run"},
@@ -176,7 +172,6 @@ func TestMessageSendCommandResolvesChannelAlias(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C999/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, cfg, server.BaseURL(), "",
 		[]string{"message", "send", "--channel", "alerts", "--message", "Deploy complete"},
@@ -207,7 +202,6 @@ func TestMessageSendCommandSupportsUnifiedUserTargetWithAlias(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/D123/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, cfg, server.BaseURL(), "",
 		[]string{"message", "send", "--user", "oncall", "--message", "Heads up"},
@@ -244,7 +238,6 @@ func TestMessageSendCommandSupportsRepeatedAndCommaUserTargets(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/G123/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, cfg, server.BaseURL(), "",
 		[]string{"message", "send", "--user", "oncall,release", "--user", "U789", "--message", "Heads up"},
@@ -286,7 +279,6 @@ func TestMessageSendCommandResolvesUserTargetsByEmail(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/G123/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(), "",
 		[]string{"message", "send", "--user", "dev@example.com,ops@example.com", "--message", "Heads up"},
@@ -313,7 +305,6 @@ func TestMessageSendCommandUsesDefaultChannelWhenNoTargetFlag(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C999/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, cfg, server.BaseURL(), "",
 		[]string{"message", "send", "--message", "Deploy complete"},
@@ -332,7 +323,6 @@ func TestMessageSendCommandBotUserTargetLetsSlackDecide(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":false,"error":"not_allowed_token_type"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 		[]string{"message", "send", "--user", "U123", "--message", "Heads up"},
@@ -374,7 +364,6 @@ func TestMessageSendCommandDeclaresCobraTargetFlagGroup(t *testing.T) {
 
 func TestMessageSendCommandRejectsBothChannelAndUserBeforeSlackRequest(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 		[]string{"message", "send", "--channel", "C123", "--user", "U123", "--message", "Heads up"},
@@ -398,7 +387,6 @@ func TestMessageSendCommandRejectsBothChannelAndUserBeforeSlackRequest(t *testin
 
 func TestMessageSendCommandRejectsBlockKitOverLimitBeforeSlackRequest(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	rawBlocks := `[` + strings.TrimRight(strings.Repeat(`{"type":"divider"},`, 51), ",") + `]`
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
@@ -417,7 +405,6 @@ func TestMessageSendCommandRejectsBlockKitOverLimitBeforeSlackRequest(t *testing
 
 func TestMessageSendCommandRejectsMalformedBlockKitBeforeSlackRequest(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 		[]string{"message", "send", "--channel", "C123", "--blocks", "--message", `{"type":"section"`},
@@ -439,7 +426,6 @@ func TestMessageSendCommandAcceptsHeaderBlockInput(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","text":"header test","ts":"1746284582.123456"}}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 		[]string{"message", "send", "--channel", "C123", "--blocks", "--message", `[{"type":"header","text":{"type":"plain_text","text":"Release Notes"}}]`},
@@ -493,7 +479,6 @@ func TestMessageSendCommandPreservesUnsupportedMarkdownSourceFallback(t *testing
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 		[]string{"message", "send", "--channel", "C123", "--message", markdown},
@@ -520,7 +505,6 @@ func TestMessageSendCommandRejectsInvalidRawBlockRequiredFieldsBeforeSlackReques
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := testutil.NewSlackServer(t, nil)
-			defer server.Close()
 
 			stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 				[]string{"message", "send", "--channel", "C123", "--blocks", "--message", tt.raw},
@@ -568,7 +552,6 @@ func TestMessageSendCommandMapsSlackPermissionFailuresToFixedContract(t *testing
 					return testutil.JSONResponse(`{"ok":false,"error":"` + tt.slackErr + `"}`)
 				},
 			})
-			defer server.Close()
 
 			stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(), "", tt.args)
 			if err == nil {
@@ -586,7 +569,6 @@ func TestMessageSendCommandMapsSlackPermissionFailuresToFixedContract(t *testing
 
 func TestMessageSendCommandRejectsMissingWorkspaceBeforeSlackMutation(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, nil, server.BaseURL(), "",
 		[]string{"message", "send", "--channel", "C123", "--message", "No workspace"},
@@ -619,7 +601,6 @@ func TestMessageSendCommandValidatesRequiredScopeBeforeSlackMutation(t *testing.
 			return testutil.JSONResponse(`{"ok":false}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(), "",
 		[]string{"message", "send", "--channel", "C123", "--message", "Needs chat scope"},
@@ -640,7 +621,6 @@ func TestMessageSendCommandValidatesRequiredScopeBeforeSlackMutation(t *testing.
 
 func TestMessageSendCommandDryRunSkipsSlackMutation(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -674,7 +654,6 @@ func TestMessageSendCommandReadsMessageFromFilePath(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -704,7 +683,6 @@ func TestMessageSendCommandExpandsMessageFilePath(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -734,7 +712,6 @@ func TestMessageSendCommandBlockInputIsPreserved(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -766,7 +743,6 @@ func TestMessageSendCommandBlockInputCanComeFromFile(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -795,7 +771,6 @@ func TestMessageSendCommandRawOutputFlagDoesNotSelectRawBlockInput(t *testing.T)
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",

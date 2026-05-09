@@ -74,7 +74,7 @@ run = "go test -v -race -cover ./..."
 
 ["test:integration"]
 description = "Run integration tests"
-run = "go test -v ./tests/integration -count=1 -timeout 60s"
+run = "go test -v -tags=integration ./tests/integration -count=1 -timeout 60s"
 
 [fmt]
 description = "Format code with gofmt and gofumpt"

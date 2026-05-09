@@ -18,8 +18,6 @@ func TestSlackServerRoutesAPIRequestsAndRecordsFormValues(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"ts":"1746284582.123456"}`)
 		},
 	})
-	defer server.Close()
-
 	resp, err := http.PostForm(server.BaseURL()+"/api/chat.postMessage", url.Values{
 		"channel": []string{"C123"},
 	})

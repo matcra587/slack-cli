@@ -11,7 +11,6 @@ import (
 
 func TestMessageEditCommandUpdatesOwnedMessage(t *testing.T) {
 	server := ownedMessageMutationServer(t, "chat.update")
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -45,7 +44,6 @@ func TestMessageEditCommandSupportsBlockInput(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","user":"U123","text":"edit block","ts":"1746284582.123456"}}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -58,7 +56,6 @@ func TestMessageEditCommandSupportsBlockInput(t *testing.T) {
 
 func TestMessageEditCommandRejectsMalformedBlockInput(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -94,7 +91,6 @@ func TestMessageEditCommandPreservesUnsupportedMarkdownSourceFallback(t *testing
 			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","user":"U123","text":"fixed","ts":"1746284582.123456"}}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -107,7 +103,6 @@ func TestMessageEditCommandPreservesUnsupportedMarkdownSourceFallback(t *testing
 
 func TestMessageEditCommandRejectsInvalidRawBlockRequiredFieldsBeforeSlackRequest(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -131,7 +126,6 @@ func TestMessageEditCommandRejectsInvalidRawBlockRequiredFieldsBeforeSlackReques
 
 func TestMessageEditCommandDryRunSkipsOwnershipAndMutation(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -156,7 +150,6 @@ func TestMessageEditCommandMapsCantUpdateMessageToValidationError(t *testing.T) 
 			return testutil.JSONResponse(`{"ok":false,"error":"cant_update_message"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -175,7 +168,6 @@ func TestMessageEditCommandMapsCantUpdateMessageToValidationError(t *testing.T) 
 
 func TestMessageDeleteCommandRequiresForce(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -194,7 +186,6 @@ func TestMessageDeleteCommandRequiresForce(t *testing.T) {
 
 func TestMessageDeleteCommandDryRunSkipsOwnershipAndMutation(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -215,7 +206,6 @@ func TestMessageDeleteCommandDryRunSkipsOwnershipAndMutation(t *testing.T) {
 
 func TestMessageDeleteCommandDeletesOwnedMessageWithForce(t *testing.T) {
 	server := ownedMessageMutationServer(t, "chat.delete")
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -235,7 +225,6 @@ func TestMessageDeleteCommandDeletesThreadReplyWithForce(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.999999"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -255,7 +244,6 @@ func TestMessageDeleteCommandMapsCantDeleteMessageToValidationError(t *testing.T
 			return testutil.JSONResponse(`{"ok":false,"error":"cant_delete_message"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",

@@ -20,7 +20,6 @@ func TestLookupUserListsAndShowsInfo(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"presence":"active"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -57,7 +56,6 @@ func TestLookupUserHidesEmptyPresence(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"presence":""}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -88,7 +86,6 @@ func TestLookupUserShowsPresenceColumnWhenAnyUserHasPresence(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"members":[{"id":"U123","name":"matt","presence":"active"},{"id":"U456","name":"deploy"}]}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -110,7 +107,6 @@ func TestLookupUserListExcludesDeletedUsersByDefault(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"members":[{"id":"UACTIVE","name":"active","deleted":false},{"id":"UDELETED","name":"deleted","deleted":true}]}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -133,7 +129,6 @@ func TestLookupUserListCanIncludeDeletedUsers(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"members":[{"id":"UACTIVE","name":"active","deleted":false},{"id":"UDELETED","name":"deleted","deleted":true}]}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -155,7 +150,6 @@ func TestLookupUserMapsMissingUserToNotFound(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":false,"error":"user_not_found"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",

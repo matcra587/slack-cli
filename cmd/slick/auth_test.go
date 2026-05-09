@@ -26,7 +26,6 @@ func TestAuthLoginStoresTokenReferenceNotRawToken(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"team_id":"T123","team":"Test Workspace","user_id":"U123"}`)
 		},
 	})
-	defer server.Close()
 
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
@@ -73,7 +72,6 @@ func TestAuthLoginTokenDerivesWorkspaceMetadataFromAuthTest(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"team_id":"TDERIVED","team":"Derived Workspace","user_id":"U123"}`)
 		},
 	})
-	defer server.Close()
 
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
@@ -101,7 +99,6 @@ func TestAuthLoginTokenFileTrimsTrailingNewline(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"team_id":"TFILE","team":"File Workspace","user_id":"U123"}`)
 		},
 	})
-	defer server.Close()
 
 	tokenPath := filepath.Join(t.TempDir(), "slack-token.txt")
 	if err := os.WriteFile(tokenPath, []byte("xoxb-file-secret\n"), 0o600); err != nil {
@@ -135,7 +132,6 @@ func TestAuthLoginTokenFileExpandsShellPath(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"team_id":"T123","team":"Test Workspace","user_id":"U123"}`)
 		},
 	})
-	defer server.Close()
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -171,7 +167,6 @@ func TestAuthLoginTokenEnvReadsEnvironmentVariableName(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"team_id":"TENV","team":"Env Workspace","user_id":"U123"}`)
 		},
 	})
-	defer server.Close()
 
 	t.Setenv("SLACK_CLI_TOKEN_TEST_PROFILE", "xoxp-env-secret")
 	configPath := filepath.Join(t.TempDir(), "config.toml")
@@ -240,7 +235,6 @@ func TestAuthLoginPreservesConfigManagedProfilePreferences(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"team_id":"TAUTH","team":"Auth Workspace","user_id":"U123"}`)
 		},
 	})
-	defer server.Close()
 
 	attribution := false
 	cfg := &config.Config{
@@ -295,7 +289,6 @@ func TestAuthLoginReusesExistingProfileCaseInsensitively(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"team_id":"TAUTH","team":"Auth Workspace","user_id":"U123"}`)
 		},
 	})
-	defer server.Close()
 
 	cfg := &config.Config{
 		SchemaVersion:    config.SchemaVersion,
@@ -336,7 +329,6 @@ func TestAuthLoginRequiresForceToOverwriteAuthenticatedProfile(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"team_id":"TNEW","team":"New Workspace","user_id":"U123"}`)
 		},
 	})
-	defer server.Close()
 
 	cfg := &config.Config{
 		SchemaVersion:    config.SchemaVersion,
@@ -398,7 +390,6 @@ func TestAuthLoginForceOverwritesAuthFieldsAndPreservesPreferences(t *testing.T)
 			return testutil.JSONResponse(`{"ok":true,"team_id":"TNEW","team":"New Workspace","user_id":"U123"}`)
 		},
 	})
-	defer server.Close()
 
 	attributionEnabled := true
 	cfg := &config.Config{
@@ -479,7 +470,6 @@ func TestAuthLoginOAuthLocalFlowUsesPKCEAndStoresUserToken(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"authed_user":{"id":"U123","access_token":"xoxe.xoxp-oauth","token_type":"user","scope":"chat:write"},"team":{"id":"TOAUTH","name":"OAuth Workspace"}}`)
 		},
 	})
-	defer server.Close()
 
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
@@ -546,7 +536,6 @@ func TestAuthLoginOAuthPortZeroUsesAssignedListenerPort(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"authed_user":{"id":"U123","access_token":"xoxe.xoxp-oauth","token_type":"user","scope":"chat:write"},"team":{"id":"TOAUTH","name":"OAuth Workspace"}}`)
 		},
 	})
-	defer server.Close()
 
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
@@ -586,7 +575,6 @@ func TestAuthLoginOAuthDefaultRedirectHonorsCallbackPortEnv(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"authed_user":{"id":"U123","access_token":"xoxe.xoxp-oauth","token_type":"user","scope":"chat:write"},"team":{"id":"TOAUTH","name":"OAuth Workspace"}}`)
 		},
 	})
-	defer server.Close()
 
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
@@ -612,7 +600,6 @@ func TestAuthLoginOAuthTTYOutputsClogFields(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"authed_user":{"id":"U123","access_token":"xoxe.xoxp-oauth","token_type":"user","scope":"chat:write"},"team":{"id":"TOAUTH","name":"OAuth Workspace"}}`)
 		},
 	})
-	defer server.Close()
 
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
@@ -655,7 +642,6 @@ func TestAuthLoginOAuthLocalFlowStoresRefreshableCredential(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"authed_user":{"id":"U123","access_token":"xoxp-oauth","refresh_token":"refresh-1","expires_in":3600,"token_type":"user","scope":"chat:write"},"team":{"id":"TOAUTH","name":"OAuth Workspace"}}`)
 		},
 	})
-	defer server.Close()
 
 	now := time.Date(2026, 5, 3, 20, 10, 0, 0, time.UTC)
 	configPath := filepath.Join(t.TempDir(), "config.toml")
@@ -710,7 +696,6 @@ func TestAuthLoginInteractiveOAuthStartsLocalCallbackAndStoresCredential(t *test
 			return testutil.JSONResponse(`{"ok":true,"authed_user":{"id":"U123","access_token":"xoxp-oauth","refresh_token":"refresh-1","expires_in":3600,"token_type":"user","scope":"chat:write"},"team":{"id":"TOAUTH","name":"OAuth Workspace"}}`)
 		},
 	})
-	defer server.Close()
 
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
@@ -760,7 +745,6 @@ func TestAuthLoginOAuthBadClientSecretExplainsPKCESetup(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":false,"error":"bad_client_secret"}`)
 		},
 	})
-	defer server.Close()
 
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
@@ -859,7 +843,6 @@ func TestAuthLoginPromptsForMissingFieldsInTTY(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"team_id":"T123","team":"Test Workspace","user_id":"U123"}`)
 		},
 	})
-	defer server.Close()
 
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
@@ -1066,7 +1049,6 @@ func TestAuthStatusSwitchAndLogout(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"team_id":"T123","team":"Test Workspace","user_id":"U123"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeAuthRoot(t, cfg, configPath, store, server.BaseURL(),
 		[]string{"auth", "status"},
@@ -1234,7 +1216,6 @@ func TestAuthStatusUsesRuntimeEnvTokenOverride(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"team_id":"T123","team":"Test Workspace","user_id":"U123"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeAuthRoot(t, cfg, configPath, store, server.BaseURL(),
 		[]string{"auth", "status"},
@@ -1384,7 +1365,6 @@ func TestAuthLogoutCallsAuthRevoke(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"revoked":true}`)
 		},
 	})
-	defer server.Close()
 
 	cfg := authTestConfig()
 	configPath := filepath.Join(t.TempDir(), "config.toml")
@@ -1413,7 +1393,6 @@ func TestAuthLogoutKeepTokenSkipsRevoke(t *testing.T) {
 	}
 
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	cfg := authTestConfig()
 	configPath := filepath.Join(t.TempDir(), "config.toml")
@@ -1456,7 +1435,6 @@ func TestAuthLogoutRevokeFailureProceedsWithCleanup(t *testing.T) {
 			return testutil.SlackResponse{Status: http.StatusInternalServerError, Body: `{"ok":false,"error":"internal_error"}`}
 		},
 	})
-	defer server.Close()
 
 	cfg := authTestConfig()
 	configPath := filepath.Join(t.TempDir(), "config.toml")

@@ -15,7 +15,6 @@ func TestSearchMessagesCommandWritesPaginatedEnvelope(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"messages":{"matches":[{"channel":{"id":"C123","name":"alerts"},"user":"U1","text":"deploy failed in prod","ts":"1746284582.123456","permalink":"https://example.slack.com/archives/C123/p1746284582123456","snippet":"deploy failed"}],"pagination":{"page":1,"page_count":2}}}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(),
 		"",
@@ -42,7 +41,6 @@ func TestSearchMessagesCommandReturnsEmptyMatchesForNoResults(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"messages":{"matches":[],"pagination":{"page":1,"page_count":1}}}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(),
 		"",
@@ -70,8 +68,6 @@ func TestSearchMessagesCommandReturnsEmptyMatchesForNoResults(t *testing.T) {
 
 func TestSearchMessagesCommandRejectsMissingQuery(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
-
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(),
 		"",
 		[]string{"lookup", "messages"},
@@ -94,7 +90,6 @@ func TestSearchMessagesRequiresUserToken(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",

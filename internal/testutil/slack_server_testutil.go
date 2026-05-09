@@ -45,6 +45,7 @@ func NewSlackServer(t testing.TB, handlers map[string]SlackHandler) *SlackServer
 		handlers: handlers,
 	}
 	slackServer.server = httptest.NewServer(http.HandlerFunc(slackServer.serveHTTP))
+	t.Cleanup(slackServer.server.Close)
 	return slackServer
 }
 

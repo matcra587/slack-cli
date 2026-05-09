@@ -18,7 +18,6 @@ func TestCacheUsersPrimesActiveUsersAndReusesFreshCache(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"members":[{"id":"UACTIVE","name":"active","deleted":false},{"id":"UDELETED","name":"deleted","deleted":true}]}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "", []string{"cache", "users"})
 	if err != nil {
@@ -56,7 +55,6 @@ func TestCacheChannelsPrimesAllConversationTypesAndReusesFreshCache(t *testing.T
 			return testutil.JSONResponse(`{"ok":true,"channels":[{"id":"C123","name":"alerts"},{"id":"D123","is_im":true,"user":"U123"}]}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "", []string{"cache", "channels"})
 	if err != nil {
@@ -118,7 +116,6 @@ func TestCompletionUsesCachedUsersAndChannelsBeforeSlackRequests(t *testing.T) {
 		t.Fatalf("write channels cache: %v", err)
 	}
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	cfg := workspaceConfig(config.TokenTypeBot)
 	handler := slackCompletionHandler("xox-test", cfg, &RootRuntime{SlackBaseURL: server.BaseURL()})

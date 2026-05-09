@@ -1,3 +1,5 @@
+//go:build integration
+
 package integration_test
 
 import (
@@ -18,7 +20,6 @@ import (
 func TestPipeContractForMessageEditFileUploadAndHistory(t *testing.T) {
 	binary := buildSlackBinary(t)
 	server := pipeMockSlackServer(t)
-	defer server.Close()
 	configPath := writePipeConfig(t)
 
 	tests := []struct {
@@ -56,7 +57,6 @@ func TestPipeContractForMessageEditFileUploadAndHistory(t *testing.T) {
 func TestPipeContractRejectsIncompatibleOutputFlagsBeforeCommandWork(t *testing.T) {
 	binary := buildSlackBinary(t)
 	server := pipeMockSlackServer(t)
-	defer server.Close()
 	configPath := writePipeConfig(t)
 
 	stdout, stderr, err := runSlackBinary(t, binary, configPath, server.URL, "",
@@ -81,7 +81,6 @@ func TestPipeContractRejectsIncompatibleOutputFlagsBeforeCommandWork(t *testing.
 func TestPipeContractUnknownCommandUsesStructuredValidationError(t *testing.T) {
 	binary := buildSlackBinary(t)
 	server := pipeMockSlackServer(t)
-	defer server.Close()
 	configPath := writePipeConfig(t)
 
 	stdout, stderr, err := runSlackBinary(t, binary, configPath, server.URL, "", "dm")
@@ -102,7 +101,6 @@ func TestPipeContractUnknownCommandUsesStructuredValidationError(t *testing.T) {
 func TestPipeContractRejectsInvalidRawBlocksFromStdinBeforeSlackCall(t *testing.T) {
 	binary := buildSlackBinary(t)
 	server := pipeMockSlackServer(t)
-	defer server.Close()
 	configPath := writePipeConfig(t)
 
 	stdout, stderr, err := runSlackBinary(t, binary, configPath, server.URL, `[{"type":"section"}]`,
@@ -203,7 +201,7 @@ token = "env:SLACK_TEST_TOKEN"
 
 func pipeMockSlackServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/chat.postMessage":
 			writeJSON(w, `{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","user":"U123","text":"hello","ts":"1746284582.123456"}}`)
@@ -230,6 +228,8 @@ func pipeMockSlackServer(t *testing.T) *httptest.Server {
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
 	}))
+	t.Cleanup(s.Close)
+	return s
 }
 
 func writeJSON(w http.ResponseWriter, body string) {

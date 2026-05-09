@@ -18,7 +18,6 @@ func TestHistoryListCommandWritesPaginatedEnvelope(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"U1","text":"hello","ts":"1746284582.123456"}],"response_metadata":{"next_cursor":"cursor-2"}}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -51,7 +50,6 @@ func TestHistoryListCommandReadsThreadWhenThreadFlagIsSet(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"U1","text":"parent","ts":"1746284582.123456"}]}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -68,7 +66,6 @@ func TestHistoryListCommandSurfacesBlocksFieldForMessageWithBlocks(t *testing.T)
 			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"U1","text":"hello","ts":"1746284582.123456","blocks":[{"type":"header","text":{"type":"plain_text","text":"Title"}}]}]}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, _, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -94,7 +91,6 @@ func TestHistoryListCommandCanIncludeBoundedReplies(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"U1","text":"parent","ts":"1746284582.123456"},{"type":"message","user":"U2","text":"reply","ts":"1746284584.123456"}]}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -114,7 +110,6 @@ func TestHistoryListCommandMapsMissingChannelToNotFound(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":false,"error":"channel_not_found"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",

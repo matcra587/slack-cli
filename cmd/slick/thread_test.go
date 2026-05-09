@@ -23,7 +23,6 @@ func TestThreadReplyCommandPostsNestedReply(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284599123456"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -52,7 +51,6 @@ func TestThreadReplyCommandMapsInvalidParentToNotFound(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":false,"error":"message_not_found"}`)
 		},
 	})
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -93,7 +91,6 @@ func TestThreadReplyCommandSupportsBlockInput(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284599123456"}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -106,7 +103,6 @@ func TestThreadReplyCommandSupportsBlockInput(t *testing.T) {
 
 func TestThreadReplyCommandRejectsMalformedBlockInput(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -139,7 +135,6 @@ func TestThreadReplyCommandPreservesUnsupportedMarkdownSourceFallback(t *testing
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284599123456"}`)
 		},
 	})
-	defer server.Close()
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -152,7 +147,6 @@ func TestThreadReplyCommandPreservesUnsupportedMarkdownSourceFallback(t *testing
 
 func TestThreadReplyCommandRejectsInvalidRawBlockRequiredFieldsBeforeSlackRequest(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
@@ -174,7 +168,6 @@ func TestThreadReplyCommandRejectsInvalidRawBlockRequiredFieldsBeforeSlackReques
 
 func TestThreadReplyCommandDryRunSkipsSlackMutation(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
-	defer server.Close()
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",

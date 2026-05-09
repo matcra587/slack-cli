@@ -2,19 +2,24 @@ package blockkit
 
 import (
 	"strings"
+	"sync"
 
 	slackgo "github.com/slack-go/slack"
 	goldmark "github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	extast "github.com/yuin/goldmark/extension/ast"
+	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"
 )
 
+var defaultParser = sync.OnceValue(func() parser.Parser {
+	return goldmark.New(goldmark.WithExtensions(extension.Table)).Parser()
+})
+
 func FromMarkdown(markdown string) ([]Block, error) {
 	source := []byte(markdown)
-	parser := goldmark.New(goldmark.WithExtensions(extension.Table)).Parser()
-	doc := parser.Parse(text.NewReader(source))
+	doc := defaultParser().Parse(text.NewReader(source))
 
 	var blocks []Block
 	for node := doc.FirstChild(); node != nil; node = node.NextSibling() {

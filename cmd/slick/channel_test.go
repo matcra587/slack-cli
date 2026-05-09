@@ -21,8 +21,6 @@ func TestLookupChannelListsAndShowsInfo(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"channel":{"id":"C123","name":"alerts","num_members":12,"topic":{"value":"Ops alerts"}}}`)
 		},
 	})
-	defer server.Close()
-
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
 		[]string{"lookup", "channel", "--max-items", "1", "--cursor", "cursor-1"},
@@ -59,8 +57,6 @@ func TestLookupChannelCanListDMConversationsByType(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":true,"channels":[{"id":"D123","is_im":true,"user":"U123"}]}`)
 		},
 	})
-	defer server.Close()
-
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
 		[]string{"lookup", "channel", "--types", "im", "--max-items", "1"},
@@ -79,8 +75,6 @@ func TestLookupChannelMapsMissingChannelToNotFound(t *testing.T) {
 			return testutil.JSONResponse(`{"ok":false,"error":"channel_not_found"}`)
 		},
 	})
-	defer server.Close()
-
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
 		[]string{"lookup", "channel", "--channel", "C404"},

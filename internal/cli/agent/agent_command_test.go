@@ -1,14 +1,32 @@
-package main
+package agent_test
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/gechr/clib/help"
+	"github.com/gechr/clib/theme"
+	agentpkg "github.com/matcra587/slack-cli/internal/agent"
 	"github.com/matcra587/slack-cli/internal/agenthelp"
+	cliagent "github.com/matcra587/slack-cli/internal/cli/agent"
+	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
+	"github.com/matcra587/slack-cli/internal/config"
+	"github.com/spf13/cobra"
 )
 
-func TestAgentSchemaCompactOutputsCommandTreeForAgents(t *testing.T) {
+func TestMain(m *testing.M) {
+	for _, key := range agentpkg.KnownEnvVars() {
+		_ = os.Unsetenv(key)
+	}
+	os.Exit(m.Run())
+}
+
+func TestAgentSchemaCompactReturnsRawJSONWithoutEnvelope(t *testing.T) {
 	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "schema", "--compact"})
 	if err != nil {
 		t.Fatalf("agent schema returned error: %v\nstderr=%s", err, stderr)
@@ -23,29 +41,6 @@ func TestAgentSchemaCompactOutputsCommandTreeForAgents(t *testing.T) {
 	}
 	if schema.Version == "" {
 		t.Fatal("schema version is empty")
-	}
-	if !compactSchemaHasCommand(schema.Commands, "message", "send") {
-		t.Fatalf("schema commands = %#v, want message send", schema.Commands)
-	}
-	if !compactSchemaHasCommand(schema.Commands, "reply") {
-		t.Fatalf("schema commands = %#v, want public reply command", schema.Commands)
-	}
-	if !compactSchemaHasCommand(schema.Commands, "react", "add") ||
-		!compactSchemaHasCommand(schema.Commands, "react", "remove") ||
-		!compactSchemaHasCommand(schema.Commands, "react", "list") {
-		t.Fatalf("schema commands = %#v, want public react add/remove/list commands", schema.Commands)
-	}
-	if compactSchemaHasCommand(schema.Commands, "reaction") {
-		t.Fatalf("schema commands = %#v, legacy reaction command should not exist", schema.Commands)
-	}
-	if compactSchemaHasCommand(schema.Commands, "thread") {
-		t.Fatalf("schema commands = %#v, legacy thread command should not exist", schema.Commands)
-	}
-	if compactSchemaHasCommand(schema.Commands, "dm") {
-		t.Fatalf("schema commands = %#v, dm command should not be exposed; use message send --user", schema.Commands)
-	}
-	if compactSchemaHasCommand(schema.Commands, "schema") {
-		t.Fatalf("schema commands = %#v, root schema alias should not be exposed", schema.Commands)
 	}
 }
 
@@ -104,63 +99,6 @@ func TestAgentSchemaIncludesRootSchemaContract(t *testing.T) {
 	}
 	if !strings.Contains(schemaExamples[0].(string), "slick agent schema") {
 		t.Fatalf("schema examples = %#v, want agent schema command", schemaExamples)
-	}
-}
-
-func TestAgentSchemaIncludesBlocksAndOutputOnlyRawContract(t *testing.T) {
-	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "schema"})
-	if err != nil {
-		t.Fatalf("agent schema returned error: %v\nstderr=%s", err, stderr)
-	}
-	var schema agenthelp.Schema
-	if err := json.Unmarshal([]byte(stdout), &schema); err != nil {
-		t.Fatalf("unmarshal schema: %v\nstdout=%s", err, stdout)
-	}
-	for _, path := range [][]string{
-		{"message", "send"},
-		{"message", "edit"},
-	} {
-		command := findSchemaCommand(schema.Commands, path...)
-		if command == nil {
-			t.Fatalf("schema missing command path %v", path)
-		}
-		if !schemaCommandHasFlag(*command, "blocks") {
-			t.Fatalf("schema command %v flags = %#v, want --blocks", path, command.Flags)
-		}
-	}
-	if command := findSchemaCommand(schema.Commands, "dm"); command != nil {
-		t.Fatalf("schema exposed dm command %#v; direct messages must use message send --user", *command)
-	}
-	for _, name := range []string{"channel", "user"} {
-		if command := findSchemaCommand(schema.Commands, name); command != nil {
-			t.Fatalf("schema exposed %s command %#v; discovery must use lookup", name, *command)
-		}
-	}
-	for _, path := range [][]string{{"lookup", "channel"}, {"lookup", "messages"}, {"lookup", "user"}} {
-		if command := findSchemaCommand(schema.Commands, path...); command == nil {
-			t.Fatalf("schema missing lookup command path %v", path)
-		}
-	}
-	if !schemaGlobalFlag(schema.GlobalFlags, "raw") || !schemaGlobalFlag(schema.GlobalFlags, "json") {
-		t.Fatalf("global flags = %#v, want --raw and --json output flags", schema.GlobalFlags)
-	}
-	messageShape := strings.Join(schema.InputShapes["message.send"], "\n")
-	if !strings.Contains(messageShape, "--blocks Block Kit JSON array") {
-		t.Fatalf("message.send input shape = %#v, want --blocks raw input contract", schema.InputShapes["message.send"])
-	}
-	for _, fragment := range []string{"source-preserving Markdown fallback", "validates Slack Block Kit JSON rules", "missing_scope", "not_in_channel", "no_permission"} {
-		if !strings.Contains(messageShape, fragment) && !strings.Contains(strings.Join(schema.Output.Notes, "\n"), fragment) {
-			t.Fatalf("schema missing clarified contract %q\ninput=%#v\nnotes=%#v", fragment, schema.InputShapes["message.send"], schema.Output.Notes)
-		}
-	}
-	if !strings.Contains(messageShape, "--channel and --user are mutually exclusive") {
-		t.Fatalf("message.send input shape = %#v, want mutually-exclusive target contract", schema.InputShapes["message.send"])
-	}
-	if strings.Contains(messageShape, "--raw Block Kit JSON array") {
-		t.Fatalf("message.send input shape = %#v, --raw must not select raw input", schema.InputShapes["message.send"])
-	}
-	if !strings.Contains(strings.Join(schema.Output.Notes, "\n"), "--raw is output-only") {
-		t.Fatalf("output notes = %#v, want output-only --raw note", schema.Output.Notes)
 	}
 }
 
@@ -359,40 +297,6 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 	}
 }
 
-func findSchemaCommand(commands []agenthelp.CommandInfo, path ...string) *agenthelp.CommandInfo {
-	if len(path) == 0 {
-		return nil
-	}
-	for i := range commands {
-		if commands[i].Name != path[0] {
-			continue
-		}
-		if len(path) == 1 {
-			return &commands[i]
-		}
-		return findSchemaCommand(commands[i].Subcommands, path[1:]...)
-	}
-	return nil
-}
-
-func schemaCommandHasFlag(command agenthelp.CommandInfo, name string) bool {
-	for _, flag := range command.Flags {
-		if flag.Name == name {
-			return true
-		}
-	}
-	return false
-}
-
-func schemaGlobalFlag(flags []agenthelp.FlagInfo, name string) bool {
-	for _, flag := range flags {
-		if flag.Name == name {
-			return true
-		}
-	}
-	return false
-}
-
 func assertBefore(t *testing.T, output, first, second string) {
 	t.Helper()
 	firstIndex := strings.Index(output, first)
@@ -405,14 +309,63 @@ func assertBefore(t *testing.T, output, first, second string) {
 	}
 }
 
-func compactSchemaHasCommand(commands []agenthelp.CompactCommand, path ...string) bool {
-	if len(path) == 0 {
-		return true
+func buildTestRoot(cfg *config.Config, baseURL string, stdin interface{ Read([]byte) (int, error) }, stdout, stderr *bytes.Buffer) *cobra.Command {
+	th := theme.Default()
+	runtime := &cliruntime.RootRuntime{
+		Stdin:        stdin,
+		Stdout:       stdout,
+		Stderr:       stderr,
+		IsTTY:        false,
+		Now:          func() time.Time { return time.Date(2026, 5, 3, 13, 8, 0, 0, time.UTC) },
+		RequestID:    func() string { return "test-request" },
+		Theme:        th,
+		HelpRenderer: help.NewRenderer(th),
 	}
-	for _, command := range commands {
-		if command.Name == path[0] {
-			return compactSchemaHasCommand(command.Subcommands, path[1:]...)
-		}
+	if cfg != nil {
+		runtime.Config = cfg
 	}
-	return false
+	if baseURL != "" {
+		runtime.SlackBaseURL = baseURL
+	}
+	runtime.TokenResolver = cliruntime.TokenResolverFunc(func(_ context.Context, _ config.WorkspaceProfile) (string, error) {
+		return "xox-test", nil
+	})
+
+	root := &cobra.Command{
+		Use:           "slick",
+		Short:         "Slack command line interface",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	root.SetIn(stdin)
+	root.SetOut(stdout)
+	root.SetErr(stderr)
+
+	flags := root.PersistentFlags()
+	flags.StringP("workspace", "w", "", "Workspace profile")
+	flags.BoolP("json", "j", false, "Force JSON output")
+	flags.BoolP("plain", "P", false, "Force plain text output")
+	flags.BoolP("compact", "k", false, "Output command data without envelope")
+	flags.BoolP("raw", "X", false, "Output Slack-native data")
+	flags.BoolP("agent", "a", false, "Force agent mode")
+	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
+	flags.StringP("agent-label", "G", "", "Override agent attribution label")
+	flags.StringP("agent-emoji", "Y", "", "Override agent attribution emoji")
+	flags.StringP("agent-message", "O", "", "Override agent attribution message")
+	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
+	flags.BoolP("debug", "D", false, "Enable debug-level output")
+	root.MarkFlagsMutuallyExclusive("json", "plain", "compact", "raw")
+
+	root.AddCommand(cliagent.NewCommand(runtime))
+	return root
+}
+
+func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, args []string) (string, string, error) {
+	t.Helper()
+	stdoutBuf := &bytes.Buffer{}
+	stderrBuf := &bytes.Buffer{}
+	cmd := buildTestRoot(cfg, baseURL, strings.NewReader(stdin), stdoutBuf, stderrBuf)
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return stdoutBuf.String(), stderrBuf.String(), err
 }

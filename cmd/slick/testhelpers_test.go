@@ -106,16 +106,3 @@ func workspaceConfig(tokenType config.TokenType) *config.Config {
 		},
 	}
 }
-
-func rawSectionText(t *testing.T, block map[string]any) string {
-	t.Helper()
-	text, ok := block["text"].(map[string]any)
-	if !ok {
-		t.Fatalf("section block text = %#v, want object", block["text"])
-	}
-	value, ok := text["text"].(string)
-	if !ok {
-		t.Fatalf("section text value = %#v, want string", text["text"])
-	}
-	return value
-}

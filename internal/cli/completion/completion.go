@@ -1,4 +1,7 @@
-package main
+// Package completion wires shell completions for the `slick` cobra command
+// tree, including dynamic Slack-resource handlers for channels, users, and
+// configuration keys.
+package completion
 
 import (
 	"context"
@@ -12,6 +15,12 @@ import (
 	"github.com/gechr/clib/complete"
 	"github.com/matcra587/slack-cli/internal/agenthelp"
 	slackcache "github.com/matcra587/slack-cli/internal/cache"
+	clicache "github.com/matcra587/slack-cli/internal/cli/cache"
+	cliconfig "github.com/matcra587/slack-cli/internal/cli/config"
+	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
+	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
+	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
+	clitoken "github.com/matcra587/slack-cli/internal/cli/token"
 	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
@@ -20,12 +29,13 @@ import (
 
 const completionTimeout = 5 * time.Second
 
-func setupClibCompletion(root *cobra.Command, runtime *RootRuntime) {
+// Setup registers the clib completion handler on the root command.
+func Setup(root *cobra.Command, runtime *cliruntime.RootRuntime) {
 	completion := cobracli.NewCompletion(root)
 	root.RunE = func(cmd *cobra.Command, args []string) error {
 		handled, err := completion.Handle(
-			slackCompletionGenerator(root),
-			slackCompletionHandlerForRuntime(runtime),
+			Generator(root),
+			HandlerForRuntime(runtime),
 			cobracli.WithArgs(args),
 		)
 		if err != nil || handled {
@@ -35,31 +45,34 @@ func setupClibCompletion(root *cobra.Command, runtime *RootRuntime) {
 	}
 }
 
-func addClibCompletionCommand(root *cobra.Command) {
+// AddCommand registers the `slick completion` subcommand on the root.
+func AddCommand(root *cobra.Command) {
 	root.AddCommand(cobracli.CompletionCommand(root, func() *complete.Generator {
-		return slackCompletionGenerator(root)
+		return Generator(root)
 	}))
 }
 
-func slackCompletionGenerator(root *cobra.Command) *complete.Generator {
+// Generator returns a clib completion generator for the supplied root command.
+func Generator(root *cobra.Command) *complete.Generator {
 	gen := complete.NewGenerator("slick", complete.WithOrder(complete.OrderKeep)).
 		FromFlags(cobracli.FlagMeta(root))
 	gen.Subs = cobracli.Subcommands(root)
 	return gen
 }
 
-func slackCompletionHandlerForRuntime(runtime *RootRuntime) complete.Handler {
+// HandlerForRuntime returns a dynamic-completion handler bound to the runtime.
+func HandlerForRuntime(runtime *cliruntime.RootRuntime) complete.Handler {
 	cfg := runtime.Config
 	if runtime.ConfigLoadError != nil {
 		cfg = nil
 	}
-	token := slackCompletionToken(runtime, cfg)
-	return slackCompletionHandler(token, cfg, runtime)
+	token := tokenFor(runtime, cfg)
+	return Handler(token, cfg, runtime)
 }
 
-func slackCompletionToken(runtime *RootRuntime, cfg *config.Config) string {
+func tokenFor(runtime *cliruntime.RootRuntime, cfg *config.Config) string {
 	if cfg == nil {
-		if token, ok := runtimeEnvToken(""); ok {
+		if token, ok := clitoken.RuntimeEnvToken(""); ok {
 			return token
 		}
 		return ""
@@ -68,12 +81,12 @@ func slackCompletionToken(runtime *RootRuntime, cfg *config.Config) string {
 	if err != nil {
 		return ""
 	}
-	if token, ok := runtimeEnvToken(profile.Name); ok {
+	if token, ok := clitoken.RuntimeEnvToken(profile.Name); ok {
 		return token
 	}
 	resolver := runtime.TokenResolver
 	if resolver == nil {
-		resolver = CredentialTokenResolver{
+		resolver = clitoken.CredentialTokenResolver{
 			Store:        runtime.CredentialStore,
 			SlackBaseURL: runtime.SlackBaseURL,
 			HTTPClient:   runtime.HTTPClient,
@@ -87,17 +100,19 @@ func slackCompletionToken(runtime *RootRuntime, cfg *config.Config) string {
 	return token
 }
 
-func slackCompletionHandler(token string, cfg *config.Config, runtime *RootRuntime) complete.Handler {
-	profileName := slackCompletionProfileName(cfg)
+// Handler returns a dynamic completion handler that uses the supplied token,
+// config, and runtime to resolve channel, user, workspace, and config keys.
+func Handler(token string, cfg *config.Config, runtime *cliruntime.RootRuntime) complete.Handler {
+	profileName := profileNameFromConfig(cfg)
 	return func(shell, kind string, args []string) {
 		switch kind {
 		case "workspace":
-			for _, name := range completionWorkspaceNames(cfg) {
+			for _, name := range cliconfig.WorkspaceNames(cfg) {
 				printCompletion(shell, name, "")
 			}
 			return
 		case "config_key":
-			for _, candidate := range slackConfigKeyCompletions(cfg) {
+			for _, candidate := range cliconfig.KeyCompletions(cfg) {
 				value, desc, _ := strings.Cut(candidate, "\t")
 				printCompletion(shell, value, desc)
 			}
@@ -113,10 +128,10 @@ func slackCompletionHandler(token string, cfg *config.Config, runtime *RootRunti
 				if token == "" {
 					return
 				}
-				completeSlackChannels(shell, slackCompletionClient(token, runtime))
+				completeSlackChannels(shell, completionClient(token, runtime))
 				return
 			}
-			for _, value := range slackConfigValueCompletions(args[0], cfg) {
+			for _, value := range cliconfig.ValueCompletions(args[0], cfg) {
 				printCompletion(shell, value, "")
 			}
 			return
@@ -126,7 +141,7 @@ func slackCompletionHandler(token string, cfg *config.Config, runtime *RootRunti
 			}
 			return
 		case "cache_resource":
-			for _, resource := range cacheResources {
+			for _, resource := range clicache.Resources {
 				printCompletion(shell, resource, "")
 			}
 			return
@@ -143,7 +158,7 @@ func slackCompletionHandler(token string, cfg *config.Config, runtime *RootRunti
 		if token == "" {
 			return
 		}
-		client := slackCompletionClient(token, runtime)
+		client := completionClient(token, runtime)
 		ctx, cancel := context.WithTimeout(context.Background(), completionTimeout)
 		defer cancel()
 
@@ -156,7 +171,7 @@ func slackCompletionHandler(token string, cfg *config.Config, runtime *RootRunti
 	}
 }
 
-func slackCompletionProfileName(cfg *config.Config) string {
+func profileNameFromConfig(cfg *config.Config) string {
 	if cfg == nil {
 		return "default"
 	}
@@ -178,7 +193,7 @@ func completeSlackChannels(shell string, client *slackgo.Client) {
 		return
 	}
 	for _, channel := range channels {
-		printCompletion(shell, channel.ID, completionChannelDescription(channel))
+		printCompletion(shell, channel.ID, channelDescription(channel))
 	}
 }
 
@@ -196,13 +211,13 @@ func completeSlackUsers(ctx context.Context, shell string, client *slackgo.Clien
 }
 
 func completeCachedUsers(shell, profile string) bool {
-	var payload cachedUsersPayload
-	if !readCompletionCache(profile, "users", &payload) {
+	var payload clicache.UsersPayload
+	if !readCache(profile, "users", &payload) {
 		return false
 	}
 	printed := false
 	for _, user := range payload.Users {
-		if !completionUserActive(user) {
+		if !cachedUserActive(user) {
 			continue
 		}
 		printCompletion(shell, user.ID, user.Name)
@@ -212,33 +227,36 @@ func completeCachedUsers(shell, profile string) bool {
 }
 
 func completeCachedChannels(shell, profile string) bool {
-	var payload cachedChannelsPayload
-	if !readCompletionCache(profile, "channels", &payload) {
+	var payload clicache.ChannelsPayload
+	if !readCache(profile, "channels", &payload) {
 		return false
 	}
 	for _, channel := range payload.Channels {
-		printCompletion(shell, channel.ID, completionChannelDescriptionFromCLI(channel))
+		printCompletion(shell, channel.ID, cachedChannelDescription(channel))
 	}
 	return true
 }
 
-func readCompletionCache(profile, resource string, target any) bool {
-	entry, ok, stale, err := slackcache.Read(profile, resource, time.Duration(slackMetadataCacheTTLMinutes)*time.Minute)
+func readCache(profile, resource string, target any) bool {
+	entry, ok, stale, err := slackcache.Read(profile, resource, time.Duration(clicache.MetadataTTLMinutes)*time.Minute)
 	if err != nil || !ok || stale {
 		return false
 	}
 	return json.Unmarshal(entry.Data, target) == nil
 }
 
-func completionUserActive(user cliUser) bool {
+func cachedUserActive(user clioutput.CliUser) bool {
 	return user.Deleted == nil || !*user.Deleted
 }
 
-func slackCompletionClient(token string, runtime *RootRuntime) *slackgo.Client {
-	return newSlackClient(context.Background(), nil, runtime, token)
+func completionClient(token string, runtime *cliruntime.RootRuntime) *slackgo.Client {
+	return slackclient.New(context.Background(), nil, runtime, token)
 }
 
-func completionWorkspaceNames(cfg *config.Config) []string {
+// WorkspaceNames returns the sorted workspace profile names for the supplied
+// configuration. Exported for use by tests and external callers (e.g. main.go's
+// schema documentation).
+func WorkspaceNames(cfg *config.Config) []string {
 	if cfg == nil {
 		return nil
 	}
@@ -250,7 +268,7 @@ func completionWorkspaceNames(cfg *config.Config) []string {
 	return names
 }
 
-func completionChannelDescription(channel slackgo.Channel) string {
+func channelDescription(channel slackgo.Channel) string {
 	if channel.Name != "" {
 		return channel.Name
 	}
@@ -260,7 +278,7 @@ func completionChannelDescription(channel slackgo.Channel) string {
 	return ""
 }
 
-func completionChannelDescriptionFromCLI(channel cliChannel) string {
+func cachedChannelDescription(channel clioutput.CliChannel) string {
 	if channel.Name != "" {
 		return channel.Name
 	}
@@ -281,24 +299,25 @@ func printCompletion(shell, value, desc string) {
 	_, _ = os.Stdout.WriteString(line + "\n")
 }
 
-func extendSlackCompletionMetadata(root *cobra.Command) {
-	extendRootCompletionFlags(root)
-	extendMessageCompletionFlags(root)
-	extendHistoryCompletionFlags(root)
-	extendReplyCompletionFlags(root)
-	extendReactCompletionFlags(root)
-	extendLookupCompletionFlags(root)
-	extendFileCompletionFlags(root)
-	extendStatusCompletionFlags(root)
-	extendCacheCompletionMetadata(root)
-	extendManifestCompletionFlags(root)
-	extendConfigCompletionArgs(root)
-	extendAgentCompletionArgs(root)
-	extendAuthCompletionMetadata(root)
-	extendWorkspaceCompletionMetadata(root)
+// ExtendSlackMetadata attaches clib completion metadata to the per-command
+// flags after all subcommands have been added to the root.
+func ExtendSlackMetadata(root *cobra.Command) {
+	extendRootFlags(root)
+	extendMessageFlags(root)
+	extendHistoryFlags(root)
+	extendReplyFlags(root)
+	extendReactFlags(root)
+	extendLookupFlags(root)
+	extendFileFlags(root)
+	extendStatusFlags(root)
+	extendCacheMetadata(root)
+	extendManifestFlags(root)
+	extendConfigArgs(root)
+	extendAgentArgs(root)
+	extendAuthMetadata(root)
 }
 
-func extendRootCompletionFlags(root *cobra.Command) {
+func extendRootFlags(root *cobra.Command) {
 	pf := root.PersistentFlags()
 	cobracli.Extend(pf.Lookup("workspace"), cobracli.FlagExtra{Complete: "predictor=workspace", Placeholder: "PROFILE", Terse: "workspace"})
 	cobracli.Extend(pf.Lookup("json"), cobracli.FlagExtra{Group: "Output", Terse: "JSON output"})
@@ -308,12 +327,12 @@ func extendRootCompletionFlags(root *cobra.Command) {
 	cobracli.Extend(pf.Lookup("agent"), cobracli.FlagExtra{Group: "Agent", Terse: "agent mode"})
 	cobracli.Extend(pf.Lookup("no-agent-attribution"), cobracli.FlagExtra{Group: "Agent", Terse: "disable attribution"})
 	cobracli.Extend(pf.Lookup("agent-label"), cobracli.FlagExtra{Group: "Agent", Placeholder: "LABEL", Terse: "agent label"})
-	cobracli.Extend(pf.Lookup("agent-emoji"), cobracli.FlagExtra{Group: "Agent", Placeholder: ":robot_face:", Complete: "values=" + strings.Join(commonEmojiCompletions(), " "), Terse: "agent emoji"})
+	cobracli.Extend(pf.Lookup("agent-emoji"), cobracli.FlagExtra{Group: "Agent", Placeholder: ":robot_face:", Complete: "values=" + strings.Join(cliconfig.CommonEmojis(), " "), Terse: "agent emoji"})
 	cobracli.Extend(pf.Lookup("agent-message"), cobracli.FlagExtra{Group: "Agent", Placeholder: "TEXT", Terse: "agent message"})
 	cobracli.Extend(pf.Lookup("no-throttle"), cobracli.FlagExtra{Group: "Network", Terse: "disable throttle"})
 }
 
-func extendMessageCompletionFlags(root *cobra.Command) {
+func extendMessageFlags(root *cobra.Command) {
 	send := commandPath(root, "message", "send")
 	extendSlackMessageInputFlags(send)
 	extendSlackTargetFlags(send)
@@ -335,7 +354,7 @@ func extendMessageCompletionFlags(root *cobra.Command) {
 	extendForceFlag(deleteCmd)
 }
 
-func extendHistoryCompletionFlags(root *cobra.Command) {
+func extendHistoryFlags(root *cobra.Command) {
 	cmd := commandPath(root, "history", "list")
 	extendChannelFlag(cmd, "channel")
 	extendUserFlag(cmd, "user")
@@ -347,7 +366,7 @@ func extendHistoryCompletionFlags(root *cobra.Command) {
 	cobracli.Extend(flag(cmd, "reply-limit"), cobracli.FlagExtra{Placeholder: "N", Terse: "reply limit"})
 }
 
-func extendReplyCompletionFlags(root *cobra.Command) {
+func extendReplyFlags(root *cobra.Command) {
 	cmd := commandPath(root, "reply")
 	extendChannelFlag(cmd, "channel")
 	extendTimestampFlag(cmd, "parent")
@@ -356,7 +375,7 @@ func extendReplyCompletionFlags(root *cobra.Command) {
 	extendDryRunFlag(cmd)
 }
 
-func extendReactCompletionFlags(root *cobra.Command) {
+func extendReactFlags(root *cobra.Command) {
 	for _, action := range []string{"add", "remove"} {
 		cmd := commandPath(root, "react", action)
 		extendChannelFlag(cmd, "channel")
@@ -369,7 +388,7 @@ func extendReactCompletionFlags(root *cobra.Command) {
 	extendTimestampFlag(list, "timestamp")
 }
 
-func extendLookupCompletionFlags(root *cobra.Command) {
+func extendLookupFlags(root *cobra.Command) {
 	channel := commandPath(root, "lookup", "channel")
 	extendChannelFlag(channel, "channel")
 	extendMaxItemsFlag(channel)
@@ -396,7 +415,7 @@ func extendLookupCompletionFlags(root *cobra.Command) {
 	extendCursorFlag(messages)
 }
 
-func extendFileCompletionFlags(root *cobra.Command) {
+func extendFileFlags(root *cobra.Command) {
 	cmd := commandPath(root, "file", "upload")
 	extendChannelFlag(cmd, "channel")
 	extendFileHint(cmd, "file")
@@ -407,7 +426,7 @@ func extendFileCompletionFlags(root *cobra.Command) {
 	extendDryRunFlag(cmd)
 }
 
-func extendStatusCompletionFlags(root *cobra.Command) {
+func extendStatusFlags(root *cobra.Command) {
 	set := commandPath(root, "status", "set")
 	cobracli.Extend(flag(set, "text"), cobracli.FlagExtra{Placeholder: "TEXT", Terse: "status text"})
 	extendEmojiFlag(set)
@@ -419,7 +438,7 @@ func extendStatusCompletionFlags(root *cobra.Command) {
 	extendDryRunFlag(clear)
 }
 
-func extendManifestCompletionFlags(root *cobra.Command) {
+func extendManifestFlags(root *cobra.Command) {
 	cmd := commandPath(root, "manifest", "template")
 	cobracli.Extend(flag(cmd, "name"), cobracli.FlagExtra{Placeholder: "name", Terse: "app name"})
 	cobracli.Extend(flag(cmd, "description"), cobracli.FlagExtra{Placeholder: "text", Terse: "description"})
@@ -447,7 +466,7 @@ func extendManifestCompletionFlags(root *cobra.Command) {
 	cobracli.Extend(flag(cmd, "background-color"), cobracli.FlagExtra{Placeholder: "#RRGGBB", Terse: "background"})
 }
 
-func extendConfigCompletionArgs(root *cobra.Command) {
+func extendConfigArgs(root *cobra.Command) {
 	for _, path := range [][]string{{"config", "get"}, {"config", "unset"}} {
 		if cmd := commandPath(root, path...); cmd != nil {
 			cmd.Annotations = mergeClibAnnotation(cmd.Annotations, "dynamic-args='config_key'")
@@ -458,13 +477,13 @@ func extendConfigCompletionArgs(root *cobra.Command) {
 	}
 }
 
-func extendAgentCompletionArgs(root *cobra.Command) {
+func extendAgentArgs(root *cobra.Command) {
 	if cmd := commandPath(root, "agent", "guide"); cmd != nil {
 		cmd.Annotations = mergeClibAnnotation(cmd.Annotations, "dynamic-args='guide_workflow'")
 	}
 }
 
-func extendCacheCompletionMetadata(root *cobra.Command) {
+func extendCacheMetadata(root *cobra.Command) {
 	for _, path := range [][]string{{"cache", "users"}, {"cache", "channels"}} {
 		cmd := commandPath(root, path...)
 		cobracli.Extend(flag(cmd, "refresh"), cobracli.FlagExtra{Terse: "refresh"})
@@ -477,7 +496,7 @@ func extendCacheCompletionMetadata(root *cobra.Command) {
 	}
 }
 
-func extendAuthCompletionMetadata(root *cobra.Command) {
+func extendAuthMetadata(root *cobra.Command) {
 	login := commandPath(root, "auth", "login")
 	cobracli.Extend(flag(login, "workspace-name"), cobracli.FlagExtra{Complete: "predictor=workspace", Placeholder: "PROFILE", Terse: "profile"})
 	cobracli.Extend(flag(login, "token-file"), cobracli.FlagExtra{Hint: complete.HintFile, Placeholder: "FILE", Terse: "token file"})
@@ -497,8 +516,6 @@ func extendAuthCompletionMetadata(root *cobra.Command) {
 		}
 	}
 }
-
-func extendWorkspaceCompletionMetadata(*cobra.Command) {}
 
 func extendSlackTargetFlags(cmd *cobra.Command) {
 	extendChannelFlag(cmd, "channel")
@@ -547,7 +564,7 @@ func extendCursorFlag(cmd *cobra.Command) {
 
 func extendEmojiFlag(cmd *cobra.Command) {
 	cobracli.Extend(flag(cmd, "emoji"), cobracli.FlagExtra{
-		Complete:    "values=" + strings.Join(commonEmojiCompletions(), " "),
+		Complete:    "values=" + strings.Join(cliconfig.CommonEmojis(), " "),
 		Placeholder: ":thumbsup:",
 		Terse:       "emoji",
 	})
@@ -593,20 +610,4 @@ func mergeClibAnnotation(annotations map[string]string, value string) map[string
 		annotations["clib"] = value
 	}
 	return annotations
-}
-
-func commonEmojiCompletions() []string {
-	return []string{
-		"thumbsup",
-		"eyes",
-		"white_check_mark",
-		"rocket",
-		"heart",
-		"fire",
-		"robot_face",
-		"gear",
-		"wrench",
-		"clock1",
-		"moose",
-	}
 }

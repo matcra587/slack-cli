@@ -1,7 +1,10 @@
-package main
+// Package file implements the `slick file` cobra command tree, which uploads
+// files to Slack channels and threads.
+package file
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -9,21 +12,28 @@ import (
 
 	"github.com/gechr/clog"
 	"github.com/gechr/x/human"
+	"github.com/matcra587/slack-cli/internal/agent"
+	climessage "github.com/matcra587/slack-cli/internal/cli/message"
+	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
+	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
+	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
+	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
 	"github.com/matcra587/slack-cli/pkg/blockkit"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
 
-type uploadFileResult struct {
-	File    cliFile `json:"file"`
-	Channel string  `json:"channel"`
-	DryRun  bool    `json:"dry_run,omitempty"`
+// UploadResult is the result returned by `slick file upload`.
+type UploadResult struct {
+	File    Info   `json:"file"`
+	Channel string `json:"channel"`
+	DryRun  bool   `json:"dry_run,omitempty"`
 }
 
-var _ PlainRenderer = uploadFileResult{}
+var _ clioutput.PlainRenderer = UploadResult{}
 
-func (d uploadFileResult) WritePlain(c *CommandContext, command string, _ *Pagination) error {
-	c.ResultEventWithStyles(command, entityFieldStyle("channel", d.Channel)).
+func (d UploadResult) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Channel)).
 		Str("channel", d.Channel).
 		Str("file_id", d.File.ID).
 		Str("file_name", d.File.Name).
@@ -34,14 +44,16 @@ func (d uploadFileResult) WritePlain(c *CommandContext, command string, _ *Pagin
 	return nil
 }
 
-type cliFile struct {
+// Info captures the relevant Slack file metadata returned to the caller.
+type Info struct {
 	ID        string  `json:"id,omitempty"`
 	Name      string  `json:"name,omitempty"`
 	Size      int     `json:"size,omitempty"`
 	Permalink *string `json:"permalink,omitempty"`
 }
 
-func newFileCommand(runtime *RootRuntime) *cobra.Command {
+// NewCommand returns the `slick file` parent command.
+func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	fileCmd := &cobra.Command{
 		Use:    "file",
 		Short:  "Upload Slack files",
@@ -61,7 +73,7 @@ func newFileCommand(runtime *RootRuntime) *cobra.Command {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runFileUpload(cmd, runtime, uploadOptions{
+			return runUpload(cmd, runtime, uploadOptions{
 				FilePath: filePath,
 				Filename: filename,
 				Title:    title,
@@ -95,38 +107,38 @@ type uploadOptions struct {
 	DryRun   bool
 }
 
-func runFileUpload(cmd *cobra.Command, runtime *RootRuntime, opts uploadOptions) error {
-	ctx, profile, attribution, err := commandContext(cmd, runtime)
+func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadOptions) error {
+	ctx, profile, attribution, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
-		return writeRuntimeError(runtime, validationCLIError(err.Error()))
+		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 	channel, _ := cmd.Flags().GetString("channel")
 	if strings.TrimSpace(channel) == "" {
-		return writeCommandError(ctx, validationCLIError("channel is required"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("channel is required"))
 	}
 	content, filename, err := readUploadSource(runtime.Stdin, opts.FilePath, opts.Filename)
 	if err != nil {
-		return writeCommandError(ctx, validationCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
 	blocks, err := uploadMessageBlocks(opts.Message, opts.Blocks, attribution)
 	if err != nil {
-		return writeCommandError(ctx, validationCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
 
 	ctx.StderrLogger().Debug().Parts(clog.PartMessage).Msg("uploading file")
 	if opts.DryRun {
-		return ctx.WriteResult("file.upload", uploadFileResult{
-			File:    cliFile{ID: "dry-run", Name: filename, Size: len(content)},
+		return ctx.WriteResult("file.upload", UploadResult{
+			File:    Info{ID: "dry-run", Name: filename, Size: len(content)},
 			Channel: channel,
 			DryRun:  true,
 		})
 	}
-	client, err := slackClient(cmd, profile, runtime)
+	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return writeCommandError(ctx, authCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
-	if err := requireSlackScopes(cmd.Context(), client, allScopes("files:write")); err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
+	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("files:write")); err != nil {
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
 	params := slackgo.UploadFileParameters{
 		Channel:         channel,
@@ -143,36 +155,36 @@ func runFileUpload(cmd *cobra.Command, runtime *RootRuntime, opts uploadOptions)
 	}
 	file, err := client.UploadFileContext(cmd.Context(), params)
 	if err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
 	fileName := firstNonEmpty(file.Title, filename)
 	var filePermalink *string
 	if info, _, _, infoErr := client.GetFileInfoContext(cmd.Context(), file.ID, 0, 0); infoErr == nil && info != nil {
 		filePermalink = stringPtr(info.Permalink)
 	}
-	return ctx.WriteResult("file.upload", uploadFileResult{
-		File:    cliFile{ID: file.ID, Name: fileName, Size: len(content), Permalink: filePermalink},
+	return ctx.WriteResult("file.upload", UploadResult{
+		File:    Info{ID: file.ID, Name: fileName, Size: len(content), Permalink: filePermalink},
 		Channel: channel,
 	})
 }
 
-func uploadMessageBlocks(message string, raw bool, attribution Attribution) ([]slackgo.Block, error) {
+func uploadMessageBlocks(message string, raw bool, attribution agent.Attribution) ([]slackgo.Block, error) {
 	if strings.TrimSpace(message) == "" && !attribution.Enabled {
 		return nil, nil
 	}
 	if strings.TrimSpace(message) == "" {
 		return []slackgo.Block{blockkit.AttributionBlockWithMessage(attribution.Emoji, attribution.Message)}, nil
 	}
-	return composeBlocks(message, raw, attribution)
+	return climessage.ComposeBlocks(message, raw, attribution)
 }
 
 func readUploadSource(stdin io.Reader, filePath, filename string) ([]byte, string, error) {
 	if strings.TrimSpace(filePath) == "" {
-		return nil, "", errString("file is required")
+		return nil, "", errors.New("file is required")
 	}
 	if filePath == "-" {
 		if filename == "" {
-			return nil, "", errString("filename is required when reading file content from stdin")
+			return nil, "", errors.New("filename is required when reading file content from stdin")
 		}
 		content, err := io.ReadAll(stdin)
 		return content, filename, err
@@ -186,4 +198,20 @@ func readUploadSource(stdin io.Reader, filePath, filename string) ([]byte, strin
 		filename = filepath.Base(expandedPath)
 	}
 	return content, filename, nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func stringPtr(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }

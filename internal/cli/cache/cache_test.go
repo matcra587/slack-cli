@@ -1,15 +1,29 @@
-package main
+package cache_test
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
-	"slices"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/matcra587/slack-cli/internal/agent"
 	slackcache "github.com/matcra587/slack-cli/internal/cache"
+	clicache "github.com/matcra587/slack-cli/internal/cli/cache"
+	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/internal/testutil"
+	"github.com/spf13/cobra"
 )
+
+func TestMain(m *testing.M) {
+	for _, key := range agent.KnownEnvVars() {
+		_ = os.Unsetenv(key)
+	}
+	os.Exit(m.Run())
+}
 
 func TestCacheUsersPrimesActiveUsersAndReusesFreshCache(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
@@ -107,44 +121,6 @@ func TestCacheClearRemovesOneResource(t *testing.T) {
 	}
 }
 
-func TestCompletionUsesCachedUsersAndChannelsBeforeSlackRequests(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	if _, err := slackcache.Write("default", "users", json.RawMessage(`{"users":[{"id":"UCACHED","name":"cached-user","deleted":false},{"id":"UDELETED","name":"gone","deleted":true}]}`)); err != nil {
-		t.Fatalf("write users cache: %v", err)
-	}
-	if _, err := slackcache.Write("default", "channels", json.RawMessage(`{"channels":[{"id":"CCACHED","name":"cached-channel"}]}`)); err != nil {
-		t.Fatalf("write channels cache: %v", err)
-	}
-	server := testutil.NewSlackServer(t, nil)
-
-	cfg := workspaceConfig(config.TokenTypeBot)
-	handler := slackCompletionHandler("xox-test", cfg, &RootRuntime{SlackBaseURL: server.BaseURL()})
-
-	userCandidates := captureSlackCompletion(t, handler, "zsh", "user", nil)
-	if !slices.Contains(userCandidates, "UCACHED") {
-		t.Fatalf("user completion = %#v, want cached user", userCandidates)
-	}
-	if slices.Contains(userCandidates, "UDELETED") {
-		t.Fatalf("user completion = %#v, did not want deleted cached user", userCandidates)
-	}
-	channelCandidates := captureSlackCompletion(t, handler, "fish", "channel", nil)
-	if !slices.Contains(channelCandidates, "CCACHED\tcached-channel") {
-		t.Fatalf("channel completion = %#v, want cached channel with description", channelCandidates)
-	}
-	if len(server.Requests("users.list")) != 0 || len(server.Requests("conversations.list")) != 0 {
-		t.Fatalf("completion hit Slack despite cache: users=%d channels=%d", len(server.Requests("users.list")), len(server.Requests("conversations.list")))
-	}
-}
-
-func TestCompletionHandlerCompletesCacheResourceArgs(t *testing.T) {
-	got := captureSlackCompletion(t, slackCompletionHandler("", workspaceConfig(config.TokenTypeBot), &RootRuntime{}), "zsh", "cache_resource", nil)
-	for _, want := range []string{"users", "channels"} {
-		if !slices.Contains(got, want) {
-			t.Fatalf("cache_resource completion = %#v, want %q", got, want)
-		}
-	}
-}
-
 func envelopeData(t *testing.T, stdout string) map[string]any {
 	t.Helper()
 	var envelope map[string]any
@@ -158,16 +134,75 @@ func envelopeData(t *testing.T, stdout string) map[string]any {
 	return data
 }
 
-func TestCacheCommandIsVisibleOnRoot(t *testing.T) {
-	root := NewRootCommand()
-	cacheCmd := findDirectChild(root, "cache")
-	if cacheCmd == nil {
-		t.Fatal("root command missing cache command")
+func workspaceConfig(tokenType config.TokenType) *config.Config {
+	return &config.Config{
+		SchemaVersion:    config.SchemaVersion,
+		DefaultWorkspace: "default",
+		Workspaces: map[string]config.WorkspaceProfile{
+			"default": {
+				Name:      "default",
+				TeamID:    "T123",
+				TokenType: tokenType,
+				TokenRef:  "env:SLACK_TEST_TOKEN",
+			},
+		},
 	}
-	if cacheCmd.Hidden {
-		t.Fatal("cache command should be visible")
+}
+
+func buildTestRoot(cfg *config.Config, baseURL string, stdin interface{ Read([]byte) (int, error) }, stdout, stderr *bytes.Buffer) *cobra.Command {
+	runtime := &cliruntime.RootRuntime{
+		Stdin:     stdin,
+		Stdout:    stdout,
+		Stderr:    stderr,
+		IsTTY:     false,
+		Now:       func() time.Time { return time.Date(2026, 5, 3, 13, 8, 0, 0, time.UTC) },
+		RequestID: func() string { return "test-request" },
 	}
-	if got := strings.TrimSpace(cacheCmd.Short); got == "" {
-		t.Fatal("cache command needs a short description")
+	if cfg != nil {
+		runtime.Config = cfg
 	}
+	if baseURL != "" {
+		runtime.SlackBaseURL = baseURL
+	}
+	runtime.TokenResolver = cliruntime.TokenResolverFunc(func(_ context.Context, _ config.WorkspaceProfile) (string, error) {
+		return "xox-test", nil
+	})
+
+	root := &cobra.Command{
+		Use:           "slick",
+		Short:         "Slack command line interface",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	root.SetIn(stdin)
+	root.SetOut(stdout)
+	root.SetErr(stderr)
+
+	flags := root.PersistentFlags()
+	flags.StringP("workspace", "w", "", "Workspace profile")
+	flags.BoolP("json", "j", false, "Force JSON output")
+	flags.BoolP("plain", "P", false, "Force plain text output")
+	flags.BoolP("compact", "k", false, "Output command data without envelope")
+	flags.BoolP("raw", "X", false, "Output Slack-native data")
+	flags.BoolP("agent", "a", false, "Force agent mode")
+	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
+	flags.StringP("agent-label", "G", "", "Override agent attribution label")
+	flags.StringP("agent-emoji", "Y", "", "Override agent attribution emoji")
+	flags.StringP("agent-message", "O", "", "Override agent attribution message")
+	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
+	flags.BoolP("debug", "D", false, "Enable debug-level output")
+	root.MarkFlagsMutuallyExclusive("json", "plain", "compact", "raw")
+
+	root.AddCommand(clicache.NewCommand(runtime))
+	return root
+}
+
+func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, args []string) (string, string, error) {
+	t.Helper()
+	stdoutBuf := &bytes.Buffer{}
+	stderrBuf := &bytes.Buffer{}
+	cmd := buildTestRoot(cfg, baseURL, strings.NewReader(stdin), stdoutBuf, stderrBuf)
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return stdoutBuf.String(), stderrBuf.String(), err
 }

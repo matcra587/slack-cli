@@ -22,6 +22,8 @@ import (
 	clibtheme "github.com/gechr/clib/theme"
 	"github.com/gechr/x/human"
 	"github.com/gechr/x/shell"
+	climanifest "github.com/matcra587/slack-cli/internal/cli/manifest"
+	clioauth "github.com/matcra587/slack-cli/internal/cli/oauth"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
@@ -116,7 +118,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if oauthCallbackPort != "" {
-				oauthRedirectURL = oauthRedirectURLForPort(oauthCallbackPort)
+				oauthRedirectURL = clioauth.RedirectURLForPort(oauthCallbackPort)
 			}
 			method := authMethod
 			if !cmd.Flags().Changed("method") {
@@ -404,7 +406,7 @@ type authFieldHelp struct {
 }
 
 func runAuthLoginForm(ctx *clioutput.CommandContext, runtime *cliruntime.RootRuntime, input *loginInput) error {
-	accessible := !usesTerminalFiles(runtime)
+	accessible := !clioauth.UsesTerminalFiles(runtime)
 	help := authLoginFieldHelp()
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -413,7 +415,7 @@ func runAuthLoginForm(ctx *clioutput.CommandContext, runtime *cliruntime.RootRun
 				Description(help["workspace"].Description).
 				Placeholder(help["workspace"].Placeholder).
 				Value(&input.WorkspaceName).
-				Validate(requiredField("profile name")),
+				Validate(clioauth.RequiredField("profile name")),
 			huh.NewSelect[string]().
 				Title("Auth mechanism").
 				Description(help["auth_method"].Description).
@@ -448,7 +450,7 @@ func authTokenInput(token *string, help authFieldHelp, accessible bool) *huh.Inp
 		Description(help.Description).
 		Placeholder(help.Placeholder).
 		Value(token).
-		Validate(requiredField("slack token"))
+		Validate(clioauth.RequiredField("slack token"))
 	if !accessible {
 		field.EchoMode(huh.EchoModePassword)
 	}
@@ -469,7 +471,7 @@ func runTokenLoginForm(runtime *cliruntime.RootRuntime, input *loginInput, help 
 }
 
 func runOAuthLoginForm(ctx *clioutput.CommandContext, runtime *cliruntime.RootRuntime, input *loginInput, help map[string]authFieldHelp) error {
-	accessible := !usesTerminalFiles(runtime)
+	accessible := !clioauth.UsesTerminalFiles(runtime)
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -477,7 +479,7 @@ func runOAuthLoginForm(ctx *clioutput.CommandContext, runtime *cliruntime.RootRu
 				Description(help["client_id"].Description).
 				Placeholder(help["client_id"].Placeholder).
 				Value(&input.ClientID).
-				Validate(requiredField("oauth client id")),
+				Validate(clioauth.RequiredField("oauth client id")),
 			huh.NewInput().
 				Title("OAuth redirect URL").
 				Description(help["oauth_redirect"].Description).
@@ -630,27 +632,6 @@ func authLoginHuhColor(c color.Color) color.Color {
 	return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", uint8(r>>colorComponentShift), uint8(g>>colorComponentShift), uint8(b>>colorComponentShift)))
 }
 
-// usesTerminalFiles reports whether stdin and stderr are OS files (i.e. a real
-// terminal is attached). Used to decide whether interactive forms run in
-// accessible mode.
-// collapse when config moves to internal/cli in Phase 09 Group D.
-func usesTerminalFiles(runtime *cliruntime.RootRuntime) bool {
-	_, stdinIsFile := runtime.Stdin.(*os.File)
-	_, stderrIsFile := runtime.Stderr.(*os.File)
-	return stdinIsFile && stderrIsFile
-}
-
-// requiredField returns a huh validation function that rejects blank input.
-// collapse when config moves to internal/cli in Phase 09 Group D.
-func requiredField(name string) func(string) error {
-	return func(value string) error {
-		if strings.TrimSpace(value) == "" {
-			return errors.New(name + " is required")
-		}
-		return nil
-	}
-}
-
 func completeOAuthLogin(reqCtx context.Context, ctx *clioutput.CommandContext, runtime *cliruntime.RootRuntime, input *loginInput) (bool, error) {
 	if input.ClientID == "" {
 		return false, errors.New("oauth client id is required")
@@ -799,7 +780,7 @@ type oauthAuthorizeParams struct {
 }
 
 func oauthAuthorizeURL(params oauthAuthorizeParams) string {
-	scopes, _ := manifestPresetScopes(defaultManifestPreset)
+	scopes, _ := climanifest.PresetScopes(climanifest.DefaultPreset)
 	values := url.Values{
 		"client_id":  {params.ClientID},
 		"user_scope": {strings.Join(scopes, ",")},
@@ -822,32 +803,12 @@ type oauthCallbackResult struct {
 	Err  error
 }
 
-const (
-	defaultOAuthCallbackPath = "/callback"
-	osAssignedCallbackPort   = "0"
-)
-
 func defaultOAuthRedirectURL() string {
-	return oauthRedirectURLForPort(defaultOAuthCallbackPort())
-}
-
-func defaultOAuthCallbackPort() string {
-	if port := strings.TrimSpace(os.Getenv("SLACK_CLI_CALLBACK_PORT")); port != "" {
-		return port
-	}
-	return osAssignedCallbackPort
-}
-
-func oauthRedirectURLForPort(port string) string {
-	port = strings.TrimSpace(port)
-	if port == "" {
-		port = defaultOAuthCallbackPort()
-	}
-	return "http://localhost:" + port + defaultOAuthCallbackPath
+	return clioauth.RedirectURLForPort(clioauth.DefaultCallbackPort())
 }
 
 func oauthRedirectURLForListener(redirectURL *url.URL, listener net.Listener) (*url.URL, error) {
-	if redirectURL.Port() != osAssignedCallbackPort {
+	if redirectURL.Port() != clioauth.OSAssignedCallbackPort {
 		return redirectURL, nil
 	}
 	_, port, err := net.SplitHostPort(listener.Addr().String())
@@ -877,7 +838,7 @@ func oauthRedirectURL(raw string) (*url.URL, error) {
 		return nil, errors.New("oauth redirect url must include a port")
 	}
 	if parsed.Path == "" || parsed.Path == "/" {
-		parsed.Path = defaultOAuthCallbackPath
+		parsed.Path = clioauth.DefaultCallbackPath
 	}
 	return parsed, nil
 }
@@ -1162,38 +1123,6 @@ func wrapBadClientSecret(err error) error {
 	}
 	return err
 }
-
-type manifestTemplatePreset struct {
-	Name   string
-	Scopes []string
-}
-
-// manifestPresetScopes returns the OAuth scopes for the given preset name.
-// Mirrors cmd/slick/manifest.go:manifestPresetScopes; collapse when manifest moves in Phase 09 Group D.
-func manifestPresetScopes(preset string) ([]string, error) {
-	preset = strings.ToLower(strings.TrimSpace(preset))
-	if preset == "" {
-		preset = defaultManifestPreset
-	}
-	for _, p := range manifestPresets() {
-		if p.Name == preset {
-			return append([]string(nil), p.Scopes...), nil
-		}
-	}
-	return nil, errors.New("template must be readonly, messaging, files, search, or full")
-}
-
-func manifestPresets() []manifestTemplatePreset {
-	return []manifestTemplatePreset{
-		{Name: "readonly", Scopes: []string{"channels:history", "channels:read", "groups:history", "groups:read", "im:history", "im:read", "mpim:history", "mpim:read", "reactions:read", "users:read"}},
-		{Name: "messaging", Scopes: []string{"channels:history", "channels:read", "chat:write", "groups:history", "groups:read", "im:history", "im:read", "im:write", "mpim:history", "mpim:read", "mpim:write", "reactions:read", "reactions:write", "users:read", "users:read.email"}},
-		{Name: "files", Scopes: []string{"channels:history", "channels:read", "chat:write", "files:write", "groups:history", "groups:read", "im:history", "im:read", "im:write", "mpim:history", "mpim:read", "mpim:write", "reactions:read", "reactions:write", "users:read", "users:read.email"}},
-		{Name: "search", Scopes: []string{"channels:history", "channels:read", "groups:history", "groups:read", "im:history", "im:read", "mpim:history", "mpim:read", "reactions:read", "search:read", "users:read"}},
-		{Name: "full", Scopes: []string{"channels:history", "channels:read", "chat:write", "files:write", "groups:history", "groups:read", "im:history", "im:read", "im:write", "mpim:history", "mpim:read", "mpim:write", "reactions:read", "reactions:write", "search:read", "users:read", "users:read.email", "users.profile:write"}},
-	}
-}
-
-const defaultManifestPreset = "messaging"
 
 // rootOptionsFromCommand extracts output flags from the cobra command.
 // collapse when cmd/slick/main.go moves in a later phase.

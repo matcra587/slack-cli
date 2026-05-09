@@ -1,4 +1,6 @@
-package main
+// Package manifest implements the `slick manifest` cobra command tree, which
+// generates Slack app manifests for first-time imports.
+package manifest
 
 import (
 	"errors"
@@ -10,12 +12,20 @@ import (
 	"github.com/gechr/clib/help"
 	"github.com/gechr/clog"
 	xslices "github.com/gechr/x/slices"
+	"github.com/matcra587/slack-cli/internal/agent"
+	clioauth "github.com/matcra587/slack-cli/internal/cli/oauth"
+	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
+	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
-func newManifestCommand(runtime *RootRuntime) *cobra.Command {
+// DefaultPreset is the manifest scope preset selected when none is specified.
+const DefaultPreset = "messaging"
+
+// NewCommand returns the `slick manifest` parent command.
+func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "manifest",
 		Short:        "Generate Slack app manifests",
@@ -25,11 +35,11 @@ func newManifestCommand(runtime *RootRuntime) *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(newManifestTemplateCommand(runtime))
+	cmd.AddCommand(newTemplateCommand(runtime))
 	return cmd
 }
 
-type manifestTemplateOptions struct {
+type templateOptions struct {
 	Name            string
 	Description     string
 	LongDescription string
@@ -64,26 +74,24 @@ type generatedManifestSettings struct {
 	TokenRotationEnabled bool `json:"token_rotation_enabled" yaml:"token_rotation_enabled"`
 }
 
-type manifestScopeReason struct {
+type scopeReason struct {
 	Scope  string
 	Reason string
 }
 
-type manifestTemplatePreset struct {
+type templatePreset struct {
 	Name        string
 	Description string
 	Scopes      []string
 }
 
-const defaultManifestPreset = "messaging"
-
-func newManifestTemplateCommand(runtime *RootRuntime) *cobra.Command {
-	opts := manifestTemplateOptions{
+func newTemplateCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
+	opts := templateOptions{
 		Name:            "slack-cli",
 		Description:     "Slack CLI app for agent-friendly messaging and automation.",
-		Preset:          defaultManifestPreset,
+		Preset:          DefaultPreset,
 		Type:            "user",
-		RedirectURLs:    []string{defaultManifestOAuthRedirectURL()},
+		RedirectURLs:    []string{clioauth.DefaultManifestRedirectURL()},
 		BackgroundColor: "#4A154B",
 	}
 	cmd := &cobra.Command{
@@ -92,7 +100,7 @@ func newManifestTemplateCommand(runtime *RootRuntime) *cobra.Command {
 		Short:        "Output the Slack app manifest to import",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runManifestTemplate(cmd, runtime, opts)
+			return runTemplate(cmd, runtime, opts)
 		},
 	}
 	cmd.Flags().StringVarP(&opts.Name, "name", "n", opts.Name, "App display name")
@@ -112,66 +120,66 @@ func newManifestTemplateCommand(runtime *RootRuntime) *cobra.Command {
 	cmd.Flags().StringArrayVarP(&opts.RedirectURLs, "redirect-url", "r", opts.RedirectURLs, "OAuth redirect URL")
 	cmd.Flags().StringVarP(&opts.CallbackPort, "callback-port", "C", "", "Local OAuth callback port for the generated redirect URL")
 	cmd.Flags().StringVarP(&opts.Format, "format", "f", "json", "Output format: json or yaml")
-	cmd.SetHelpFunc(manifestTemplateHelpFunc(runtime.HelpRenderer))
+	cmd.SetHelpFunc(templateHelpFunc(runtime.HelpRenderer))
 	return cmd
 }
 
-func manifestTemplateHelpFunc(renderer *help.Renderer) func(*cobra.Command, []string) {
+func templateHelpFunc(renderer *help.Renderer) func(*cobra.Command, []string) {
 	return cobracli.HelpFunc(renderer, func(cmd *cobra.Command) []help.Section {
 		sections := cobracli.Sections(cmd)
 		sections = append(sections, help.Section{
 			Title: "Templates",
 			Content: []help.Content{
 				help.Text("Presets pick least-privilege scope sets. Use --user-scope or --bot-scope to replace the selected preset."),
-				manifestTemplatePresetHelp(),
+				templatePresetHelp(),
 			},
 		})
 		sections = append(sections, help.Section{
 			Title: "Messaging Template User Scopes",
 			Content: []help.Content{
 				help.Text("This is the default user-token manifest. It supports reading, sending, replies, DMs, and reactions without file upload or search access."),
-				manifestScopeHelp(defaultManifestPreset),
+				scopeHelp(DefaultPreset),
 			},
 		})
 		return sections
 	})
 }
 
-func runManifestTemplate(cmd *cobra.Command, runtime *RootRuntime, opts manifestTemplateOptions) error {
-	ctx := localManifestContext(cmd, runtime)
+func runTemplate(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts templateOptions) error {
+	ctx := localContext(cmd, runtime)
 	if opts.CallbackPort != "" && !cmd.Flags().Changed("redirect-url") {
-		opts.RedirectURLs = []string{manifestOAuthRedirectURLForPort(opts.CallbackPort)}
+		opts.RedirectURLs = []string{redirectURLForPort(opts.CallbackPort)}
 	}
-	manifest, err := manifestTemplate(opts)
+	manifest, err := buildManifest(opts)
 	if err != nil {
-		return writeCommandError(ctx, validationCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
 	switch strings.ToLower(strings.TrimSpace(opts.Format)) {
 	case "", "json":
 		ctx.StdoutLogger().Print().Mode(clog.JSONFlat).JSON(manifest)
 	case "yaml", "yml":
-		return ctx.WriteString(renderManifestYAML(manifest))
+		return ctx.WriteString(renderYAML(manifest))
 	default:
-		return writeCommandError(ctx, validationCLIError("format must be json or yaml"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("format must be json or yaml"))
 	}
 	return nil
 }
 
-func manifestOAuthRedirectURLForPort(port string) string {
-	if strings.TrimSpace(port) == osAssignedCallbackPort {
-		if allocated, err := allocateLocalOAuthCallbackPort(); err == nil {
+func redirectURLForPort(port string) string {
+	if strings.TrimSpace(port) == clioauth.OSAssignedCallbackPort {
+		if allocated, err := clioauth.AllocateLocalCallbackPort(); err == nil {
 			port = allocated
 		}
 	}
-	return oauthRedirectURLForPort(port)
+	return clioauth.RedirectURLForPort(port)
 }
 
-func localManifestContext(cmd *cobra.Command, runtime *RootRuntime) *CommandContext {
-	opts := rootOptionsFromCommand(cmd, runtime)
-	mode := opts.Output.Resolve(runtime.IsTTY, DetectAgentOutputMode(opts.Agent))
-	sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-	applyRenderMode(sl, mode)
-	return &CommandContext{
+func localContext(cmd *cobra.Command, runtime *cliruntime.RootRuntime) *clioutput.CommandContext {
+	output, agentFlags := commandFlags(cmd)
+	mode := output.Resolve(runtime.IsTTY, detectAgentOutputMode(agentFlags))
+	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
+	clioutput.ApplyRenderMode(sl, mode)
+	return &clioutput.CommandContext{
 		Workspace:     "manifest",
 		Mode:          mode,
 		Stdout:        runtime.Stdout,
@@ -183,13 +191,42 @@ func localManifestContext(cmd *cobra.Command, runtime *RootRuntime) *CommandCont
 	}
 }
 
-func manifestTemplate(opts manifestTemplateOptions) (*generatedManifest, error) {
+func commandFlags(cmd *cobra.Command) (clioutput.OutputFlags, cliruntime.AgentFlags) {
+	flags := cmd.Root().PersistentFlags()
+	jsonMode, _ := flags.GetBool("json")
+	plain, _ := flags.GetBool("plain")
+	compact, _ := flags.GetBool("compact")
+	raw, _ := flags.GetBool("raw")
+	forceAgent, _ := flags.GetBool("agent")
+	noAttribution, _ := flags.GetBool("no-agent-attribution")
+	agentLabel, _ := flags.GetString("agent-label")
+	agentEmoji, _ := flags.GetString("agent-emoji")
+	agentMessage, _ := flags.GetString("agent-message")
+	return clioutput.OutputFlags{
+			JSON:    jsonMode,
+			Plain:   plain,
+			Compact: compact,
+			Raw:     raw,
+		}, cliruntime.AgentFlags{
+			Agent:              forceAgent,
+			NoAgentAttribution: noAttribution,
+			AgentLabel:         agentLabel,
+			AgentEmoji:         agentEmoji,
+			AgentMessage:       agentMessage,
+		}
+}
+
+func detectAgentOutputMode(flags cliruntime.AgentFlags) bool {
+	return agent.Detect(agent.Options{Force: flags.Agent}).Active
+}
+
+func buildManifest(opts templateOptions) (*generatedManifest, error) {
 	name := strings.TrimSpace(opts.Name)
 	if name == "" {
 		return nil, errors.New("name is required")
 	}
 	authType := strings.ToLower(strings.TrimSpace(opts.Type))
-	botScopes, userScopes, err := manifestScopes(authType, opts.Preset, opts.BotScopes, opts.UserScopes)
+	botScopes, userScopes, err := resolveScopes(authType, opts.Preset, opts.BotScopes, opts.UserScopes)
 	if err != nil {
 		return nil, err
 	}
@@ -221,11 +258,11 @@ func manifestTemplate(opts manifestTemplateOptions) (*generatedManifest, error) 
 	}, nil
 }
 
-func manifestScopes(authType, template string, botScopes, userScopes []string) ([]string, []string, error) {
+func resolveScopes(authType, template string, botScopes, userScopes []string) ([]string, []string, error) {
 	if authType == "" {
 		authType = "user"
 	}
-	presetScopes, err := manifestPresetScopes(template)
+	presetScopes, err := PresetScopes(template)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -252,7 +289,7 @@ func scopesOrPreset(scopes, preset []string) []string {
 func botCompatibleScopes(scopes []string) []string {
 	out := make([]string, 0, len(scopes))
 	for _, scope := range scopes {
-		if userTokenOnlyManifestScope(scope) {
+		if userTokenOnlyScope(scope) {
 			continue
 		}
 		out = append(out, scope)
@@ -260,12 +297,12 @@ func botCompatibleScopes(scopes []string) []string {
 	return out
 }
 
-func userTokenOnlyManifestScope(scope string) bool {
+func userTokenOnlyScope(scope string) bool {
 	return scope == "search:read" || scope == "users.profile:write"
 }
 
-func manifestTemplatePresets() []manifestTemplatePreset {
-	return []manifestTemplatePreset{
+func templatePresets() []templatePreset {
+	return []templatePreset{
 		{
 			Name:        "readonly",
 			Description: "Read conversations, reactions, and users without mutation scopes.",
@@ -369,12 +406,13 @@ func manifestTemplatePresets() []manifestTemplatePreset {
 	}
 }
 
-func manifestPresetScopes(template string) ([]string, error) {
+// PresetScopes returns the OAuth scopes for the given manifest preset name.
+func PresetScopes(template string) ([]string, error) {
 	template = strings.ToLower(strings.TrimSpace(template))
 	if template == "" {
-		template = defaultManifestPreset
+		template = DefaultPreset
 	}
-	for _, preset := range manifestTemplatePresets() {
+	for _, preset := range templatePresets() {
 		if preset.Name == template {
 			return slices.Clone(preset.Scopes), nil
 		}
@@ -382,8 +420,8 @@ func manifestPresetScopes(template string) ([]string, error) {
 	return nil, errors.New("template must be readonly, messaging, files, search, or full")
 }
 
-func manifestTemplatePresetHelp() help.CommandGroup {
-	presets := manifestTemplatePresets()
+func templatePresetHelp() help.CommandGroup {
+	presets := templatePresets()
 	out := make(help.CommandGroup, 0, len(presets))
 	for _, preset := range presets {
 		out = append(out, help.Command{Name: preset.Name, Desc: preset.Description})
@@ -391,8 +429,8 @@ func manifestTemplatePresetHelp() help.CommandGroup {
 	return out
 }
 
-func manifestScopeReasons() []manifestScopeReason {
-	return []manifestScopeReason{
+func scopeReasons() []scopeReason {
+	return []scopeReason{
 		{Scope: "channels:history", Reason: "Read public channel history and thread replies."},
 		{Scope: "channels:read", Reason: "List public channels and resolve public channel metadata."},
 		{Scope: "chat:write", Reason: "Send, edit, and delete Slack CLI messages."},
@@ -414,13 +452,13 @@ func manifestScopeReasons() []manifestScopeReason {
 	}
 }
 
-func manifestScopeHelp(template string) help.CommandGroup {
-	scopes, err := manifestPresetScopes(template)
+func scopeHelp(template string) help.CommandGroup {
+	scopes, err := PresetScopes(template)
 	if err != nil {
 		return nil
 	}
 	reasonsByScope := make(map[string]string)
-	for _, reason := range manifestScopeReasons() {
+	for _, reason := range scopeReasons() {
 		reasonsByScope[reason.Scope] = reason.Reason
 	}
 	out := make(help.CommandGroup, 0, len(scopes))
@@ -462,7 +500,7 @@ func botDisplayName(name string) string {
 	return b.String()
 }
 
-func renderManifestYAML(manifest *generatedManifest) string {
+func renderYAML(manifest *generatedManifest) string {
 	var b strings.Builder
 	b.WriteString("display_information:\n")
 	b.WriteString("  name: " + yamlString(manifest.Display.Name) + "\n")

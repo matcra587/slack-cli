@@ -18,9 +18,16 @@ import (
 	"github.com/gechr/x/human"
 	"github.com/gechr/x/shell"
 	"github.com/gechr/x/terminal"
+	"github.com/matcra587/slack-cli/internal/agent"
+	cliagent "github.com/matcra587/slack-cli/internal/cli/agent"
 	cliauth "github.com/matcra587/slack-cli/internal/cli/auth"
+	clicache "github.com/matcra587/slack-cli/internal/cli/cache"
 	clichannel "github.com/matcra587/slack-cli/internal/cli/channel"
+	clicompletion "github.com/matcra587/slack-cli/internal/cli/completion"
+	cliconfig "github.com/matcra587/slack-cli/internal/cli/config"
+	clifile "github.com/matcra587/slack-cli/internal/cli/file"
 	clihistory "github.com/matcra587/slack-cli/internal/cli/history"
+	climanifest "github.com/matcra587/slack-cli/internal/cli/manifest"
 	climessage "github.com/matcra587/slack-cli/internal/cli/message"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	clireaction "github.com/matcra587/slack-cli/internal/cli/reaction"
@@ -96,18 +103,12 @@ type (
 
 // DTO converter aliases.
 var (
-	cliErrorFromSlack    = clioutput.CliErrorFromSlack
-	cliChannelsFromSlack = clichannel.CliChannelsFromSlack
-	cliUsersFromSlack    = cliuser.CliUsersFromSlack
-
-	conversationReadScopeRequirement = clichannel.ConversationReadScopeRequirement
+	cliErrorFromSlack = clioutput.CliErrorFromSlack
 )
 
-// Slack client aliases — all cmd/slick command files call slackClient(cmd, profile, runtime)
-// and completion.go calls newSlackClient for unauthenticated completion lookups.
+// Slack client aliases — all cmd/slick command files call slackClient(cmd, profile, runtime).
 var (
-	slackClient    = slackclient.Client
-	newSlackClient = slackclient.New
+	slackClient = slackclient.Client
 )
 
 type RootOptions struct {
@@ -124,9 +125,24 @@ type RootOptions struct {
 	Theme     *theme.Theme
 }
 
-type RootRuntime = cliruntime.RootRuntime
+// AgentFlags carries the per-command agent/attribution overrides parsed from
+// cobra persistent flags.
+type AgentFlags = cliruntime.AgentFlags
 
-type AgentFlagsRuntime = cliruntime.AgentFlags
+// Attribution describes the agent attribution payload for sent messages.
+type Attribution = agent.Attribution
+
+// DetectAgentMode computes the attribution payload for the supplied flags.
+func DetectAgentMode(flags AgentFlags) Attribution {
+	return cliagent.DetectAttribution(flags)
+}
+
+// DetectAgentOutputMode reports whether output should be rendered in agent mode.
+func DetectAgentOutputMode(flags AgentFlags) bool {
+	return cliagent.DetectOutputMode(flags)
+}
+
+type RootRuntime = cliruntime.RootRuntime
 
 type RootOption = cliruntime.RootOption
 
@@ -155,8 +171,6 @@ type CredentialTokenResolver = clitoken.CredentialTokenResolver
 type SecretReader = clitoken.SecretReader
 
 type SecretReaderFunc = clitoken.SecretReaderFunc
-
-var runtimeEnvToken = clitoken.RuntimeEnvToken
 
 func NewRootCommandWithRuntime(options ...RootOption) (*cobra.Command, *RootRuntime) {
 	var rt *RootRuntime
@@ -189,7 +203,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	root.SetIn(runtime.Stdin)
 	root.SetOut(runtime.Stdout)
 	root.SetErr(runtime.Stderr)
-	setupClibCompletion(root, runtime)
+	clicompletion.Setup(root, runtime)
 
 	clog.SetEnvPrefix("SLICK")
 	theme.SetEnvPrefix("SLICK")
@@ -274,7 +288,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	lookupCmd.GroupID = "discovery"
 	root.AddCommand(lookupCmd)
 
-	cacheCmd := newCacheCommand(runtime)
+	cacheCmd := clicache.NewCommand(runtime)
 	cacheCmd.GroupID = "discovery"
 	root.AddCommand(cacheCmd)
 
@@ -282,7 +296,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	authCmd.GroupID = "admin"
 	root.AddCommand(authCmd)
 
-	configCmd := newConfigCommand(runtime)
+	configCmd := cliconfig.NewCommand(runtime)
 	configCmd.GroupID = "admin"
 	root.AddCommand(configCmd)
 
@@ -290,23 +304,23 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	workspaceCmd.GroupID = "admin"
 	root.AddCommand(workspaceCmd)
 
-	manifestCmd := newManifestCommand(runtime)
+	manifestCmd := climanifest.NewCommand(runtime)
 	manifestCmd.GroupID = "admin"
 	root.AddCommand(manifestCmd)
 
-	agentCmd := newAgentCommand(runtime)
+	agentCmd := cliagent.NewCommand(runtime)
 	agentCmd.GroupID = "meta"
 	root.AddCommand(agentCmd)
 
-	fileCmd := newFileCommand(runtime)
+	fileCmd := clifile.NewCommand(runtime)
 	fileCmd.GroupID = "meta"
 	root.AddCommand(fileCmd)
 
 	versionCmd := newVersionCommand(runtime)
 	versionCmd.GroupID = "meta"
 	root.AddCommand(versionCmd)
-	extendSlackCompletionMetadata(root)
-	addClibCompletionCommand(root)
+	clicompletion.ExtendSlackMetadata(root)
+	clicompletion.AddCommand(root)
 
 	return root
 }
@@ -431,8 +445,6 @@ type Pagination = clioutput.Pagination
 type CLIError = clioutput.CLIError
 
 type CommandError = clioutput.CommandError
-
-var entityFieldStyle = clioutput.EntityFieldStyle
 
 var validationCLIError = clioutput.ValidationCLIError
 

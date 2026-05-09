@@ -122,7 +122,7 @@ linters:
       # tests assert empty-struct omission (output_test.go) and the manifest
       # contract requires stable diffs; converting to omitzero would change
       # observable output. Do not "fix" until that contract is reviewed.
-      - path: 'cmd/slick/manifest\.go'
+      - path: 'internal/cli/manifest/manifest\.go'
         linters:
           - modernize
         text: 'Omitempty has no effect on nested struct fields'

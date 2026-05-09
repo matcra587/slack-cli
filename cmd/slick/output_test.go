@@ -11,6 +11,8 @@ import (
 
 	"github.com/gechr/clog"
 	"github.com/gechr/x/ansi"
+	cliconfig "github.com/matcra587/slack-cli/internal/cli/config"
+	clifile "github.com/matcra587/slack-cli/internal/cli/file"
 	"github.com/matcra587/slack-cli/internal/config"
 )
 
@@ -266,9 +268,9 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 		{
 			name: "file upload",
 			cmd:  "file.upload",
-			data: uploadFileResult{
+			data: clifile.UploadResult{
 				Channel: "C7N2Q8L4P",
-				File: cliFile{
+				File: clifile.Info{
 					ID:   "F123",
 					Name: "report.txt",
 					Size: 128,
@@ -306,7 +308,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 		{
 			name: "config init",
 			cmd:  "config.init",
-			data: configInitData{
+			data: cliconfig.InitData{
 				Path:      "/tmp/slick/config.toml",
 				Profile:   "default",
 				Workspace: "default",
@@ -324,7 +326,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 		{
 			name: "config path",
 			cmd:  "config.path",
-			data: configPathData{Path: "/tmp/slick/config.toml", Exists: true},
+			data: cliconfig.PathData{Path: "/tmp/slick/config.toml", Exists: true},
 			want: []string{
 				"INF",
 				"command=config.path",
@@ -336,7 +338,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 		{
 			name: "config get",
 			cmd:  "config.get",
-			data: configGetData{Key: "workspaces.default.default_channel", Value: "C7N2Q8L4P"},
+			data: cliconfig.GetData{Key: "workspaces.default.default_channel", Value: "C7N2Q8L4P"},
 			want: []string{
 				"INF",
 				"command=config.get",
@@ -348,7 +350,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 		{
 			name: "config set",
 			cmd:  "config.set",
-			data: configMutationData{
+			data: cliconfig.MutationData{
 				Path:  "/tmp/slick/config.toml",
 				Key:   "workspaces.default.attribution.message",
 				Value: "Sent via slick",
@@ -365,7 +367,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 		{
 			name: "config unset",
 			cmd:  "config.unset",
-			data: configMutationData{
+			data: cliconfig.MutationData{
 				Path: "/tmp/slick/config.toml",
 				Key:  "workspaces.default.attribution.message",
 			},
@@ -478,10 +480,10 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 func TestWriteResultPlainConfigListUsesPerSettingClogLines(t *testing.T) {
 	ctx, stdout, stderr := newOutputTestContext(RenderModePlain)
 
-	err := ctx.WriteResult("config.list", configListData{
+	err := ctx.WriteResult("config.list", cliconfig.ListData{
 		Path:             "/tmp/slick/config.toml",
 		DefaultWorkspace: "default",
-		Settings: []configEntry{
+		Settings: []cliconfig.Entry{
 			{Key: "default_workspace", Value: "default"},
 			{Key: "workspaces.default.attribution.enabled", Value: "true"},
 		},
@@ -524,7 +526,7 @@ func TestWriteResultPlainConfigPathsContractHome(t *testing.T) {
 	path := filepath.Join(home, ".config", "slick", "config.toml")
 	ctx, stdout, stderr := newOutputTestContext(RenderModePlain)
 
-	err := ctx.WriteResult("config.path", configPathData{Path: path, Exists: true})
+	err := ctx.WriteResult("config.path", cliconfig.PathData{Path: path, Exists: true})
 	if err != nil {
 		t.Fatalf("WriteResult returned error: %v", err)
 	}

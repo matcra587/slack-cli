@@ -11,8 +11,35 @@ type userListData struct {
 	Users []cliUser `json:"users"`
 }
 
+var _ PlainRenderer = userListData{}
+
+func (d userListData) WritePlain(c *CommandContext, command string, pagination *Pagination) error {
+	return c.WriteUsers(command, d.Users, pagination)
+}
+
 type userInfoData struct {
 	User cliUser `json:"user"`
+}
+
+var _ PlainRenderer = userInfoData{}
+
+func (d userInfoData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	user := d.User
+	event := c.resultEventWithStyles(command, entityFieldStyle("user", user.ID)).
+		Str("user", user.ID).
+		Str("name", user.Name)
+	event = addBoolField(event, "deleted", user.Deleted)
+	if user.Timezone != nil {
+		event = event.Str("timezone", *user.Timezone)
+	}
+	if user.Presence != nil {
+		event = event.Str("presence", *user.Presence)
+	}
+	if user.StatusText != nil {
+		event = event.Str("status_text", *user.StatusText)
+	}
+	event.Send()
+	return nil
 }
 
 type userListOptions struct {

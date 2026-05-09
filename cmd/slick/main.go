@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -458,69 +457,12 @@ func (c *CommandContext) WriteResultWithPagination(command string, data any, pag
 }
 
 func (c *CommandContext) WritePlainResult(command string, data any, pagination *Pagination) error {
-	switch typed := data.(type) {
-	case authStatusData:
-		return c.WriteAuthStatus(typed)
-	case authWorkspaceData:
-		return c.WriteAuthWorkspace(command, typed)
-	case sendCommandData:
-		return c.WriteSend(command, typed)
-	case deleteMessageData:
-		return c.WriteDelete(command, typed)
-	case uploadFileResult:
-		return c.WriteUpload(command, typed)
-	case reactionCommandData:
-		return c.WriteReaction(command, typed)
-	case statusCommandData:
-		return c.WriteStatus(command, typed)
-	case cacheUsersData:
-		return c.WriteUsers(command, typed.Users, nil)
-	case cacheChannelsData:
-		return c.WriteChannels(command, typed.Channels, nil)
-	case cacheClearData:
-		return c.WriteCacheClear(command, typed)
-	case historyCommandData:
-		return c.WriteMessages(command, typed.Messages, pagination)
-	case searchCommandData:
-		return c.WriteSearch(command, typed, pagination)
-	case channelListData:
-		return c.WriteChannels(command, typed.Channels, pagination)
-	case channelInfoData:
-		return c.WriteChannelInfo(command, typed.Channel)
-	case userListData:
-		return c.WriteUsers(command, typed.Users, pagination)
-	case userInfoData:
-		return c.WriteUserInfo(command, typed.User)
-	case workspaceListData:
-		return c.WriteWorkspaces(command, typed.Workspaces, pagination)
-	case versionData:
-		return c.WriteVersion(typed)
-	case configInitData:
-		return c.WriteConfigInit(typed)
-	case configPathData:
-		return c.WriteConfigPath(command, typed)
-	case configListData:
-		return c.WriteConfigList(command, typed)
-	case configGetData:
-		return c.WriteConfigGet(command, typed)
-	case configMutationData:
-		return c.WriteConfigMutation(command, typed)
-	default:
-		event := c.resultEvent(command).Any("data", data)
-		addPaginationFields(event, pagination)
-		event.Send()
-		return nil
+	if r, ok := data.(PlainRenderer); ok {
+		return r.WritePlain(c, command, pagination)
 	}
-}
-
-func (c *CommandContext) WriteCacheClear(command string, data cacheClearData) error {
-	c.resultEvent(command).
-		Str("profile", data.Profile).
-		When(data.Resource != "", func(e *clog.Event) {
-			e.Str("resource", data.Resource).Bool("removed", data.Removed)
-		}).
-		Int("removed_count", data.RemovedCount).
-		Send()
+	event := c.resultEvent(command).Any("data", data)
+	addPaginationFields(event, pagination)
+	event.Send()
 	return nil
 }
 
@@ -548,115 +490,6 @@ var addBoolField = clioutput.AddBoolField
 
 var addIntField = clioutput.AddIntField
 
-func (c *CommandContext) WriteAuthWorkspace(command string, workspace authWorkspaceData) error {
-	logger := c.stdoutLogger()
-	if workspace.TeamID != "" {
-		applyTeamIDStyle(logger, c.Theme, workspace.TeamID)
-	}
-	event := logger.Info().
-		Str("command", command).
-		Str("workspace", workspace.Workspace).
-		Bool("authenticated", workspace.Authenticated).
-		Str("token_type", string(workspace.TokenType)).
-		Str("team_id", workspace.TeamID).
-		Str("team_name", workspace.TeamName).
-		Str("validation_error", workspace.ValidationError)
-	event.Send()
-	return nil
-}
-
-func (c *CommandContext) WriteSend(command string, data sendCommandData) error {
-	channel := ""
-	if data.Message.Channel != nil {
-		channel = *data.Message.Channel
-	}
-	event := c.resultEventWithStyles(command, entityFieldStyle("channel", channel))
-	event = addSlackTimestampFields(event, data.Message.TS, c.now()).
-		Bool("dry_run", data.DryRun).
-		When(clog.IsVerbose(), func(e *clog.Event) {
-			e.Bool("attribution", data.Attribution)
-			if data.Message.ThreadTS != nil {
-				e.Str("thread_ts", *data.Message.ThreadTS)
-			}
-			if data.Permalink != nil {
-				e.Str("permalink", *data.Permalink)
-			}
-		})
-	if data.Message.Channel != nil {
-		event = event.Str("channel", *data.Message.Channel)
-	}
-	event.Send()
-	return nil
-}
-
-func (c *CommandContext) WriteDelete(command string, data deleteMessageData) error {
-	event := c.resultEventWithStyles(command, entityFieldStyle("channel", data.Channel)).
-		Str("channel", data.Channel)
-	event = addSlackTimestampFields(event, data.Timestamp, c.now()).
-		Bool("deleted", data.Deleted).
-		Bool("dry_run", data.DryRun)
-	event.Send()
-	return nil
-}
-
-func (c *CommandContext) WriteUpload(command string, data uploadFileResult) error {
-	c.resultEventWithStyles(command, entityFieldStyle("channel", data.Channel)).
-		Str("channel", data.Channel).
-		Str("file_id", data.File.ID).
-		Str("file_name", data.File.Name).
-		Int("size", data.File.Size).
-		Str("size_human", human.FormatIECBytes(float64(data.File.Size))).
-		Bool("dry_run", data.DryRun).
-		Send()
-	return nil
-}
-
-func (c *CommandContext) WriteReaction(command string, data reactionCommandData) error {
-	if data.Reaction != nil {
-		event := c.resultEventWithStyles(command, entityFieldStyle("channel", data.Reaction.Channel)).
-			Str("channel", data.Reaction.Channel)
-		event = addSlackTimestampFields(event, data.Reaction.Timestamp, c.now()).
-			Str("emoji", data.Reaction.Emoji).
-			Bool("removed", data.Reaction.Removed).
-			Bool("dry_run", data.Reaction.DryRun)
-		event.Send()
-		return nil
-	}
-	if len(data.Reactions) > 0 {
-		return c.WriteReactionTable(data.Reactions)
-	}
-	if len(data.Reactions) == 0 {
-		event := c.resultEventWithStyles(command, entityFieldStyle("channel", data.Target.Channel)).
-			Str("channel", data.Target.Channel)
-		addSlackTimestampFields(event, data.Target.Timestamp, c.now()).
-			Send()
-		return nil
-	}
-	for _, reaction := range data.Reactions {
-		event := c.resultEventWithStyles(command, entityFieldStyle("channel", data.Target.Channel)).
-			Str("channel", data.Target.Channel)
-		event = addSlackTimestampFields(event, data.Target.Timestamp, c.now()).
-			Str("emoji", reaction.Name).
-			Int("count", reaction.Count).
-			Strs("users", reaction.Users)
-		event.Send()
-	}
-	return nil
-}
-
-func (c *CommandContext) WriteStatus(command string, data statusCommandData) error {
-	event := c.resultEvent(command).
-		Str("text", data.Text).
-		Str("emoji", data.Emoji).
-		Bool("cleared", data.Cleared).
-		Bool("dry_run", data.DryRun).
-		When(data.Expiration > 0, func(e *clog.Event) {
-			e.Int64("expiration", data.Expiration)
-		})
-	event.Send()
-	return nil
-}
-
 func (c *CommandContext) WriteMessages(command string, messages []cliMessage, pagination *Pagination) error {
 	if len(messages) > 0 {
 		return c.WriteMessageTable(messages)
@@ -677,49 +510,12 @@ func (c *CommandContext) WriteSearch(command string, data searchCommandData, pag
 	return nil
 }
 
-func (c *CommandContext) WriteChannelInfo(command string, channel cliChannel) error {
-	event := c.resultEventWithStyles(command, entityFieldStyle("channel", channel.ID)).
-		Str("channel", channel.ID).
-		Str("name", channel.Name).
-		Str("type", channel.Type)
-	event = addBoolField(event, "is_member", channel.IsMember)
-	event = addBoolField(event, "is_im", channel.IsIM)
-	event = addBoolField(event, "is_archived", channel.IsArchived)
-	if channel.User != nil {
-		event = event.Str("user", *channel.User)
-	}
-	if channel.Topic != nil {
-		event = event.Str("topic", *channel.Topic)
-	}
-	event = addIntField(event, "num_members", channel.NumMembers)
-	event.Send()
-	return nil
-}
-
 func (c *CommandContext) WriteChannels(command string, channels []cliChannel, pagination *Pagination) error {
 	if len(channels) > 0 {
 		return c.WriteChannelTable(command, channels)
 	}
 	event := c.resultEvent(command)
 	addPaginationFields(event, pagination)
-	event.Send()
-	return nil
-}
-
-func (c *CommandContext) WriteUserInfo(command string, user cliUser) error {
-	event := c.resultEventWithStyles(command, entityFieldStyle("user", user.ID)).
-		Str("user", user.ID).
-		Str("name", user.Name)
-	event = addBoolField(event, "deleted", user.Deleted)
-	if user.Timezone != nil {
-		event = event.Str("timezone", *user.Timezone)
-	}
-	if user.Presence != nil {
-		event = event.Str("presence", *user.Presence)
-	}
-	if user.StatusText != nil {
-		event = event.Str("status_text", *user.StatusText)
-	}
 	event.Send()
 	return nil
 }
@@ -744,102 +540,12 @@ func (c *CommandContext) WriteWorkspaces(command string, workspaces []config.Wor
 	return nil
 }
 
-func (c *CommandContext) WriteVersion(data versionData) error {
-	var b strings.Builder
-	b.WriteString("slick " + data.Version + "\n")
-	b.WriteString("  commit:  " + data.Commit + "\n")
-	b.WriteString("  branch:  " + data.Branch + "\n")
-	b.WriteString("  built:   " + data.BuildTime + "\n")
-	b.WriteString("  built by: " + data.BuildBy)
-	return c.WritePlain(b.String())
-}
-
-func (c *CommandContext) WriteConfigInit(data configInitData) error {
-	c.resultEvent("config.init").
-		Link("path", data.Path, human.ContractHome(data.Path)).
-		Str("profile", data.Profile).
-		Str("workspace", data.Workspace).
-		Bool("written", data.Written).
-		Send()
-	return nil
-}
-
-func (c *CommandContext) WriteConfigPath(command string, data configPathData) error {
-	c.resultEvent(command).
-		Link("path", data.Path, human.ContractHome(data.Path)).
-		Bool("exists", data.Exists).
-		Send()
-	return nil
-}
-
-func (c *CommandContext) WriteConfigList(command string, data configListData) error {
-	c.resultEvent(command).
-		Link("path", data.Path, human.ContractHome(data.Path)).
-		Str("default_workspace", data.DefaultWorkspace).
-		Int("settings", len(data.Settings)).
-		Send()
-	if len(data.Settings) == 0 {
-		return nil
-	}
-	for _, setting := range data.Settings {
-		c.resultEvent(command).
-			Str("key", setting.Key).
-			Str("value", setting.Value).
-			Msg("config setting")
-	}
-	return nil
-}
-
-func (c *CommandContext) WriteConfigGet(command string, data configGetData) error {
-	c.resultEvent(command).
-		Str("key", data.Key).
-		Str("value", data.Value).
-		Send()
-	return nil
-}
-
-func (c *CommandContext) WriteConfigMutation(command string, data configMutationData) error {
-	c.resultEvent(command).
-		Link("path", data.Path, human.ContractHome(data.Path)).
-		Str("key", data.Key).
-		Str("value", data.Value).
-		Send()
-	return nil
-}
-
 func truncateText(value string, limit int) string {
 	return termansi.Truncate(value, limit, "...")
 }
 
-func (c *CommandContext) WritePlain(message string) error {
+func (c *CommandContext) WriteString(message string) error {
 	c.stdoutLogger().Info().Parts(clog.PartMessage).Msg(message)
-	return nil
-}
-
-func (c *CommandContext) WriteAuthStatus(data authStatusData) error {
-	logger := c.stdoutLogger()
-	for _, workspace := range data.Workspaces {
-		state := workspace.ValidationState
-		if state == "" {
-			if workspace.Authenticated {
-				state = "valid"
-			} else {
-				state = "missing"
-			}
-		}
-		if workspace.TeamID != "" {
-			applyTeamIDStyle(logger, c.Theme, workspace.TeamID)
-		}
-		event := logger.Info().
-			Str("workspace", workspace.Workspace).
-			Bool("authenticated", workspace.Authenticated).
-			Str("token_type", string(workspace.TokenType)).
-			Str("team_id", workspace.TeamID).
-			Str("team_name", workspace.TeamName).
-			Bool("valid", state == "valid").
-			Str("validation_error", workspace.ValidationError)
-		event.Msg("auth status")
-	}
 	return nil
 }
 

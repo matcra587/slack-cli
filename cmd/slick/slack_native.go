@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gechr/x/human"
 	xstrings "github.com/gechr/x/strings"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/internal/ratelimit"
@@ -76,6 +77,20 @@ type uploadFileResult struct {
 	File    cliFile `json:"file"`
 	Channel string  `json:"channel"`
 	DryRun  bool    `json:"dry_run,omitempty"`
+}
+
+var _ PlainRenderer = uploadFileResult{}
+
+func (d uploadFileResult) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	c.resultEventWithStyles(command, entityFieldStyle("channel", d.Channel)).
+		Str("channel", d.Channel).
+		Str("file_id", d.File.ID).
+		Str("file_name", d.File.Name).
+		Int("size", d.File.Size).
+		Str("size_human", human.FormatIECBytes(float64(d.File.Size))).
+		Bool("dry_run", d.DryRun).
+		Send()
+	return nil
 }
 
 type cliFile struct {

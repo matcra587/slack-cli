@@ -62,7 +62,7 @@ func (c *CommandContext) WriteMessageTable(messages []cliMessage) error {
 		{Name: "text", Header: "TEXT", Flex: true, Render: func(row cliMessage, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.Text)) }},
 		{Name: "replies", Header: "REPLIES", Render: func(row cliMessage, _ *table.RenderContext) table.Cell { return table.TextCell(ptrInt(row.ReplyCount)) }},
 	}
-	return c.WritePlain(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(messages).String())
+	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(messages).String())
 }
 
 func (c *CommandContext) WriteSearchTable(data searchCommandData) error {
@@ -80,7 +80,7 @@ func (c *CommandContext) WriteSearchTable(data searchCommandData) error {
 			return table.TextCell(text)
 		}},
 	}
-	return c.WritePlain(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(data.Matches).String())
+	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(data.Matches).String())
 }
 
 func (c *CommandContext) WriteChannelTable(command string, channels []cliChannel) error {
@@ -96,7 +96,7 @@ func (c *CommandContext) WriteChannelTable(command string, channels []cliChannel
 		{Name: "members", Header: "MEMBERS", Render: func(row cliChannel, _ *table.RenderContext) table.Cell { return table.TextCell(ptrInt(row.NumMembers)) }},
 		{Name: "topic", Header: "TOPIC", Flex: true, Render: func(row cliChannel, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.Topic)) }},
 	}
-	return c.WritePlain(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(channels).String())
+	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(channels).String())
 }
 
 func (c *CommandContext) WriteUserTable(users []cliUser) error {
@@ -117,7 +117,7 @@ func (c *CommandContext) WriteUserTable(users []cliUser) error {
 		table.Column[cliUser]{Name: "tz", Header: "TZ", Render: func(row cliUser, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.Timezone)) }},
 		table.Column[cliUser]{Name: "status", Header: "STATUS", Flex: true, Render: func(row cliUser, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.StatusText)) }},
 	)
-	return c.WritePlain(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(users).String())
+	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(users).String())
 }
 
 func usersHavePresence(users []cliUser) bool {
@@ -139,7 +139,7 @@ func (c *CommandContext) WriteReactionTable(reactions []cliReactionSummary) erro
 			return table.TextCell(strings.Join(row.Users, ","))
 		}},
 	}
-	return c.WritePlain(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(reactions).String())
+	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(reactions).String())
 }
 
 func (c *CommandContext) WriteWorkspaceTable(workspaces []config.WorkspaceProfile) error {
@@ -155,7 +155,7 @@ func (c *CommandContext) WriteWorkspaceTable(workspaces []config.WorkspaceProfil
 			return table.TextCell(string(row.TokenType))
 		}},
 	}
-	return c.WritePlain(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(workspaces).String())
+	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(workspaces).String())
 }
 
 func ptrString(value *string) string {

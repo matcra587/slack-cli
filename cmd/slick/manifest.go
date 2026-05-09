@@ -150,7 +150,7 @@ func runManifestTemplate(cmd *cobra.Command, runtime *RootRuntime, opts manifest
 	case "", "json":
 		ctx.stdoutLogger().Print().Mode(clog.JSONFlat).JSON(manifest)
 	case "yaml", "yml":
-		return ctx.WritePlain(renderManifestYAML(manifest))
+		return ctx.WriteString(renderManifestYAML(manifest))
 	default:
 		return writeCommandError(ctx, validationCLIError("format must be json or yaml"))
 	}

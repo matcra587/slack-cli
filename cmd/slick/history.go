@@ -12,6 +12,12 @@ type historyCommandData struct {
 	Messages []cliMessage `json:"messages"`
 }
 
+var _ PlainRenderer = historyCommandData{}
+
+func (d historyCommandData) WritePlain(c *CommandContext, command string, pagination *Pagination) error {
+	return c.WriteMessages(command, d.Messages, pagination)
+}
+
 func newHistoryCommand(runtime *RootRuntime) *cobra.Command {
 	historyCmd := &cobra.Command{
 		Use:   "history",

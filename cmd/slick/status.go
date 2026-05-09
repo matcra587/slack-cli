@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gechr/clog"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -16,6 +17,21 @@ type statusCommandData struct {
 	Expiration int64  `json:"expiration,omitempty"`
 	Cleared    bool   `json:"cleared,omitempty"`
 	DryRun     bool   `json:"dry_run,omitempty"`
+}
+
+var _ PlainRenderer = statusCommandData{}
+
+func (d statusCommandData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	event := c.resultEvent(command).
+		Str("text", d.Text).
+		Str("emoji", d.Emoji).
+		Bool("cleared", d.Cleared).
+		Bool("dry_run", d.DryRun).
+		When(d.Expiration > 0, func(e *clog.Event) {
+			e.Int64("expiration", d.Expiration)
+		})
+	event.Send()
+	return nil
 }
 
 type statusSetOptions struct {

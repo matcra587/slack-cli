@@ -84,9 +84,9 @@ func newAgentGuideCommand(runtime *RootRuntime) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := agentCommandContext(cmd, runtime)
 			if len(args) == 0 {
-				return ctx.WritePlain(agenthelp.GetGuide())
+				return ctx.WriteString(agenthelp.GetGuide())
 			}
-			return ctx.WritePlain(agenthelp.GetGuideSection(args[0]))
+			return ctx.WriteString(agenthelp.GetGuideSection(args[0]))
 		},
 	}
 	cmd.SetHelpFunc(agentGuideHelpFunc(runtime.HelpRenderer))

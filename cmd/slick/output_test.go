@@ -70,7 +70,7 @@ func TestWriteResultCompactOutputsDataOnly(t *testing.T) {
 func TestWritePlainUsesClogDataOutput(t *testing.T) {
 	ctx, stdout, _ := newOutputTestContext(RenderModePlain)
 
-	err := ctx.WritePlain("Message sent to #alerts")
+	err := ctx.WriteString("Message sent to #alerts")
 	if err != nil {
 		t.Fatalf("WritePlain returned error: %v", err)
 	}

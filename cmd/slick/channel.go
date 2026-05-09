@@ -12,8 +12,36 @@ type channelListData struct {
 	Channels []cliChannel `json:"channels"`
 }
 
+var _ PlainRenderer = channelListData{}
+
+func (d channelListData) WritePlain(c *CommandContext, command string, pagination *Pagination) error {
+	return c.WriteChannels(command, d.Channels, pagination)
+}
+
 type channelInfoData struct {
 	Channel cliChannel `json:"channel"`
+}
+
+var _ PlainRenderer = channelInfoData{}
+
+func (d channelInfoData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	ch := d.Channel
+	event := c.resultEventWithStyles(command, entityFieldStyle("channel", ch.ID)).
+		Str("channel", ch.ID).
+		Str("name", ch.Name).
+		Str("type", ch.Type)
+	event = addBoolField(event, "is_member", ch.IsMember)
+	event = addBoolField(event, "is_im", ch.IsIM)
+	event = addBoolField(event, "is_archived", ch.IsArchived)
+	if ch.User != nil {
+		event = event.Str("user", *ch.User)
+	}
+	if ch.Topic != nil {
+		event = event.Str("topic", *ch.Topic)
+	}
+	event = addIntField(event, "num_members", ch.NumMembers)
+	event.Send()
+	return nil
 }
 
 func newLookupCommand(runtime *RootRuntime) *cobra.Command {

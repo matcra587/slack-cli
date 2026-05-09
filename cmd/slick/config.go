@@ -11,6 +11,7 @@ import (
 	clib "github.com/gechr/clib/cli/cobra"
 	clibtheme "github.com/gechr/clib/theme"
 	xfs "github.com/gechr/x/fs"
+	"github.com/gechr/x/human"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/spf13/cobra"
@@ -34,9 +35,31 @@ type configInitData struct {
 	Written   bool   `json:"written"`
 }
 
+var _ PlainRenderer = configInitData{}
+
+func (d configInitData) WritePlain(c *CommandContext, _ string, _ *Pagination) error {
+	c.resultEvent("config.init").
+		Link("path", d.Path, human.ContractHome(d.Path)).
+		Str("profile", d.Profile).
+		Str("workspace", d.Workspace).
+		Bool("written", d.Written).
+		Send()
+	return nil
+}
+
 type configPathData struct {
 	Path   string `json:"path"`
 	Exists bool   `json:"exists"`
+}
+
+var _ PlainRenderer = configPathData{}
+
+func (d configPathData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	c.resultEvent(command).
+		Link("path", d.Path, human.ContractHome(d.Path)).
+		Bool("exists", d.Exists).
+		Send()
+	return nil
 }
 
 type configEntry struct {
@@ -51,15 +74,56 @@ type configListData struct {
 	Settings         []configEntry `json:"settings"`
 }
 
+var _ PlainRenderer = configListData{}
+
+func (d configListData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	c.resultEvent(command).
+		Link("path", d.Path, human.ContractHome(d.Path)).
+		Str("default_workspace", d.DefaultWorkspace).
+		Int("settings", len(d.Settings)).
+		Send()
+	if len(d.Settings) == 0 {
+		return nil
+	}
+	for _, setting := range d.Settings {
+		c.resultEvent(command).
+			Str("key", setting.Key).
+			Str("value", setting.Value).
+			Msg("config setting")
+	}
+	return nil
+}
+
 type configGetData struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
+}
+
+var _ PlainRenderer = configGetData{}
+
+func (d configGetData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	c.resultEvent(command).
+		Str("key", d.Key).
+		Str("value", d.Value).
+		Send()
+	return nil
 }
 
 type configMutationData struct {
 	Path  string `json:"path"`
 	Key   string `json:"key"`
 	Value string `json:"value,omitempty"`
+}
+
+var _ PlainRenderer = configMutationData{}
+
+func (d configMutationData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	c.resultEvent(command).
+		Link("path", d.Path, human.ContractHome(d.Path)).
+		Str("key", d.Key).
+		Str("value", d.Value).
+		Send()
+	return nil
 }
 
 var slackConfigKeys = []string{

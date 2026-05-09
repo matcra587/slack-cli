@@ -9,6 +9,12 @@ type workspaceListData struct {
 	Workspaces []config.WorkspaceProfile `json:"workspaces"`
 }
 
+var _ PlainRenderer = workspaceListData{}
+
+func (d workspaceListData) WritePlain(c *CommandContext, command string, pagination *Pagination) error {
+	return c.WriteWorkspaces(command, d.Workspaces, pagination)
+}
+
 func newWorkspaceCommand(runtime *RootRuntime) *cobra.Command {
 	workspaceCmd := &cobra.Command{Use: "workspace", Short: "Manage workspace profiles"}
 	listCmd := &cobra.Command{

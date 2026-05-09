@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gechr/clog"
 	"github.com/gechr/x/human"
 	xstrings "github.com/gechr/x/strings"
 	"github.com/matcra587/slack-cli/internal/config"
@@ -21,6 +22,32 @@ type sendCommandData struct {
 	Permalink   *string    `json:"permalink,omitempty"`
 	DryRun      bool       `json:"dry_run,omitempty"`
 	Attribution bool       `json:"attribution"`
+}
+
+var _ PlainRenderer = sendCommandData{}
+
+func (d sendCommandData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	channel := ""
+	if d.Message.Channel != nil {
+		channel = *d.Message.Channel
+	}
+	event := c.resultEventWithStyles(command, entityFieldStyle("channel", channel))
+	event = addSlackTimestampFields(event, d.Message.TS, c.now()).
+		Bool("dry_run", d.DryRun).
+		When(clog.IsVerbose(), func(e *clog.Event) {
+			e.Bool("attribution", d.Attribution)
+			if d.Message.ThreadTS != nil {
+				e.Str("thread_ts", *d.Message.ThreadTS)
+			}
+			if d.Permalink != nil {
+				e.Str("permalink", *d.Permalink)
+			}
+		})
+	if d.Message.Channel != nil {
+		event = event.Str("channel", *d.Message.Channel)
+	}
+	event.Send()
+	return nil
 }
 
 type messageSource struct {
@@ -361,6 +388,18 @@ type deleteMessageData struct {
 	Timestamp string `json:"timestamp"`
 	Deleted   bool   `json:"deleted"`
 	DryRun    bool   `json:"dry_run,omitempty"`
+}
+
+var _ PlainRenderer = deleteMessageData{}
+
+func (d deleteMessageData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	event := c.resultEventWithStyles(command, entityFieldStyle("channel", d.Channel)).
+		Str("channel", d.Channel)
+	event = addSlackTimestampFields(event, d.Timestamp, c.now()).
+		Bool("deleted", d.Deleted).
+		Bool("dry_run", d.DryRun)
+	event.Send()
+	return nil
 }
 
 func readMessageSource(stdin io.Reader, source messageSource) (string, error) {

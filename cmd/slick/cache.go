@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gechr/clog"
 	slackcache "github.com/matcra587/slack-cli/internal/cache"
 	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
@@ -61,6 +62,31 @@ type cacheClearData struct {
 	Resource     string `json:"resource,omitempty"`
 	Removed      bool   `json:"removed,omitempty"`
 	RemovedCount int    `json:"removed_count,omitempty"`
+}
+
+var _ PlainRenderer = cacheUsersData{}
+
+func (d cacheUsersData) WritePlain(c *CommandContext, command string, pagination *Pagination) error {
+	return c.WriteUsers(command, d.Users, pagination)
+}
+
+var _ PlainRenderer = cacheChannelsData{}
+
+func (d cacheChannelsData) WritePlain(c *CommandContext, command string, pagination *Pagination) error {
+	return c.WriteChannels(command, d.Channels, pagination)
+}
+
+var _ PlainRenderer = cacheClearData{}
+
+func (d cacheClearData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	c.resultEvent(command).
+		Str("profile", d.Profile).
+		When(d.Resource != "", func(e *clog.Event) {
+			e.Str("resource", d.Resource).Bool("removed", d.Removed)
+		}).
+		Int("removed_count", d.RemovedCount).
+		Send()
+	return nil
 }
 
 func newCacheCommand(runtime *RootRuntime) *cobra.Command {

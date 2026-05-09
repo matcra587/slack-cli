@@ -13,6 +13,41 @@ type reactionCommandData struct {
 	Target    reactionTarget       `json:"target"`
 }
 
+var _ PlainRenderer = reactionCommandData{}
+
+func (d reactionCommandData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	if d.Reaction != nil {
+		event := c.resultEventWithStyles(command, entityFieldStyle("channel", d.Reaction.Channel)).
+			Str("channel", d.Reaction.Channel)
+		event = addSlackTimestampFields(event, d.Reaction.Timestamp, c.now()).
+			Str("emoji", d.Reaction.Emoji).
+			Bool("removed", d.Reaction.Removed).
+			Bool("dry_run", d.Reaction.DryRun)
+		event.Send()
+		return nil
+	}
+	if len(d.Reactions) > 0 {
+		return c.WriteReactionTable(d.Reactions)
+	}
+	if len(d.Reactions) == 0 {
+		event := c.resultEventWithStyles(command, entityFieldStyle("channel", d.Target.Channel)).
+			Str("channel", d.Target.Channel)
+		addSlackTimestampFields(event, d.Target.Timestamp, c.now()).
+			Send()
+		return nil
+	}
+	for _, reaction := range d.Reactions {
+		event := c.resultEventWithStyles(command, entityFieldStyle("channel", d.Target.Channel)).
+			Str("channel", d.Target.Channel)
+		event = addSlackTimestampFields(event, d.Target.Timestamp, c.now()).
+			Str("emoji", reaction.Name).
+			Int("count", reaction.Count).
+			Strs("users", reaction.Users)
+		event.Send()
+	}
+	return nil
+}
+
 func newReactCommand(runtime *RootRuntime) *cobra.Command {
 	reactCmd := &cobra.Command{
 		Use:   "react",

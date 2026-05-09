@@ -14,6 +14,12 @@ type searchCommandData struct {
 	Full    bool               `json:"-"`
 }
 
+var _ PlainRenderer = searchCommandData{}
+
+func (d searchCommandData) WritePlain(c *CommandContext, command string, pagination *Pagination) error {
+	return c.WriteSearch(command, d, pagination)
+}
+
 func newLookupMessagesCommand(runtime *RootRuntime) *cobra.Command {
 	var query string
 	var maxItems int

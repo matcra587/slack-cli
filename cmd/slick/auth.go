@@ -42,6 +42,54 @@ type authStatusData struct {
 	Workspaces []authWorkspaceData `json:"workspaces"`
 }
 
+var _ PlainRenderer = authWorkspaceData{}
+
+func (d authWorkspaceData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	logger := c.stdoutLogger()
+	if d.TeamID != "" {
+		applyTeamIDStyle(logger, c.Theme, d.TeamID)
+	}
+	event := logger.Info().
+		Str("command", command).
+		Str("workspace", d.Workspace).
+		Bool("authenticated", d.Authenticated).
+		Str("token_type", string(d.TokenType)).
+		Str("team_id", d.TeamID).
+		Str("team_name", d.TeamName).
+		Str("validation_error", d.ValidationError)
+	event.Send()
+	return nil
+}
+
+var _ PlainRenderer = authStatusData{}
+
+func (d authStatusData) WritePlain(c *CommandContext, _ string, _ *Pagination) error {
+	logger := c.stdoutLogger()
+	for _, workspace := range d.Workspaces {
+		state := workspace.ValidationState
+		if state == "" {
+			if workspace.Authenticated {
+				state = "valid"
+			} else {
+				state = "missing"
+			}
+		}
+		if workspace.TeamID != "" {
+			applyTeamIDStyle(logger, c.Theme, workspace.TeamID)
+		}
+		event := logger.Info().
+			Str("workspace", workspace.Workspace).
+			Bool("authenticated", workspace.Authenticated).
+			Str("token_type", string(workspace.TokenType)).
+			Str("team_id", workspace.TeamID).
+			Str("team_name", workspace.TeamName).
+			Bool("valid", state == "valid").
+			Str("validation_error", workspace.ValidationError)
+		event.Msg("auth status")
+	}
+	return nil
+}
+
 func newAuthCommand(runtime *RootRuntime) *cobra.Command {
 	authCmd := &cobra.Command{Use: "auth", Short: "Manage Slack authentication"}
 

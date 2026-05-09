@@ -76,6 +76,10 @@ run = "go test -v -race -cover ./..."
 description = "Run integration tests"
 run = "go test -v -tags=integration ./tests/integration -count=1 -timeout 60s"
 
+["test:live"]
+description = "Run live tests against a real Slack workspace (requires SLICK_LIVE_WORKSPACE and SLICK_LIVE_CHANNEL)"
+run = "go test -v -tags=live ./tests/live -count=1 -timeout 120s"
+
 [fmt]
 description = "Format code with gofmt and gofumpt"
 run = ["go fmt ./...", "go tool gofumpt -w ."]

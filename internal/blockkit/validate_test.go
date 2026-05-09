@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/matcra587/slack-cli/pkg/blockkit"
+	"github.com/matcra587/slack-cli/internal/blockkit"
 	slackgo "github.com/slack-go/slack"
 )
 

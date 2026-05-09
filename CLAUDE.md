@@ -30,7 +30,7 @@ stderr.
 - `internal/config/`: TOML profiles, migrations, credential references, and
   workspace resolution.
 - `internal/ratelimit/`: Slack Web API method tiers, throttling, and 429 retry.
-- `pkg/blockkit/`: public Block Kit types, Markdown conversion, rendering, and
+- `internal/blockkit/`: Block Kit types, Markdown conversion, rendering, and
   validation.
 - `tests/integration/`: built-binary pipe and Slack HTTP tests.
 - `testdata/`: fixtures.
@@ -39,7 +39,7 @@ stderr.
 
 - Slack Web API calls use `slack-go/slack` directly.
 - Block Kit JSON is the canonical rich-content contract. Markdown input is
-  converted through `pkg/blockkit`; unsupported block-level Markdown preserves
+  converted through `internal/blockkit`; unsupported block-level Markdown preserves
   readable source text as fallback.
 - `--blocks` is command-local input for raw Slack Block Kit JSON arrays.
   `--raw` remains an output mode.

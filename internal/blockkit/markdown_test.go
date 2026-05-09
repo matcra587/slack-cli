@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/matcra587/slack-cli/pkg/blockkit"
+	"github.com/matcra587/slack-cli/internal/blockkit"
 )
 
 func TestFromMarkdownConvertsParagraphToSection(t *testing.T) {

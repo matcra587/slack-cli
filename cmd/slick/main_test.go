@@ -798,28 +798,6 @@ func TestCredentialTokenResolverRefreshesExpiringKeychainCredential(t *testing.T
 	}
 }
 
-func TestTokenResolverInterfacePropagatesContext(t *testing.T) {
-	// Verify that TokenResolverFunc satisfies the TokenResolver interface with the new ctx signature.
-	called := false
-	var resolver TokenResolver = TokenResolverFunc(func(ctx context.Context, profile config.WorkspaceProfile) (string, error) {
-		if ctx == nil {
-			t.Fatal("context was nil")
-		}
-		called = true
-		return "xoxb-test", nil
-	})
-	token, err := resolver.ResolveToken(context.Background(), config.WorkspaceProfile{})
-	if err != nil {
-		t.Fatalf("ResolveToken returned error: %v", err)
-	}
-	if token != "xoxb-test" {
-		t.Fatalf("token = %q, want xoxb-test", token)
-	}
-	if !called {
-		t.Fatal("TokenResolverFunc was not called")
-	}
-}
-
 func TestCredentialTokenResolverRefreshPropagatesCancelledContext(t *testing.T) {
 	// Verify that a canceled context propagates through resolveStoredCredential into refreshOAuthUserToken.
 	now := time.Date(2026, 5, 3, 20, 10, 0, 0, time.UTC)

@@ -11,6 +11,7 @@ import (
 	clib "github.com/gechr/clib/cli/cobra"
 	clibtheme "github.com/gechr/clib/theme"
 	xfs "github.com/gechr/x/fs"
+	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -409,7 +410,7 @@ func loadConfigForConfigCommand(runtime *RootRuntime) (*config.Config, error) {
 	if runtime.ConfigPath == "" {
 		return nil, errors.New("config path is unavailable")
 	}
-	return loadDefaultConfig(runtime.ConfigPath)
+	return cliruntime.LoadDefaultConfig(runtime.ConfigPath)
 }
 
 func configEntries(cfg *config.Config) []configEntry {

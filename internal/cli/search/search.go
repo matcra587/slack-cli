@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
@@ -91,15 +92,15 @@ func runSearchMessages(cmd *cobra.Command, runtime *cliruntime.RootRuntime, quer
 	matches := cliSearchMessagesFromSlack(result.Matches)
 	var next *string
 	if result.Pagination.Page > 0 && result.Pagination.Page < result.PageCount {
-		next = stringPtr(strconv.Itoa(result.Pagination.Page + 1))
+		next = cliutil.StringPtr(strconv.Itoa(result.Pagination.Page + 1))
 	}
 
 	return ctx.WriteResultWithPagination("search.messages", Data{Matches: matches, Full: full}, &clioutput.Pagination{
-		Cursor:        stringPtr(cursor),
+		Cursor:        cliutil.StringPtr(cursor),
 		NextCursor:    next,
 		HasMore:       next != nil,
-		MaxItems:      intPtr(maxItems),
-		ItemsReturned: intPtr(len(matches)),
+		MaxItems:      cliutil.IntPtr(maxItems),
+		ItemsReturned: cliutil.IntPtr(len(matches)),
 	})
 }
 
@@ -109,18 +110,4 @@ func cliSearchMessagesFromSlack(messages []slackgo.SearchMessage) []clioutput.Cl
 		out = append(out, clioutput.CliSearchMessageFromSlack(message))
 	}
 	return out
-}
-
-func stringPtr(value string) *string {
-	if value == "" {
-		return nil
-	}
-	return &value
-}
-
-func intPtr(value int) *int {
-	if value <= 0 {
-		return nil
-	}
-	return &value
 }

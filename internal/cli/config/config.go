@@ -15,6 +15,7 @@ import (
 	xfs "github.com/gechr/x/fs"
 	"github.com/gechr/x/human"
 	clitheme "github.com/matcra587/slack-cli/internal/cli/clitheme"
+	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	clioauth "github.com/matcra587/slack-cli/internal/cli/oauth"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
@@ -538,11 +539,11 @@ func getValue(cfg *config.Config, key string) (string, error) {
 	case "agent_attribution":
 		return boolPtrString(attributionEnabled(workspace)), nil
 	case "agent_label":
-		return clioauth.FirstNonEmpty(workspace.Attribution.Label, workspace.AgentLabel), nil
+		return cliutil.FirstNonEmpty(workspace.Attribution.Label, workspace.AgentLabel), nil
 	case "agent_emoji":
-		return clioauth.FirstNonEmpty(workspace.Attribution.Emoji, workspace.AgentEmoji), nil
+		return cliutil.FirstNonEmpty(workspace.Attribution.Emoji, workspace.AgentEmoji), nil
 	case "agent_message":
-		return clioauth.FirstNonEmpty(workspace.Attribution.Message, workspace.AgentMessage), nil
+		return cliutil.FirstNonEmpty(workspace.Attribution.Message, workspace.AgentMessage), nil
 	case "attribution.enabled":
 		return boolPtrString(attributionEnabled(workspace)), nil
 	case "attribution.label":

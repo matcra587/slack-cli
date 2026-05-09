@@ -3,6 +3,7 @@ package user
 import (
 	"strings"
 
+	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	climessage "github.com/matcra587/slack-cli/internal/cli/message"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
@@ -109,11 +110,11 @@ func runUserListWithCommand(cmd *cobra.Command, runtime *cliruntime.RootRuntime,
 	}
 	users := filterUsers(cliUsersFromSlack(page.Users, opts.IncludeDeleted), opts.Filter)
 	return ctx.WriteResultWithPagination(command, ListData{Users: users}, &clioutput.Pagination{
-		Cursor:        stringPtr(opts.Cursor),
-		NextCursor:    stringPtr(page.Cursor),
+		Cursor:        cliutil.StringPtr(opts.Cursor),
+		NextCursor:    cliutil.StringPtr(page.Cursor),
 		HasMore:       page.Cursor != "",
-		MaxItems:      intPtr(opts.MaxItems),
-		ItemsReturned: intPtr(len(users)),
+		MaxItems:      cliutil.IntPtr(opts.MaxItems),
+		ItemsReturned: cliutil.IntPtr(len(users)),
 	})
 }
 
@@ -179,18 +180,4 @@ func filterUsers(users []clioutput.CliUser, filter string) []clioutput.CliUser {
 		}
 	}
 	return out
-}
-
-func stringPtr(value string) *string {
-	if value == "" {
-		return nil
-	}
-	return &value
-}
-
-func intPtr(value int) *int {
-	if value <= 0 {
-		return nil
-	}
-	return &value
 }

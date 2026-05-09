@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
@@ -118,11 +119,11 @@ func runHistoryList(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Li
 	}
 
 	return ctx.WriteResultWithPagination("history.list", Data{Messages: res.Messages}, &clioutput.Pagination{
-		Cursor:        stringPtr(opts.Cursor),
+		Cursor:        cliutil.StringPtr(opts.Cursor),
 		NextCursor:    res.NextCursor,
 		HasMore:       res.NextCursor != nil,
-		MaxItems:      intPtr(opts.MaxItems),
-		ItemsReturned: intPtr(len(res.Messages)),
+		MaxItems:      cliutil.IntPtr(opts.MaxItems),
+		ItemsReturned: cliutil.IntPtr(len(res.Messages)),
 	})
 }
 
@@ -158,7 +159,7 @@ func channelHistory(ctx context.Context, client *slackgo.Client, channel string,
 			messages[i].Replies = repliesOnly(messages[i].TS, thread.Messages)
 		}
 	}
-	return result{Messages: messages, NextCursor: stringPtr(resp.ResponseMetaData.NextCursor)}, nil
+	return result{Messages: messages, NextCursor: cliutil.StringPtr(resp.ResponseMetaData.NextCursor)}, nil
 }
 
 func threadHistory(ctx context.Context, client *slackgo.Client, channel, threadTS string, maxItems int, cursor string) (result, error) {
@@ -171,7 +172,7 @@ func threadHistory(ctx context.Context, client *slackgo.Client, channel, threadT
 	if err != nil {
 		return result{}, err
 	}
-	return result{Messages: cliMessagesFromSlack(messages, channel), NextCursor: stringPtr(nextCursor)}, nil
+	return result{Messages: cliMessagesFromSlack(messages, channel), NextCursor: cliutil.StringPtr(nextCursor)}, nil
 }
 
 func cliMessagesFromSlack(messages []slackgo.Message, channel string) []clioutput.CliMessage {
@@ -214,19 +215,5 @@ func permalink(ctx context.Context, client *slackgo.Client, channel, ts string) 
 	if err != nil || value == "" {
 		return nil
 	}
-	return stringPtr(value)
-}
-
-func stringPtr(value string) *string {
-	if value == "" {
-		return nil
-	}
-	return &value
-}
-
-func intPtr(value int) *int {
-	if value <= 0 {
-		return nil
-	}
-	return &value
+	return cliutil.StringPtr(value)
 }

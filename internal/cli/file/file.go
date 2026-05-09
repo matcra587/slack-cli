@@ -13,6 +13,7 @@ import (
 	"github.com/gechr/clog"
 	"github.com/gechr/x/human"
 	"github.com/matcra587/slack-cli/internal/agent"
+	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	climessage "github.com/matcra587/slack-cli/internal/cli/message"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
@@ -157,10 +158,10 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
-	fileName := firstNonEmpty(file.Title, filename)
+	fileName := cliutil.FirstNonEmpty(file.Title, filename)
 	var filePermalink *string
 	if info, _, _, infoErr := client.GetFileInfoContext(cmd.Context(), file.ID, 0, 0); infoErr == nil && info != nil {
-		filePermalink = stringPtr(info.Permalink)
+		filePermalink = cliutil.StringPtr(info.Permalink)
 	}
 	return ctx.WriteResult("file.upload", UploadData{
 		File:    Info{ID: file.ID, Name: fileName, Size: len(content), Permalink: filePermalink},
@@ -198,20 +199,4 @@ func readUploadSource(stdin io.Reader, filePath, filename string) ([]byte, strin
 		filename = filepath.Base(expandedPath)
 	}
 	return content, filename, nil
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
-func stringPtr(value string) *string {
-	if value == "" {
-		return nil
-	}
-	return &value
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/gechr/primer/table"
 	termansi "github.com/gechr/x/ansi"
 	"github.com/gechr/x/terminal"
+	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	"github.com/matcra587/slack-cli/internal/config"
 )
 
@@ -69,7 +70,7 @@ func (c *CommandContext) WriteSearchTable(matches []CliSearchMessage, full bool)
 	columns := []table.Column[CliSearchMessage]{
 		{Name: "ts", Header: "TS", Render: func(row CliSearchMessage, _ *table.RenderContext) table.Cell { return table.TextCell(row.TS) }},
 		{Name: "channel", Header: "CHANNEL", Render: func(row CliSearchMessage, _ *table.RenderContext) table.Cell {
-			return table.TextCell(firstNonEmpty(row.Channel.Name, row.Channel.ID))
+			return table.TextCell(cliutil.FirstNonEmpty(row.Channel.Name, row.Channel.ID))
 		}},
 		{Name: "user", Header: "USER", Render: func(row CliSearchMessage, _ *table.RenderContext) table.Cell { return table.TextCell(row.User) }},
 		{Name: "text", Header: "TEXT", Flex: true, Render: func(row CliSearchMessage, _ *table.RenderContext) table.Cell {

@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	slackgo "github.com/slack-go/slack"
 )
 
@@ -86,7 +87,7 @@ func CliMessageFromSlack(message slackgo.Message, fallbackChannel string) CliMes
 	if message.ThreadTimestamp != "" {
 		out.ThreadTS = new(message.ThreadTimestamp)
 	}
-	channel := firstNonEmpty(message.Channel, fallbackChannel)
+	channel := cliutil.FirstNonEmpty(message.Channel, fallbackChannel)
 	if channel != "" {
 		out.Channel = new(channel)
 	}
@@ -230,13 +231,4 @@ func (e MissingScopeError) Error() string {
 		return "missing required Slack scopes: " + strings.Join(e.All, ",")
 	}
 	return "missing one of required Slack scopes: " + strings.Join(e.Any, ",")
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
 }

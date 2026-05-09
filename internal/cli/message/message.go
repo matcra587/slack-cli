@@ -12,6 +12,7 @@ import (
 	"github.com/gechr/x/human"
 	xstrings "github.com/gechr/x/strings"
 	"github.com/matcra587/slack-cli/internal/agent"
+	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
@@ -210,7 +211,7 @@ func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 
 	result := SendData{Attribution: attribution.Enabled}
 	if dryRun {
-		result.Message = clioutput.CliMessage{Type: "message", TS: "dry-run", Channel: stringPtr(target.previewChannel()), Text: stringPtr(strings.TrimSpace(content))}
+		result.Message = clioutput.CliMessage{Type: "message", TS: "dry-run", Channel: cliutil.StringPtr(target.previewChannel()), Text: cliutil.StringPtr(strings.TrimSpace(content))}
 		result.DryRun = true
 	} else {
 		client, err := slackclient.Client(cmd, profile, runtime)
@@ -240,7 +241,7 @@ func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 		if err != nil {
 			return writeCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 		}
-		result.Message = clioutput.CliMessage{Type: "message", TS: ts, Channel: stringPtr(channel), Text: stringPtr(strings.TrimSpace(content))}
+		result.Message = clioutput.CliMessage{Type: "message", TS: ts, Channel: cliutil.StringPtr(channel), Text: cliutil.StringPtr(strings.TrimSpace(content))}
 		result.Permalink = Permalink(cmd.Context(), client, channel, ts)
 	}
 
@@ -270,7 +271,7 @@ func runMessageEdit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 	}
 	result := SendData{Attribution: attribution.Enabled}
 	if dryRun {
-		result.Message = clioutput.CliMessage{Type: "message", TS: timestamp, Channel: stringPtr(channel), Text: stringPtr(strings.TrimSpace(content))}
+		result.Message = clioutput.CliMessage{Type: "message", TS: timestamp, Channel: cliutil.StringPtr(channel), Text: cliutil.StringPtr(strings.TrimSpace(content))}
 		result.DryRun = true
 	} else {
 		client, err := slackclient.Client(cmd, profile, runtime)
@@ -286,9 +287,9 @@ func runMessageEdit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 		}
 		result.Message = clioutput.CliMessage{
 			Type:    "message",
-			TS:      firstNonEmpty(respTS, timestamp),
-			Channel: stringPtr(firstNonEmpty(respChannel, channel)),
-			Text:    stringPtr(firstNonEmpty(respText, strings.TrimSpace(content))),
+			TS:      cliutil.FirstNonEmpty(respTS, timestamp),
+			Channel: cliutil.StringPtr(cliutil.FirstNonEmpty(respChannel, channel)),
+			Text:    cliutil.StringPtr(cliutil.FirstNonEmpty(respText, strings.TrimSpace(content))),
 		}
 	}
 	return ctx.WriteResult("message.edit", SendData{
@@ -329,8 +330,8 @@ func runMessageDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRu
 		return writeCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
 	return ctx.WriteResult("message.delete", DeleteData{
-		Channel:   firstNonEmpty(respChannel, channel),
-		Timestamp: firstNonEmpty(respTS, timestamp),
+		Channel:   cliutil.FirstNonEmpty(respChannel, channel),
+		Timestamp: cliutil.FirstNonEmpty(respTS, timestamp),
 		Deleted:   true,
 	})
 }
@@ -496,23 +497,7 @@ func Permalink(ctx context.Context, client *slackgo.Client, channel, ts string) 
 	if err != nil || value == "" {
 		return nil
 	}
-	return stringPtr(value)
-}
-
-func stringPtr(value string) *string {
-	if value == "" {
-		return nil
-	}
-	return &value
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
+	return cliutil.StringPtr(value)
 }
 
 func commandContext(cmd *cobra.Command, runtime *cliruntime.RootRuntime) (*clioutput.CommandContext, config.WorkspaceProfile, agent.Attribution, error) {

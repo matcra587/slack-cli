@@ -3,6 +3,7 @@ package thread
 import (
 	"strings"
 
+	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	climessage "github.com/matcra587/slack-cli/internal/cli/message"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
@@ -68,9 +69,9 @@ func runThreadReply(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src cli
 		result.Message = clioutput.CliMessage{
 			Type:     "message",
 			TS:       "dry-run",
-			Channel:  stringPtr(channel),
-			Text:     stringPtr(strings.TrimSpace(content)),
-			ThreadTS: stringPtr(parent),
+			Channel:  cliutil.StringPtr(channel),
+			Text:     cliutil.StringPtr(strings.TrimSpace(content)),
+			ThreadTS: cliutil.StringPtr(parent),
 		}
 		result.DryRun = true
 	} else {
@@ -89,19 +90,12 @@ func runThreadReply(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src cli
 		result.Message = clioutput.CliMessage{
 			Type:     "message",
 			TS:       ts,
-			Channel:  stringPtr(respChannel),
-			Text:     stringPtr(strings.TrimSpace(content)),
-			ThreadTS: stringPtr(parent),
+			Channel:  cliutil.StringPtr(respChannel),
+			Text:     cliutil.StringPtr(strings.TrimSpace(content)),
+			ThreadTS: cliutil.StringPtr(parent),
 		}
 		result.Permalink = climessage.Permalink(cmd.Context(), client, respChannel, ts)
 	}
 
 	return ctx.WriteResult("reply", result)
-}
-
-func stringPtr(value string) *string {
-	if value == "" {
-		return nil
-	}
-	return &value
 }

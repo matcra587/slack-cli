@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	xstrings "github.com/gechr/x/strings"
+	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	climessage "github.com/matcra587/slack-cli/internal/cli/message"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
@@ -114,11 +115,11 @@ func runChannelListWithTypes(cmd *cobra.Command, runtime *cliruntime.RootRuntime
 	}
 	result := ListData{Channels: filterChannels(CliChannelsFromSlack(channels), filter)}
 	return ctx.WriteResultWithPagination(command, result, &clioutput.Pagination{
-		Cursor:        stringPtr(cursor),
-		NextCursor:    stringPtr(nextCursor),
+		Cursor:        cliutil.StringPtr(cursor),
+		NextCursor:    cliutil.StringPtr(nextCursor),
 		HasMore:       nextCursor != "",
-		MaxItems:      intPtr(maxItems),
-		ItemsReturned: intPtr(len(result.Channels)),
+		MaxItems:      cliutil.IntPtr(maxItems),
+		ItemsReturned: cliutil.IntPtr(len(result.Channels)),
 	})
 }
 
@@ -236,18 +237,4 @@ func conversationReadScopeRequirement(types []string) cliscope.Requirement {
 		return cliscope.AllOf("channels:read", "groups:read")
 	}
 	return cliscope.AllOf(scopes...)
-}
-
-func stringPtr(value string) *string {
-	if value == "" {
-		return nil
-	}
-	return &value
-}
-
-func intPtr(value int) *int {
-	if value <= 0 {
-		return nil
-	}
-	return &value
 }

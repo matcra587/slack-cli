@@ -11,6 +11,7 @@ import (
 
 	"github.com/gechr/clog"
 	"github.com/gechr/x/ansi"
+	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	cliconfig "github.com/matcra587/slack-cli/internal/cli/config"
 	clifile "github.com/matcra587/slack-cli/internal/cli/file"
 	"github.com/matcra587/slack-cli/internal/config"
@@ -176,11 +177,11 @@ func TestWriteResultPlainMessageSendUsesClogFieldsAndDebugDetails(t *testing.T) 
 	err := ctx.WriteResult("message.send", sendCommandData{
 		Message: cliMessage{
 			TS:      "1746284582.123456",
-			Channel: stringPtr("C7N2Q8L4P"),
+			Channel: cliutil.StringPtr("C7N2Q8L4P"),
 		},
 		DryRun:      false,
 		Attribution: true,
-		Permalink:   stringPtr("https://example.slack.com/archives/C7N2Q8L4P/p1746284582123456"),
+		Permalink:   cliutil.StringPtr("https://example.slack.com/archives/C7N2Q8L4P/p1746284582123456"),
 	})
 	if err != nil {
 		t.Fatalf("WriteResult returned error: %v", err)
@@ -416,8 +417,8 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 		Type:       "channel",
 		IsMember:   new(true),
 		IsArchived: new(false),
-		Topic:      stringPtr("Ops alerts"),
-		NumMembers: intPtr(12),
+		Topic:      cliutil.StringPtr("Ops alerts"),
+		NumMembers: cliutil.IntPtr(12),
 	}})
 	if err != nil {
 		t.Fatalf("WriteResult returned error: %v", err)
@@ -450,9 +451,9 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 		ID:         "U7N2Q8L4P",
 		Name:       "matt",
 		Deleted:    new(false),
-		Timezone:   stringPtr("America/Toronto"),
-		Presence:   stringPtr("active"),
-		StatusText: stringPtr("Deploying"),
+		Timezone:   cliutil.StringPtr("America/Toronto"),
+		Presence:   cliutil.StringPtr("active"),
+		StatusText: cliutil.StringPtr("Deploying"),
 	}})
 	if err != nil {
 		t.Fatalf("WriteResult returned error: %v", err)

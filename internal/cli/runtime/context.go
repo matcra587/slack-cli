@@ -115,6 +115,66 @@ func CommandContext(cmd *cobra.Command, runtime *RootRuntime) (*clioutput.Comman
 	return ctx, resolvedProfile, attribution, nil
 }
 
+// ExtractFlags reads the standard persistent output and agent flags from the
+// cobra root.
+func ExtractFlags(cmd *cobra.Command) (clioutput.OutputFlags, AgentFlags) {
+	flags := cmd.Root().PersistentFlags()
+	jsonMode, _ := flags.GetBool("json")
+	plain, _ := flags.GetBool("plain")
+	compact, _ := flags.GetBool("compact")
+	raw, _ := flags.GetBool("raw")
+	forceAgent, _ := flags.GetBool("agent")
+	noAttribution, _ := flags.GetBool("no-agent-attribution")
+	agentLabel, _ := flags.GetString("agent-label")
+	agentEmoji, _ := flags.GetString("agent-emoji")
+	agentMessage, _ := flags.GetString("agent-message")
+	return clioutput.OutputFlags{
+			JSON:    jsonMode,
+			Plain:   plain,
+			Compact: compact,
+			Raw:     raw,
+		}, AgentFlags{
+			Agent:              forceAgent,
+			NoAgentAttribution: noAttribution,
+			AgentLabel:         agentLabel,
+			AgentEmoji:         agentEmoji,
+			AgentMessage:       agentMessage,
+		}
+}
+
+// LocalContext builds a minimal CommandContext for commands that do not
+// resolve a workspace profile (e.g. config, manifest). The workspace
+// argument labels the context for telemetry.
+func LocalContext(cmd *cobra.Command, runtime *RootRuntime, workspace string) *clioutput.CommandContext {
+	output, agentFlags := ExtractFlags(cmd)
+	mode := output.Resolve(runtime.IsTTY, detectAgentOutputMode(agentFlags))
+	return buildLocalContext(runtime, workspace, mode)
+}
+
+// LocalContextForceAgent is like LocalContext but forces agent-mode output
+// resolution. Used by the `slick agent` subcommands which exist exclusively
+// to serve agents.
+func LocalContextForceAgent(cmd *cobra.Command, runtime *RootRuntime, workspace string) *clioutput.CommandContext {
+	output, _ := ExtractFlags(cmd)
+	mode := output.Resolve(runtime.IsTTY, true)
+	return buildLocalContext(runtime, workspace, mode)
+}
+
+func buildLocalContext(runtime *RootRuntime, workspace string, mode clioutput.RenderMode) *clioutput.CommandContext {
+	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
+	clioutput.ApplyRenderMode(sl, mode)
+	return &clioutput.CommandContext{
+		Workspace:     workspace,
+		Mode:          mode,
+		Stdout:        runtime.Stdout,
+		Stderr:        runtime.Stderr,
+		NowFunc:       runtime.Now,
+		RequestIDFunc: runtime.RequestID,
+		StdoutLog:     sl,
+		StderrLog:     el,
+	}
+}
+
 // WriteRuntimeError emits a structured CLI error using a minimal context built
 // from the runtime (before a full CommandContext is available).
 func WriteRuntimeError(runtime *RootRuntime, err clioutput.CLIError) error {

@@ -2,7 +2,6 @@ package auth
 
 import (
 	"fmt"
-	"image/color"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"charm.land/lipgloss/v2"
-	clibtheme "github.com/gechr/clib/theme"
 	"github.com/matcra587/slack-cli/internal/testutil"
 )
 
@@ -79,28 +76,13 @@ func TestAuthLoginFormUsesClibThemeAdapter(t *testing.T) {
 	content := string(raw)
 	for _, fragment := range []string{
 		`github.com/gechr/clib/theme`,
-		"authLoginHuhTheme",
-		"WithTheme(authLoginHuhTheme",
+		"clitheme.LoginHuhTheme",
+		"WithTheme(clitheme.LoginHuhTheme",
 	} {
 		if !strings.Contains(content, fragment) {
 			t.Fatalf("auth.go missing theme-aware fragment %q", fragment)
 		}
 	}
-}
-
-func TestAuthLoginHuhThemeUsesClibSemanticColors(t *testing.T) {
-	th := clibtheme.Default().With(
-		clibtheme.WithHelpCommand(lipgloss.NewStyle().Foreground(lipgloss.Color("#123456"))),
-		clibtheme.WithHelpDim(lipgloss.NewStyle().Foreground(lipgloss.Color("#654321"))),
-		clibtheme.WithHelpFlag(lipgloss.NewStyle().Foreground(lipgloss.Color("#fedcba"))),
-		clibtheme.WithHelpPlaceholder(lipgloss.NewStyle().Foreground(lipgloss.Color("#abcdef"))),
-	)
-
-	got := authLoginHuhTheme(th).Theme(false)
-	assertSameColor(t, "#123456", got.Focused.Title.GetForeground())
-	assertSameColor(t, "#654321", got.Focused.Description.GetForeground())
-	assertSameColor(t, "#123456", got.Focused.TextInput.Prompt.GetForeground())
-	assertSameColor(t, "#abcdef", got.Focused.TextInput.Placeholder.GetForeground())
 }
 
 func TestOAuthCallbackHandlerWritesStyledHTML(t *testing.T) {
@@ -146,20 +128,5 @@ printf '%%s\n' "$@" > %q
 			t.Fatalf("browser args were not written: %v", err)
 		}
 		time.Sleep(10 * time.Millisecond)
-	}
-}
-
-func TestAuthLoginHuhColorLeavesUnsetClibColorUnset(t *testing.T) {
-	if got := authLoginHuhColor(lipgloss.NoColor{}); got != nil {
-		t.Fatalf("unset clib color converted to %v, want nil", got)
-	}
-}
-
-func assertSameColor(t *testing.T, want string, got color.Color) {
-	t.Helper()
-	r, g, b, _ := got.RGBA()
-	gotHex := fmt.Sprintf("#%02x%02x%02x", uint8(r>>8), uint8(g>>8), uint8(b>>8))
-	if gotHex != want {
-		t.Fatalf("color = %s, want %s", gotHex, want)
 	}
 }

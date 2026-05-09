@@ -112,8 +112,8 @@ func runChannelListWithTypes(cmd *cobra.Command, runtime *cliruntime.RootRuntime
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
-	result := filterChannels(cliChannelsFromSlack(channels), filter)
-	return ctx.WriteResultWithPagination(command, ListData(result), &clioutput.Pagination{
+	result := ListData{Channels: filterChannels(CliChannelsFromSlack(channels), filter)}
+	return ctx.WriteResultWithPagination(command, result, &clioutput.Pagination{
 		Cursor:        stringPtr(cursor),
 		NextCursor:    stringPtr(nextCursor),
 		HasMore:       nextCursor != "",
@@ -148,10 +148,6 @@ func runChannelInfoValue(cmd *cobra.Command, runtime *cliruntime.RootRuntime, co
 	return ctx.WriteResult(command, InfoData{Channel: clioutput.CliChannelFromSlack(*result)})
 }
 
-type channelListResult struct {
-	Channels []clioutput.CliChannel
-}
-
 // CliChannelsFromSlack converts a slice of slack-go Channels to CliChannel DTOs.
 func CliChannelsFromSlack(channels []slackgo.Channel) []clioutput.CliChannel {
 	out := make([]clioutput.CliChannel, 0, len(channels))
@@ -161,22 +157,18 @@ func CliChannelsFromSlack(channels []slackgo.Channel) []clioutput.CliChannel {
 	return out
 }
 
-func cliChannelsFromSlack(channels []slackgo.Channel) channelListResult {
-	return channelListResult{Channels: CliChannelsFromSlack(channels)}
-}
-
-func filterChannels(result channelListResult, filter string) channelListResult {
+func filterChannels(channels []clioutput.CliChannel, filter string) []clioutput.CliChannel {
 	if filter == "" {
-		return result
+		return channels
 	}
 	filter = strings.ToLower(filter)
-	out := make([]clioutput.CliChannel, 0, len(result.Channels))
-	for _, channel := range result.Channels {
+	out := make([]clioutput.CliChannel, 0, len(channels))
+	for _, channel := range channels {
 		if strings.Contains(strings.ToLower(channel.ID), filter) || strings.Contains(strings.ToLower(channel.Name), filter) {
 			out = append(out, channel)
 		}
 	}
-	return channelListResult{Channels: out}
+	return out
 }
 
 func parseConversationTypes(value string) []string {

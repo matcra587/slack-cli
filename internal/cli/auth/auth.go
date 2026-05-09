@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"html"
-	"image/color"
 	"io"
 	"net"
 	"net/http"
@@ -18,10 +17,10 @@ import (
 	"time"
 
 	"charm.land/huh/v2"
-	"charm.land/lipgloss/v2"
 	clibtheme "github.com/gechr/clib/theme"
 	"github.com/gechr/x/human"
 	"github.com/gechr/x/shell"
+	clitheme "github.com/matcra587/slack-cli/internal/cli/clitheme"
 	climanifest "github.com/matcra587/slack-cli/internal/cli/manifest"
 	clioauth "github.com/matcra587/slack-cli/internal/cli/oauth"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
@@ -426,7 +425,7 @@ func runAuthLoginForm(ctx *clioutput.CommandContext, runtime *cliruntime.RootRun
 				Value(&input.AuthMethod),
 		),
 	).
-		WithTheme(authLoginHuhTheme(clibtheme.Default())).
+		WithTheme(clitheme.LoginHuhTheme(clibtheme.Default())).
 		WithInput(runtime.Stdin).
 		WithOutput(runtime.Stderr)
 	if accessible {
@@ -461,7 +460,7 @@ func runTokenLoginForm(runtime *cliruntime.RootRuntime, input *loginInput, help 
 	form := huh.NewForm(
 		huh.NewGroup(authTokenInput(&input.Token, help["token"], accessible)),
 	).
-		WithTheme(authLoginHuhTheme(clibtheme.Default())).
+		WithTheme(clitheme.LoginHuhTheme(clibtheme.Default())).
 		WithInput(runtime.Stdin).
 		WithOutput(runtime.Stderr)
 	if accessible {
@@ -488,7 +487,7 @@ func runOAuthLoginForm(ctx *clioutput.CommandContext, runtime *cliruntime.RootRu
 				Validate(validateOAuthRedirectField),
 		),
 	).
-		WithTheme(authLoginHuhTheme(clibtheme.Default())).
+		WithTheme(clitheme.LoginHuhTheme(clibtheme.Default())).
 		WithInput(runtime.Stdin).
 		WithOutput(runtime.Stderr)
 	if accessible {
@@ -529,107 +528,6 @@ func authLoginFieldHelp() map[string]authFieldHelp {
 func validateOAuthRedirectField(value string) error {
 	_, err := oauthRedirectURL(value)
 	return err
-}
-
-// LoginHuhTheme returns the huh form theme for auth and config forms.
-func LoginHuhTheme(th *clibtheme.Theme) huh.Theme { return authLoginHuhTheme(th) }
-
-func authLoginHuhTheme(th *clibtheme.Theme) huh.Theme {
-	if th == nil {
-		th = clibtheme.Default()
-	}
-	return huh.ThemeFunc(func(isDark bool) *huh.Styles {
-		if th.String() == "plain" || th.String() == "monochrome" {
-			return huh.ThemeBase(isDark)
-		}
-		resolved := th.Init()
-
-		t := huh.ThemeBase(isDark)
-		helpCommand := authLoginHuhStyle(resolved.HelpCommand)
-		helpDim := authLoginHuhStyle(resolved.HelpDim)
-		helpPlaceholder := authLoginHuhStyle(resolved.HelpValuePlaceholder)
-		red := authLoginHuhStyle(resolved.Red)
-
-		t.Focused.Title = helpCommand
-		t.Focused.NoteTitle = helpCommand
-		t.Focused.Description = helpDim
-		t.Focused.ErrorIndicator = authLoginMergeHuhStyle(t.Focused.ErrorIndicator, red)
-		t.Focused.ErrorMessage = red
-		t.Focused.TextInput.Cursor = authLoginMergeHuhStyle(t.Focused.TextInput.Cursor, helpCommand)
-		t.Focused.TextInput.Placeholder = helpPlaceholder
-		t.Focused.TextInput.Prompt = helpCommand
-
-		t.Blurred = t.Focused
-		t.Blurred.Base = t.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
-		t.Blurred.Card = t.Blurred.Base
-		t.Blurred.NextIndicator = lipgloss.NewStyle()
-		t.Blurred.PrevIndicator = lipgloss.NewStyle()
-
-		t.Group.Title = t.Focused.Title
-		t.Group.Description = t.Focused.Description
-		return t
-	})
-}
-
-func authLoginMergeHuhStyle(base, override lipgloss.Style) lipgloss.Style {
-	if foreground := override.GetForeground(); foreground != nil {
-		base = base.Foreground(foreground)
-	}
-	if background := override.GetBackground(); background != nil {
-		base = base.Background(background)
-	}
-	if override.GetBold() {
-		base = base.Bold(true)
-	}
-	if override.GetFaint() {
-		base = base.Faint(true)
-	}
-	if override.GetItalic() {
-		base = base.Italic(true)
-	}
-	if override.GetUnderline() {
-		base = base.Underline(true)
-	}
-	return base
-}
-
-func authLoginHuhStyle(style *lipgloss.Style) lipgloss.Style {
-	if style == nil {
-		return lipgloss.NewStyle()
-	}
-	converted := lipgloss.NewStyle()
-	if style.GetBold() {
-		converted = converted.Bold(true)
-	}
-	if style.GetFaint() {
-		converted = converted.Faint(true)
-	}
-	if style.GetItalic() {
-		converted = converted.Italic(true)
-	}
-	if style.GetUnderline() {
-		converted = converted.Underline(true)
-	}
-	if foreground := authLoginHuhColor(style.GetForeground()); foreground != nil {
-		converted = converted.Foreground(foreground)
-	}
-	if background := authLoginHuhColor(style.GetBackground()); background != nil {
-		converted = converted.Background(background)
-	}
-	return converted
-}
-
-const colorComponentShift = 8
-
-func authLoginHuhColor(c color.Color) color.Color {
-	if c == nil {
-		return nil
-	}
-	if _, ok := c.(lipgloss.NoColor); ok {
-		return nil
-	}
-	r, g, b, _ := c.RGBA()
-	return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", uint8(r>>colorComponentShift), uint8(g>>colorComponentShift), uint8(b>>colorComponentShift)))
 }
 
 func completeOAuthLogin(reqCtx context.Context, ctx *clioutput.CommandContext, runtime *cliruntime.RootRuntime, input *loginInput) (bool, error) {

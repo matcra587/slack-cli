@@ -49,22 +49,10 @@ func (d Data) WritePlain(c *clioutput.CommandContext, command string, _ *clioutp
 	if len(d.Reactions) > 0 {
 		return c.WriteReactionTable(d.Reactions)
 	}
-	if len(d.Reactions) == 0 {
-		event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Target.Channel)).
-			Str("channel", d.Target.Channel)
-		clioutput.AddSlackTimestampFields(event, d.Target.Timestamp, c.Now()).
-			Send()
-		return nil
-	}
-	for _, reaction := range d.Reactions {
-		event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Target.Channel)).
-			Str("channel", d.Target.Channel)
-		event = clioutput.AddSlackTimestampFields(event, d.Target.Timestamp, c.Now()).
-			Str("emoji", reaction.Name).
-			Int("count", reaction.Count).
-			Strs("users", reaction.Users)
-		event.Send()
-	}
+	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Target.Channel)).
+		Str("channel", d.Target.Channel)
+	clioutput.AddSlackTimestampFields(event, d.Target.Timestamp, c.Now()).
+		Send()
 	return nil
 }
 

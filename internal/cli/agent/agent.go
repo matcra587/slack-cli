@@ -7,7 +7,6 @@ import (
 	"github.com/gechr/clib/help"
 	agentpkg "github.com/matcra587/slack-cli/internal/agent"
 	"github.com/matcra587/slack-cli/internal/agenthelp"
-	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	"github.com/spf13/cobra"
 )
@@ -35,7 +34,7 @@ func newSchemaCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Short:        "Output command schema as JSON",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := localContext(cmd, runtime)
+			ctx := cliruntime.LocalContextForceAgent(cmd, runtime, "agent")
 			if compact {
 				ctx.StdoutLogger().Print().JSON(agenthelp.GenerateCompactSchema(cmd.Root()))
 				return nil
@@ -56,7 +55,7 @@ func newGuideCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := localContext(cmd, runtime)
+			ctx := cliruntime.LocalContextForceAgent(cmd, runtime, "agent")
 			if len(args) == 0 {
 				return ctx.WriteString(agenthelp.GetGuide())
 			}
@@ -79,48 +78,6 @@ func guideHelpFunc(renderer *help.Renderer) func(*cobra.Command, []string) {
 		})
 		return sections
 	})
-}
-
-func localContext(cmd *cobra.Command, runtime *cliruntime.RootRuntime) *clioutput.CommandContext {
-	output, _ := commandFlags(cmd)
-	mode := output.Resolve(runtime.IsTTY, true)
-	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-	clioutput.ApplyRenderMode(sl, mode)
-	return &clioutput.CommandContext{
-		Workspace:     "agent",
-		Mode:          mode,
-		Stdout:        runtime.Stdout,
-		Stderr:        runtime.Stderr,
-		NowFunc:       runtime.Now,
-		RequestIDFunc: runtime.RequestID,
-		StdoutLog:     sl,
-		StderrLog:     el,
-	}
-}
-
-func commandFlags(cmd *cobra.Command) (clioutput.OutputFlags, cliruntime.AgentFlags) {
-	flags := cmd.Root().PersistentFlags()
-	jsonMode, _ := flags.GetBool("json")
-	plain, _ := flags.GetBool("plain")
-	compact, _ := flags.GetBool("compact")
-	raw, _ := flags.GetBool("raw")
-	forceAgent, _ := flags.GetBool("agent")
-	noAttribution, _ := flags.GetBool("no-agent-attribution")
-	agentLabel, _ := flags.GetString("agent-label")
-	agentEmoji, _ := flags.GetString("agent-emoji")
-	agentMessage, _ := flags.GetString("agent-message")
-	return clioutput.OutputFlags{
-			JSON:    jsonMode,
-			Plain:   plain,
-			Compact: compact,
-			Raw:     raw,
-		}, cliruntime.AgentFlags{
-			Agent:              forceAgent,
-			NoAgentAttribution: noAttribution,
-			AgentLabel:         agentLabel,
-			AgentEmoji:         agentEmoji,
-			AgentMessage:       agentMessage,
-		}
 }
 
 // DetectAttribution computes the agent attribution settings (label/emoji/message)

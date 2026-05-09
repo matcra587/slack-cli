@@ -23,16 +23,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// UploadResult is the result returned by `slick file upload`.
-type UploadResult struct {
+// UploadData is the result returned by `slick file upload`.
+type UploadData struct {
 	File    Info   `json:"file"`
 	Channel string `json:"channel"`
 	DryRun  bool   `json:"dry_run,omitempty"`
 }
 
-var _ clioutput.PlainRenderer = UploadResult{}
+var _ clioutput.PlainRenderer = UploadData{}
 
-func (d UploadResult) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+func (d UploadData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Channel)).
 		Str("channel", d.Channel).
 		Str("file_id", d.File.ID).
@@ -127,7 +127,7 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 
 	ctx.StderrLogger().Debug().Parts(clog.PartMessage).Msg("uploading file")
 	if opts.DryRun {
-		return ctx.WriteResult("file.upload", UploadResult{
+		return ctx.WriteResult("file.upload", UploadData{
 			File:    Info{ID: "dry-run", Name: filename, Size: len(content)},
 			Channel: channel,
 			DryRun:  true,
@@ -162,7 +162,7 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 	if info, _, _, infoErr := client.GetFileInfoContext(cmd.Context(), file.ID, 0, 0); infoErr == nil && info != nil {
 		filePermalink = stringPtr(info.Permalink)
 	}
-	return ctx.WriteResult("file.upload", UploadResult{
+	return ctx.WriteResult("file.upload", UploadData{
 		File:    Info{ID: file.ID, Name: fileName, Size: len(content), Permalink: filePermalink},
 		Channel: channel,
 	})

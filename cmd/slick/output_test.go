@@ -268,7 +268,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 		{
 			name: "file upload",
 			cmd:  "file.upload",
-			data: clifile.UploadResult{
+			data: clifile.UploadData{
 				Channel: "C7N2Q8L4P",
 				File: clifile.Info{
 					ID:   "F123",

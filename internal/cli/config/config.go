@@ -14,8 +14,7 @@ import (
 	clibtheme "github.com/gechr/clib/theme"
 	xfs "github.com/gechr/x/fs"
 	"github.com/gechr/x/human"
-	"github.com/matcra587/slack-cli/internal/agent"
-	cliauth "github.com/matcra587/slack-cli/internal/cli/auth"
+	clitheme "github.com/matcra587/slack-cli/internal/cli/clitheme"
 	clioauth "github.com/matcra587/slack-cli/internal/cli/oauth"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
@@ -45,8 +44,8 @@ type InitData struct {
 
 var _ clioutput.PlainRenderer = InitData{}
 
-func (d InitData) WritePlain(c *clioutput.CommandContext, _ string, _ *clioutput.Pagination) error {
-	c.ResultEvent("config.init").
+func (d InitData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	c.ResultEvent(command).
 		Link("path", d.Path, human.ContractHome(d.Path)).
 		Str("profile", d.Profile).
 		Str("workspace", d.Workspace).
@@ -217,7 +216,7 @@ func newInitCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 }
 
 func runInit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts InitOptions) error {
-	ctx := localContext(cmd, runtime)
+	ctx := cliruntime.LocalContext(cmd, runtime, "config")
 	path := runtime.ConfigPath
 	if strings.TrimSpace(path) == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("config path is unavailable"))
@@ -324,7 +323,7 @@ func runInitForm(runtime *cliruntime.RootRuntime, opts *InitOptions) error {
 
 func runForm(runtime *cliruntime.RootRuntime, form *huh.Form) error {
 	form = form.
-		WithTheme(cliauth.LoginHuhTheme(clibtheme.Default())).
+		WithTheme(clitheme.LoginHuhTheme(clibtheme.Default())).
 		WithInput(runtime.Stdin).
 		WithOutput(runtime.Stderr)
 	if !clioauth.UsesTerminalFiles(runtime) {
@@ -368,7 +367,7 @@ func newPathCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := localContext(cmd, runtime)
+			ctx := cliruntime.LocalContext(cmd, runtime, "config")
 			exists, err := xfs.Exists(runtime.ConfigPath)
 			return ctx.WriteResult("config.path", PathData{Path: runtime.ConfigPath, Exists: err == nil && exists})
 		},
@@ -383,7 +382,7 @@ func newListCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := localContext(cmd, runtime)
+			ctx := cliruntime.LocalContext(cmd, runtime, "config")
 			cfg, err := loadConfig(runtime)
 			if err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
@@ -404,7 +403,7 @@ func newGetCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := localContext(cmd, runtime)
+			ctx := cliruntime.LocalContext(cmd, runtime, "config")
 			cfg, err := loadConfig(runtime)
 			if err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
@@ -425,7 +424,7 @@ func newSetCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Args:         cobra.ExactArgs(2),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := localContext(cmd, runtime)
+			ctx := cliruntime.LocalContext(cmd, runtime, "config")
 			cfg, err := loadConfig(runtime)
 			if err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
@@ -450,7 +449,7 @@ func newUnsetCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := localContext(cmd, runtime)
+			ctx := cliruntime.LocalContext(cmd, runtime, "config")
 			cfg, err := loadConfig(runtime)
 			if err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
@@ -465,52 +464,6 @@ func newUnsetCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			return ctx.WriteResult("config.unset", MutationData{Path: runtime.ConfigPath, Key: args[0]})
 		},
 	}
-}
-
-func localContext(cmd *cobra.Command, runtime *cliruntime.RootRuntime) *clioutput.CommandContext {
-	output, agentFlags := commandFlags(cmd)
-	mode := output.Resolve(runtime.IsTTY, detectAgentOutputMode(agentFlags))
-	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-	clioutput.ApplyRenderMode(sl, mode)
-	return &clioutput.CommandContext{
-		Workspace:     "config",
-		Mode:          mode,
-		Stdout:        runtime.Stdout,
-		Stderr:        runtime.Stderr,
-		NowFunc:       runtime.Now,
-		RequestIDFunc: runtime.RequestID,
-		StdoutLog:     sl,
-		StderrLog:     el,
-	}
-}
-
-func commandFlags(cmd *cobra.Command) (clioutput.OutputFlags, cliruntime.AgentFlags) {
-	flags := cmd.Root().PersistentFlags()
-	jsonMode, _ := flags.GetBool("json")
-	plain, _ := flags.GetBool("plain")
-	compact, _ := flags.GetBool("compact")
-	raw, _ := flags.GetBool("raw")
-	forceAgent, _ := flags.GetBool("agent")
-	noAttribution, _ := flags.GetBool("no-agent-attribution")
-	agentLabel, _ := flags.GetString("agent-label")
-	agentEmoji, _ := flags.GetString("agent-emoji")
-	agentMessage, _ := flags.GetString("agent-message")
-	return clioutput.OutputFlags{
-			JSON:    jsonMode,
-			Plain:   plain,
-			Compact: compact,
-			Raw:     raw,
-		}, cliruntime.AgentFlags{
-			Agent:              forceAgent,
-			NoAgentAttribution: noAttribution,
-			AgentLabel:         agentLabel,
-			AgentEmoji:         agentEmoji,
-			AgentMessage:       agentMessage,
-		}
-}
-
-func detectAgentOutputMode(flags cliruntime.AgentFlags) bool {
-	return agent.Detect(agent.Options{Force: flags.Agent}).Active
 }
 
 func loadConfig(runtime *cliruntime.RootRuntime) (*config.Config, error) {

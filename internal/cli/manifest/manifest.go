@@ -12,7 +12,6 @@ import (
 	"github.com/gechr/clib/help"
 	"github.com/gechr/clog"
 	xslices "github.com/gechr/x/slices"
-	"github.com/matcra587/slack-cli/internal/agent"
 	clioauth "github.com/matcra587/slack-cli/internal/cli/oauth"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
@@ -146,7 +145,7 @@ func templateHelpFunc(renderer *help.Renderer) func(*cobra.Command, []string) {
 }
 
 func runTemplate(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts templateOptions) error {
-	ctx := localContext(cmd, runtime)
+	ctx := cliruntime.LocalContext(cmd, runtime, "manifest")
 	if opts.CallbackPort != "" && !cmd.Flags().Changed("redirect-url") {
 		opts.RedirectURLs = []string{redirectURLForPort(opts.CallbackPort)}
 	}
@@ -172,52 +171,6 @@ func redirectURLForPort(port string) string {
 		}
 	}
 	return clioauth.RedirectURLForPort(port)
-}
-
-func localContext(cmd *cobra.Command, runtime *cliruntime.RootRuntime) *clioutput.CommandContext {
-	output, agentFlags := commandFlags(cmd)
-	mode := output.Resolve(runtime.IsTTY, detectAgentOutputMode(agentFlags))
-	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-	clioutput.ApplyRenderMode(sl, mode)
-	return &clioutput.CommandContext{
-		Workspace:     "manifest",
-		Mode:          mode,
-		Stdout:        runtime.Stdout,
-		Stderr:        runtime.Stderr,
-		NowFunc:       runtime.Now,
-		RequestIDFunc: runtime.RequestID,
-		StdoutLog:     sl,
-		StderrLog:     el,
-	}
-}
-
-func commandFlags(cmd *cobra.Command) (clioutput.OutputFlags, cliruntime.AgentFlags) {
-	flags := cmd.Root().PersistentFlags()
-	jsonMode, _ := flags.GetBool("json")
-	plain, _ := flags.GetBool("plain")
-	compact, _ := flags.GetBool("compact")
-	raw, _ := flags.GetBool("raw")
-	forceAgent, _ := flags.GetBool("agent")
-	noAttribution, _ := flags.GetBool("no-agent-attribution")
-	agentLabel, _ := flags.GetString("agent-label")
-	agentEmoji, _ := flags.GetString("agent-emoji")
-	agentMessage, _ := flags.GetString("agent-message")
-	return clioutput.OutputFlags{
-			JSON:    jsonMode,
-			Plain:   plain,
-			Compact: compact,
-			Raw:     raw,
-		}, cliruntime.AgentFlags{
-			Agent:              forceAgent,
-			NoAgentAttribution: noAttribution,
-			AgentLabel:         agentLabel,
-			AgentEmoji:         agentEmoji,
-			AgentMessage:       agentMessage,
-		}
-}
-
-func detectAgentOutputMode(flags cliruntime.AgentFlags) bool {
-	return agent.Detect(agent.Options{Force: flags.Agent}).Active
 }
 
 func buildManifest(opts templateOptions) (*generatedManifest, error) {

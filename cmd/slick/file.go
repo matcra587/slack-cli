@@ -14,6 +14,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type uploadFileResult struct {
+	File    cliFile `json:"file"`
+	Channel string  `json:"channel"`
+	DryRun  bool    `json:"dry_run,omitempty"`
+}
+
+var _ PlainRenderer = uploadFileResult{}
+
+func (d uploadFileResult) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+	c.ResultEventWithStyles(command, entityFieldStyle("channel", d.Channel)).
+		Str("channel", d.Channel).
+		Str("file_id", d.File.ID).
+		Str("file_name", d.File.Name).
+		Int("size", d.File.Size).
+		Str("size_human", human.FormatIECBytes(float64(d.File.Size))).
+		Bool("dry_run", d.DryRun).
+		Send()
+	return nil
+}
+
+type cliFile struct {
+	ID        string  `json:"id,omitempty"`
+	Name      string  `json:"name,omitempty"`
+	Size      int     `json:"size,omitempty"`
+	Permalink *string `json:"permalink,omitempty"`
+}
+
 func newFileCommand(runtime *RootRuntime) *cobra.Command {
 	fileCmd := &cobra.Command{
 		Use:    "file",
@@ -86,7 +113,7 @@ func runFileUpload(cmd *cobra.Command, runtime *RootRuntime, opts uploadOptions)
 		return writeCommandError(ctx, validationCLIError(err.Error()))
 	}
 
-	ctx.stderrLogger().Debug().Parts(clog.PartMessage).Msg("uploading file")
+	ctx.StderrLogger().Debug().Parts(clog.PartMessage).Msg("uploading file")
 	if opts.DryRun {
 		return ctx.WriteResult("file.upload", uploadFileResult{
 			File:    cliFile{ID: "dry-run", Name: filename, Size: len(content)},

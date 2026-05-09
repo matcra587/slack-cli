@@ -582,14 +582,14 @@ func newOutputTestContext(mode RenderMode, colorMode ...clog.ColorMode) (*Comman
 		Stdout:    stdout,
 		Stderr:    stderr,
 		ColorMode: cm,
-		Now: func() time.Time {
+		NowFunc: func() time.Time {
 			return time.Date(2026, 5, 3, 13, 8, 0, 0, time.UTC)
 		},
-		RequestID: func() string {
+		RequestIDFunc: func() string {
 			return "test-request"
 		},
-		stdoutLog: sl,
-		stderrLog: el,
+		StdoutLog: sl,
+		StderrLog: el,
 	}, stdout, stderr
 }
 

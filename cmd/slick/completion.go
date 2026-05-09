@@ -264,7 +264,10 @@ func completionChannelDescriptionFromCLI(channel cliChannel) string {
 	if channel.Name != "" {
 		return channel.Name
 	}
-	return ptrString(channel.User)
+	if channel.User != nil {
+		return *channel.User
+	}
+	return ""
 }
 
 func printCompletion(shell, value, desc string) {

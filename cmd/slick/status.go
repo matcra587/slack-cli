@@ -22,7 +22,7 @@ type statusCommandData struct {
 var _ PlainRenderer = statusCommandData{}
 
 func (d statusCommandData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
-	event := c.resultEvent(command).
+	event := c.ResultEvent(command).
 		Str("text", d.Text).
 		Str("emoji", d.Emoji).
 		Bool("cleared", d.Cleared).
@@ -101,7 +101,7 @@ func runStatusSet(cmd *cobra.Command, runtime *RootRuntime, opts statusSetOption
 	if text == "" && emoji == "" {
 		return writeCommandError(ctx, validationCLIError("status text or emoji is required"))
 	}
-	expiration, err := parseStatusExpiration(ctx.now(), opts.ExpiresIn, opts.Until)
+	expiration, err := parseStatusExpiration(ctx.Now(), opts.ExpiresIn, opts.Until)
 	if err != nil {
 		return writeCommandError(ctx, validationCLIError(err.Error()))
 	}

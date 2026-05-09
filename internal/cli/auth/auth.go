@@ -1,4 +1,4 @@
-package main
+package auth
 
 import (
 	"context"
@@ -22,13 +22,17 @@ import (
 	clibtheme "github.com/gechr/clib/theme"
 	"github.com/gechr/x/human"
 	"github.com/gechr/x/shell"
+	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
+	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
+	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
+	clitoken "github.com/matcra587/slack-cli/internal/cli/token"
 	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
-type authWorkspaceData struct {
+type WorkspaceData struct {
 	Workspace       string           `json:"workspace"`
 	Authenticated   bool             `json:"authenticated"`
 	TokenType       config.TokenType `json:"token_type,omitempty"`
@@ -38,16 +42,16 @@ type authWorkspaceData struct {
 	ValidationError string           `json:"validation_error,omitempty"`
 }
 
-type authStatusData struct {
-	Workspaces []authWorkspaceData `json:"workspaces"`
+type StatusData struct {
+	Workspaces []WorkspaceData `json:"workspaces"`
 }
 
-var _ PlainRenderer = authWorkspaceData{}
+var _ clioutput.PlainRenderer = WorkspaceData{}
 
-func (d authWorkspaceData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
-	logger := c.stdoutLogger()
+func (d WorkspaceData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	logger := c.StdoutLogger()
 	if d.TeamID != "" {
-		applyTeamIDStyle(logger, c.Theme, d.TeamID)
+		clioutput.ApplyTeamIDStyle(logger, c.Theme, d.TeamID)
 	}
 	event := logger.Info().
 		Str("command", command).
@@ -61,10 +65,10 @@ func (d authWorkspaceData) WritePlain(c *CommandContext, command string, _ *Pagi
 	return nil
 }
 
-var _ PlainRenderer = authStatusData{}
+var _ clioutput.PlainRenderer = StatusData{}
 
-func (d authStatusData) WritePlain(c *CommandContext, _ string, _ *Pagination) error {
-	logger := c.stdoutLogger()
+func (d StatusData) WritePlain(c *clioutput.CommandContext, _ string, _ *clioutput.Pagination) error {
+	logger := c.StdoutLogger()
 	for _, workspace := range d.Workspaces {
 		state := workspace.ValidationState
 		if state == "" {
@@ -75,7 +79,7 @@ func (d authStatusData) WritePlain(c *CommandContext, _ string, _ *Pagination) e
 			}
 		}
 		if workspace.TeamID != "" {
-			applyTeamIDStyle(logger, c.Theme, workspace.TeamID)
+			clioutput.ApplyTeamIDStyle(logger, c.Theme, workspace.TeamID)
 		}
 		event := logger.Info().
 			Str("workspace", workspace.Workspace).
@@ -90,7 +94,8 @@ func (d authStatusData) WritePlain(c *CommandContext, _ string, _ *Pagination) e
 	return nil
 }
 
-func newAuthCommand(runtime *RootRuntime) *cobra.Command {
+// NewCommand returns the auth cobra command tree.
+func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	authCmd := &cobra.Command{Use: "auth", Short: "Manage Slack authentication"}
 
 	var workspaceName string
@@ -117,7 +122,7 @@ func newAuthCommand(runtime *RootRuntime) *cobra.Command {
 			if !cmd.Flags().Changed("method") {
 				method = ""
 			}
-			return runAuthLogin(cmd, runtime, authLoginInput{
+			return runAuthLogin(cmd, runtime, loginInput{
 				WorkspaceName: workspaceName,
 				TokenStdin:    tokenStdin,
 				TokenFile:     tokenFile,
@@ -187,35 +192,35 @@ func newAuthCommand(runtime *RootRuntime) *cobra.Command {
 	return authCmd
 }
 
-func runAuthLogin(cmd *cobra.Command, runtime *RootRuntime, input authLoginInput) error {
+func runAuthLogin(cmd *cobra.Command, runtime *cliruntime.RootRuntime, input loginInput) error {
 	opts := rootOptionsFromCommand(cmd, runtime)
 	if input.WorkspaceName == "" {
 		input.WorkspaceName = opts.Workspace
 	}
-	ctx, _, _, err := commandContext(cmd, runtime)
+	ctx, _, err := commandContextFromRuntime(cmd, runtime)
 	if err != nil {
 		mode := opts.Output.Resolve(runtime.IsTTY, false)
-		sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-		applyRenderMode(sl, mode)
-		ctx = &CommandContext{
-			Workspace: "default",
-			Mode:      mode,
-			Stdout:    runtime.Stdout,
-			Stderr:    runtime.Stderr,
-			Now:       runtime.Now,
-			RequestID: runtime.RequestID,
-			stdoutLog: sl,
-			stderrLog: el,
+		sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
+		clioutput.ApplyRenderMode(sl, mode)
+		ctx = &clioutput.CommandContext{
+			Workspace:     "default",
+			Mode:          mode,
+			Stdout:        runtime.Stdout,
+			Stderr:        runtime.Stderr,
+			NowFunc:       runtime.Now,
+			RequestIDFunc: runtime.RequestID,
+			StdoutLog:     sl,
+			StderrLog:     el,
 		}
 	}
 	interactive := runtime.IsTTY && input.WorkspaceName == "" && !input.HasTokenSource() && input.AuthMethod == ""
 	if interactive {
 		if err := runAuthLoginForm(ctx, runtime, &input); err != nil {
-			return writeCommandError(ctx, validationCLIError(err.Error()))
+			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 		}
 	}
 	if input.WorkspaceName == "" {
-		return writeCommandError(ctx, validationCLIError("workspace-name is required"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("workspace-name is required"))
 	}
 	if input.AuthMethod == "" {
 		input.AuthMethod = "token"
@@ -224,18 +229,18 @@ func runAuthLogin(cmd *cobra.Command, runtime *RootRuntime, input authLoginInput
 	case "oauth":
 		complete, err := completeOAuthLogin(cmd.Context(), ctx, runtime, &input)
 		if err != nil {
-			return writeCommandError(ctx, authCLIErrorFromError(err))
+			return clioutput.WriteCommandError(ctx, authCLIErrorFromError(err))
 		}
 		if !complete {
 			return nil
 		}
 	case "token":
 		if err := resolveLoginTokenSource(runtime, &input); err != nil {
-			return writeCommandError(ctx, validationCLIError(err.Error()))
+			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 		}
 		auth, err := validateLoginToken(cmd.Context(), runtime, input.Token)
 		if err != nil {
-			return writeCommandError(ctx, authCLIError(err.Error()))
+			return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 		}
 		input.TokenType = tokenType(input.Token)
 		if input.TeamID == "" {
@@ -245,7 +250,7 @@ func runAuthLogin(cmd *cobra.Command, runtime *RootRuntime, input authLoginInput
 			input.TeamName = auth.Team
 		}
 	default:
-		return writeCommandError(ctx, validationCLIError("auth-method must be oauth or token"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("auth-method must be oauth or token"))
 	}
 	cfg := runtime.Config
 	if cfg == nil {
@@ -256,20 +261,20 @@ func runAuthLogin(cmd *cobra.Command, runtime *RootRuntime, input authLoginInput
 	}
 	profileName := canonicalProfileName(cfg, input.WorkspaceName)
 	if input.TeamID == "" {
-		return writeCommandError(ctx, validationCLIError("workspace id is required"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("workspace id is required"))
 	}
 	if input.TeamName == "" {
 		input.TeamName = profileName
 	}
 	if existing, ok := cfg.Workspaces[profileName]; ok && workspaceHasAuth(existing) && !input.Force {
-		return writeCommandError(ctx, validationCLIError("workspace profile is already authenticated; rerun with --force to overwrite auth fields"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("workspace profile is already authenticated; rerun with --force to overwrite auth fields"))
 	}
 	secret, err := encodeLoginCredential(ctx, input)
 	if err != nil {
-		return writeCommandError(ctx, authCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
 	if err := runtime.CredentialStore.Set("slack-cli", profileName, secret); err != nil {
-		return writeCommandError(ctx, authCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
 
 	if cfg.DefaultWorkspace == "" {
@@ -284,11 +289,11 @@ func runAuthLogin(cmd *cobra.Command, runtime *RootRuntime, input authLoginInput
 	cfg.Workspaces[profileName] = profile
 	if runtime.ConfigPath != "" {
 		if err := config.SaveFile(runtime.ConfigPath, cfg); err != nil {
-			return writeCommandError(ctx, validationCLIError(err.Error()))
+			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 		}
 	}
 	runtime.Config = cfg
-	return ctx.WriteResult("auth.login", authWorkspaceData{Workspace: profileName, Authenticated: true, TokenType: input.resolvedTokenType(), TeamID: input.TeamID, TeamName: input.TeamName})
+	return ctx.WriteResult("auth.login", WorkspaceData{Workspace: profileName, Authenticated: true, TokenType: input.resolvedTokenType(), TeamID: input.TeamID, TeamName: input.TeamName})
 }
 
 func canonicalProfileName(cfg *config.Config, name string) string {
@@ -304,7 +309,7 @@ func workspaceHasAuth(profile config.WorkspaceProfile) bool {
 	return profile.TeamID != "" || profile.TeamName != "" || profile.TokenType != "" || profile.TokenRef != ""
 }
 
-type authLoginInput struct {
+type loginInput struct {
 	WorkspaceName string
 	Token         string
 	TokenStdin    bool
@@ -321,18 +326,18 @@ type authLoginInput struct {
 	Force         bool
 }
 
-func (input authLoginInput) HasTokenSource() bool {
+func (input loginInput) HasTokenSource() bool {
 	return input.Token != "" || input.TokenStdin || input.TokenFile != "" || input.TokenEnv != ""
 }
 
-func (input authLoginInput) resolvedTokenType() config.TokenType {
+func (input loginInput) resolvedTokenType() config.TokenType {
 	if input.TokenType != "" {
 		return input.TokenType
 	}
 	return tokenType(input.Token)
 }
 
-func resolveLoginTokenSource(runtime *RootRuntime, input *authLoginInput) error {
+func resolveLoginTokenSource(runtime *cliruntime.RootRuntime, input *loginInput) error {
 	sourceCount := 0
 	if input.TokenStdin {
 		sourceCount++
@@ -398,7 +403,7 @@ type authFieldHelp struct {
 	Placeholder string
 }
 
-func runAuthLoginForm(ctx *CommandContext, runtime *RootRuntime, input *authLoginInput) error {
+func runAuthLoginForm(ctx *clioutput.CommandContext, runtime *cliruntime.RootRuntime, input *loginInput) error {
 	accessible := !usesTerminalFiles(runtime)
 	help := authLoginFieldHelp()
 	form := huh.NewForm(
@@ -450,7 +455,7 @@ func authTokenInput(token *string, help authFieldHelp, accessible bool) *huh.Inp
 	return field
 }
 
-func runTokenLoginForm(runtime *RootRuntime, input *authLoginInput, help map[string]authFieldHelp, accessible bool) error {
+func runTokenLoginForm(runtime *cliruntime.RootRuntime, input *loginInput, help map[string]authFieldHelp, accessible bool) error {
 	form := huh.NewForm(
 		huh.NewGroup(authTokenInput(&input.Token, help["token"], accessible)),
 	).
@@ -463,7 +468,7 @@ func runTokenLoginForm(runtime *RootRuntime, input *authLoginInput, help map[str
 	return form.Run()
 }
 
-func runOAuthLoginForm(ctx *CommandContext, runtime *RootRuntime, input *authLoginInput, help map[string]authFieldHelp) error {
+func runOAuthLoginForm(ctx *clioutput.CommandContext, runtime *cliruntime.RootRuntime, input *loginInput, help map[string]authFieldHelp) error {
 	accessible := !usesTerminalFiles(runtime)
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -523,6 +528,9 @@ func validateOAuthRedirectField(value string) error {
 	_, err := oauthRedirectURL(value)
 	return err
 }
+
+// LoginHuhTheme returns the huh form theme for auth and config forms.
+func LoginHuhTheme(th *clibtheme.Theme) huh.Theme { return authLoginHuhTheme(th) }
 
 func authLoginHuhTheme(th *clibtheme.Theme) huh.Theme {
 	if th == nil {
@@ -622,12 +630,18 @@ func authLoginHuhColor(c color.Color) color.Color {
 	return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", uint8(r>>colorComponentShift), uint8(g>>colorComponentShift), uint8(b>>colorComponentShift)))
 }
 
-func usesTerminalFiles(runtime *RootRuntime) bool {
+// usesTerminalFiles reports whether stdin and stderr are OS files (i.e. a real
+// terminal is attached). Used to decide whether interactive forms run in
+// accessible mode.
+// collapse when config moves to internal/cli in Phase 09 Group D.
+func usesTerminalFiles(runtime *cliruntime.RootRuntime) bool {
 	_, stdinIsFile := runtime.Stdin.(*os.File)
 	_, stderrIsFile := runtime.Stderr.(*os.File)
 	return stdinIsFile && stderrIsFile
 }
 
+// requiredField returns a huh validation function that rejects blank input.
+// collapse when config moves to internal/cli in Phase 09 Group D.
 func requiredField(name string) func(string) error {
 	return func(value string) error {
 		if strings.TrimSpace(value) == "" {
@@ -637,7 +651,7 @@ func requiredField(name string) func(string) error {
 	}
 }
 
-func completeOAuthLogin(reqCtx context.Context, ctx *CommandContext, runtime *RootRuntime, input *authLoginInput) (bool, error) {
+func completeOAuthLogin(reqCtx context.Context, ctx *clioutput.CommandContext, runtime *cliruntime.RootRuntime, input *loginInput) (bool, error) {
 	if input.ClientID == "" {
 		return false, errors.New("oauth client id is required")
 	}
@@ -678,7 +692,7 @@ func completeOAuthLogin(reqCtx context.Context, ctx *CommandContext, runtime *Ro
 		State:         state,
 		CodeChallenge: slackgo.GenerateCodeChallenge(verifier),
 	})
-	ctx.stderrLogger().Hint().
+	ctx.StderrLogger().Hint().
 		URL("authorize_url", authorizeURL).
 		URL("redirect_url", redirectURL.String()).
 		Msg("open OAuth authorize URL")
@@ -708,7 +722,7 @@ func completeOAuthLogin(reqCtx context.Context, ctx *CommandContext, runtime *Ro
 	if err := applyOAuthResponse(input, response); err != nil {
 		return false, err
 	}
-	ctx.stderrLogger().Hint().
+	ctx.StderrLogger().Hint().
 		Bool("authenticated", true).
 		Str("token_type", string(input.resolvedTokenType())).
 		Str("team_id", input.TeamID).
@@ -717,7 +731,7 @@ func completeOAuthLogin(reqCtx context.Context, ctx *CommandContext, runtime *Ro
 	return true, nil
 }
 
-func applyOAuthResponse(input *authLoginInput, response *slackgo.OAuthV2Response) error {
+func applyOAuthResponse(input *loginInput, response *slackgo.OAuthV2Response) error {
 	if response.AuthedUser.AccessToken != "" {
 		input.Token = response.AuthedUser.AccessToken
 		input.RefreshToken = response.AuthedUser.RefreshToken
@@ -755,23 +769,23 @@ func (e oauthTimeoutError) Error() string {
 	return "oauth flow timed out waiting"
 }
 
-func authCLIErrorFromError(err error) CLIError {
+func authCLIErrorFromError(err error) clioutput.CLIError {
 	var timeout oauthTimeoutError
 	if errors.As(err, &timeout) {
-		return CLIError{
-			Type:     ErrorTypeAuth,
+		return clioutput.CLIError{
+			Type:     clioutput.ErrorTypeAuth,
 			Message:  timeout.Error(),
 			Details:  map[string]any{"redirect_url": timeout.RedirectURL},
-			ExitCode: ExitCodeAuthFailure,
+			ExitCode: clioutput.ExitCodeAuthFailure,
 		}
 	}
-	return authCLIError(err.Error())
+	return clioutput.AuthCLIError(err.Error())
 }
 
-func encodeLoginCredential(ctx *CommandContext, input authLoginInput) (string, error) {
+func encodeLoginCredential(ctx *clioutput.CommandContext, input loginInput) (string, error) {
 	payload := config.CredentialPayload{AccessToken: input.Token, RefreshToken: input.RefreshToken, ClientID: input.ClientID}
 	if input.ExpiresIn > 0 {
-		expiresAt := ctx.now().Add(time.Duration(input.ExpiresIn) * time.Second)
+		expiresAt := ctx.Now().Add(time.Duration(input.ExpiresIn) * time.Second)
 		payload.ExpiresAt = &expiresAt
 	}
 	return config.EncodeCredential(payload)
@@ -817,16 +831,6 @@ func defaultOAuthRedirectURL() string {
 	return oauthRedirectURLForPort(defaultOAuthCallbackPort())
 }
 
-func defaultManifestOAuthRedirectURL() string {
-	port := defaultOAuthCallbackPort()
-	if port == osAssignedCallbackPort {
-		if allocated, err := allocateLocalOAuthCallbackPort(); err == nil {
-			port = allocated
-		}
-	}
-	return oauthRedirectURLForPort(port)
-}
-
 func defaultOAuthCallbackPort() string {
 	if port := strings.TrimSpace(os.Getenv("SLACK_CLI_CALLBACK_PORT")); port != "" {
 		return port
@@ -853,22 +857,6 @@ func oauthRedirectURLForListener(redirectURL *url.URL, listener net.Listener) (*
 	copyURL := *redirectURL
 	copyURL.Host = net.JoinHostPort(redirectURL.Hostname(), port)
 	return &copyURL, nil
-}
-
-func allocateLocalOAuthCallbackPort() (string, error) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return "", err
-	}
-	_, port, splitErr := net.SplitHostPort(listener.Addr().String())
-	closeErr := listener.Close()
-	if splitErr != nil {
-		return "", splitErr
-	}
-	if closeErr != nil {
-		return "", closeErr
-	}
-	return port, nil
 }
 
 func oauthRedirectURL(raw string) (*url.URL, error) {
@@ -970,28 +958,28 @@ func defaultOpenURL(target string) error {
 	return nil
 }
 
-func validateLoginToken(ctx context.Context, runtime *RootRuntime, token string) (*slackgo.AuthTestResponse, error) {
+func validateLoginToken(ctx context.Context, runtime *cliruntime.RootRuntime, token string) (*slackgo.AuthTestResponse, error) {
 	return slackAuthClient(ctx, token, runtime).AuthTestContext(ctx)
 }
 
-func slackAuthClient(ctx context.Context, token string, runtime *RootRuntime) *slackgo.Client {
-	return newSlackClient(ctx, nil, runtime, token,
-		slackgo.OptionHTTPClient(noThrottleHTTPClient(runtime)),
+func slackAuthClient(ctx context.Context, token string, runtime *cliruntime.RootRuntime) *slackgo.Client {
+	return slackclient.New(ctx, nil, runtime, token,
+		slackgo.OptionHTTPClient(slackclient.NoThrottle(runtime)),
 	)
 }
 
-func runAuthStatus(cmd *cobra.Command, runtime *RootRuntime) error {
-	ctx, _, _, err := commandContext(cmd, runtime)
+func runAuthStatus(cmd *cobra.Command, runtime *cliruntime.RootRuntime) error {
+	ctx, _, err := commandContextFromRuntime(cmd, runtime)
 	if err != nil {
-		return writeRuntimeError(runtime, validationCLIError(err.Error()))
+		return writeRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
-	var workspaces []authWorkspaceData
+	var workspaces []WorkspaceData
 	if runtime.Config != nil {
 		for name, profile := range runtime.Config.Workspaces {
 			validationState := "missing"
 			validationError := ""
 			authenticated := false
-			client, clientErr := slackClient(cmd, profile, runtime)
+			client, clientErr := slackclient.Client(cmd, profile, runtime)
 			if clientErr != nil {
 				if !errors.Is(clientErr, config.ErrCredentialNotFound) {
 					validationState = "invalid"
@@ -1004,7 +992,7 @@ func runAuthStatus(cmd *cobra.Command, runtime *RootRuntime) error {
 				authenticated = true
 				validationState = "valid"
 			}
-			workspaces = append(workspaces, authWorkspaceData{
+			workspaces = append(workspaces, WorkspaceData{
 				Workspace:       name,
 				Authenticated:   authenticated,
 				TokenType:       profile.TokenType,
@@ -1015,39 +1003,39 @@ func runAuthStatus(cmd *cobra.Command, runtime *RootRuntime) error {
 			})
 		}
 	}
-	return ctx.WriteResult("auth.status", authStatusData{Workspaces: workspaces})
+	return ctx.WriteResult("auth.status", StatusData{Workspaces: workspaces})
 }
 
-func runAuthSwitch(cmd *cobra.Command, runtime *RootRuntime, workspace string) error {
-	ctx, _, _, err := commandContext(cmd, runtime)
+func runAuthSwitch(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspace string) error {
+	ctx, _, err := commandContextFromRuntime(cmd, runtime)
 	if err != nil {
-		return writeRuntimeError(runtime, validationCLIError(err.Error()))
+		return writeRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 	if runtime.Config == nil {
-		return writeCommandError(ctx, validationCLIError("config is required"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("config is required"))
 	}
 	if _, ok := runtime.Config.Workspaces[workspace]; !ok {
-		return writeCommandError(ctx, validationCLIError("workspace not configured"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("workspace not configured"))
 	}
 	runtime.Config.DefaultWorkspace = workspace
 	if runtime.ConfigPath != "" {
 		if err := config.SaveFile(runtime.ConfigPath, runtime.Config); err != nil {
-			return writeCommandError(ctx, validationCLIError(err.Error()))
+			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 		}
 	}
-	return ctx.WriteResult("auth.switch", authWorkspaceData{Workspace: workspace})
+	return ctx.WriteResult("auth.switch", WorkspaceData{Workspace: workspace})
 }
 
-func runAuthLogout(cmd *cobra.Command, runtime *RootRuntime, workspace string) error {
-	ctx, _, _, err := commandContext(cmd, runtime)
+func runAuthLogout(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspace string) error {
+	ctx, _, err := commandContextFromRuntime(cmd, runtime)
 	if err != nil {
-		return writeRuntimeError(runtime, validationCLIError(err.Error()))
+		return writeRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 
 	keepToken, _ := cmd.Flags().GetBool("keep-token")
 
 	if keepToken {
-		ctx.stderrLogger().Warn().Str("workspace", workspace).Msg("--keep-token preserves the credential in keychain; the token is still valid on Slack's side until manually revoked or it naturally expires")
+		ctx.StderrLogger().Warn().Str("workspace", workspace).Msg("--keep-token preserves the credential in keychain; the token is still valid on Slack's side until manually revoked or it naturally expires")
 	}
 
 	if !keepToken {
@@ -1056,7 +1044,7 @@ func runAuthLogout(cmd *cobra.Command, runtime *RootRuntime, workspace string) e
 		if token != "" {
 			client := slackAuthClient(cmd.Context(), token, runtime)
 			if _, revokeErr := client.SendAuthRevokeContext(cmd.Context(), token); revokeErr != nil {
-				ctx.stderrLogger().Warn().Err(revokeErr).Str("workspace", workspace).Msg("token revocation failed; proceeding with local cleanup")
+				ctx.StderrLogger().Warn().Err(revokeErr).Str("workspace", workspace).Msg("token revocation failed; proceeding with local cleanup")
 			}
 		}
 		_ = runtime.CredentialStore.Delete("slack-cli", workspace)
@@ -1080,17 +1068,14 @@ func runAuthLogout(cmd *cobra.Command, runtime *RootRuntime, workspace string) e
 		}
 		if runtime.ConfigPath != "" && len(runtime.Config.Workspaces) > 0 {
 			if err := config.SaveFile(runtime.ConfigPath, runtime.Config); err != nil {
-				return writeCommandError(ctx, validationCLIError(err.Error()))
+				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 			}
 		}
 	}
-	return ctx.WriteResult("auth.logout", authWorkspaceData{Workspace: workspace, Authenticated: false})
+	return ctx.WriteResult("auth.logout", WorkspaceData{Workspace: workspace, Authenticated: false})
 }
 
-// resolveTokenForRevoke returns the current token for a workspace, or empty
-// string if the token cannot be resolved (e.g. already deleted, env not set).
-// Errors are swallowed because a missing token is not a logout failure.
-func resolveTokenForRevoke(ctx context.Context, runtime *RootRuntime, workspace string) string {
+func resolveTokenForRevoke(ctx context.Context, runtime *cliruntime.RootRuntime, workspace string) string {
 	if runtime.Config == nil || runtime.Config.Workspaces == nil {
 		return ""
 	}
@@ -1100,7 +1085,7 @@ func resolveTokenForRevoke(ctx context.Context, runtime *RootRuntime, workspace 
 	}
 	resolver := runtime.TokenResolver
 	if resolver == nil {
-		resolver = CredentialTokenResolver{
+		resolver = clitoken.CredentialTokenResolver{
 			Store:        runtime.CredentialStore,
 			SlackBaseURL: runtime.SlackBaseURL,
 			HTTPClient:   runtime.HTTPClient,
@@ -1144,7 +1129,7 @@ func tokenType(token string) config.TokenType {
 	return config.TokenTypeBot
 }
 
-func oauthExchangeCode(ctx context.Context, runtime *RootRuntime, clientID, code, redirectURI, verifier string) (*slackgo.OAuthV2Response, error) {
+func oauthExchangeCode(ctx context.Context, runtime *cliruntime.RootRuntime, clientID, code, redirectURI, verifier string) (*slackgo.OAuthV2Response, error) {
 	oauthHTTPClient := runtime.HTTPClient
 	if oauthHTTPClient == nil {
 		oauthHTTPClient = &http.Client{Timeout: runtime.Timeout}
@@ -1160,10 +1145,148 @@ func oauthExchangeCode(ctx context.Context, runtime *RootRuntime, clientID, code
 	return resp, nil
 }
 
+// slackAPIURL mirrors internal/cli/token.slackAPIURL; collapse when auth/token packages consolidate.
+func slackAPIURL(baseURL string) string {
+	baseURL = strings.TrimRight(baseURL, "/")
+	if strings.HasSuffix(baseURL, "/api") {
+		return baseURL + "/"
+	}
+	return baseURL + "/api/"
+}
+
+// wrapBadClientSecret mirrors internal/cli/token.wrapBadClientSecret; collapse when auth/token packages consolidate.
 func wrapBadClientSecret(err error) error {
 	var slackErr slackgo.SlackErrorResponse
 	if errors.As(err, &slackErr) && slackErr.Err == "bad_client_secret" {
 		return fmt.Errorf("bad_client_secret: Slack treated this as a client-secret OAuth flow. Enable PKCE for the Slack app, or import a manifest with oauth_config.pkce_enabled=true; slack-cli local OAuth intentionally omits the client secret: %w", err)
 	}
 	return err
+}
+
+type manifestTemplatePreset struct {
+	Name   string
+	Scopes []string
+}
+
+// manifestPresetScopes returns the OAuth scopes for the given preset name.
+// Mirrors cmd/slick/manifest.go:manifestPresetScopes; collapse when manifest moves in Phase 09 Group D.
+func manifestPresetScopes(preset string) ([]string, error) {
+	preset = strings.ToLower(strings.TrimSpace(preset))
+	if preset == "" {
+		preset = defaultManifestPreset
+	}
+	for _, p := range manifestPresets() {
+		if p.Name == preset {
+			return append([]string(nil), p.Scopes...), nil
+		}
+	}
+	return nil, errors.New("template must be readonly, messaging, files, search, or full")
+}
+
+func manifestPresets() []manifestTemplatePreset {
+	return []manifestTemplatePreset{
+		{Name: "readonly", Scopes: []string{"channels:history", "channels:read", "groups:history", "groups:read", "im:history", "im:read", "mpim:history", "mpim:read", "reactions:read", "users:read"}},
+		{Name: "messaging", Scopes: []string{"channels:history", "channels:read", "chat:write", "groups:history", "groups:read", "im:history", "im:read", "im:write", "mpim:history", "mpim:read", "mpim:write", "reactions:read", "reactions:write", "users:read", "users:read.email"}},
+		{Name: "files", Scopes: []string{"channels:history", "channels:read", "chat:write", "files:write", "groups:history", "groups:read", "im:history", "im:read", "im:write", "mpim:history", "mpim:read", "mpim:write", "reactions:read", "reactions:write", "users:read", "users:read.email"}},
+		{Name: "search", Scopes: []string{"channels:history", "channels:read", "groups:history", "groups:read", "im:history", "im:read", "mpim:history", "mpim:read", "reactions:read", "search:read", "users:read"}},
+		{Name: "full", Scopes: []string{"channels:history", "channels:read", "chat:write", "files:write", "groups:history", "groups:read", "im:history", "im:read", "im:write", "mpim:history", "mpim:read", "mpim:write", "reactions:read", "reactions:write", "search:read", "users:read", "users:read.email", "users.profile:write"}},
+	}
+}
+
+const defaultManifestPreset = "messaging"
+
+// rootOptionsFromCommand extracts output flags from the cobra command.
+// collapse when cmd/slick/main.go moves in a later phase.
+type outputOptions struct {
+	Workspace string
+	Output    clioutput.OutputFlags
+	IsTTY     bool
+}
+
+func rootOptionsFromCommand(cmd *cobra.Command, runtime *cliruntime.RootRuntime) outputOptions {
+	flags := cmd.Root().PersistentFlags()
+	workspace, _ := flags.GetString("workspace")
+	jsonMode, _ := flags.GetBool("json")
+	plain, _ := flags.GetBool("plain")
+	compact, _ := flags.GetBool("compact")
+	raw, _ := flags.GetBool("raw")
+	return outputOptions{
+		Workspace: workspace,
+		Output: clioutput.OutputFlags{
+			JSON:    jsonMode,
+			Plain:   plain,
+			Compact: compact,
+			Raw:     raw,
+		},
+		IsTTY: runtime.IsTTY,
+	}
+}
+
+// commandContextFromRuntime builds a CommandContext from the cobra command and runtime.
+// collapse when cmd/slick/main.go's commandContext moves.
+func commandContextFromRuntime(cmd *cobra.Command, runtime *cliruntime.RootRuntime) (*clioutput.CommandContext, config.WorkspaceProfile, error) {
+	opts := rootOptionsFromCommand(cmd, runtime)
+	mode := opts.Output.Resolve(runtime.IsTTY, false)
+	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
+	clioutput.ApplyRenderMode(sl, mode)
+
+	if runtime.ConfigLoadError != nil {
+		ctx := &clioutput.CommandContext{
+			Workspace:     "default",
+			Mode:          mode,
+			Stdout:        runtime.Stdout,
+			Stderr:        runtime.Stderr,
+			NowFunc:       runtime.Now,
+			RequestIDFunc: runtime.RequestID,
+			Theme:         runtime.Theme,
+			StdoutLog:     sl,
+			StderrLog:     el,
+		}
+		return ctx, config.WorkspaceProfile{}, runtime.ConfigLoadError
+	}
+
+	workspace := "default"
+	var profile config.WorkspaceProfile
+	if runtime.Config != nil {
+		var err error
+		profile, err = runtime.Config.ResolveWorkspace(opts.Workspace)
+		if err != nil {
+			return nil, config.WorkspaceProfile{}, err
+		}
+		workspace = profile.Name
+	} else if opts.Workspace != "" {
+		workspace = opts.Workspace
+	}
+
+	ctx := &clioutput.CommandContext{
+		Workspace:     workspace,
+		Mode:          mode,
+		Stdout:        runtime.Stdout,
+		Stderr:        runtime.Stderr,
+		NowFunc:       runtime.Now,
+		RequestIDFunc: runtime.RequestID,
+		IsTTY:         runtime.IsTTY,
+		ColorMode:     runtime.ColorMode,
+		Theme:         runtime.Theme,
+		StdoutLog:     sl,
+		StderrLog:     el,
+	}
+	return ctx, profile, nil
+}
+
+func writeRuntimeError(runtime *cliruntime.RootRuntime, err clioutput.CLIError) error {
+	mode := clioutput.OutputFlags{}.Resolve(runtime.IsTTY, false)
+	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
+	clioutput.ApplyRenderMode(sl, mode)
+	ctx := &clioutput.CommandContext{
+		Workspace:     "default",
+		Mode:          mode,
+		Stdout:        runtime.Stdout,
+		Stderr:        runtime.Stderr,
+		NowFunc:       runtime.Now,
+		RequestIDFunc: runtime.RequestID,
+		StdoutLog:     sl,
+		StderrLog:     el,
+	}
+	return clioutput.WriteCommandError(ctx, err)
 }

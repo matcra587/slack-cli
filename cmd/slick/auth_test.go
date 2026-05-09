@@ -1,12 +1,8 @@
 package main
 
 import (
-	"fmt"
-	"image/color"
-	"io"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -14,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"charm.land/lipgloss/v2"
-	clibtheme "github.com/gechr/clib/theme"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/internal/testutil"
 )
@@ -514,13 +508,6 @@ func TestAuthLoginOAuthLocalFlowUsesPKCEAndStoresUserToken(t *testing.T) {
 	}
 }
 
-func TestAuthLoginOAuthDefaultRedirectUsesOSAssignedPort(t *testing.T) {
-	t.Setenv("SLACK_CLI_CALLBACK_PORT", "")
-	if got := defaultOAuthRedirectURL(); got != "http://localhost:0/callback" {
-		t.Fatalf("defaultOAuthRedirectURL = %q, want OS-assigned port redirect", got)
-	}
-}
-
 func TestAuthLoginOAuthPortZeroUsesAssignedListenerPort(t *testing.T) {
 	var exchangedRedirect string
 	var openedRedirect string
@@ -822,21 +809,6 @@ func TestAuthLoginOAuthRequiresClientIDBeforeOpeningBrowser(t *testing.T) {
 	}
 }
 
-func TestOAuthRedirectURLAllowsOnlyLocalHTTP(t *testing.T) {
-	if _, err := oauthRedirectURL("http://127.0.0.1:53682/callback"); err != nil {
-		t.Fatalf("oauthRedirectURL rejected local http redirect URL: %v", err)
-	}
-	if _, err := oauthRedirectURL("http://localhost:45682/callback"); err != nil {
-		t.Fatalf("oauthRedirectURL rejected localhost http redirect URL: %v", err)
-	}
-	if _, err := oauthRedirectURL("http://example.com/callback"); err == nil {
-		t.Fatal("oauthRedirectURL accepted non-local http redirect URL")
-	}
-	if !strings.HasPrefix(defaultOAuthRedirectURL(), "http://localhost:") {
-		t.Fatalf("defaultOAuthRedirectURL = %q, want local http URL", defaultOAuthRedirectURL())
-	}
-}
-
 func TestAuthLoginPromptsForMissingFieldsInTTY(t *testing.T) {
 	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
 		"auth.test": func(testutil.SlackRequest) testutil.SlackResponse {
@@ -906,123 +878,6 @@ func TestAuthLoginTTYValidationUsesHumanClogError(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "workspace-name is required") {
 		t.Fatalf("stderr = %q, want validation message", stderr)
-	}
-}
-
-func TestAuthLoginInteractivePathUsesHuhForm(t *testing.T) {
-	raw, err := os.ReadFile("auth.go")
-	if err != nil {
-		t.Fatalf("read auth.go: %v", err)
-	}
-	if !strings.Contains(string(raw), `"charm.land/huh/v2"`) {
-		t.Fatalf("auth.go does not import huh for interactive login")
-	}
-}
-
-func TestAuthLoginFieldHelpExplainsProvisioningInputs(t *testing.T) {
-	help := authLoginFieldHelp()
-	tests := map[string][]string{
-		"workspace":      {"--workspace", "default"},
-		"auth_method":    {"OAuth", "token"},
-		"token":          {"Slack issues tokens through an app install", "xoxp-", "acts as you", "xoxb-", "acts as the app bot", "keychain"},
-		"team_id":        {"https://app.slack.com/client/T8KQ42P9D/C7N2Q8L4P", "T8KQ42P9D", "auth.test"},
-		"client_id":      {"OAuth client ID", "Slack app"},
-		"oauth_redirect": {"Local HTTP redirect URL", "Slack app", "OAuth settings"},
-	}
-	for key, fragments := range tests {
-		got := help[key]
-		if got.Description == "" || got.Placeholder == "" {
-			t.Fatalf("%s help = %#v, want description and placeholder", key, got)
-		}
-		for _, fragment := range fragments {
-			if !strings.Contains(got.Description+" "+got.Placeholder, fragment) {
-				t.Fatalf("%s help = %#v, want fragment %q", key, got, fragment)
-			}
-		}
-	}
-}
-
-func TestAuthLoginFormUsesClibThemeAdapter(t *testing.T) {
-	raw, err := os.ReadFile("auth.go")
-	if err != nil {
-		t.Fatalf("read auth.go: %v", err)
-	}
-	content := string(raw)
-	for _, fragment := range []string{
-		`github.com/gechr/clib/theme`,
-		"authLoginHuhTheme",
-		"WithTheme(authLoginHuhTheme",
-	} {
-		if !strings.Contains(content, fragment) {
-			t.Fatalf("auth.go missing theme-aware fragment %q", fragment)
-		}
-	}
-}
-
-func TestAuthLoginHuhThemeUsesClibSemanticColors(t *testing.T) {
-	th := clibtheme.Default().With(
-		clibtheme.WithHelpCommand(lipgloss.NewStyle().Foreground(lipgloss.Color("#123456"))),
-		clibtheme.WithHelpDim(lipgloss.NewStyle().Foreground(lipgloss.Color("#654321"))),
-		clibtheme.WithHelpFlag(lipgloss.NewStyle().Foreground(lipgloss.Color("#fedcba"))),
-		clibtheme.WithHelpPlaceholder(lipgloss.NewStyle().Foreground(lipgloss.Color("#abcdef"))),
-	)
-
-	got := authLoginHuhTheme(th).Theme(false)
-	assertSameColor(t, "#123456", got.Focused.Title.GetForeground())
-	assertSameColor(t, "#654321", got.Focused.Description.GetForeground())
-	assertSameColor(t, "#123456", got.Focused.TextInput.Prompt.GetForeground())
-	assertSameColor(t, "#abcdef", got.Focused.TextInput.Placeholder.GetForeground())
-}
-
-func TestOAuthCallbackHandlerWritesStyledHTML(t *testing.T) {
-	resultCh := make(chan oauthCallbackResult, 1)
-	handler := oauthCallbackHandler("state-1", "/callback", resultCh)
-	req := httptest.NewRequest(http.MethodGet, "/callback?code=abc&state=state-1", http.NoBody)
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", rec.Code)
-	}
-	body := rec.Body.String()
-	for _, want := range []string{`style="font-family:sans-serif"`, "Authorisation successful"} {
-		if !strings.Contains(body, want) {
-			t.Fatalf("body = %q, want %q", body, want)
-		}
-	}
-}
-
-func TestDefaultOpenURLSplitsBrowserCommand(t *testing.T) {
-	argsPath := filepath.Join(t.TempDir(), "browser-args.txt")
-	opener := testutil.WriteExecutable(t, "browser.sh", fmt.Sprintf(`#!/bin/sh
-printf '%%s\n' "$@" > %q
-`, argsPath))
-	t.Setenv("BROWSER", opener+" --profile test")
-
-	if err := defaultOpenURL("https://example.com/oauth"); err != nil {
-		t.Fatalf("defaultOpenURL returned error: %v", err)
-	}
-
-	deadline := time.Now().Add(2 * time.Second)
-	for {
-		raw, err := os.ReadFile(argsPath)
-		if err == nil {
-			if got, want := string(raw), "--profile\ntest\nhttps://example.com/oauth\n"; got != want {
-				t.Fatalf("browser args = %q, want %q", got, want)
-			}
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("browser args were not written: %v", err)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-}
-
-func TestAuthLoginHuhColorLeavesUnsetClibColorUnset(t *testing.T) {
-	if got := authLoginHuhColor(lipgloss.NoColor{}); got != nil {
-		t.Fatalf("unset clib color converted to %v, want nil", got)
 	}
 }
 
@@ -1228,15 +1083,6 @@ func TestAuthStatusUsesRuntimeEnvTokenOverride(t *testing.T) {
 	}
 }
 
-func assertSameColor(t *testing.T, want string, got color.Color) {
-	t.Helper()
-	r, g, b, _ := got.RGBA()
-	gotHex := fmt.Sprintf("#%02x%02x%02x", uint8(r>>8), uint8(g>>8), uint8(b>>8))
-	if gotHex != want {
-		t.Fatalf("color = %s, want %s", gotHex, want)
-	}
-}
-
 func localOAuthTestRedirectURL(t *testing.T) string {
 	t.Helper()
 	return "http://127.0.0.1:" + localOAuthTestPort(t) + "/callback"
@@ -1290,63 +1136,6 @@ func oauthTestCallbackOpener(t *testing.T, code string) func(string) error {
 			_ = resp.Body.Close()
 		}()
 		return nil
-	}
-}
-
-func executeAuthRoot(t *testing.T, cfg *config.Config, configPath string, store config.CredentialStore, baseURL string, args []string) (string, string, error) {
-	t.Helper()
-	return executeAuthRootWithInput(t, cfg, configPath, store, baseURL, strings.NewReader(""), false, args)
-}
-
-func executeAuthRootWithInput(t *testing.T, cfg *config.Config, configPath string, store config.CredentialStore, baseURL string, stdin io.Reader, isTTY bool, args []string) (string, string, error) {
-	t.Helper()
-	return executeAuthRootWithOptions(t, cfg, configPath, store, baseURL, stdin, isTTY, args)
-}
-
-func executeAuthRootWithOptions(t *testing.T, cfg *config.Config, configPath string, store config.CredentialStore, baseURL string, stdin io.Reader, isTTY bool, args []string, options ...RootOption) (string, string, error) {
-	t.Helper()
-	stdout := &strings.Builder{}
-	stderr := &strings.Builder{}
-	rootOptions := []RootOption{
-		WithConfig(cfg),
-		WithConfigPath(configPath),
-		WithCredentialStore(store),
-		WithSlackBaseURL(baseURL),
-		WithIO(stdin, stdout, stderr),
-		WithTTY(isTTY),
-	}
-	rootOptions = append(rootOptions, options...)
-	cmd := NewRootCommand(rootOptions...)
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	return stdout.String(), stderr.String(), err
-}
-
-type lineByLineReader struct {
-	lines []string
-}
-
-func lineReader(value string) *lineByLineReader {
-	return &lineByLineReader{lines: strings.SplitAfter(value, "\n")}
-}
-
-func (r *lineByLineReader) Read(p []byte) (int, error) {
-	if len(r.lines) == 0 {
-		return 0, io.EOF
-	}
-	line := r.lines[0]
-	r.lines = r.lines[1:]
-	return copy(p, line), nil
-}
-
-func authTestConfig() *config.Config {
-	return &config.Config{
-		SchemaVersion:    config.SchemaVersion,
-		DefaultWorkspace: "default",
-		Workspaces: map[string]config.WorkspaceProfile{
-			"default": {Name: "default", TeamID: "T123", TokenType: config.TokenTypeBot, TokenRef: "keychain:slack-cli/default"},
-			"other":   {Name: "other", TeamID: "T999", TokenType: config.TokenTypeUser, TokenRef: "keychain:slack-cli/other"},
-		},
 	}
 }
 

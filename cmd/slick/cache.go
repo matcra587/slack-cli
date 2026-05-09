@@ -79,7 +79,7 @@ func (d cacheChannelsData) WritePlain(c *CommandContext, command string, paginat
 var _ PlainRenderer = cacheClearData{}
 
 func (d cacheClearData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
-	c.resultEvent(command).
+	c.ResultEvent(command).
 		Str("profile", d.Profile).
 		When(d.Resource != "", func(e *clog.Event) {
 			e.Str("resource", d.Resource).Bool("removed", d.Removed)

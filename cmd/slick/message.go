@@ -31,8 +31,8 @@ func (d sendCommandData) WritePlain(c *CommandContext, command string, _ *Pagina
 	if d.Message.Channel != nil {
 		channel = *d.Message.Channel
 	}
-	event := c.resultEventWithStyles(command, entityFieldStyle("channel", channel))
-	event = addSlackTimestampFields(event, d.Message.TS, c.now()).
+	event := c.ResultEventWithStyles(command, entityFieldStyle("channel", channel))
+	event = addSlackTimestampFields(event, d.Message.TS, c.Now()).
 		Bool("dry_run", d.DryRun).
 		When(clog.IsVerbose(), func(e *clog.Event) {
 			e.Bool("attribution", d.Attribution)
@@ -393,9 +393,9 @@ type deleteMessageData struct {
 var _ PlainRenderer = deleteMessageData{}
 
 func (d deleteMessageData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
-	event := c.resultEventWithStyles(command, entityFieldStyle("channel", d.Channel)).
+	event := c.ResultEventWithStyles(command, entityFieldStyle("channel", d.Channel)).
 		Str("channel", d.Channel)
-	event = addSlackTimestampFields(event, d.Timestamp, c.now()).
+	event = addSlackTimestampFields(event, d.Timestamp, c.Now()).
 		Bool("deleted", d.Deleted).
 		Bool("dry_run", d.DryRun)
 	event.Send()

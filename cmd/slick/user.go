@@ -25,7 +25,7 @@ var _ PlainRenderer = userInfoData{}
 
 func (d userInfoData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
 	user := d.User
-	event := c.resultEventWithStyles(command, entityFieldStyle("user", user.ID)).
+	event := c.ResultEventWithStyles(command, entityFieldStyle("user", user.ID)).
 		Str("user", user.ID).
 		Str("name", user.Name)
 	event = addBoolField(event, "deleted", user.Deleted)

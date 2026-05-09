@@ -26,7 +26,7 @@ var _ PlainRenderer = channelInfoData{}
 
 func (d channelInfoData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
 	ch := d.Channel
-	event := c.resultEventWithStyles(command, entityFieldStyle("channel", ch.ID)).
+	event := c.ResultEventWithStyles(command, entityFieldStyle("channel", ch.ID)).
 		Str("channel", ch.ID).
 		Str("name", ch.Name).
 		Str("type", ch.Type)

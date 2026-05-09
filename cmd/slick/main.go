@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -16,13 +15,15 @@ import (
 	"github.com/gechr/clib/help"
 	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
-	termansi "github.com/gechr/x/ansi"
 	"github.com/gechr/x/human"
 	"github.com/gechr/x/shell"
 	"github.com/gechr/x/terminal"
+	cliauth "github.com/matcra587/slack-cli/internal/cli/auth"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
+	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
 	clitoken "github.com/matcra587/slack-cli/internal/cli/token"
+	cliworkspace "github.com/matcra587/slack-cli/internal/cli/workspace"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -58,19 +59,43 @@ const (
 	ErrorTypeTimeout    = clioutput.ErrorTypeTimeout
 )
 
-type CommandContext struct {
-	Workspace string
-	Mode      RenderMode
-	Stdout    io.Writer
-	Stderr    io.Writer
-	Now       func() time.Time
-	RequestID func() string
-	ColorMode clog.ColorMode
-	IsTTY     bool
-	Theme     *theme.Theme
-	stdoutLog *clog.Logger
-	stderrLog *clog.Logger
-}
+// CommandContext is the shared per-command rendering state.
+type CommandContext = clioutput.CommandContext
+
+// PlainRenderer is implemented by each command data type for plain-mode output.
+type PlainRenderer = clioutput.PlainRenderer
+
+// DTO type aliases so existing cmd/slick files compile without changes.
+type (
+	cliMessage         = clioutput.CliMessage
+	cliReactionSummary = clioutput.CliReactionSummary
+	cliChannel         = clioutput.CliChannel
+	cliUser            = clioutput.CliUser
+	cliSearchMessage   = clioutput.CliSearchMessage
+)
+
+// Auth DTO aliases used by tests and output_test.go.
+type (
+	authWorkspaceData = cliauth.WorkspaceData
+	authStatusData    = cliauth.StatusData
+)
+
+// DTO converter aliases.
+var (
+	cliMessageFromSlack       = clioutput.CliMessageFromSlack
+	cliReactionsFromSlack     = clioutput.CliReactionsFromSlack
+	cliChannelFromSlack       = clioutput.CliChannelFromSlack
+	cliUserFromSlack          = clioutput.CliUserFromSlack
+	cliSearchMessageFromSlack = clioutput.CliSearchMessageFromSlack
+	cliErrorFromSlack         = clioutput.CliErrorFromSlack
+)
+
+// Slack client aliases — all cmd/slick command files call slackClient(cmd, profile, runtime)
+// and completion.go calls newSlackClient for unauthenticated completion lookups.
+var (
+	slackClient    = slackclient.Client
+	newSlackClient = slackclient.New
+)
 
 type RootOptions struct {
 	Config    *config.Config
@@ -189,14 +214,14 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 			sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
 			applyRenderMode(sl, RenderModeEnvelope)
 			ctx := &CommandContext{
-				Workspace: "default",
-				Mode:      RenderModeEnvelope,
-				Stdout:    runtime.Stdout,
-				Stderr:    runtime.Stderr,
-				Now:       runtime.Now,
-				RequestID: runtime.RequestID,
-				stdoutLog: sl,
-				stderrLog: el,
+				Workspace:     "default",
+				Mode:          RenderModeEnvelope,
+				Stdout:        runtime.Stdout,
+				Stderr:        runtime.Stderr,
+				NowFunc:       runtime.Now,
+				RequestIDFunc: runtime.RequestID,
+				StdoutLog:     sl,
+				StderrLog:     el,
 			}
 			return writeCommandError(ctx, validationCLIError(err.Error()))
 		}
@@ -238,7 +263,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	cacheCmd.GroupID = "discovery"
 	root.AddCommand(cacheCmd)
 
-	authCmd := newAuthCommand(runtime)
+	authCmd := cliauth.NewCommand(runtime)
 	authCmd.GroupID = "admin"
 	root.AddCommand(authCmd)
 
@@ -246,7 +271,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	configCmd.GroupID = "admin"
 	root.AddCommand(configCmd)
 
-	workspaceCmd := newWorkspaceCommand(runtime)
+	workspaceCmd := cliworkspace.NewCommand(runtime)
 	workspaceCmd.GroupID = "admin"
 	root.AddCommand(workspaceCmd)
 
@@ -331,15 +356,15 @@ func commandContext(cmd *cobra.Command, runtime *RootRuntime) (*CommandContext, 
 		sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
 		applyRenderMode(sl, mode)
 		ctx := &CommandContext{
-			Workspace: "default",
-			Mode:      mode,
-			Stdout:    runtime.Stdout,
-			Stderr:    runtime.Stderr,
-			Now:       runtime.Now,
-			RequestID: runtime.RequestID,
-			Theme:     runtime.Theme,
-			stdoutLog: sl,
-			stderrLog: el,
+			Workspace:     "default",
+			Mode:          mode,
+			Stdout:        runtime.Stdout,
+			Stderr:        runtime.Stderr,
+			NowFunc:       runtime.Now,
+			RequestIDFunc: runtime.RequestID,
+			Theme:         runtime.Theme,
+			StdoutLog:     sl,
+			StderrLog:     el,
 		}
 		return ctx, config.WorkspaceProfile{}, Attribution{}, runtime.ConfigLoadError
 	}
@@ -386,17 +411,17 @@ func NewCommandContext(opts RootOptions) (*CommandContext, Attribution, error) {
 	stdoutLog, stderrLog := buildBaseLoggers(opts.Stdout, opts.Stderr, opts.ColorMode)
 	applyRenderMode(stdoutLog, mode)
 	return &CommandContext{
-		Workspace: workspace,
-		Mode:      mode,
-		Stdout:    opts.Stdout,
-		Stderr:    opts.Stderr,
-		Now:       opts.Now,
-		RequestID: opts.RequestID,
-		IsTTY:     opts.IsTTY,
-		ColorMode: opts.ColorMode,
-		Theme:     opts.Theme,
-		stdoutLog: stdoutLog,
-		stderrLog: stderrLog,
+		Workspace:     workspace,
+		Mode:          mode,
+		Stdout:        opts.Stdout,
+		Stderr:        opts.Stderr,
+		NowFunc:       opts.Now,
+		RequestIDFunc: opts.RequestID,
+		IsTTY:         opts.IsTTY,
+		ColorMode:     opts.ColorMode,
+		Theme:         opts.Theme,
+		StdoutLog:     stdoutLog,
+		StderrLog:     stderrLog,
 	}, attribution, nil
 }
 
@@ -421,68 +446,7 @@ type CLIError = clioutput.CLIError
 
 type CommandError = clioutput.CommandError
 
-func (c *CommandContext) WriteResult(command string, data any) error {
-	return c.WriteResultWithPagination(command, data, nil)
-}
-
-func (c *CommandContext) WriteResultWithPagination(command string, data any, pagination *Pagination) error {
-	switch c.Mode {
-	case RenderModePlain:
-		return c.WritePlainResult(command, data, pagination)
-	case RenderModeCompact:
-		c.stdoutLogger().Print().JSON(data)
-	case RenderModeRaw:
-		switch raw := data.(type) {
-		case []byte:
-			c.stdoutLogger().Print().RawJSON(raw)
-		case json.RawMessage:
-			c.stdoutLogger().Print().RawJSON(raw)
-		default:
-			c.stdoutLogger().Print().JSON(data)
-		}
-	default:
-		c.stdoutLogger().Print().JSON(Envelope{
-			Meta: EnvelopeMeta{
-				Command:    command,
-				Workspace:  c.workspace(),
-				Timestamp:  c.now().Format(time.RFC3339),
-				RequestID:  c.requestID(),
-				Pagination: pagination,
-			},
-			Data:   data,
-			Errors: []CLIError{},
-		})
-	}
-	return nil
-}
-
-func (c *CommandContext) WritePlainResult(command string, data any, pagination *Pagination) error {
-	if r, ok := data.(PlainRenderer); ok {
-		return r.WritePlain(c, command, pagination)
-	}
-	event := c.resultEvent(command).Any("data", data)
-	addPaginationFields(event, pagination)
-	event.Send()
-	return nil
-}
-
-func (c *CommandContext) resultEvent(command string) *clog.Event {
-	return c.stdoutLogger().Info().
-		Str("command", command)
-}
-
-type fieldStyle = clioutput.FieldStyle
-
 var entityFieldStyle = clioutput.EntityFieldStyle
-
-func (c *CommandContext) resultEventWithStyles(command string, styles ...fieldStyle) *clog.Event {
-	logger := c.stdoutLogger()
-	clioutput.ApplyFieldStyles(logger, c.Theme, styles...)
-	return logger.Info().
-		Str("command", command)
-}
-
-var addPaginationFields = clioutput.AddPaginationFields
 
 var addSlackTimestampFields = clioutput.AddSlackTimestampFields
 
@@ -490,89 +454,12 @@ var addBoolField = clioutput.AddBoolField
 
 var addIntField = clioutput.AddIntField
 
-func (c *CommandContext) WriteMessages(command string, messages []cliMessage, pagination *Pagination) error {
-	if len(messages) > 0 {
-		return c.WriteMessageTable(messages)
-	}
-	event := c.resultEvent(command)
-	addPaginationFields(event, pagination)
-	event.Send()
-	return nil
-}
+var validationCLIError = clioutput.ValidationCLIError
 
-func (c *CommandContext) WriteSearch(command string, data searchCommandData, pagination *Pagination) error {
-	if len(data.Matches) > 0 {
-		return c.WriteSearchTable(data)
-	}
-	event := c.resultEvent(command)
-	addPaginationFields(event, pagination)
-	event.Send()
-	return nil
-}
-
-func (c *CommandContext) WriteChannels(command string, channels []cliChannel, pagination *Pagination) error {
-	if len(channels) > 0 {
-		return c.WriteChannelTable(command, channels)
-	}
-	event := c.resultEvent(command)
-	addPaginationFields(event, pagination)
-	event.Send()
-	return nil
-}
-
-func (c *CommandContext) WriteUsers(command string, users []cliUser, pagination *Pagination) error {
-	if len(users) > 0 {
-		return c.WriteUserTable(users)
-	}
-	event := c.resultEvent(command)
-	addPaginationFields(event, pagination)
-	event.Send()
-	return nil
-}
-
-func (c *CommandContext) WriteWorkspaces(command string, workspaces []config.WorkspaceProfile, pagination *Pagination) error {
-	if len(workspaces) > 0 {
-		return c.WriteWorkspaceTable(workspaces)
-	}
-	event := c.resultEvent(command)
-	addPaginationFields(event, pagination)
-	event.Send()
-	return nil
-}
-
-func truncateText(value string, limit int) string {
-	return termansi.Truncate(value, limit, "...")
-}
-
-func (c *CommandContext) WriteString(message string) error {
-	c.stdoutLogger().Info().Parts(clog.PartMessage).Msg(message)
-	return nil
-}
-
-var applyTeamIDStyle = clioutput.ApplyTeamIDStyle
-
-func (c *CommandContext) WriteError(err CLIError) int {
-	if c.Mode == RenderModePlain {
-		event := c.stderrLogger().Error().
-			Str("type", err.Type).
-			Int("exit_code", err.ExitCode)
-		event = addCLIErrorDetails(event, err.Details)
-		event.Msg(err.Message)
-	} else {
-		c.stderrLogger().Print().JSON(struct {
-			Errors []CLIError `json:"errors"`
-		}{
-			Errors: []CLIError{err},
-		})
-	}
-	return err.ExitCode
-}
-
-var addCLIErrorDetails = clioutput.AddCLIErrorDetails
+var authCLIError = clioutput.AuthCLIError
 
 func writeCommandError(ctx *CommandContext, err CLIError) error {
-	ctx.WriteError(err)
-	return CommandError{CLIError: err}
+	return clioutput.WriteCommandError(ctx, err)
 }
 
 func writeRuntimeError(runtime *RootRuntime, err CLIError) error {
@@ -580,51 +467,20 @@ func writeRuntimeError(runtime *RootRuntime, err CLIError) error {
 	sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
 	applyRenderMode(sl, mode)
 	ctx := &CommandContext{
-		Workspace: "default",
-		Mode:      mode,
-		Stdout:    runtime.Stdout,
-		Stderr:    runtime.Stderr,
-		Now:       runtime.Now,
-		RequestID: runtime.RequestID,
-		stdoutLog: sl,
-		stderrLog: el,
+		Workspace:     "default",
+		Mode:          mode,
+		Stdout:        runtime.Stdout,
+		Stderr:        runtime.Stderr,
+		NowFunc:       runtime.Now,
+		RequestIDFunc: runtime.RequestID,
+		StdoutLog:     sl,
+		StderrLog:     el,
 	}
 	return writeCommandError(ctx, err)
 }
 
-var validationCLIError = clioutput.ValidationCLIError
-
-var authCLIError = clioutput.AuthCLIError
-
-func (c *CommandContext) stdoutLogger() *clog.Logger { return c.stdoutLog }
-func (c *CommandContext) stderrLogger() *clog.Logger { return c.stderrLog }
-
-func (c *CommandContext) stdout() io.Writer {
-	if c.Stdout != nil {
-		return c.Stdout
-	}
-	return io.Discard
-}
-
-func (c *CommandContext) now() time.Time {
-	if c.Now != nil {
-		return c.Now()
-	}
-	return time.Now().UTC()
-}
-
-func (c *CommandContext) requestID() string {
-	if c.RequestID != nil {
-		return c.RequestID()
-	}
-	return ""
-}
-
-func (c *CommandContext) workspace() string {
-	if c.Workspace != "" {
-		return c.Workspace
-	}
-	return "default"
+func truncateText(value string, limit int) string {
+	return clioutput.TruncateText(value, limit)
 }
 
 func main() {
@@ -651,8 +507,8 @@ func main() {
 			Mode:      mode,
 			Stdout:    os.Stdout,
 			Stderr:    os.Stderr,
-			stdoutLog: sl,
-			stderrLog: el,
+			StdoutLog: sl,
+			StderrLog: el,
 		}
 		os.Exit(cmdCtx.WriteError(validationCLIError(err.Error())))
 	}

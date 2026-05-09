@@ -148,7 +148,7 @@ func runManifestTemplate(cmd *cobra.Command, runtime *RootRuntime, opts manifest
 	}
 	switch strings.ToLower(strings.TrimSpace(opts.Format)) {
 	case "", "json":
-		ctx.stdoutLogger().Print().Mode(clog.JSONFlat).JSON(manifest)
+		ctx.StdoutLogger().Print().Mode(clog.JSONFlat).JSON(manifest)
 	case "yaml", "yml":
 		return ctx.WriteString(renderManifestYAML(manifest))
 	default:
@@ -172,14 +172,14 @@ func localManifestContext(cmd *cobra.Command, runtime *RootRuntime) *CommandCont
 	sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
 	applyRenderMode(sl, mode)
 	return &CommandContext{
-		Workspace: "manifest",
-		Mode:      mode,
-		Stdout:    runtime.Stdout,
-		Stderr:    runtime.Stderr,
-		Now:       runtime.Now,
-		RequestID: runtime.RequestID,
-		stdoutLog: sl,
-		stderrLog: el,
+		Workspace:     "manifest",
+		Mode:          mode,
+		Stdout:        runtime.Stdout,
+		Stderr:        runtime.Stderr,
+		NowFunc:       runtime.Now,
+		RequestIDFunc: runtime.RequestID,
+		StdoutLog:     sl,
+		StderrLog:     el,
 	}
 }
 

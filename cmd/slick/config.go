@@ -12,6 +12,7 @@ import (
 	clibtheme "github.com/gechr/clib/theme"
 	xfs "github.com/gechr/x/fs"
 	"github.com/gechr/x/human"
+	cliauth "github.com/matcra587/slack-cli/internal/cli/auth"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/spf13/cobra"
@@ -38,7 +39,7 @@ type configInitData struct {
 var _ PlainRenderer = configInitData{}
 
 func (d configInitData) WritePlain(c *CommandContext, _ string, _ *Pagination) error {
-	c.resultEvent("config.init").
+	c.ResultEvent("config.init").
 		Link("path", d.Path, human.ContractHome(d.Path)).
 		Str("profile", d.Profile).
 		Str("workspace", d.Workspace).
@@ -55,7 +56,7 @@ type configPathData struct {
 var _ PlainRenderer = configPathData{}
 
 func (d configPathData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
-	c.resultEvent(command).
+	c.ResultEvent(command).
 		Link("path", d.Path, human.ContractHome(d.Path)).
 		Bool("exists", d.Exists).
 		Send()
@@ -77,7 +78,7 @@ type configListData struct {
 var _ PlainRenderer = configListData{}
 
 func (d configListData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
-	c.resultEvent(command).
+	c.ResultEvent(command).
 		Link("path", d.Path, human.ContractHome(d.Path)).
 		Str("default_workspace", d.DefaultWorkspace).
 		Int("settings", len(d.Settings)).
@@ -86,7 +87,7 @@ func (d configListData) WritePlain(c *CommandContext, command string, _ *Paginat
 		return nil
 	}
 	for _, setting := range d.Settings {
-		c.resultEvent(command).
+		c.ResultEvent(command).
 			Str("key", setting.Key).
 			Str("value", setting.Value).
 			Msg("config setting")
@@ -102,7 +103,7 @@ type configGetData struct {
 var _ PlainRenderer = configGetData{}
 
 func (d configGetData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
-	c.resultEvent(command).
+	c.ResultEvent(command).
 		Str("key", d.Key).
 		Str("value", d.Value).
 		Send()
@@ -118,7 +119,7 @@ type configMutationData struct {
 var _ PlainRenderer = configMutationData{}
 
 func (d configMutationData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
-	c.resultEvent(command).
+	c.ResultEvent(command).
 		Link("path", d.Path, human.ContractHome(d.Path)).
 		Str("key", d.Key).
 		Str("value", d.Value).
@@ -307,7 +308,7 @@ func runConfigInitForm(runtime *RootRuntime, opts *configInitOptions) error {
 
 func runConfigForm(runtime *RootRuntime, form *huh.Form) error {
 	form = form.
-		WithTheme(authLoginHuhTheme(clibtheme.Default())).
+		WithTheme(cliauth.LoginHuhTheme(clibtheme.Default())).
 		WithInput(runtime.Stdin).
 		WithOutput(runtime.Stderr)
 	if !usesTerminalFiles(runtime) {
@@ -456,14 +457,14 @@ func localConfigContext(cmd *cobra.Command, runtime *RootRuntime) *CommandContex
 	sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
 	applyRenderMode(sl, mode)
 	return &CommandContext{
-		Workspace: "config",
-		Mode:      mode,
-		Stdout:    runtime.Stdout,
-		Stderr:    runtime.Stderr,
-		Now:       runtime.Now,
-		RequestID: runtime.RequestID,
-		stdoutLog: sl,
-		stderrLog: el,
+		Workspace:     "config",
+		Mode:          mode,
+		Stdout:        runtime.Stdout,
+		Stderr:        runtime.Stderr,
+		NowFunc:       runtime.Now,
+		RequestIDFunc: runtime.RequestID,
+		StdoutLog:     sl,
+		StderrLog:     el,
 	}
 }
 

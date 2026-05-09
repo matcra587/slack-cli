@@ -52,13 +52,13 @@ func localVersionContext(cmd *cobra.Command, runtime *RootRuntime) *CommandConte
 	sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
 	applyRenderMode(sl, mode)
 	return &CommandContext{
-		Workspace: "version",
-		Mode:      mode,
-		Stdout:    runtime.Stdout,
-		Stderr:    runtime.Stderr,
-		Now:       runtime.Now,
-		RequestID: runtime.RequestID,
-		stdoutLog: sl,
-		stderrLog: el,
+		Workspace:     "version",
+		Mode:          mode,
+		Stdout:        runtime.Stdout,
+		Stderr:        runtime.Stderr,
+		NowFunc:       runtime.Now,
+		RequestIDFunc: runtime.RequestID,
+		StdoutLog:     sl,
+		StderrLog:     el,
 	}
 }

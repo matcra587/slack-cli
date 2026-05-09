@@ -7,6 +7,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type reactionTarget struct {
+	Channel   string `json:"channel"`
+	Timestamp string `json:"timestamp"`
+}
+
+type reactionResult struct {
+	Channel   string `json:"channel"`
+	Timestamp string `json:"timestamp"`
+	Emoji     string `json:"emoji,omitempty"`
+	Removed   bool   `json:"removed,omitempty"`
+	DryRun    bool   `json:"dry_run,omitempty"`
+}
+
 type reactionCommandData struct {
 	Reaction  *reactionResult      `json:"reaction,omitempty"`
 	Reactions []cliReactionSummary `json:"reactions,omitempty"`
@@ -17,9 +30,9 @@ var _ PlainRenderer = reactionCommandData{}
 
 func (d reactionCommandData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
 	if d.Reaction != nil {
-		event := c.resultEventWithStyles(command, entityFieldStyle("channel", d.Reaction.Channel)).
+		event := c.ResultEventWithStyles(command, entityFieldStyle("channel", d.Reaction.Channel)).
 			Str("channel", d.Reaction.Channel)
-		event = addSlackTimestampFields(event, d.Reaction.Timestamp, c.now()).
+		event = addSlackTimestampFields(event, d.Reaction.Timestamp, c.Now()).
 			Str("emoji", d.Reaction.Emoji).
 			Bool("removed", d.Reaction.Removed).
 			Bool("dry_run", d.Reaction.DryRun)
@@ -30,16 +43,16 @@ func (d reactionCommandData) WritePlain(c *CommandContext, command string, _ *Pa
 		return c.WriteReactionTable(d.Reactions)
 	}
 	if len(d.Reactions) == 0 {
-		event := c.resultEventWithStyles(command, entityFieldStyle("channel", d.Target.Channel)).
+		event := c.ResultEventWithStyles(command, entityFieldStyle("channel", d.Target.Channel)).
 			Str("channel", d.Target.Channel)
-		addSlackTimestampFields(event, d.Target.Timestamp, c.now()).
+		addSlackTimestampFields(event, d.Target.Timestamp, c.Now()).
 			Send()
 		return nil
 	}
 	for _, reaction := range d.Reactions {
-		event := c.resultEventWithStyles(command, entityFieldStyle("channel", d.Target.Channel)).
+		event := c.ResultEventWithStyles(command, entityFieldStyle("channel", d.Target.Channel)).
 			Str("channel", d.Target.Channel)
-		event = addSlackTimestampFields(event, d.Target.Timestamp, c.now()).
+		event = addSlackTimestampFields(event, d.Target.Timestamp, c.Now()).
 			Str("emoji", reaction.Name).
 			Int("count", reaction.Count).
 			Strs("users", reaction.Users)

@@ -17,7 +17,7 @@ type searchCommandData struct {
 var _ PlainRenderer = searchCommandData{}
 
 func (d searchCommandData) WritePlain(c *CommandContext, command string, pagination *Pagination) error {
-	return c.WriteSearch(command, d, pagination)
+	return c.WriteSearch(command, d.Matches, d.Full, pagination)
 }
 
 func newLookupMessagesCommand(runtime *RootRuntime) *cobra.Command {

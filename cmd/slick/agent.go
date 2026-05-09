@@ -63,10 +63,10 @@ func newAgentSchemaCommand(runtime *RootRuntime) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := agentCommandContext(cmd, runtime)
 			if compact {
-				ctx.stdoutLogger().Print().JSON(agenthelp.GenerateCompactSchema(cmd.Root()))
+				ctx.StdoutLogger().Print().JSON(agenthelp.GenerateCompactSchema(cmd.Root()))
 				return nil
 			}
-			ctx.stdoutLogger().Print().JSON(agenthelp.GenerateSchema(cmd.Root()))
+			ctx.StdoutLogger().Print().JSON(agenthelp.GenerateSchema(cmd.Root()))
 			return nil
 		},
 	}
@@ -113,13 +113,13 @@ func agentCommandContext(cmd *cobra.Command, runtime *RootRuntime) *CommandConte
 	sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
 	applyRenderMode(sl, mode)
 	return &CommandContext{
-		Workspace: "agent",
-		Mode:      mode,
-		Stdout:    runtime.Stdout,
-		Stderr:    runtime.Stderr,
-		Now:       runtime.Now,
-		RequestID: runtime.RequestID,
-		stdoutLog: sl,
-		stderrLog: el,
+		Workspace:     "agent",
+		Mode:          mode,
+		Stdout:        runtime.Stdout,
+		Stderr:        runtime.Stderr,
+		NowFunc:       runtime.Now,
+		RequestIDFunc: runtime.RequestID,
+		StdoutLog:     sl,
+		StderrLog:     el,
 	}
 }

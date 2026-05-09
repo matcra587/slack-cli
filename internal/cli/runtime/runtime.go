@@ -50,6 +50,9 @@ func WithConfig(cfg *config.Config) RootOption {
 	}
 }
 
+// WithConfigPath stores the path and, when ConfigExplicit is unset, eagerly
+// loads the config file. The load error is captured into ConfigLoadError so
+// callers can defer surfacing it; the option itself never returns an error.
 func WithConfigPath(path string) RootOption {
 	return func(runtime *RootRuntime) {
 		runtime.ConfigPath = path

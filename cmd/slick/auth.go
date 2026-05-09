@@ -1112,18 +1112,6 @@ func oauthExchangeCode(ctx context.Context, runtime *RootRuntime, clientID, code
 	return resp, nil
 }
 
-func oauthRefreshToken(ctx context.Context, httpClient *http.Client, baseURL, clientID, refreshToken string) (*slackgo.OAuthV2Response, error) {
-	var opts []slackgo.OAuthOption
-	if baseURL != "" {
-		opts = append(opts, slackgo.OAuthOptionAPIURL(slackAPIURL(baseURL)))
-	}
-	resp, err := slackgo.RefreshOAuthV2TokenContext(ctx, httpClient, clientID, "", refreshToken, opts...)
-	if err != nil {
-		return nil, wrapBadClientSecret(err)
-	}
-	return resp, nil
-}
-
 func wrapBadClientSecret(err error) error {
 	var slackErr slackgo.SlackErrorResponse
 	if errors.As(err, &slackErr) && slackErr.Err == "bad_client_secret" {

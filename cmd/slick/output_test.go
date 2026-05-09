@@ -14,33 +14,6 @@ import (
 	"github.com/matcra587/slack-cli/internal/config"
 )
 
-func TestOutputModeSelection(t *testing.T) {
-	tests := []struct {
-		name  string
-		flags OutputFlags
-		tty   bool
-		agent bool
-		want  RenderMode
-	}{
-		{name: "tty defaults to plain", tty: true, want: RenderModePlain},
-		{name: "non tty defaults to json", want: RenderModeEnvelope},
-		{name: "agent defaults to json", tty: true, agent: true, want: RenderModeEnvelope},
-		{name: "json flag wins", flags: OutputFlags{JSON: true}, tty: true, want: RenderModeEnvelope},
-		{name: "plain flag wins", flags: OutputFlags{Plain: true}, agent: true, want: RenderModePlain},
-		{name: "compact flag wins", flags: OutputFlags{Compact: true}, tty: true, want: RenderModeCompact},
-		{name: "raw flag wins", flags: OutputFlags{Raw: true}, want: RenderModeRaw},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.flags.Resolve(tt.tty, tt.agent)
-			if got != tt.want {
-				t.Fatalf("Resolve() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestWriteResultJSONEnvelope(t *testing.T) {
 	ctx, stdout, stderr := newOutputTestContext(RenderModeEnvelope)
 

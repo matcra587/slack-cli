@@ -1,7 +1,10 @@
 // Package cliutil provides tiny helpers used by multiple cli command
-// packages: nullable-pointer constructors for JSON optional fields and
-// first-non-empty fallback resolution.
+// packages: nullable-pointer constructors for JSON optional fields,
+// first-non-empty fallback resolution, and case-insensitive substring
+// match against a haystack.
 package cliutil
+
+import "strings"
 
 // StringPtr returns nil for an empty string, otherwise a pointer to the value.
 // Used to omit optional string fields from JSON output.
@@ -30,4 +33,17 @@ func FirstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// ContainsAnyFold reports whether the lowercased needle appears as a
+// substring of any haystack (also lowercased). Used by channel and user
+// filters that match a query against either ID or display name.
+func ContainsAnyFold(needle string, haystacks ...string) bool {
+	needle = strings.ToLower(needle)
+	for _, h := range haystacks {
+		if strings.Contains(strings.ToLower(h), needle) {
+			return true
+		}
+	}
+	return false
 }

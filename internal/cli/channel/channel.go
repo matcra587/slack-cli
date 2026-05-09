@@ -162,10 +162,9 @@ func filterChannels(channels []clioutput.CliChannel, filter string) []clioutput.
 	if filter == "" {
 		return channels
 	}
-	filter = strings.ToLower(filter)
 	out := make([]clioutput.CliChannel, 0, len(channels))
 	for _, channel := range channels {
-		if strings.Contains(strings.ToLower(channel.ID), filter) || strings.Contains(strings.ToLower(channel.Name), filter) {
+		if cliutil.ContainsAnyFold(filter, channel.ID, channel.Name) {
 			out = append(out, channel)
 		}
 	}

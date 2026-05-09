@@ -172,10 +172,9 @@ func filterUsers(users []clioutput.CliUser, filter string) []clioutput.CliUser {
 	if filter == "" {
 		return users
 	}
-	filter = strings.ToLower(filter)
 	out := make([]clioutput.CliUser, 0, len(users))
 	for _, user := range users {
-		if strings.Contains(strings.ToLower(user.ID), filter) || strings.Contains(strings.ToLower(user.Name), filter) {
+		if cliutil.ContainsAnyFold(filter, user.ID, user.Name) {
 			out = append(out, user)
 		}
 	}

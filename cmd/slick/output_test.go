@@ -292,11 +292,11 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 		{
 			name: "react add",
 			cmd:  "react.add",
-			data: reactionCommandData{Reaction: &reactionResult{
+			data: reactionCommandData{Mutations: []reactionResult{{
 				Channel:   "C7N2Q8L4P",
 				Timestamp: "1746284582.123456",
 				Emoji:     "thumbsup",
-			}},
+			}}},
 			want: []string{
 				"INF",
 				"command=react.add",

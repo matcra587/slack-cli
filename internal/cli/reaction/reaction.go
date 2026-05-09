@@ -26,9 +26,12 @@ type Result struct {
 	DryRun    bool   `json:"dry_run,omitempty"`
 }
 
-// Data is the result type for all react subcommands.
+// Data is the result type for all react subcommands. Mutations holds the
+// per-emoji outcomes for `react add`/`react remove` (length 1 for the
+// single-emoji case, length N for ordered multi-emoji); Reactions holds
+// the existing-reaction summary for `react list`.
 type Data struct {
-	Reaction  *Result                        `json:"reaction,omitempty"`
+	Mutations []Result                       `json:"mutations,omitempty"`
 	Reactions []clioutput.CliReactionSummary `json:"reactions,omitempty"`
 	Target    Target                         `json:"target"`
 }
@@ -36,14 +39,16 @@ type Data struct {
 var _ clioutput.PlainRenderer = Data{}
 
 func (d Data) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
-	if d.Reaction != nil {
-		event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Reaction.Channel)).
-			Str("channel", d.Reaction.Channel)
-		event = clioutput.AddSlackTimestampFields(event, d.Reaction.Timestamp, c.Now()).
-			Str("emoji", d.Reaction.Emoji).
-			Bool("removed", d.Reaction.Removed).
-			Bool("dry_run", d.Reaction.DryRun)
-		event.Send()
+	if len(d.Mutations) > 0 {
+		for _, mutation := range d.Mutations {
+			event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", mutation.Channel)).
+				Str("channel", mutation.Channel)
+			clioutput.AddSlackTimestampFields(event, mutation.Timestamp, c.Now()).
+				Str("emoji", mutation.Emoji).
+				Bool("removed", mutation.Removed).
+				Bool("dry_run", mutation.DryRun).
+				Send()
+		}
 		return nil
 	}
 	if len(d.Reactions) > 0 {
@@ -81,7 +86,7 @@ func newReactionMutationCommand(runtime *cliruntime.RootRuntime, action string) 
 	}
 	cmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
 	cmd.Flags().StringP("timestamp", "t", "", "Message timestamp")
-	cmd.Flags().StringP("emoji", "e", "", "Emoji name")
+	cmd.Flags().StringSliceP("emoji", "e", nil, "Emoji name; repeat or comma-separate to apply multiple in order")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview without mutating")
 	return cmd
 }
@@ -110,18 +115,26 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
-	emoji, _ := cmd.Flags().GetString("emoji")
-	emoji = normalizeEmoji(emoji)
-	if emoji == "" {
+	rawEmojis, _ := cmd.Flags().GetStringSlice("emoji")
+	emojis := normalizeEmojiList(rawEmojis)
+	if len(emojis) == 0 {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("emoji is required"))
 	}
 
-	result := Result{Channel: target.Channel, Timestamp: target.Timestamp, Emoji: emoji}
 	if dryRun {
-		result.DryRun = true
-		result.Removed = action == "remove"
-		return ctx.WriteResult("react."+action, Data{Reaction: &result, Target: target})
+		mutations := make([]Result, 0, len(emojis))
+		for _, emoji := range emojis {
+			mutations = append(mutations, Result{
+				Channel:   target.Channel,
+				Timestamp: target.Timestamp,
+				Emoji:     emoji,
+				Removed:   action == "remove",
+				DryRun:    true,
+			})
+		}
+		return ctx.WriteResult("react."+action, Data{Mutations: mutations, Target: target})
 	}
+
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
@@ -129,17 +142,26 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("reactions:write")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
-	switch action {
-	case "remove":
-		result.Removed = true
-		err = client.RemoveReactionContext(cmd.Context(), emoji, slackgo.NewRefToMessage(target.Channel, target.Timestamp))
-	default:
-		err = client.AddReactionContext(cmd.Context(), emoji, slackgo.NewRefToMessage(target.Channel, target.Timestamp))
+	mutations := make([]Result, 0, len(emojis))
+	for _, emoji := range emojis {
+		ref := slackgo.NewRefToMessage(target.Channel, target.Timestamp)
+		var apiErr error
+		if action == "remove" {
+			apiErr = client.RemoveReactionContext(cmd.Context(), emoji, ref)
+		} else {
+			apiErr = client.AddReactionContext(cmd.Context(), emoji, ref)
+		}
+		if apiErr != nil {
+			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), apiErr))
+		}
+		mutations = append(mutations, Result{
+			Channel:   target.Channel,
+			Timestamp: target.Timestamp,
+			Emoji:     emoji,
+			Removed:   action == "remove",
+		})
 	}
-	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
-	}
-	return ctx.WriteResult("react."+action, Data{Reaction: &result, Target: target})
+	return ctx.WriteResult("react."+action, Data{Mutations: mutations, Target: target})
 }
 
 func runReactionList(cmd *cobra.Command, runtime *cliruntime.RootRuntime) error {
@@ -180,6 +202,22 @@ func reactionTargetFromFlags(cmd *cobra.Command) (Target, error) {
 
 func normalizeEmoji(value string) string {
 	return strings.Trim(strings.TrimSpace(value), ":")
+}
+
+// normalizeEmojiList trims, strips wrapping colons, and drops empty entries
+// while preserving the input order. Repeated entries are kept (Slack rejects
+// duplicate reactions, but the CLI surfaces that as an error rather than
+// silently deduping).
+func normalizeEmojiList(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		normalized := normalizeEmoji(value)
+		if normalized == "" {
+			continue
+		}
+		out = append(out, normalized)
+	}
+	return out
 }
 
 type errString string

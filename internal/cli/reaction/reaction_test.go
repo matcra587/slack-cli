@@ -47,8 +47,12 @@ func TestReactionCommandAddRemoveAndList(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Execute %v returned error: %v\nstderr=%s", args, err, stderr)
 		}
-		if !strings.Contains(stdout, `"reaction`) {
-			t.Fatalf("stdout for %v = %s, want reaction data", args, stdout)
+		expect := `"mutations"`
+		if args[0] == "react" && args[1] == "list" {
+			expect = `"reactions"`
+		}
+		if !strings.Contains(stdout, expect) {
+			t.Fatalf("stdout for %v = %s, want %s", args, stdout, expect)
 		}
 	}
 }
@@ -81,6 +85,66 @@ func TestReactionCommandDryRunSkipsMutation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReactionAddAppliesMultipleEmojisInOrder(t *testing.T) {
+	var got []string
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"reactions.add": func(req testutil.SlackRequest) testutil.SlackResponse {
+			got = append(got, req.Form.Get("name"))
+			return testutil.JSONResponse(`{"ok":true}`)
+		},
+	})
+
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
+		[]string{"react", "add", "--channel", "C123", "--timestamp", "1746284582.123456", "--emoji", "thumbsup,white_check_mark,rocket"},
+	)
+	if err != nil {
+		t.Fatalf("execute returned error: %v\nstderr=%s", err, stderr)
+	}
+	if want := []string{"thumbsup", "white_check_mark", "rocket"}; !equalSlices(got, want) {
+		t.Fatalf("reactions.add order = %v, want %v", got, want)
+	}
+	for _, want := range []string{`"thumbsup"`, `"white_check_mark"`, `"rocket"`} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("stdout missing %s\n%s", want, stdout)
+		}
+	}
+}
+
+func TestReactionAddRepeatedFlagApplyInOrder(t *testing.T) {
+	var got []string
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"reactions.add": func(req testutil.SlackRequest) testutil.SlackResponse {
+			got = append(got, req.Form.Get("name"))
+			return testutil.JSONResponse(`{"ok":true}`)
+		},
+	})
+
+	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
+		[]string{
+			"react", "add", "--channel", "C123", "--timestamp", "1746284582.123456",
+			"--emoji", ":alpha:", "--emoji", "beta", "--emoji", "gamma",
+		},
+	)
+	if err != nil {
+		t.Fatalf("execute returned error: %v\nstderr=%s", err, stderr)
+	}
+	if want := []string{"alpha", "beta", "gamma"}; !equalSlices(got, want) {
+		t.Fatalf("reactions.add order = %v, want %v", got, want)
+	}
+}
+
+func equalSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestReactionCommandIsNotRegistered(t *testing.T) {

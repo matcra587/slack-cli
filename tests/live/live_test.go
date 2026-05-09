@@ -104,13 +104,13 @@ func TestLiveReactionAddAndRemove(t *testing.T) {
 		}
 	})
 
-	const emoji = "white_check_mark"
+	const emojis = "white_check_mark,rocket,sparkles"
 	_, reactStderr, err := runSlick(t, binary, env, "",
 		"react", "add",
 		"--workspace", env.workspace,
 		"--channel", channel,
 		"--timestamp", timestamp,
-		"--emoji", emoji,
+		"--emoji", emojis,
 		"--json",
 	)
 	if err != nil {
@@ -122,7 +122,7 @@ func TestLiveReactionAddAndRemove(t *testing.T) {
 		"--workspace", env.workspace,
 		"--channel", channel,
 		"--timestamp", timestamp,
-		"--emoji", emoji,
+		"--emoji", emojis,
 		"--json",
 	)
 	if err != nil {

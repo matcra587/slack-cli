@@ -19,9 +19,13 @@ import (
 	"github.com/gechr/x/shell"
 	"github.com/gechr/x/terminal"
 	cliauth "github.com/matcra587/slack-cli/internal/cli/auth"
+	clihistory "github.com/matcra587/slack-cli/internal/cli/history"
+	climessage "github.com/matcra587/slack-cli/internal/cli/message"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
+	clireaction "github.com/matcra587/slack-cli/internal/cli/reaction"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
+	clithread "github.com/matcra587/slack-cli/internal/cli/thread"
 	clitoken "github.com/matcra587/slack-cli/internal/cli/token"
 	cliworkspace "github.com/matcra587/slack-cli/internal/cli/workspace"
 	"github.com/matcra587/slack-cli/internal/config"
@@ -67,11 +71,18 @@ type PlainRenderer = clioutput.PlainRenderer
 
 // DTO type aliases so existing cmd/slick files compile without changes.
 type (
-	cliMessage         = clioutput.CliMessage
-	cliReactionSummary = clioutput.CliReactionSummary
-	cliChannel         = clioutput.CliChannel
-	cliUser            = clioutput.CliUser
-	cliSearchMessage   = clioutput.CliSearchMessage
+	cliMessage       = clioutput.CliMessage
+	cliChannel       = clioutput.CliChannel
+	cliUser          = clioutput.CliUser
+	cliSearchMessage = clioutput.CliSearchMessage
+)
+
+// Command data type aliases so existing cmd/slick code compiles unchanged.
+type (
+	sendCommandData     = climessage.SendData
+	deleteMessageData   = climessage.DeleteData
+	reactionCommandData = clireaction.Data
+	reactionResult      = clireaction.Result
 )
 
 // Auth DTO aliases used by tests and output_test.go.
@@ -82,8 +93,6 @@ type (
 
 // DTO converter aliases.
 var (
-	cliMessageFromSlack       = clioutput.CliMessageFromSlack
-	cliReactionsFromSlack     = clioutput.CliReactionsFromSlack
 	cliChannelFromSlack       = clioutput.CliChannelFromSlack
 	cliUserFromSlack          = clioutput.CliUserFromSlack
 	cliSearchMessageFromSlack = clioutput.CliSearchMessageFromSlack
@@ -112,6 +121,8 @@ type RootOptions struct {
 }
 
 type RootRuntime = cliruntime.RootRuntime
+
+type AgentFlagsRuntime = cliruntime.AgentFlags
 
 type RootOption = cliruntime.RootOption
 
@@ -235,19 +246,19 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 		&cobra.Group{ID: "meta", Title: "Agent & Tools:"},
 	)
 
-	msgCmd := newMessageCommand(runtime)
+	msgCmd := climessage.NewCommand(runtime)
 	msgCmd.GroupID = "messaging"
 	root.AddCommand(msgCmd)
 
-	historyCmd := newHistoryCommand(runtime)
+	historyCmd := clihistory.NewCommand(runtime)
 	historyCmd.GroupID = "messaging"
 	root.AddCommand(historyCmd)
 
-	replyCmd := newReplyCommand(runtime)
+	replyCmd := clithread.NewCommand(runtime)
 	replyCmd.GroupID = "messaging"
 	root.AddCommand(replyCmd)
 
-	reactCmd := newReactCommand(runtime)
+	reactCmd := clireaction.NewCommand(runtime)
 	reactCmd.GroupID = "messaging"
 	root.AddCommand(reactCmd)
 
@@ -350,36 +361,7 @@ func rootOptionsFromCommand(cmd *cobra.Command, runtime *RootRuntime) RootOption
 }
 
 func commandContext(cmd *cobra.Command, runtime *RootRuntime) (*CommandContext, config.WorkspaceProfile, Attribution, error) {
-	opts := rootOptionsFromCommand(cmd, runtime)
-	if runtime.ConfigLoadError != nil {
-		mode := opts.Output.Resolve(runtime.IsTTY, DetectAgentOutputMode(opts.Agent))
-		sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-		applyRenderMode(sl, mode)
-		ctx := &CommandContext{
-			Workspace:     "default",
-			Mode:          mode,
-			Stdout:        runtime.Stdout,
-			Stderr:        runtime.Stderr,
-			NowFunc:       runtime.Now,
-			RequestIDFunc: runtime.RequestID,
-			Theme:         runtime.Theme,
-			StdoutLog:     sl,
-			StderrLog:     el,
-		}
-		return ctx, config.WorkspaceProfile{}, Attribution{}, runtime.ConfigLoadError
-	}
-	ctx, attribution, err := NewCommandContext(opts)
-	if err != nil {
-		return nil, config.WorkspaceProfile{}, Attribution{}, err
-	}
-	if runtime.Config == nil {
-		return ctx, config.WorkspaceProfile{Name: ctx.Workspace, TokenType: config.TokenTypeBot}, attribution, nil
-	}
-	profile, err := runtime.Config.ResolveWorkspace(opts.Workspace)
-	if err != nil {
-		return nil, config.WorkspaceProfile{}, Attribution{}, err
-	}
-	return ctx, profile, attribution, nil
+	return cliruntime.CommandContext(cmd, runtime)
 }
 
 func NewCommandContext(opts RootOptions) (*CommandContext, Attribution, error) {
@@ -448,8 +430,6 @@ type CommandError = clioutput.CommandError
 
 var entityFieldStyle = clioutput.EntityFieldStyle
 
-var addSlackTimestampFields = clioutput.AddSlackTimestampFields
-
 var addBoolField = clioutput.AddBoolField
 
 var addIntField = clioutput.AddIntField
@@ -463,20 +443,7 @@ func writeCommandError(ctx *CommandContext, err CLIError) error {
 }
 
 func writeRuntimeError(runtime *RootRuntime, err CLIError) error {
-	mode := OutputFlags{}.Resolve(runtime.IsTTY, false)
-	sl, el := buildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-	applyRenderMode(sl, mode)
-	ctx := &CommandContext{
-		Workspace:     "default",
-		Mode:          mode,
-		Stdout:        runtime.Stdout,
-		Stderr:        runtime.Stderr,
-		NowFunc:       runtime.Now,
-		RequestIDFunc: runtime.RequestID,
-		StdoutLog:     sl,
-		StderrLog:     el,
-	}
-	return writeCommandError(ctx, err)
+	return cliruntime.WriteRuntimeError(runtime, err)
 }
 
 func truncateText(value string, limit int) string {

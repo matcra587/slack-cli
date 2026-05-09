@@ -1,4 +1,4 @@
-package main
+package message_test
 
 import (
 	"bytes"
@@ -12,9 +12,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/matcra587/slack-cli/internal/agent"
+	climessage "github.com/matcra587/slack-cli/internal/cli/message"
+	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/internal/testutil"
+	"github.com/spf13/cobra"
 )
+
+func TestMain(m *testing.M) {
+	for _, key := range agent.KnownEnvVars() {
+		_ = os.Unsetenv(key)
+	}
+	os.Exit(m.Run())
+}
 
 func TestMessageSendCommandReadsStdinAppliesAttributionAndWritesEnvelope(t *testing.T) {
 	t.Setenv("CLAUDE_CODE", "1")
@@ -342,7 +353,7 @@ func TestMessageSendCommandBotUserTargetLetsSlackDecide(t *testing.T) {
 }
 
 func TestMessageSendCommandDeclaresCobraTargetFlagGroup(t *testing.T) {
-	root := NewRootCommand()
+	root := newTestRootCommand()
 	sendCmd, _, err := root.Find([]string{"message", "send"})
 	if err != nil {
 		t.Fatalf("find message send: %v", err)
@@ -532,11 +543,11 @@ func TestMessageSendCommandMapsSlackPermissionFailuresToFixedContract(t *testing
 		args     []string
 		wantType string
 	}{
-		{name: "missing scope", slackErr: "missing_scope", args: []string{"message", "send", "--channel", "C123", "--message", "hello"}, wantType: ErrorTypeAuth},
-		{name: "not in channel", slackErr: "not_in_channel", args: []string{"message", "send", "--channel", "C123", "--message", "hello"}, wantType: ErrorTypeNotFound},
-		{name: "channel not found", slackErr: "channel_not_found", args: []string{"message", "send", "--channel", "C123", "--message", "hello"}, wantType: ErrorTypeNotFound},
-		{name: "no permission", slackErr: "no_permission", args: []string{"message", "send", "--channel", "C123", "--message", "hello"}, wantType: ErrorTypeAuth},
-		{name: "user not found", slackErr: "user_not_found", args: []string{"message", "send", "--user", "U404", "--message", "hello"}, wantType: ErrorTypeNotFound},
+		{name: "missing scope", slackErr: "missing_scope", args: []string{"message", "send", "--channel", "C123", "--message", "hello"}, wantType: "auth_failure"},
+		{name: "not in channel", slackErr: "not_in_channel", args: []string{"message", "send", "--channel", "C123", "--message", "hello"}, wantType: "not_found"},
+		{name: "channel not found", slackErr: "channel_not_found", args: []string{"message", "send", "--channel", "C123", "--message", "hello"}, wantType: "not_found"},
+		{name: "no permission", slackErr: "no_permission", args: []string{"message", "send", "--channel", "C123", "--message", "hello"}, wantType: "auth_failure"},
+		{name: "user not found", slackErr: "user_not_found", args: []string{"message", "send", "--user", "U404", "--message", "hello"}, wantType: "not_found"},
 	}
 
 	for _, tt := range tests {
@@ -781,6 +792,12 @@ func TestMessageSendCommandRawOutputFlagDoesNotSelectRawBlockInput(t *testing.T)
 	}
 }
 
+// --- helpers ---
+
+func newTestRootCommand() *cobra.Command {
+	return buildTestRoot(nil, "", strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{})
+}
+
 func rawSectionText(t *testing.T, block map[string]any) string {
 	t.Helper()
 	text, ok := block["text"].(map[string]any)
@@ -813,27 +830,64 @@ func containsString(values []string, want string) bool {
 
 func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, args []string) (string, string, error) {
 	t.Helper()
-
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
-	cmd := NewRootCommand(
-		WithConfig(cfg),
-		WithSlackBaseURL(baseURL),
-		WithTokenResolver(TokenResolverFunc(func(_ context.Context, _ config.WorkspaceProfile) (string, error) {
-			return "xox-test", nil
-		})),
-		WithIO(strings.NewReader(stdin), stdout, stderr),
-		WithTTY(false),
-		WithNow(func() time.Time {
-			return time.Date(2026, 5, 3, 13, 8, 0, 0, time.UTC)
-		}),
-		WithRequestID(func() string {
-			return "test-request"
-		}),
-	)
-	cmd.SetArgs(args)
-	err := cmd.Execute()
+	root := buildTestRoot(cfg, baseURL, strings.NewReader(stdin), stdout, stderr)
+	root.SetArgs(args)
+	err := root.Execute()
 	return stdout.String(), stderr.String(), err
+}
+
+// buildTestRoot builds a minimal cobra root that mirrors the persistent-flag
+// surface of the real slick root, adds only the message command, and wires
+// IO to the provided streams. It is usable from both executeTestRoot and
+// newTestRootCommand.
+func buildTestRoot(cfg *config.Config, baseURL string, stdin interface{ Read([]byte) (int, error) }, stdout, stderr *bytes.Buffer) *cobra.Command {
+	runtime := &cliruntime.RootRuntime{
+		Stdin:     stdin,
+		Stdout:    stdout,
+		Stderr:    stderr,
+		IsTTY:     false,
+		Now:       func() time.Time { return time.Date(2026, 5, 3, 13, 8, 0, 0, time.UTC) },
+		RequestID: func() string { return "test-request" },
+	}
+	if cfg != nil {
+		runtime.Config = cfg
+	}
+	if baseURL != "" {
+		runtime.SlackBaseURL = baseURL
+	}
+	runtime.TokenResolver = cliruntime.TokenResolverFunc(func(_ context.Context, _ config.WorkspaceProfile) (string, error) {
+		return "xox-test", nil
+	})
+
+	root := &cobra.Command{
+		Use:           "slick",
+		Short:         "Slack command line interface",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	root.SetIn(stdin)
+	root.SetOut(stdout)
+	root.SetErr(stderr)
+
+	flags := root.PersistentFlags()
+	flags.StringP("workspace", "w", "", "Workspace profile")
+	flags.BoolP("json", "j", false, "Force JSON output")
+	flags.BoolP("plain", "P", false, "Force plain text output")
+	flags.BoolP("compact", "k", false, "Output command data without envelope")
+	flags.BoolP("raw", "X", false, "Output Slack-native data")
+	flags.BoolP("agent", "a", false, "Force agent mode")
+	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
+	flags.StringP("agent-label", "G", "", "Override agent attribution label")
+	flags.StringP("agent-emoji", "Y", "", "Override agent attribution emoji")
+	flags.StringP("agent-message", "O", "", "Override agent attribution message")
+	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
+	flags.BoolP("debug", "D", false, "Enable debug-level output")
+	root.MarkFlagsMutuallyExclusive("json", "plain", "compact", "raw")
+
+	root.AddCommand(climessage.NewCommand(runtime))
+	return root
 }
 
 func workspaceConfig(tokenType config.TokenType) *config.Config {

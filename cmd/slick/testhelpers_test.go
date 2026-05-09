@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/matcra587/slack-cli/internal/config"
 )
@@ -63,4 +66,56 @@ func authTestConfig() *config.Config {
 			"other":   {Name: "other", TeamID: "T999", TokenType: config.TokenTypeUser, TokenRef: "keychain:slack-cli/other"},
 		},
 	}
+}
+
+func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, args []string) (string, string, error) {
+	t.Helper()
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd := NewRootCommand(
+		WithConfig(cfg),
+		WithSlackBaseURL(baseURL),
+		WithTokenResolver(TokenResolverFunc(func(_ context.Context, _ config.WorkspaceProfile) (string, error) {
+			return "xox-test", nil
+		})),
+		WithIO(strings.NewReader(stdin), stdout, stderr),
+		WithTTY(false),
+		WithNow(func() time.Time {
+			return time.Date(2026, 5, 3, 13, 8, 0, 0, time.UTC)
+		}),
+		WithRequestID(func() string {
+			return "test-request"
+		}),
+	)
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return stdout.String(), stderr.String(), err
+}
+
+func workspaceConfig(tokenType config.TokenType) *config.Config {
+	return &config.Config{
+		SchemaVersion:    config.SchemaVersion,
+		DefaultWorkspace: "default",
+		Workspaces: map[string]config.WorkspaceProfile{
+			"default": {
+				Name:      "default",
+				TeamID:    "T123",
+				TokenType: tokenType,
+				TokenRef:  "env:SLACK_TEST_TOKEN",
+			},
+		},
+	}
+}
+
+func rawSectionText(t *testing.T, block map[string]any) string {
+	t.Helper()
+	text, ok := block["text"].(map[string]any)
+	if !ok {
+		t.Fatalf("section block text = %#v, want object", block["text"])
+	}
+	value, ok := text["text"].(string)
+	if !ok {
+		t.Fatalf("section text value = %#v, want string", text["text"])
+	}
+	return value
 }

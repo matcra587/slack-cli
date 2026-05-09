@@ -5,7 +5,6 @@ package completion
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"sort"
 	"strings"
@@ -14,7 +13,6 @@ import (
 	cobracli "github.com/gechr/clib/cli/cobra"
 	"github.com/gechr/clib/complete"
 	"github.com/matcra587/slack-cli/internal/agenthelp"
-	slackcache "github.com/matcra587/slack-cli/internal/cache"
 	clicache "github.com/matcra587/slack-cli/internal/cli/cache"
 	cliconfig "github.com/matcra587/slack-cli/internal/cli/config"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
@@ -211,12 +209,12 @@ func completeSlackUsers(ctx context.Context, shell string, client *slackgo.Clien
 }
 
 func completeCachedUsers(shell, profile string) bool {
-	var payload clicache.UsersPayload
-	if !readCache(profile, "users", &payload) {
+	users, ok := clicache.LoadCachedUsers(profile)
+	if !ok {
 		return false
 	}
 	printed := false
-	for _, user := range payload.Users {
+	for _, user := range users {
 		if !cachedUserActive(user) {
 			continue
 		}
@@ -227,22 +225,14 @@ func completeCachedUsers(shell, profile string) bool {
 }
 
 func completeCachedChannels(shell, profile string) bool {
-	var payload clicache.ChannelsPayload
-	if !readCache(profile, "channels", &payload) {
+	channels, ok := clicache.LoadCachedChannels(profile)
+	if !ok {
 		return false
 	}
-	for _, channel := range payload.Channels {
+	for _, channel := range channels {
 		printCompletion(shell, channel.ID, cachedChannelDescription(channel))
 	}
 	return true
-}
-
-func readCache(profile, resource string, target any) bool {
-	entry, ok, stale, err := slackcache.Read(profile, resource, time.Duration(clicache.MetadataTTLMinutes)*time.Minute)
-	if err != nil || !ok || stale {
-		return false
-	}
-	return json.Unmarshal(entry.Data, target) == nil
 }
 
 func cachedUserActive(user clioutput.CliUser) bool {

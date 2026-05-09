@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	// MetadataTTLMinutes is the freshness window for cached Slack metadata.
-	MetadataTTLMinutes = 24 * 60
+	// metadataTTLMinutes is the freshness window for cached Slack metadata.
+	metadataTTLMinutes = 24 * 60
 	defaultPageSize    = 200
 	defaultMaxPages    = 20
 )
@@ -32,16 +32,44 @@ const (
 // Resources lists the cacheable resource names.
 var Resources = []string{"users", "channels"}
 
-// UsersPayload is the on-disk payload for the cached active-user list.
-type UsersPayload struct {
+// usersPayload is the on-disk payload for the cached active-user list.
+type usersPayload struct {
 	Users     []clioutput.CliUser `json:"users"`
 	Truncated bool                `json:"truncated,omitempty"`
 }
 
-// ChannelsPayload is the on-disk payload for the cached conversation list.
-type ChannelsPayload struct {
+// channelsPayload is the on-disk payload for the cached conversation list.
+type channelsPayload struct {
 	Channels  []clioutput.CliChannel `json:"channels"`
 	Truncated bool                   `json:"truncated,omitempty"`
+}
+
+// LoadCachedUsers returns the cached user list for the profile, or
+// (nil, false) if the cache is missing, stale, or fails to decode.
+func LoadCachedUsers(profile string) ([]clioutput.CliUser, bool) {
+	var payload usersPayload
+	if !readCache(profile, "users", &payload) {
+		return nil, false
+	}
+	return payload.Users, true
+}
+
+// LoadCachedChannels returns the cached channel list for the profile, or
+// (nil, false) if the cache is missing, stale, or fails to decode.
+func LoadCachedChannels(profile string) ([]clioutput.CliChannel, bool) {
+	var payload channelsPayload
+	if !readCache(profile, "channels", &payload) {
+		return nil, false
+	}
+	return payload.Channels, true
+}
+
+func readCache(profile, resource string, target any) bool {
+	entry, ok, stale, err := slackcache.Read(profile, resource, time.Duration(metadataTTLMinutes)*time.Minute)
+	if err != nil || !ok || stale {
+		return false
+	}
+	return json.Unmarshal(entry.Data, target) == nil
 }
 
 // UsersData is the result returned by `slick cache users`.
@@ -171,7 +199,7 @@ func newClearCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 
 func defaultOptions() Options {
 	return Options{
-		TTLMinutes: MetadataTTLMinutes,
+		TTLMinutes: metadataTTLMinutes,
 		PageSize:   defaultPageSize,
 		MaxPages:   defaultMaxPages,
 	}
@@ -179,7 +207,7 @@ func defaultOptions() Options {
 
 func addFlags(cmd *cobra.Command, opts *Options) {
 	cmd.Flags().BoolVarP(&opts.Refresh, "refresh", "r", false, "Force a fetch even when the cache is fresh")
-	cmd.Flags().IntVarP(&opts.TTLMinutes, "ttl-minutes", "T", MetadataTTLMinutes, "Freshness window before automatic refresh")
+	cmd.Flags().IntVarP(&opts.TTLMinutes, "ttl-minutes", "T", metadataTTLMinutes, "Freshness window before automatic refresh")
 	cmd.Flags().IntVarP(&opts.PageSize, "page-size", "s", defaultPageSize, "Slack page size while priming")
 	cmd.Flags().IntVarP(&opts.MaxPages, "max-pages", "N", defaultMaxPages, "Maximum Slack pages to fetch")
 }
@@ -195,7 +223,7 @@ func runUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Options)
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, cliErrorFromCacheError(cmd.Context(), err))
 	}
-	var payload UsersPayload
+	var payload usersPayload
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(fmt.Sprintf("cache.users: decode cached payload: %v", err)))
 	}
@@ -220,7 +248,7 @@ func runChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Optio
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, cliErrorFromCacheError(cmd.Context(), err))
 	}
-	var payload ChannelsPayload
+	var payload channelsPayload
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(fmt.Sprintf("cache.channels: decode cached payload: %v", err)))
 	}
@@ -283,7 +311,7 @@ func fetchUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile con
 	if err != nil {
 		return nil, err
 	}
-	return marshalPayload(UsersPayload{Users: users, Truncated: truncated})
+	return marshalPayload(usersPayload{Users: users, Truncated: truncated})
 }
 
 func fetchChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile config.WorkspaceProfile, opts Options) (json.RawMessage, error) {
@@ -299,7 +327,7 @@ func fetchChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile 
 	if err != nil {
 		return nil, err
 	}
-	return marshalPayload(ChannelsPayload{Channels: channels, Truncated: truncated})
+	return marshalPayload(channelsPayload{Channels: channels, Truncated: truncated})
 }
 
 func drainUsers(ctx context.Context, client *slackgo.Client, opts Options) ([]clioutput.CliUser, bool, error) {

@@ -1,19 +1,15 @@
 package reaction_test
 
 import (
-	"bytes"
-	"context"
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/matcra587/slack-cli/internal/agent"
 	clireaction "github.com/matcra587/slack-cli/internal/cli/reaction"
-	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
+	"github.com/matcra587/slack-cli/internal/cli/runtime/runtimetest"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/internal/testutil"
-	"github.com/spf13/cobra"
 )
 
 func TestMain(m *testing.M) {
@@ -107,60 +103,14 @@ func TestReactionCommandIsNotRegistered(t *testing.T) {
 
 func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, args []string) (string, string, error) {
 	t.Helper()
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	root := buildTestRoot(cfg, baseURL, strings.NewReader(stdin), stdout, stderr)
-	root.SetArgs(args)
-	err := root.Execute()
-	return stdout.String(), stderr.String(), err
-}
-
-func buildTestRoot(cfg *config.Config, baseURL string, stdin interface{ Read([]byte) (int, error) }, stdout, stderr *bytes.Buffer) *cobra.Command {
-	runtime := &cliruntime.RootRuntime{
-		Stdin:     stdin,
-		Stdout:    stdout,
-		Stderr:    stderr,
-		IsTTY:     false,
-		Now:       func() time.Time { return time.Date(2026, 5, 3, 13, 8, 0, 0, time.UTC) },
-		RequestID: func() string { return "test-request" },
-	}
-	if cfg != nil {
-		runtime.Config = cfg
-	}
-	if baseURL != "" {
-		runtime.SlackBaseURL = baseURL
-	}
-	runtime.TokenResolver = cliruntime.TokenResolverFunc(func(_ context.Context, _ config.WorkspaceProfile) (string, error) {
-		return "xox-test", nil
+	runtime, stdout, stderr := runtimetest.NewRuntime(t, runtimetest.Options{
+		Config:       cfg,
+		SlackBaseURL: baseURL,
+		Stdin:        strings.NewReader(stdin),
 	})
-
-	root := &cobra.Command{
-		Use:           "slick",
-		Short:         "Slack command line interface",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-	}
-	root.SetIn(stdin)
-	root.SetOut(stdout)
-	root.SetErr(stderr)
-
-	flags := root.PersistentFlags()
-	flags.StringP("workspace", "w", "", "Workspace profile")
-	flags.BoolP("json", "j", false, "Force JSON output")
-	flags.BoolP("plain", "P", false, "Force plain text output")
-	flags.BoolP("compact", "k", false, "Output command data without envelope")
-	flags.BoolP("raw", "X", false, "Output Slack-native data")
-	flags.BoolP("agent", "a", false, "Force agent mode")
-	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
-	flags.StringP("agent-label", "G", "", "Override agent attribution label")
-	flags.StringP("agent-emoji", "Y", "", "Override agent attribution emoji")
-	flags.StringP("agent-message", "O", "", "Override agent attribution message")
-	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
-	flags.BoolP("debug", "D", false, "Enable debug-level output")
-	root.MarkFlagsMutuallyExclusive("json", "plain", "compact", "raw")
-
+	root := runtimetest.NewRoot(runtime, stdout, stderr)
 	root.AddCommand(clireaction.NewCommand(runtime))
-	return root
+	return runtimetest.Run(t, root, args, stdout, stderr)
 }
 
 func workspaceConfig(tokenType config.TokenType) *config.Config {

@@ -19,6 +19,7 @@ import (
 	"github.com/gechr/x/shell"
 	"github.com/gechr/x/terminal"
 	cliauth "github.com/matcra587/slack-cli/internal/cli/auth"
+	clichannel "github.com/matcra587/slack-cli/internal/cli/channel"
 	clihistory "github.com/matcra587/slack-cli/internal/cli/history"
 	climessage "github.com/matcra587/slack-cli/internal/cli/message"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
@@ -27,6 +28,7 @@ import (
 	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
 	clithread "github.com/matcra587/slack-cli/internal/cli/thread"
 	clitoken "github.com/matcra587/slack-cli/internal/cli/token"
+	cliuser "github.com/matcra587/slack-cli/internal/cli/user"
 	cliworkspace "github.com/matcra587/slack-cli/internal/cli/workspace"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/spf13/cobra"
@@ -71,10 +73,9 @@ type PlainRenderer = clioutput.PlainRenderer
 
 // DTO type aliases so existing cmd/slick files compile without changes.
 type (
-	cliMessage       = clioutput.CliMessage
-	cliChannel       = clioutput.CliChannel
-	cliUser          = clioutput.CliUser
-	cliSearchMessage = clioutput.CliSearchMessage
+	cliMessage = clioutput.CliMessage
+	cliChannel = clioutput.CliChannel
+	cliUser    = clioutput.CliUser
 )
 
 // Command data type aliases so existing cmd/slick code compiles unchanged.
@@ -83,6 +84,8 @@ type (
 	deleteMessageData   = climessage.DeleteData
 	reactionCommandData = clireaction.Data
 	reactionResult      = clireaction.Result
+	channelInfoData     = clichannel.InfoData
+	userInfoData        = cliuser.InfoData
 )
 
 // Auth DTO aliases used by tests and output_test.go.
@@ -93,10 +96,11 @@ type (
 
 // DTO converter aliases.
 var (
-	cliChannelFromSlack       = clioutput.CliChannelFromSlack
-	cliUserFromSlack          = clioutput.CliUserFromSlack
-	cliSearchMessageFromSlack = clioutput.CliSearchMessageFromSlack
-	cliErrorFromSlack         = clioutput.CliErrorFromSlack
+	cliErrorFromSlack    = clioutput.CliErrorFromSlack
+	cliChannelsFromSlack = clichannel.CliChannelsFromSlack
+	cliUsersFromSlack    = cliuser.CliUsersFromSlack
+
+	conversationReadScopeRequirement = clichannel.ConversationReadScopeRequirement
 )
 
 // Slack client aliases — all cmd/slick command files call slackClient(cmd, profile, runtime)
@@ -266,7 +270,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	statusCmd.GroupID = "messaging"
 	root.AddCommand(statusCmd)
 
-	lookupCmd := newLookupCommand(runtime)
+	lookupCmd := clichannel.NewCommand(runtime)
 	lookupCmd.GroupID = "discovery"
 	root.AddCommand(lookupCmd)
 
@@ -429,10 +433,6 @@ type CLIError = clioutput.CLIError
 type CommandError = clioutput.CommandError
 
 var entityFieldStyle = clioutput.EntityFieldStyle
-
-var addBoolField = clioutput.AddBoolField
-
-var addIntField = clioutput.AddIntField
 
 var validationCLIError = clioutput.ValidationCLIError
 

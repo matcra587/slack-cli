@@ -1,11 +1,17 @@
-package main
+package user_test
 
 import (
+	"bytes"
+	"context"
 	"strings"
 	"testing"
+	"time"
 
+	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
+	cliuser "github.com/matcra587/slack-cli/internal/cli/user"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/internal/testutil"
+	"github.com/spf13/cobra"
 )
 
 func TestLookupUserListsAndShowsInfo(t *testing.T) {
@@ -163,5 +169,80 @@ func TestLookupUserMapsMissingUserToNotFound(t *testing.T) {
 	}
 	if !strings.Contains(stderr, `"type":"not_found"`) {
 		t.Fatalf("stderr = %s, want not_found", stderr)
+	}
+}
+
+func buildTestRoot(cfg *config.Config, baseURL string, stdin interface{ Read([]byte) (int, error) }, stdout, stderr *bytes.Buffer) *cobra.Command {
+	runtime := &cliruntime.RootRuntime{
+		Stdin:     stdin,
+		Stdout:    stdout,
+		Stderr:    stderr,
+		IsTTY:     false,
+		Now:       func() time.Time { return time.Date(2026, 5, 3, 13, 8, 0, 0, time.UTC) },
+		RequestID: func() string { return "test-request" },
+	}
+	if cfg != nil {
+		runtime.Config = cfg
+	}
+	if baseURL != "" {
+		runtime.SlackBaseURL = baseURL
+	}
+	runtime.TokenResolver = cliruntime.TokenResolverFunc(func(_ context.Context, _ config.WorkspaceProfile) (string, error) {
+		return "xox-test", nil
+	})
+
+	root := &cobra.Command{
+		Use:           "slick",
+		Short:         "Slack command line interface",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	root.SetIn(stdin)
+	root.SetOut(stdout)
+	root.SetErr(stderr)
+
+	flags := root.PersistentFlags()
+	flags.StringP("workspace", "w", "", "Workspace profile")
+	flags.BoolP("json", "j", false, "Force JSON output")
+	flags.BoolP("plain", "P", false, "Force plain text output")
+	flags.BoolP("compact", "k", false, "Output command data without envelope")
+	flags.BoolP("raw", "X", false, "Output Slack-native data")
+	flags.BoolP("agent", "a", false, "Force agent mode")
+	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
+	flags.StringP("agent-label", "G", "", "Override agent attribution label")
+	flags.StringP("agent-emoji", "Y", "", "Override agent attribution emoji")
+	flags.StringP("agent-message", "O", "", "Override agent attribution message")
+	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
+	flags.BoolP("debug", "D", false, "Enable debug-level output")
+	root.MarkFlagsMutuallyExclusive("json", "plain", "compact", "raw")
+
+	lookupCmd := &cobra.Command{Use: "lookup", Short: "Look up Slack channels and users"}
+	lookupCmd.AddCommand(cliuser.NewLookupUserCommand(runtime))
+	root.AddCommand(lookupCmd)
+	return root
+}
+
+func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, args []string) (string, string, error) {
+	t.Helper()
+	stdoutBuf := &bytes.Buffer{}
+	stderrBuf := &bytes.Buffer{}
+	cmd := buildTestRoot(cfg, baseURL, strings.NewReader(stdin), stdoutBuf, stderrBuf)
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return stdoutBuf.String(), stderrBuf.String(), err
+}
+
+func workspaceConfig(tokenType config.TokenType) *config.Config {
+	return &config.Config{
+		SchemaVersion:    config.SchemaVersion,
+		DefaultWorkspace: "default",
+		Workspaces: map[string]config.WorkspaceProfile{
+			"default": {
+				Name:      "default",
+				TeamID:    "T123",
+				TokenType: tokenType,
+				TokenRef:  "env:SLACK_TEST_TOKEN",
+			},
+		},
 	}
 }

@@ -310,7 +310,7 @@ func drainChannelsForCache(ctx context.Context, client *slackgo.Client, opts cac
 		if err != nil {
 			return nil, false, err
 		}
-		channels = append(channels, cliChannelsFromSlack(page).Channels...)
+		channels = append(channels, cliChannelsFromSlack(page)...)
 		if nextCursor == "" {
 			return channels, false, nil
 		}

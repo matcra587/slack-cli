@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/matcra587/slack-cli/internal/agent"
 	climessage "github.com/matcra587/slack-cli/internal/cli/message"
-	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
 )
 
@@ -21,11 +20,6 @@ func intPtr(value int) *int {
 		return nil
 	}
 	return &value
-}
-
-// resolveAlias resolves a channel/user alias from the workspace profile.
-func resolveAlias(profile config.WorkspaceProfile, value string) string {
-	return climessage.ResolveAlias(profile, value)
 }
 
 // composeBlocks delegates to climessage.ComposeBlocks.

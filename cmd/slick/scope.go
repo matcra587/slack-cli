@@ -10,7 +10,6 @@ import (
 type scopeRequirement = cliscope.Requirement
 
 func allScopes(scopes ...string) scopeRequirement { return cliscope.AllOf(scopes...) }
-func anyScope(scopes ...string) scopeRequirement  { return cliscope.AnyOf(scopes...) }
 
 func requireSlackScopes(ctx context.Context, client *slackgo.Client, requirements ...scopeRequirement) error {
 	return cliscope.Require(ctx, client, requirements...)

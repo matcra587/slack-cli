@@ -193,6 +193,14 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	for _, option := range options {
 		option(runtime)
 	}
+	if runtime.TokenResolver == nil {
+		runtime.TokenResolver = clitoken.CredentialTokenResolver{
+			Store:        runtime.CredentialStore,
+			SlackBaseURL: runtime.SlackBaseURL,
+			HTTPClient:   runtime.HTTPClient,
+			Now:          runtime.Now,
+		}
+	}
 
 	root := &cobra.Command{
 		Use:           "slick",

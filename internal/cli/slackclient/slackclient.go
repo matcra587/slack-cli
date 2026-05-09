@@ -10,7 +10,6 @@ import (
 
 	"github.com/gechr/clog"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
-	clitoken "github.com/matcra587/slack-cli/internal/cli/token"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/internal/ratelimit"
 	slackgo "github.com/slack-go/slack"
@@ -107,18 +106,10 @@ func NoThrottle(runtime *cliruntime.RootRuntime) *http.Client {
 }
 
 // Client resolves a token for the given profile and returns an authenticated
-// slack-go client.
+// slack-go client. NewRootCommand populates runtime.TokenResolver eagerly so
+// callers can assume it is non-nil.
 func Client(cmd *cobra.Command, profile config.WorkspaceProfile, runtime *cliruntime.RootRuntime) (*slackgo.Client, error) {
-	resolver := runtime.TokenResolver
-	if resolver == nil {
-		resolver = clitoken.CredentialTokenResolver{
-			Store:        runtime.CredentialStore,
-			SlackBaseURL: runtime.SlackBaseURL,
-			HTTPClient:   runtime.HTTPClient,
-			Now:          runtime.Now,
-		}
-	}
-	token, err := resolver.ResolveToken(cmd.Context(), profile)
+	token, err := runtime.TokenResolver.ResolveToken(cmd.Context(), profile)
 	if err != nil {
 		if errors.Is(err, config.ErrCredentialNotFound) {
 			workspace := profile.Name

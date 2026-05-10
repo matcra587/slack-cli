@@ -48,7 +48,7 @@ func (d InfoData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 		Str("name", ch.Name).
 		Str("type", ch.Type)
 	if ch.IsMember != nil {
-		clioutput.ApplyBoolStateStyle(c.StdoutLogger(), c.Theme, "is_member", *ch.IsMember)
+		clioutput.ApplyDimWhen(c.StdoutLogger(), c.Theme, "is_member", *ch.IsMember)
 	}
 	event = clioutput.AddBoolField(event, "is_member", ch.IsMember)
 	event = clioutput.AddBoolField(event, "is_im", ch.IsIM)

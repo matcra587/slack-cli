@@ -188,14 +188,16 @@ func ApplyPreStyledKey(logger *clog.Logger, key string) {
 	logger.SetStyles(&clogstyle.Config{Keys: clogstyle.Map{key: &identity}})
 }
 
-// ApplyBoolStateStyle paints key red when value is true (a "bad" state
-// such as archived) and green when false. Falls back to no-op when the
-// theme is missing.
+// ApplyBoolStateStyle paints key based on an alarm-on-true polarity:
+// true=red (alarming), false=dim (routine). Use it for state fields
+// where true is the alarming side and false is the routine/expected
+// state (e.g. is_archived, deleted user, truncated). Falls back to a
+// no-op when the theme is missing.
 func ApplyBoolStateStyle(logger *clog.Logger, th *theme.Theme, key string, value bool) {
 	if logger == nil || th == nil || key == "" {
 		return
 	}
-	style := th.Green
+	style := th.Dim
 	if value {
 		style = th.Red
 	}
@@ -206,9 +208,12 @@ func ApplyBoolStateStyle(logger *clog.Logger, th *theme.Theme, key string, value
 }
 
 // ApplyBoolValueStyle paints key green when value is true (a "good" state
-// such as authenticated) and red when false. This is the inverse of
-// ApplyBoolStateStyle; use it for fields where true is the desirable
-// outcome. Falls back to no-op when the theme is missing.
+// such as authenticated) and red when false. Use only when both sides
+// matter — true is the desirable outcome and false is itself alarming
+// (action required), e.g. authenticated, exists. For routine-state
+// fields where false is merely informational, use ApplyBoolStateStyle
+// (true=alarm, false=dim) or ApplyDimWhen (true=dim, false=default).
+// Falls back to no-op when the theme is missing.
 func ApplyBoolValueStyle(logger *clog.Logger, th *theme.Theme, key string, value bool) {
 	if logger == nil || th == nil || key == "" {
 		return
@@ -221,6 +226,17 @@ func ApplyBoolValueStyle(logger *clog.Logger, th *theme.Theme, key string, value
 		return
 	}
 	logger.SetStyles(&clogstyle.Config{Keys: clogstyle.Map{key: style}})
+}
+
+// ApplyDimWhen paints key dim when value is true, otherwise leaves
+// styling default. Use for bool fields where true is the routine/
+// expected state and false is mildly informational (e.g. is_member:
+// being a member is the normal state for any channel you've joined).
+func ApplyDimWhen(logger *clog.Logger, th *theme.Theme, key string, value bool) {
+	if logger == nil || th == nil || th.Dim == nil || key == "" || !value {
+		return
+	}
+	logger.SetStyles(&clogstyle.Config{Keys: clogstyle.Map{key: th.Dim}})
 }
 
 // ApplyNumberKeyStyle paints key with clog's default FieldNumber style

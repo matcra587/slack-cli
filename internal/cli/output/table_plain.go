@@ -180,9 +180,9 @@ func (c *CommandContext) numberCellInt(value int) table.Cell {
 	return c.numberCell(&value)
 }
 
-// boolStateCell renders a boolean as styled text where true is the
-// "alarming" state (red) and false is "ok" (green). Empty input renders
-// as an empty cell.
+// boolStateCell renders a boolean as styled text on an alarm-on-true
+// polarity: true is the "alarming" state (red) and false is the
+// routine/expected state (dim). Empty input renders as an empty cell.
 func (c *CommandContext) boolStateCell(value *bool) table.Cell {
 	text := ptrBool(value)
 	if text == "" {
@@ -191,7 +191,7 @@ func (c *CommandContext) boolStateCell(value *bool) table.Cell {
 	if !c.tableStyled() || c.Theme == nil || value == nil {
 		return table.TextCell(text)
 	}
-	style := c.Theme.Green
+	style := c.Theme.Dim
 	if *value {
 		style = c.Theme.Red
 	}
@@ -199,6 +199,20 @@ func (c *CommandContext) boolStateCell(value *bool) table.Cell {
 		return table.TextCell(text)
 	}
 	return table.StyledCell(style.Render(text), text)
+}
+
+// dimWhenCell renders a boolean dim when true, default otherwise.
+// Mirrors ApplyDimWhen for table cells; use for routine-state fields
+// where the true side should fade and the false side stays neutral.
+func (c *CommandContext) dimWhenCell(value *bool) table.Cell {
+	text := ptrBool(value)
+	if text == "" {
+		return table.TextCell("")
+	}
+	if !c.tableStyled() || c.Theme == nil || c.Theme.Dim == nil || value == nil || !*value {
+		return table.TextCell(text)
+	}
+	return table.StyledCell(c.Theme.Dim.Render(text), text)
 }
 
 func (c *CommandContext) tableWidth() int {
@@ -257,7 +271,7 @@ func (c *CommandContext) WriteChannelTable(command string, channels []CliChannel
 			return c.hashCell("user:"+id, id)
 		}},
 		{Name: "member", Header: "MEMBER", Render: func(row CliChannel, _ *table.RenderContext) table.Cell {
-			return c.boolStateCell(row.IsMember)
+			return c.dimWhenCell(row.IsMember)
 		}},
 		{Name: "archived", Header: "ARCHIVED", Render: func(row CliChannel, _ *table.RenderContext) table.Cell {
 			return c.boolStateCell(row.IsArchived)

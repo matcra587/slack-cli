@@ -69,6 +69,7 @@ type PathData struct {
 var _ clioutput.PlainRenderer = PathData{}
 
 func (d PathData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	clioutput.ApplyBoolValueStyle(c.StdoutLogger(), c.Theme, "exists", d.Exists)
 	c.ResultEvent(command).
 		Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
 		Bool("exists", d.Exists).

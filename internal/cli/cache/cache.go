@@ -121,6 +121,9 @@ func writeCacheSummary(c *clioutput.CommandContext, command, profile, resource s
 	clioutput.ApplyFieldStyles(logger, c.Theme,
 		clioutput.HashedFieldStyle("profile", "workspace:"+profile),
 	)
+	if truncated {
+		clioutput.ApplyBoolStateStyle(logger, c.Theme, "truncated", true)
+	}
 	event := c.ResultEvent(command).
 		Str("profile", profile).
 		Str("resource", resource).

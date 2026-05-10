@@ -47,7 +47,7 @@ func (d SendData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 				e.Str("thread_ts", *d.Message.ThreadTS)
 			}
 			if d.Permalink != nil {
-				e.Str("permalink", *d.Permalink)
+				e.Link("permalink", *d.Permalink, permalinkText(*d.Permalink))
 			}
 		})
 	// Channel ID is opaque noise for DMs (the user typed --user); show it
@@ -490,6 +490,17 @@ func MessageOptions(content string, blocks []slackgo.Block, attribution ...agent
 		options = append(options, slackgo.MsgOptionBlocks(blocks...))
 	}
 	return options
+}
+
+// permalinkText returns the trailing message-id segment of a Slack
+// permalink (e.g. "p1778384683937369") so terminal renderers can show a
+// short clickable label rather than the full URL. Falls back to the URL
+// itself if the path doesn't have the expected shape.
+func permalinkText(url string) string {
+	if i := strings.LastIndexByte(url, '/'); i >= 0 && i < len(url)-1 {
+		return url[i+1:]
+	}
+	return url
 }
 
 // Permalink fetches the permalink for a message, returning nil on failure.

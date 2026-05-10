@@ -130,6 +130,19 @@ func BuildBaseLoggers(stdout, stderr io.Writer, colorMode clog.ColorMode) (*clog
 	return sl, el
 }
 
+// ApplyMessageStyle paints the action label rendered by `event.Msg(...)` in
+// the theme's Green foreground for Info-level events on stdout. Warning and
+// error events keep clog's default level-based styling. Called by
+// cliruntime when both the logger and the theme are available.
+func ApplyMessageStyle(logger *clog.Logger, th *theme.Theme) {
+	if logger == nil || th == nil || th.Green == nil {
+		return
+	}
+	logger.SetStyles(&clogstyle.Config{
+		Messages: clogstyle.LevelMap{clog.LevelInfo: th.Green},
+	})
+}
+
 func ApplyRenderMode(sl *clog.Logger, mode RenderMode) {
 	switch mode {
 	case RenderModeRaw:

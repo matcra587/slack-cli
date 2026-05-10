@@ -37,7 +37,7 @@ var guideWorkflows = []GuideWorkflow{
 	{
 		Name:        "react",
 		Description: "Add, remove, and list emoji reactions by channel and timestamp",
-		Steps:       []string{"Use channel ID and message timestamp", "Pass emoji as :name: or name", "Use add/remove/list for the desired action", "Use --dry-run before add/remove in live channels", "Read JSON response for target and reaction details"},
+		Steps:       []string{"Use channel ID and message timestamp", "Pass one emoji as :name: or name, or comma-separate/repeat --emoji to apply multiple in order", "Use add/remove/list for the desired action", "Use --dry-run before add/remove in live channels", "Read JSON response for data.mutations[] and data.target"},
 	},
 	{
 		Name:        "reply",
@@ -187,13 +187,15 @@ perform the task, what to parse, and which quirks matter.
 
 ## react
 - Runbook: use this to add, remove, or inspect emoji reactions on a known message.
-- Inputs: channel ID, message timestamp, emoji name, desired action.
+- Inputs: channel ID, message timestamp, one or more emoji names, desired action.
 - Add command: ` + "`slick react add --channel <channel-id> --timestamp <message-ts> --emoji :thumbsup: --json`" + `.
+- Multi-emoji command: ` + "`slick react add --channel <channel-id> --timestamp <message-ts> --emoji thumbsup,white_check_mark,rocket --json`" + ` applies the emojis in input order. Repeat ` + "`--emoji`" + ` instead of comma-separating if a value contains a comma.
 - Remove command: ` + "`slick react remove --channel <channel-id> --timestamp <message-ts> --emoji :thumbsup: --json`" + `.
 - List command: ` + "`slick react list --channel <channel-id> --timestamp <message-ts> --json`" + `.
-- Parse: ` + "`data.target.channel`" + ` and ` + "`data.target.timestamp`" + ` identify the target; list output includes reaction names, counts, and users.
+- Parse: ` + "`data.mutations[]`" + ` lists ` + "`{channel, timestamp, emoji, removed, dry_run}`" + ` for each emoji applied (length 1 for the single-emoji case, length N for ordered multi-emoji); ` + "`data.target.channel`" + ` and ` + "`data.target.timestamp`" + ` identify the target. List output uses ` + "`data.reactions[]`" + ` with reaction names, counts, and users.
 - Quirks: timestamps are channel-scoped Slack strings such as ` + "`1746284582.123456`" + `.
 - Quirks: emoji may be passed as ` + "`thumbsup`" + ` or ` + "`:thumbsup:`" + `.
+- Quirks: ordered multi-emoji halts on the first failure; ` + "`data.mutations[]`" + ` will be absent on the error envelope, so retry the remaining emojis from a known-good state rather than assuming partial success.
 - Quirks: use ` + "`--dry-run`" + ` for add/remove before touching a live message.
 - Verification: after add/remove, run ` + "`slick react list`" + ` on the same channel and timestamp.
 - Command metadata uses ` + "`react.add`" + `, ` + "`react.remove`" + `, and ` + "`react.list`" + `.
@@ -254,7 +256,7 @@ perform the task, what to parse, and which quirks matter.
 - Runbook: use this to correct one of the authenticated user's own messages.
 - Inputs: channel ID, exact message timestamp, replacement markdown or raw Block Kit JSON.
 - Markdown command: ` + "`slick message edit --channel <channel-id> --timestamp <message-ts> --message <markdown> --json`" + `.
-- Stdin command: ` + "`printf '%s\n' \"$body\" | slick message edit --channel <channel-id> --timestamp <message-ts> --file - --json`" + ` when stdin edit support is available in the command.
+- Stdin command: ` + "`printf '%s\n' \"$body\" | slick message edit --channel <channel-id> --timestamp <message-ts> --file - --json`" + `.
 - Raw Block Kit command: add ` + "`--blocks`" + ` only when the replacement is raw Block Kit JSON.
 - Parse: keep the returned channel, timestamp, and text or blocks.
 - Quirks: Slack only allows editing own messages where token scopes permit it.

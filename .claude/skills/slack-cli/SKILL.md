@@ -1,55 +1,59 @@
 ---
 name: slack-cli
-description: Use when the user asks an agent to operate Slack through the matcra587/slack-cli binary, including messages, DMs, threads, reactions, history, search, cleanup, users, channels, auth, config, or app manifests.
-allowed-tools: Bash(slack agent:*) Bash(slack auth login:*) Bash(slack auth status:*) Bash(slack auth switch:*) Bash(slack config get:*) Bash(slack config init:*) Bash(slack config list:*) Bash(slack config path:*) Bash(slack config set:*) Bash(slack history list:*) Bash(slack lookup:*) Bash(slack manifest template:*) Bash(slack message edit:*) Bash(slack message send:*) Bash(slack react:*) Bash(slack reply:*) Bash(slack workspace list:*)
+description: Use when the user asks an agent to operate Slack through the matcra587/slack-cli binary, including messages, DMs, threads, reactions, history, search, cleanup, users, channels, status, cache, auth, config, or app manifests.
+allowed-tools: Bash(slick agent:*) Bash(slick auth login:*) Bash(slick auth status:*) Bash(slick auth switch:*) Bash(slick cache:*) Bash(slick config get:*) Bash(slick config init:*) Bash(slick config list:*) Bash(slick config path:*) Bash(slick config set:*) Bash(slick file upload:*) Bash(slick history list:*) Bash(slick lookup:*) Bash(slick manifest template:*) Bash(slick message edit:*) Bash(slick message send:*) Bash(slick react:*) Bash(slick reply:*) Bash(slick status:*) Bash(slick workspace list:*)
 ---
 
 # slack-cli
 
 Use this skill as a thin router. The Slack CLI binary contains the operational
 runbooks. Load the matching runbook before acting. Do not copy CLI runbooks into
-this skill; update the embedded `slack agent guide` source when details change.
+this skill; update the embedded `slick agent guide` source when details change.
+
+The repository is `matcra587/slack-cli` but the installed binary is `slick`.
 
 ## First Step
 
 Run the matching guide command:
 
 ```sh
-slack agent guide <workflow>
+slick agent guide <workflow>
 ```
 
 Use the schema only when you need command inventory or flag details:
 
 ```sh
-slack agent schema --compact
+slick agent schema --compact
 ```
 
 ## Workflow Map
 
 | User task | Load this runbook |
 | --- | --- |
-| Send a channel message or DM | `slack agent guide send_msg` |
-| Post a realistic PR review, incident update, release note, reactions, and thread | `slack agent guide developer_review` |
-| Reply in a thread | `slack agent guide reply` |
-| Add, remove, or list reactions | `slack agent guide react` |
-| Read channel history or thread replies | `slack agent guide read_history` |
-| Search messages, especially by run ID | `slack agent guide search_msgs` |
-| Clean up live-test messages | `slack agent guide cleanup_msgs` |
-| Edit a message | `slack agent guide edit_msg` |
-| Delete a message | Requires explicit user approval; then load `slack agent guide delete_msg` |
-| Find channels, private channels, or DMs | `slack agent guide discover_destination` |
-| Find users or presence | `slack agent guide lookup_user` |
-| Send direct messages | `slack agent guide send_dm` |
-| Auth, manifests, token setup | `slack agent guide auth_setup` |
-| Config preferences | `slack agent guide config_prefs` |
-| Output modes, exit codes, parsing | `slack agent guide core_contract` |
-| High-impact or destructive operations | `slack agent guide safe_mutation` |
-| File upload testing | `slack agent guide upload_file` |
-| Command inventory | `slack agent guide inspect_schema` |
+| Send a channel message or DM | `slick agent guide send_msg` |
+| Post a realistic PR review, incident update, release note, reactions, and thread | `slick agent guide developer_review` |
+| Reply in a thread | `slick agent guide reply` |
+| Add, remove, or list reactions (single or ordered multi-emoji) | `slick agent guide react` |
+| Read channel history or thread replies | `slick agent guide read_history` |
+| Search messages, especially by run ID | `slick agent guide search_msgs` |
+| Clean up live-test messages | `slick agent guide cleanup_msgs` |
+| Edit a message | `slick agent guide edit_msg` |
+| Delete a message | Requires explicit user approval; then load `slick agent guide delete_msg` |
+| Find channels, private channels, or DMs | `slick agent guide discover_destination` |
+| Find users or presence | `slick agent guide lookup_user` |
+| Send direct messages | `slick agent guide send_dm` |
+| Set or clear the authenticated user's Slack status | `slick agent guide set_status` |
+| Prime, refresh, or clear local Slack metadata caches | `slick agent guide cache_metadata` |
+| Auth, manifests, token setup | `slick agent guide auth_setup` |
+| Config preferences | `slick agent guide config_prefs` |
+| Output modes, exit codes, parsing | `slick agent guide core_contract` |
+| High-impact or destructive operations | `slick agent guide safe_mutation` |
+| File upload testing | `slick agent guide upload_file` |
+| Command inventory | `slick agent guide inspect_schema` |
 
 ## Non-Negotiables
 
-- Run `slack agent guide <workflow>` before taking action. The guide is the
+- Run `slick agent guide <workflow>` before taking action. The guide is the
   runbook; the schema is only command inventory.
 - Keep automation on JSON output. Do not parse `--plain`.
 - Treat stdout as command data and stderr as diagnostics or structured errors.
@@ -62,8 +66,10 @@ slack agent schema --compact
 - Use real multiline stdin for multiline Slack messages. Do not type literal
   `\n` into `--message` when the UI should show a new line.
 - Use `--dry-run` before high-visibility or destructive mutations.
-- This skill does not preapprove deletes. Treat `slack message delete` as an
+- This skill does not preapprove deletes. Treat `slick message delete` as an
   explicit-user-approval operation outside `allowed-tools`.
+- Status set/clear mutates the authenticated user's Slack profile and requires
+  a user token with `users.profile:write`. Bot-token profiles cannot use it.
 - Do not duplicate attribution text in the message body. Attribution renders as
   a context block when enabled.
 - For live tests, use realistic content and unique run IDs. Clean up with the
@@ -74,12 +80,14 @@ slack agent schema --compact
 
 ## Command Name Guardrails
 
-- There is no `slack dm` command. Use `slack message send --user`.
-- There is no `slack thread` command. Use `slack reply`.
-- There is no `slack reaction` command. Use `slack react`.
+- There is no `slick dm` command. Use `slick message send --user`.
+- There is no `slick thread` command. Use `slick reply`.
+- There is no `slick reaction` command. Use `slick react`.
 - `--raw` is an output mode. Use `--blocks` only when the input is raw Block Kit
   JSON.
-- File upload remains probationary. Use `slack agent guide upload_file` before
+- `slick react add` accepts one or more emoji: comma-separate (`--emoji a,b,c`)
+  or repeat the flag to apply multiple in input order. Halts on first failure.
+- File upload remains probationary. Use `slick agent guide upload_file` before
   testing it and prefer dry-run first.
 
 ## Rate-Limit Guardrail

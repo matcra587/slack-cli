@@ -69,10 +69,10 @@ func (d WorkspaceData) WritePlain(c *clioutput.CommandContext, command string, _
 	clioutput.ApplyBoolValueStyle(logger, c.Theme, "authenticated", d.Authenticated)
 	event := c.ResultEvent(command).
 		Str("workspace", d.Workspace).
-		Str("authenticated", strconv.FormatBool(d.Authenticated)).
-		Str("token_type", string(d.TokenType)).
 		Str("team_id", d.TeamID).
 		Str("team_name", d.TeamName).
+		Str("token_type", string(d.TokenType)).
+		Str("authenticated", strconv.FormatBool(d.Authenticated)).
 		Str("validation_error", d.ValidationError)
 	event.Msg(clioutput.ActionLabel(command))
 	return nil
@@ -104,10 +104,10 @@ func (d StatusData) WritePlain(c *clioutput.CommandContext, _ string, _ *clioutp
 		clioutput.ApplyBoolValueStyle(logger, c.Theme, "authenticated", workspace.Authenticated)
 		event := logger.Info().
 			Str("workspace", workspace.Workspace).
-			Str("authenticated", strconv.FormatBool(workspace.Authenticated)).
-			Str("token_type", string(workspace.TokenType)).
 			Str("team_id", workspace.TeamID).
-			Str("team_name", workspace.TeamName)
+			Str("team_name", workspace.TeamName).
+			Str("token_type", string(workspace.TokenType)).
+			Str("authenticated", strconv.FormatBool(workspace.Authenticated))
 		if workspace.ValidationError != "" {
 			event = event.Str("validation_error", workspace.ValidationError)
 		}

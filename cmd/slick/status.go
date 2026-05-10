@@ -23,13 +23,13 @@ var _ PlainRenderer = statusCommandData{}
 
 func (d statusCommandData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
 	event := c.ResultEvent(command).
-		Str("text", d.Text).
-		Str("emoji", d.Emoji).
-		Bool("cleared", d.Cleared).
-		Bool("dry_run", d.DryRun).
 		When(d.Expiration > 0, func(e *clog.Event) {
 			e.Int64("expiration", d.Expiration)
-		})
+		}).
+		Bool("cleared", d.Cleared).
+		Bool("dry_run", d.DryRun).
+		Str("text", d.Text).
+		Str("emoji", d.Emoji)
 	event.Msg(actionLabel(command))
 	return nil
 }

@@ -46,11 +46,11 @@ func (d UploadData) WritePlain(c *clioutput.CommandContext, command string, _ *c
 	event = event.
 		Str("id", d.File.ID).
 		Str("name", d.File.Name).
-		Str("size", human.FormatIECBytes(float64(d.File.Size))).
 		Bool("dry_run", d.DryRun)
 	if d.File.Permalink != nil {
 		event = event.Link("permalink", *d.File.Permalink, clioutput.HyperlinkText(climessage.PermalinkText(*d.File.Permalink)))
 	}
+	event = event.Str("size", human.FormatIECBytes(float64(d.File.Size)))
 	event.Msg(clioutput.ActionLabel(command))
 	return nil
 }

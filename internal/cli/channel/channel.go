@@ -44,7 +44,11 @@ func (d InfoData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 		styles = append(styles, clioutput.EntityFieldStyle("user", *ch.User))
 	}
 	event := c.ResultEventWithStyles(command, styles...).
-		Str("channel", ch.ID).
+		Str("channel", ch.ID)
+	if ch.User != nil {
+		event = event.Str("user", *ch.User)
+	}
+	event = event.
 		Str("name", ch.Name).
 		Str("type", ch.Type)
 	if ch.IsMember != nil {
@@ -56,9 +60,6 @@ func (d InfoData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 		clioutput.ApplyBoolStateStyle(c.StdoutLogger(), c.Theme, "is_archived", *ch.IsArchived)
 	}
 	event = clioutput.AddBoolField(event, "is_archived", ch.IsArchived)
-	if ch.User != nil {
-		event = event.Str("user", *ch.User)
-	}
 	if ch.Topic != nil {
 		event = event.Str("topic", *ch.Topic)
 	}

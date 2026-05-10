@@ -113,6 +113,22 @@ func EntityFieldStyle(field, value string) FieldStyle {
 	return FieldStyle{Field: field, Seed: field + ":" + value}
 }
 
+// Field-rendering convention: WritePlain methods (and any helper that
+// terminates a chain with event.Msg) emit fields left-to-right in this
+// canonical order so output reads consistently across commands:
+//
+//  1. where        — the location/identity context (workspace, channel, …)
+//  2. what         — the subject (ts, id, name, type, …)
+//  3. when         — time of the event (age, fetched_at, …)
+//  4. state        — current/result booleans (authenticated, dry_run, …)
+//  5. detail       — free-text payload (text, topic, permalink, …)
+//  6. numbers      — counts and sizes (count, size, members, …)
+//  7. diagnostics  — validation_error
+//  8. pagination   — appended last by AddPaginationFields
+//
+// Action label (Msg) renders FIRST. The TestPlainRendererFieldOrderIsCanonical
+// test in field_order_test.go enforces this on every CI run; the canonical
+// category table lives there.
 func BuildBaseLoggers(stdout, stderr io.Writer, colorMode clog.ColorMode) (*clog.Logger, *clog.Logger) {
 	sl := clog.New(clog.NewOutput(stdout, colorMode))
 	sl.SetOmitZero(true)

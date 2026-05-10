@@ -126,15 +126,16 @@ func writeCacheSummary(c *clioutput.CommandContext, command, profile, resource s
 	}
 	event := c.ResultEvent(command).
 		Str("profile", profile).
-		Str("resource", resource).
-		Int("count", count).
-		Bool("from_cache", fromCache).
-		When(truncated, func(e *clog.Event) { e.Bool("truncated", true) })
+		Str("resource", resource)
 	// Only show fetched_at when serving from cache; for a fresh fetch
 	// from_cache=false already says "just now".
 	if fromCache && !fetchedAt.IsZero() {
 		event = event.Time("fetched_at", fetchedAt)
 	}
+	event = event.
+		Bool("from_cache", fromCache).
+		When(truncated, func(e *clog.Event) { e.Bool("truncated", true) }).
+		Int("count", count)
 	event.Msg(clioutput.ActionLabel(command))
 }
 

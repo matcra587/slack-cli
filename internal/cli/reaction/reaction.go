@@ -54,9 +54,9 @@ func (d Data) WritePlain(c *clioutput.CommandContext, command string, _ *clioutp
 				event = event.Str("channel", mutation.Channel)
 			}
 			clioutput.AddSlackTimestampFields(event, mutation.TS, c.Now()).
-				Str("emoji", mutation.Emoji).
 				Bool("removed", mutation.Removed).
 				Bool("dry_run", mutation.DryRun).
+				Str("emoji", mutation.Emoji).
 				Msg(label)
 		}
 		return nil

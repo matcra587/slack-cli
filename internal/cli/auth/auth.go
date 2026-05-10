@@ -82,15 +82,37 @@ func (d StatusData) WritePlain(c *clioutput.CommandContext, _ string, _ *clioutp
 		}
 		event := logger.Info().
 			Str("workspace", workspace.Workspace).
-			Bool("authenticated", workspace.Authenticated).
 			Str("token_type", string(workspace.TokenType)).
 			Str("team_id", workspace.TeamID).
-			Str("team_name", workspace.TeamName).
-			Bool("valid", state == "valid").
-			Str("validation_error", workspace.ValidationError)
-		event.Msg("auth status")
+			Str("team_name", workspace.TeamName)
+		if workspace.ValidationError != "" {
+			event = event.Str("validation_error", workspace.ValidationError)
+		}
+		event.Msg(authStatusMessage(c.Theme, state))
 	}
 	return nil
+}
+
+// authStatusMessage returns a state-specific message painted with the
+// theme's BoldGreen / Red so the label alone communicates auth state.
+func authStatusMessage(th *clibtheme.Theme, state string) string {
+	switch state {
+	case "valid":
+		if th != nil && th.BoldGreen != nil {
+			return th.BoldGreen.Render("Authenticated")
+		}
+		return "Authenticated"
+	case "invalid":
+		if th != nil && th.Red != nil {
+			return th.Red.Render("Authentication invalid")
+		}
+		return "Authentication invalid"
+	default:
+		if th != nil && th.Red != nil {
+			return th.Red.Render("Credentials missing")
+		}
+		return "Credentials missing"
+	}
 }
 
 // NewCommand returns the auth cobra command tree.
@@ -192,8 +214,10 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 }
 
 func runAuthLogin(cmd *cobra.Command, runtime *cliruntime.RootRuntime, input loginInput) error {
+	input.WorkspaceName = strings.TrimSpace(input.WorkspaceName)
 	if input.WorkspaceName == "" {
-		input.WorkspaceName, _ = cmd.Root().PersistentFlags().GetString("workspace")
+		flagWorkspace, _ := cmd.Root().PersistentFlags().GetString("workspace")
+		input.WorkspaceName = strings.TrimSpace(flagWorkspace)
 	}
 	ctx, _, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
@@ -205,6 +229,7 @@ func runAuthLogin(cmd *cobra.Command, runtime *cliruntime.RootRuntime, input log
 			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 		}
 	}
+	input.WorkspaceName = strings.TrimSpace(input.WorkspaceName)
 	if input.WorkspaceName == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("workspace-name is required"))
 	}
@@ -252,7 +277,7 @@ func runAuthLogin(cmd *cobra.Command, runtime *cliruntime.RootRuntime, input log
 	if input.TeamName == "" {
 		input.TeamName = profileName
 	}
-	if existing, ok := cfg.Workspaces[profileName]; ok && workspaceHasAuth(existing) && !input.Force {
+	if existing, ok := cfg.Workspaces[profileName]; ok && workspaceHasAuth(existing) && !input.Force && hasStoredCredential(runtime, profileName) {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("workspace profile is already authenticated; rerun with --force to overwrite auth fields"))
 	}
 	secret, err := encodeLoginCredential(ctx, input)
@@ -293,6 +318,21 @@ func canonicalProfileName(cfg *config.Config, name string) string {
 
 func workspaceHasAuth(profile config.WorkspaceProfile) bool {
 	return profile.TeamID != "" || profile.TeamName != "" || profile.TokenType != "" || profile.TokenRef != ""
+}
+
+// hasStoredCredential reports whether the credential store actually holds
+// a non-empty secret for profileName. Used to avoid blocking re-login when
+// the keychain entry is gone but the workspace metadata still lingers in
+// config.toml.
+func hasStoredCredential(runtime *cliruntime.RootRuntime, profileName string) bool {
+	if runtime == nil || runtime.CredentialStore == nil {
+		return false
+	}
+	secret, err := runtime.CredentialStore.Get("slack-cli", profileName)
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(secret) != ""
 }
 
 type loginInput struct {
@@ -392,6 +432,9 @@ type authFieldHelp struct {
 func runAuthLoginForm(ctx *clioutput.CommandContext, runtime *cliruntime.RootRuntime, input *loginInput) error {
 	accessible := !clioauth.UsesTerminalFiles(runtime)
 	help := authLoginFieldHelp()
+	if strings.TrimSpace(input.WorkspaceName) == "" {
+		input.WorkspaceName = "default"
+	}
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -556,42 +599,66 @@ func completeOAuthLogin(reqCtx context.Context, ctx *clioutput.CommandContext, r
 		State:         state,
 		CodeChallenge: slackgo.GenerateCodeChallenge(verifier),
 	})
-	ctx.StderrLogger().Hint().
-		URL("authorize_url", authorizeURL).
-		URL("redirect_url", redirectURL.String()).
-		Msg("open OAuth authorize URL")
 	openURL := runtime.OpenURL
 	if openURL == nil {
 		openURL = defaultOpenURL
 	}
-	_ = openURL(authorizeURL)
 
 	timeout := runtime.OAuthTimeout
 	if timeout <= 0 {
 		timeout = 2 * time.Minute
 	}
-	var callback oauthCallbackResult
-	select {
-	case callback = <-resultCh:
-	case <-time.After(timeout):
-		return false, oauthTimeoutError{RedirectURL: redirectURL.String()}
+	exchangeTimeout := runtime.Timeout
+	if exchangeTimeout <= 0 {
+		exchangeTimeout = 30 * time.Second
 	}
-	if callback.Err != nil {
-		return false, callback.Err
-	}
-	response, err := oauthExchangeCode(reqCtx, runtime, input.ClientID, callback.Code, redirectURL.String(), verifier)
-	if err != nil {
-		return false, err
+
+	// Detach from reqCtx so the OAuth wait isn't bound to the global
+	// --timeout deadline (default 30s). The browser round-trip easily
+	// exceeds that; OAuthTimeout governs the human-interaction budget.
+	oauthCtx, cancelOAuth := context.WithTimeout(context.WithoutCancel(reqCtx), timeout)
+	defer cancelOAuth()
+	var response *slackgo.OAuthV2Response
+	spinner := ctx.StderrLogger().Spinner("Waiting for Slack OAuth callback").
+		Link("authorize_url", authorizeURL, clioutput.HyperlinkText(authorizeURL)).
+		Link("redirect_url", redirectURL.String(), clioutput.HyperlinkText(redirectURL.String()))
+	spinner.ClearOnCancel = true
+	spinErr := spinner.
+		Wait(oauthCtx, func(taskCtx context.Context) error {
+			_ = openURL(authorizeURL)
+			var callback oauthCallbackResult
+			select {
+			case callback = <-resultCh:
+			case <-taskCtx.Done():
+				if errors.Is(taskCtx.Err(), context.DeadlineExceeded) {
+					return oauthTimeoutError{RedirectURL: redirectURL.String()}
+				}
+				return taskCtx.Err()
+			}
+			if callback.Err != nil {
+				return callback.Err
+			}
+			// The exchange is a single Slack POST that runs after the user has
+			// already interacted; give it its own fresh per-request timeout
+			// rather than racing with what's left of OAuthTimeout.
+			exchangeCtx, cancelExchange := context.WithTimeout(context.WithoutCancel(reqCtx), exchangeTimeout)
+			defer cancelExchange()
+			var err error
+			response, err = oauthExchangeCode(exchangeCtx, runtime, input.ClientID, callback.Code, redirectURL.String(), verifier)
+			return err
+		}).Silent()
+	if spinErr != nil {
+		// runAnimation races the task return against ctx.Done(); if the ctx
+		// branch wins we get a bare DeadlineExceeded. Re-wrap as the
+		// structured oauth-timeout error so callers see the redirect_url.
+		if errors.Is(spinErr, context.DeadlineExceeded) {
+			return false, oauthTimeoutError{RedirectURL: redirectURL.String()}
+		}
+		return false, spinErr
 	}
 	if err := applyOAuthResponse(input, response); err != nil {
 		return false, err
 	}
-	ctx.StderrLogger().Hint().
-		Bool("authenticated", true).
-		Str("token_type", string(input.resolvedTokenType())).
-		Str("team_id", input.TeamID).
-		Str("team_name", input.TeamName).
-		Msg("oauth token exchange completed")
 	return true, nil
 }
 
@@ -851,6 +918,7 @@ func runAuthStatus(cmd *cobra.Command, runtime *cliruntime.RootRuntime) error {
 }
 
 func runAuthSwitch(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspace string) error {
+	workspace = strings.TrimSpace(workspace)
 	ctx, _, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
@@ -871,6 +939,7 @@ func runAuthSwitch(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspac
 }
 
 func runAuthLogout(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspace string) error {
+	workspace = strings.TrimSpace(workspace)
 	ctx, _, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))

@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gechr/clog"
+	"github.com/gechr/x/human"
 	slackcache "github.com/matcra587/slack-cli/internal/cache"
 	clichannel "github.com/matcra587/slack-cli/internal/cli/channel"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
@@ -78,7 +80,7 @@ type UsersData struct {
 	Users     []clioutput.CliUser `json:"users"`
 	Count     int                 `json:"count"`
 	FromCache bool                `json:"from_cache"`
-	FetchedAt string              `json:"fetched_at"`
+	FetchedAt time.Time           `json:"fetched_at"`
 	Truncated bool                `json:"truncated,omitempty"`
 }
 
@@ -88,40 +90,71 @@ type ChannelsData struct {
 	Channels  []clioutput.CliChannel `json:"channels"`
 	Count     int                    `json:"count"`
 	FromCache bool                   `json:"from_cache"`
-	FetchedAt string                 `json:"fetched_at"`
+	FetchedAt time.Time              `json:"fetched_at"`
 	Truncated bool                   `json:"truncated,omitempty"`
 }
 
 // ClearData is the result returned by `slick cache clear`.
 type ClearData struct {
-	Profile      string `json:"profile"`
-	Resource     string `json:"resource,omitempty"`
-	Removed      bool   `json:"removed,omitempty"`
-	RemovedCount int    `json:"removed_count,omitempty"`
+	Profile      string   `json:"profile"`
+	Resource     string   `json:"resource,omitempty"`
+	Removed      bool     `json:"removed,omitempty"`
+	RemovedCount int      `json:"removed_count,omitempty"`
+	Resources    []string `json:"resources,omitempty"`
 }
 
 var _ clioutput.PlainRenderer = UsersData{}
 
-func (d UsersData) WritePlain(c *clioutput.CommandContext, command string, pagination *clioutput.Pagination) error {
-	return c.WriteUsers(command, d.Users, pagination)
+func (d UsersData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	writeCacheSummary(c, command, d.Profile, "users", d.Count, d.FromCache, d.Truncated, d.FetchedAt)
+	return nil
 }
 
 var _ clioutput.PlainRenderer = ChannelsData{}
 
-func (d ChannelsData) WritePlain(c *clioutput.CommandContext, command string, pagination *clioutput.Pagination) error {
-	return c.WriteChannels(command, d.Channels, pagination)
+func (d ChannelsData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	writeCacheSummary(c, command, d.Profile, "channels", d.Count, d.FromCache, d.Truncated, d.FetchedAt)
+	return nil
+}
+
+func writeCacheSummary(c *clioutput.CommandContext, command, profile, resource string, count int, fromCache, truncated bool, fetchedAt time.Time) {
+	event := c.ResultEvent(command).
+		Str("profile", profile).
+		Str("resource", resource).
+		Int("count", count).
+		Bool("from_cache", fromCache).
+		When(truncated, func(e *clog.Event) { e.Bool("truncated", true) })
+	// Only show fetched_at when serving from cache; for a fresh fetch
+	// from_cache=false already says "just now".
+	if fromCache && !fetchedAt.IsZero() {
+		event = event.Str("fetched_at", human.FormatTimeAgoCompactFrom(fetchedAt, c.Now()))
+	}
+	event.Msg(clioutput.ActionLabel(command))
 }
 
 var _ clioutput.PlainRenderer = ClearData{}
 
 func (d ClearData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
-	c.ResultEvent(command).
-		Str("profile", d.Profile).
-		When(d.Resource != "", func(e *clog.Event) {
-			e.Str("resource", d.Resource).Bool("removed", d.Removed)
-		}).
-		Int("removed_count", d.RemovedCount).
-		Msg(clioutput.ActionLabel(command))
+	// "cache clear <resource>" — single explicit resource.
+	if d.Resource != "" {
+		event := c.ResultEvent(command).Str("profile", d.Profile).Str("resource", d.Resource).Bool("removed", d.Removed)
+		if d.Removed {
+			event.Msg(clioutput.ActionLabel(command))
+			return nil
+		}
+		event.Msg("Cache already empty")
+		return nil
+	}
+	// "cache clear" with no args — sweep the profile.
+	if d.RemovedCount == 0 {
+		c.ResultEvent(command).Str("profile", d.Profile).Msg("Cache already empty")
+		return nil
+	}
+	event := c.ResultEvent(command).Str("profile", d.Profile)
+	if len(d.Resources) > 0 {
+		event = event.Str("resources", strings.Join(d.Resources, ","))
+	}
+	event.Int("removed_count", d.RemovedCount).Msg(clioutput.ActionLabel(command))
 	return nil
 }
 
@@ -232,7 +265,7 @@ func runUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Options)
 		Users:     payload.Users,
 		Count:     len(payload.Users),
 		FromCache: fromCache,
-		FetchedAt: fetchedAt.UTC().Format(time.RFC3339),
+		FetchedAt: fetchedAt.UTC(),
 		Truncated: payload.Truncated,
 	})
 }
@@ -257,7 +290,7 @@ func runChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Optio
 		Channels:  payload.Channels,
 		Count:     len(payload.Channels),
 		FromCache: fromCache,
-		FetchedAt: fetchedAt.UTC().Format(time.RFC3339),
+		FetchedAt: fetchedAt.UTC(),
 		Truncated: payload.Truncated,
 	})
 }
@@ -268,11 +301,11 @@ func runClear(cmd *cobra.Command, runtime *cliruntime.RootRuntime, args []string
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 	if len(args) == 0 {
-		count, err := slackcache.ClearProfile(profile.Name)
+		resources, err := slackcache.ClearProfile(profile.Name)
 		if err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 		}
-		return ctx.WriteResult("cache.clear", ClearData{Profile: profile.Name, RemovedCount: count})
+		return ctx.WriteResult("cache.clear", ClearData{Profile: profile.Name, Resources: resources, RemovedCount: len(resources)})
 	}
 	resource := args[0]
 	removed, err := slackcache.Clear(profile.Name, resource)

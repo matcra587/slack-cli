@@ -115,28 +115,32 @@ func Clear(profile, resource string) (bool, error) {
 	return true, nil
 }
 
-func ClearProfile(profile string) (int, error) {
+// ClearProfile removes every cache file for the given profile and returns
+// the resource names that were removed (file basenames sans .json), in the
+// order the directory listed them.
+func ClearProfile(profile string) ([]string, error) {
 	root, err := Root()
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	dir := filepath.Join(root, sanitize(profile))
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return 0, nil
+			return nil, nil
 		}
-		return 0, err
+		return nil, err
 	}
-	removed := 0
+	var removed []string
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
-		if err := os.Remove(filepath.Join(dir, entry.Name())); err != nil {
+		name := entry.Name()
+		if err := os.Remove(filepath.Join(dir, name)); err != nil {
 			return removed, err
 		}
-		removed++
+		removed = append(removed, strings.TrimSuffix(name, ".json"))
 	}
 	return removed, nil
 }

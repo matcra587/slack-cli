@@ -130,19 +130,6 @@ func BuildBaseLoggers(stdout, stderr io.Writer, colorMode clog.ColorMode) (*clog
 	return sl, el
 }
 
-// ApplyMessageStyle paints the action label rendered by `event.Msg(...)` in
-// the theme's Green foreground for Info-level events on stdout. Warning and
-// error events keep clog's default level-based styling. Called by
-// cliruntime when both the logger and the theme are available.
-func ApplyMessageStyle(logger *clog.Logger, th *theme.Theme) {
-	if logger == nil || th == nil || th.Green == nil {
-		return
-	}
-	logger.SetStyles(&clogstyle.Config{
-		Messages: clogstyle.LevelMap{clog.LevelInfo: th.Green},
-	})
-}
-
 // underlinedHyperlink is the style applied to the visible text of a
 // terminal hyperlink so the click affordance is obvious even when the
 // terminal does not auto-underline OSC 8 hyperlinks. Used by HyperlinkText.
@@ -182,6 +169,89 @@ func ApplyFieldStyles(logger *clog.Logger, th *theme.Theme, fields ...FieldStyle
 	if len(styles) > 0 {
 		logger.SetStyles(&clogstyle.Config{Keys: styles})
 	}
+}
+
+// HashedFieldStyle returns a FieldStyle that hashes the seed directly to
+// pick from the theme's entity color palette. Use it to make two distinct
+// fields share a color (e.g. `name` and `user` for the same user).
+func HashedFieldStyle(field, seed string) FieldStyle {
+	return FieldStyle{Field: field, Seed: seed}
+}
+
+// ApplyPreStyledKey suppresses clog's FieldString styling on key so a
+// caller-rendered ANSI value passes through unchanged.
+func ApplyPreStyledKey(logger *clog.Logger, key string) {
+	if logger == nil || key == "" {
+		return
+	}
+	identity := lipgloss.NewStyle()
+	logger.SetStyles(&clogstyle.Config{Keys: clogstyle.Map{key: &identity}})
+}
+
+// ApplyBoolStateStyle paints key red when value is true (a "bad" state
+// such as archived) and green when false. Falls back to no-op when the
+// theme is missing.
+func ApplyBoolStateStyle(logger *clog.Logger, th *theme.Theme, key string, value bool) {
+	if logger == nil || th == nil || key == "" {
+		return
+	}
+	style := th.Green
+	if value {
+		style = th.Red
+	}
+	if style == nil {
+		return
+	}
+	logger.SetStyles(&clogstyle.Config{Keys: clogstyle.Map{key: style}})
+}
+
+// ApplyNumberKeyStyle paints key with clog's default FieldNumber style
+// (typically magenta). Useful when the value is rendered as a string but
+// should look like a numeric field (e.g. count=0 surviving OmitZero).
+func ApplyNumberKeyStyle(logger *clog.Logger, key string) {
+	if logger == nil || key == "" {
+		return
+	}
+	defaults := clog.DefaultStyles()
+	if defaults == nil || defaults.FieldNumber == nil {
+		return
+	}
+	logger.SetStyles(&clogstyle.Config{Keys: clogstyle.Map{key: defaults.FieldNumber}})
+}
+
+// ApplyConfigValueStyle paints key based on the config value: green/red
+// for bools, dim for unset, otherwise leaves it to the default styling.
+func ApplyConfigValueStyle(logger *clog.Logger, th *theme.Theme, key, value string) {
+	if logger == nil || th == nil || key == "" {
+		return
+	}
+	var style *lipgloss.Style
+	switch value {
+	case "":
+		style = th.Dim
+	case "true":
+		style = th.Green
+	case "false":
+		style = th.Red
+	}
+	if style == nil {
+		return
+	}
+	logger.SetStyles(&clogstyle.Config{Keys: clogstyle.Map{key: style}})
+}
+
+// RenderTimezone renders an IANA "Region/City" timezone with the region
+// dim and the city bold. Returns the input unchanged when the value has
+// no slash, or when the theme lacks the required Bold/Dim styles.
+func RenderTimezone(th *theme.Theme, value string) string {
+	if th == nil || th.Dim == nil || th.Bold == nil {
+		return value
+	}
+	region, city, ok := strings.Cut(value, "/")
+	if !ok {
+		return value
+	}
+	return th.Dim.Render(region+"/") + th.Bold.Render(city)
 }
 
 func HashEntityStyle(th *theme.Theme, key string) *lipgloss.Style {

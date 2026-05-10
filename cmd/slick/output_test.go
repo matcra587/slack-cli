@@ -143,13 +143,11 @@ func TestWriteResultPlainAuthStatusUsesClogFields(t *testing.T) {
 	got := stdout.String()
 	plain := ansi.Strip(got)
 	for _, fragment := range []string{
-		"auth status",
+		"Authenticated",
 		"workspace=default",
-		"authenticated=true",
 		"token_type=user",
 		"team_id=T8KQ42P9D",
 		"team_name=\"Example Notifications\"",
-		"valid=true",
 	} {
 		if !strings.Contains(plain, fragment) {
 			t.Fatalf("stdout = %q, want fragment %q", got, fragment)
@@ -157,11 +155,6 @@ func TestWriteResultPlainAuthStatusUsesClogFields(t *testing.T) {
 	}
 	if !regexp.MustCompile(`team_id.*\x1b\[38;(?:2|5);[^m]*mT8KQ42P9D`).MatchString(got) {
 		t.Fatalf("stdout = %q, want hash-colored team_id value", got)
-	}
-	for _, field := range []string{"authenticated", "valid"} {
-		if !regexp.MustCompile(field + `.*\x1b\[[^m]*32mtrue`).MatchString(got) {
-			t.Fatalf("stdout = %q, want theme-colored bool field %q", got, field)
-		}
 	}
 	if strings.Contains(got, "{\"workspaces\"") || strings.Contains(got, "default valid user") || strings.Contains(got, "validation_state=") {
 		t.Fatalf("stdout = %q, want clog field output", got)
@@ -480,15 +473,15 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 	}
 }
 
-func TestWriteResultPlainConfigListUsesPerSettingClogLines(t *testing.T) {
+func TestWriteResultPlainConfigListRendersTable(t *testing.T) {
 	ctx, stdout, stderr := newOutputTestContext(RenderModePlain)
 
 	err := ctx.WriteResult("config.list", cliconfig.ListData{
 		Path:             "/tmp/slick/config.toml",
 		DefaultWorkspace: "default",
 		Settings: []cliconfig.Entry{
-			{Key: "default_workspace", Value: "default"},
-			{Key: "workspaces.default.attribution.enabled", Value: "true"},
+			{Key: "default_workspace", Value: "default", Description: "Default workspace profile name"},
+			{Key: "workspaces.default.attribution.enabled", Value: "true", Description: "Add visible attribution by default"},
 		},
 	})
 	if err != nil {
@@ -500,30 +493,24 @@ func TestWriteResultPlainConfigListUsesPerSettingClogLines(t *testing.T) {
 	got := stdout.String()
 	plain := ansi.Strip(got)
 	for _, fragment := range []string{
-		"Config listed",
-		"path=/tmp/slick/config.toml",
-		"default_workspace=default",
-		"settings=2",
-		"config setting",
-		"key=default_workspace",
-		"value=default",
-		"key=workspaces.default.attribution.enabled",
-		"value=true",
+		"KEY",
+		"VALUE",
+		"DESCRIPTION",
+		"default_workspace",
+		"workspaces.default.attribution.enabled",
+		"true",
+		"Default workspace profile name",
 	} {
 		if !strings.Contains(plain, fragment) {
 			t.Fatalf("stdout = %q, want fragment %q", got, fragment)
 		}
 	}
-	for _, fragment := range []string{"INF", "command=config.list"} {
+	// The "Config listed" summary header is hidden by default; only --debug
+	// (verbose) shows it. The other lists follow the same pattern.
+	for _, fragment := range []string{"Config listed", "INF", "command=config.list", "config setting", "path=/tmp/slick/config.toml", "settings=2"} {
 		if strings.Contains(plain, fragment) {
-			t.Fatalf("stdout = %q, did not want fragment %q in non-verbose plain mode", got, fragment)
+			t.Fatalf("stdout = %q, did not want fragment %q", got, fragment)
 		}
-	}
-	if strings.Contains(plain, "{") || strings.Contains(plain, "description=") {
-		t.Fatalf("stdout = %q, want concise clog fields", got)
-	}
-	if lines := strings.Count(strings.TrimSpace(plain), "\n") + 1; lines != 3 {
-		t.Fatalf("stdout = %q, want summary plus one clog line per setting", got)
 	}
 }
 

@@ -437,7 +437,8 @@ func main() {
 		if errors.As(err, &commandErr) {
 			os.Exit(commandErr.CLIError.ExitCode)
 		}
-		mode := outputFlagsFromCommand(root).Resolve(terminal.Is(os.Stdout), false)
+		isTTY := terminal.Is(os.Stdout)
+		mode := outputFlagsFromCommand(root).Resolve(isTTY, false)
 		sl, el := buildBaseLoggers(os.Stdout, os.Stderr, clog.ColorAuto)
 		applyRenderMode(sl, mode)
 		cmdCtx := &CommandContext{
@@ -445,6 +446,9 @@ func main() {
 			Mode:      mode,
 			Stdout:    os.Stdout,
 			Stderr:    os.Stderr,
+			IsTTY:     isTTY,
+			ColorMode: clog.ColorAuto,
+			Theme:     runtime.Theme,
 			StdoutLog: sl,
 			StderrLog: el,
 		}

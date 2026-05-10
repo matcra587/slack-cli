@@ -12,6 +12,7 @@ import (
 	"charm.land/huh/v2"
 	clib "github.com/gechr/clib/cli/cobra"
 	clibtheme "github.com/gechr/clib/theme"
+	"github.com/gechr/clog"
 	xfs "github.com/gechr/x/fs"
 	"github.com/gechr/x/human"
 	clitheme "github.com/matcra587/slack-cli/internal/cli/clitheme"
@@ -88,21 +89,25 @@ type ListData struct {
 var _ clioutput.PlainRenderer = ListData{}
 
 func (d ListData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
-	c.ResultEvent(command).
-		Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
-		Str("default_workspace", d.DefaultWorkspace).
-		Int("settings", len(d.Settings)).
-		Msg(clioutput.ActionLabel(command))
+	if len(d.Settings) == 0 || clog.IsVerbose() {
+		c.ResultEvent(command).
+			Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
+			Str("default_workspace", d.DefaultWorkspace).
+			Int("settings", len(d.Settings)).
+			Msg(clioutput.ActionLabel(command))
+	}
 	if len(d.Settings) == 0 {
 		return nil
 	}
+	rows := make([]clioutput.ConfigEntry, 0, len(d.Settings))
 	for _, setting := range d.Settings {
-		c.ResultEvent(command).
-			Str("key", setting.Key).
-			Str("value", setting.Value).
-			Msg("config setting")
+		rows = append(rows, clioutput.ConfigEntry{
+			Key:         setting.Key,
+			Value:       setting.Value,
+			Description: setting.Description,
+		})
 	}
-	return nil
+	return c.WriteConfigEntriesTable(rows)
 }
 
 // GetData is the result returned by `slick config get`.
@@ -114,9 +119,14 @@ type GetData struct {
 var _ clioutput.PlainRenderer = GetData{}
 
 func (d GetData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	clioutput.ApplyConfigValueStyle(c.StdoutLogger(), c.Theme, "value", d.Value)
+	value := d.Value
+	if value == "" {
+		value = "(unset)"
+	}
 	c.ResultEvent(command).
 		Str("key", d.Key).
-		Str("value", d.Value).
+		Str("value", value).
 		Msg(clioutput.ActionLabel(command))
 	return nil
 }
@@ -278,7 +288,7 @@ func confirmOverwrite(runtime *cliruntime.RootRuntime, path string) (bool, error
 	overwrite := false
 	confirm := huh.NewConfirm().
 		Title("Overwrite existing config?").
-		Description(path).
+		Description(human.ContractHome(path)).
 		Affirmative("Overwrite").
 		Negative("Keep existing").
 		Value(&overwrite)

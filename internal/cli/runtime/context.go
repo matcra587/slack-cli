@@ -59,6 +59,8 @@ func CommandContext(cmd *cobra.Command, runtime *RootRuntime) (*clioutput.Comman
 			Stderr:        runtime.Stderr,
 			NowFunc:       runtime.Now,
 			RequestIDFunc: runtime.RequestID,
+			IsTTY:         runtime.IsTTY,
+			ColorMode:     runtime.ColorMode,
 			Theme:         runtime.Theme,
 			StdoutLog:     sl,
 			StderrLog:     el,
@@ -94,7 +96,6 @@ func CommandContext(cmd *cobra.Command, runtime *RootRuntime) (*clioutput.Comman
 	mode := outputFlags.Resolve(runtime.IsTTY, detectAgentOutputMode(agentFlags))
 	attribution := detectAgentMode(agentFlags)
 	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-	clioutput.ApplyMessageStyle(sl, runtime.Theme)
 	clioutput.ApplyRenderMode(sl, mode)
 	ctx := &clioutput.CommandContext{
 		Workspace:     resolvedWorkspace,
@@ -163,7 +164,6 @@ func LocalContextForceAgent(cmd *cobra.Command, runtime *RootRuntime, workspace 
 
 func buildLocalContext(runtime *RootRuntime, workspace string, mode clioutput.RenderMode) *clioutput.CommandContext {
 	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-	clioutput.ApplyMessageStyle(sl, runtime.Theme)
 	clioutput.ApplyRenderMode(sl, mode)
 	return &clioutput.CommandContext{
 		Workspace:     workspace,
@@ -172,6 +172,9 @@ func buildLocalContext(runtime *RootRuntime, workspace string, mode clioutput.Re
 		Stderr:        runtime.Stderr,
 		NowFunc:       runtime.Now,
 		RequestIDFunc: runtime.RequestID,
+		IsTTY:         runtime.IsTTY,
+		ColorMode:     runtime.ColorMode,
+		Theme:         runtime.Theme,
 		StdoutLog:     sl,
 		StderrLog:     el,
 	}
@@ -182,7 +185,6 @@ func buildLocalContext(runtime *RootRuntime, workspace string, mode clioutput.Re
 func WriteRuntimeError(runtime *RootRuntime, err clioutput.CLIError) error {
 	mode := clioutput.OutputFlags{}.Resolve(runtime.IsTTY, false)
 	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
-	clioutput.ApplyMessageStyle(sl, runtime.Theme)
 	clioutput.ApplyRenderMode(sl, mode)
 	ctx := &clioutput.CommandContext{
 		Workspace:     "default",
@@ -191,6 +193,9 @@ func WriteRuntimeError(runtime *RootRuntime, err clioutput.CLIError) error {
 		Stderr:        runtime.Stderr,
 		NowFunc:       runtime.Now,
 		RequestIDFunc: runtime.RequestID,
+		IsTTY:         runtime.IsTTY,
+		ColorMode:     runtime.ColorMode,
+		Theme:         runtime.Theme,
 		StdoutLog:     sl,
 		StderrLog:     el,
 	}

@@ -38,7 +38,8 @@ func (d InfoData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 		Str("name", user.Name)
 	event = clioutput.AddBoolField(event, "deleted", user.Deleted)
 	if user.Timezone != nil {
-		event = event.Str("timezone", *user.Timezone)
+		clioutput.ApplyPreStyledKey(c.StdoutLogger(), "timezone")
+		event = event.Str("timezone", clioutput.RenderTimezone(c.Theme, *user.Timezone))
 	}
 	if user.Presence != nil {
 		event = event.Str("presence", *user.Presence)

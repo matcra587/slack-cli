@@ -24,12 +24,6 @@ func TestLoginHuhThemeUsesClibSemanticColors(t *testing.T) {
 	assertSameColor(t, "#abcdef", got.Focused.TextInput.Placeholder.GetForeground())
 }
 
-func TestLoginHuhColorLeavesUnsetClibColorUnset(t *testing.T) {
-	if got := LoginHuhColor(lipgloss.NoColor{}); got != nil {
-		t.Fatalf("unset clib color converted to %v, want nil", got)
-	}
-}
-
 func assertSameColor(t *testing.T, want string, got color.Color) {
 	t.Helper()
 	r, g, b, _ := got.RGBA()

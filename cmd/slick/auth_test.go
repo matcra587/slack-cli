@@ -876,7 +876,7 @@ func TestAuthLoginTTYValidationUsesHumanClogError(t *testing.T) {
 	if strings.Contains(stderr, `"errors"`) || strings.Contains(stderr, `{"`) {
 		t.Fatalf("stderr = %q, want human clog diagnostic instead of JSON", stderr)
 	}
-	if !strings.Contains(stderr, "workspace-name is required") {
+	if !strings.Contains(stderr, "oauth client id is required") {
 		t.Fatalf("stderr = %q, want validation message", stderr)
 	}
 }

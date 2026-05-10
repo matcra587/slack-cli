@@ -4,9 +4,6 @@
 package clitheme
 
 import (
-	"fmt"
-	"image/color"
-
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	clibtheme "github.com/gechr/clib/theme"
@@ -26,10 +23,10 @@ func LoginHuhTheme(th *clibtheme.Theme) huh.Theme {
 		resolved := th.Init()
 
 		t := huh.ThemeBase(isDark)
-		helpCommand := loginHuhStyle(resolved.HelpCommand)
-		helpDim := loginHuhStyle(resolved.HelpDim)
-		helpPlaceholder := loginHuhStyle(resolved.HelpValuePlaceholder)
-		red := loginHuhStyle(resolved.Red)
+		helpCommand := derefStyle(resolved.HelpCommand)
+		helpDim := derefStyle(resolved.HelpDim)
+		helpPlaceholder := derefStyle(resolved.HelpValuePlaceholder)
+		red := derefStyle(resolved.Red)
 
 		t.Focused.Title = helpCommand
 		t.Focused.NoteTitle = helpCommand
@@ -39,6 +36,23 @@ func LoginHuhTheme(th *clibtheme.Theme) huh.Theme {
 		t.Focused.TextInput.Cursor = mergeLoginHuhStyle(t.Focused.TextInput.Cursor, helpCommand)
 		t.Focused.TextInput.Placeholder = helpPlaceholder
 		t.Focused.TextInput.Prompt = helpCommand
+		// Buttons: focused (the selected affirmative/negative) gets the
+		// theme's command color as a solid background; blurred buttons sit
+		// quietly in dim. Inherit huh.ThemeBase's button padding/margin so
+		// only the colors change.
+		if helpCommandFg := helpCommand.GetForeground(); helpCommandFg != nil {
+			t.Focused.FocusedButton = t.Focused.FocusedButton.
+				Foreground(lipgloss.Color("0")).
+				Background(helpCommandFg).
+				Bold(true)
+		}
+		if helpDimFg := helpDim.GetForeground(); helpDimFg != nil {
+			t.Focused.BlurredButton = t.Focused.BlurredButton.
+				Foreground(helpDimFg).
+				UnsetBackground()
+		} else {
+			t.Focused.BlurredButton = t.Focused.BlurredButton.Faint(true).UnsetBackground()
+		}
 
 		t.Blurred = t.Focused
 		t.Blurred.Base = t.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
@@ -50,6 +64,13 @@ func LoginHuhTheme(th *clibtheme.Theme) huh.Theme {
 		t.Group.Description = t.Focused.Description
 		return t
 	})
+}
+
+func derefStyle(s *lipgloss.Style) lipgloss.Style {
+	if s == nil {
+		return lipgloss.NewStyle()
+	}
+	return *s
 }
 
 func mergeLoginHuhStyle(base, override lipgloss.Style) lipgloss.Style {
@@ -72,46 +93,4 @@ func mergeLoginHuhStyle(base, override lipgloss.Style) lipgloss.Style {
 		base = base.Underline(true)
 	}
 	return base
-}
-
-func loginHuhStyle(style *lipgloss.Style) lipgloss.Style {
-	if style == nil {
-		return lipgloss.NewStyle()
-	}
-	converted := lipgloss.NewStyle()
-	if style.GetBold() {
-		converted = converted.Bold(true)
-	}
-	if style.GetFaint() {
-		converted = converted.Faint(true)
-	}
-	if style.GetItalic() {
-		converted = converted.Italic(true)
-	}
-	if style.GetUnderline() {
-		converted = converted.Underline(true)
-	}
-	if foreground := LoginHuhColor(style.GetForeground()); foreground != nil {
-		converted = converted.Foreground(foreground)
-	}
-	if background := LoginHuhColor(style.GetBackground()); background != nil {
-		converted = converted.Background(background)
-	}
-	return converted
-}
-
-const colorComponentShift = 8
-
-// LoginHuhColor converts a generic image/color.Color into a hex lipgloss
-// color, returning nil for nil or NoColor inputs. Exported for tests that
-// verify clib semantic colors flow through unchanged.
-func LoginHuhColor(c color.Color) color.Color {
-	if c == nil {
-		return nil
-	}
-	if _, ok := c.(lipgloss.NoColor); ok {
-		return nil
-	}
-	r, g, b, _ := c.RGBA()
-	return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", uint8(r>>colorComponentShift), uint8(g>>colorComponentShift), uint8(b>>colorComponentShift)))
 }

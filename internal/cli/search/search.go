@@ -17,12 +17,21 @@ import (
 // Data is the result type for search messages operations.
 type Data struct {
 	Matches []clioutput.CliSearchMessage `json:"matches"`
+	Query   string                       `json:"query,omitempty"`
 	Full    bool                         `json:"-"`
 }
 
 var _ clioutput.PlainRenderer = Data{}
 
 func (d Data) WritePlain(c *clioutput.CommandContext, command string, pagination *clioutput.Pagination) error {
+	if len(d.Matches) == 0 {
+		clioutput.ApplyNumberKeyStyle(c.StdoutLogger(), "count")
+		c.ResultEvent(command).
+			Str("query", d.Query).
+			Str("count", strconv.Itoa(len(d.Matches))).
+			Msg(clioutput.ActionLabel(command))
+		return nil
+	}
 	return c.WriteSearch(command, d.Matches, d.Full, pagination)
 }
 
@@ -95,7 +104,7 @@ func runSearchMessages(cmd *cobra.Command, runtime *cliruntime.RootRuntime, quer
 		next = cliutil.StringPtr(strconv.Itoa(result.Pagination.Page + 1))
 	}
 
-	return ctx.WriteResultWithPagination("search.messages", Data{Matches: matches, Full: full}, &clioutput.Pagination{
+	return ctx.WriteResultWithPagination("search.messages", Data{Matches: matches, Query: query, Full: full}, &clioutput.Pagination{
 		Cursor:        cliutil.StringPtr(cursor),
 		NextCursor:    next,
 		HasMore:       next != nil,

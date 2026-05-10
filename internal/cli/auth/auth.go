@@ -995,7 +995,7 @@ func runAuthLogout(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspac
 	keepToken, _ := cmd.Flags().GetBool("keep-token")
 
 	if keepToken {
-		ctx.StderrLogger().Warn().Str("workspace", workspace).Msg("--keep-token preserves the credential in keychain; the token is still valid on Slack's side until manually revoked or it naturally expires")
+		ctx.StderrLogger().Info().Str("workspace", workspace).Msg("--keep-token preserves the credential in keychain; the token is still valid on Slack's side until manually revoked or it naturally expires")
 	}
 
 	if !keepToken {

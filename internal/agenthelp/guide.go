@@ -192,7 +192,7 @@ perform the task, what to parse, and which quirks matter.
 - Multi-emoji command: ` + "`slick react add --channel <channel-id> --timestamp <message-ts> --emoji thumbsup,white_check_mark,rocket --json`" + ` applies the emojis in input order. Repeat ` + "`--emoji`" + ` instead of comma-separating if a value contains a comma.
 - Remove command: ` + "`slick react remove --channel <channel-id> --timestamp <message-ts> --emoji :thumbsup: --json`" + `.
 - List command: ` + "`slick react list --channel <channel-id> --timestamp <message-ts> --json`" + `.
-- Parse: ` + "`data.mutations[]`" + ` lists ` + "`{channel, timestamp, emoji, removed, dry_run}`" + ` for each emoji applied (length 1 for the single-emoji case, length N for ordered multi-emoji); ` + "`data.target.channel`" + ` and ` + "`data.target.timestamp`" + ` identify the target. List output uses ` + "`data.reactions[]`" + ` with reaction names, counts, and users.
+- Parse: ` + "`data.mutations[]`" + ` lists ` + "`{channel, ts, emoji, removed, dry_run}`" + ` for each emoji applied (length 1 for the single-emoji case, length N for ordered multi-emoji); ` + "`data.target.channel`" + ` and ` + "`data.target.ts`" + ` identify the target. List output uses ` + "`data.reactions[]`" + ` with reaction names, counts, and users.
 - Quirks: timestamps are channel-scoped Slack strings such as ` + "`1746284582.123456`" + `.
 - Quirks: emoji may be passed as ` + "`thumbsup`" + ` or ` + "`:thumbsup:`" + `.
 - Quirks: ordered multi-emoji halts on the first failure; ` + "`data.mutations[]`" + ` will be absent on the error envelope, so retry the remaining emojis from a known-good state rather than assuming partial success.

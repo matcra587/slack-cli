@@ -36,18 +36,22 @@ var _ clioutput.PlainRenderer = UploadData{}
 func (d UploadData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	event := c.ResultEventWithStyles(command,
 		clioutput.EntityFieldStyle("channel", d.Channel),
-		clioutput.HashedFieldStyle("file_id", "file:"+d.File.ID),
+		// Seed stays "file:<id>" so file IDs hash-color into a distinct
+		// family from channel/user/etc.; the rendered field key is "id".
+		clioutput.HashedFieldStyle("id", "file:"+d.File.ID),
 	)
 	if clog.IsVerbose() || !strings.HasPrefix(d.Channel, "D") {
 		event = event.Str("channel", d.Channel)
 	}
-	event.
-		Str("file_id", d.File.ID).
-		Str("file_name", d.File.Name).
-		Int("size", d.File.Size).
-		Str("size_human", human.FormatIECBytes(float64(d.File.Size))).
-		Bool("dry_run", d.DryRun).
-		Msg(clioutput.ActionLabel(command))
+	event = event.
+		Str("id", d.File.ID).
+		Str("name", d.File.Name).
+		Str("size", human.FormatIECBytes(float64(d.File.Size))).
+		Bool("dry_run", d.DryRun)
+	if d.File.Permalink != nil {
+		event = event.Link("permalink", *d.File.Permalink, clioutput.HyperlinkText(climessage.PermalinkText(*d.File.Permalink)))
+	}
+	event.Msg(clioutput.ActionLabel(command))
 	return nil
 }
 

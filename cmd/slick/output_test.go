@@ -244,10 +244,10 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			name: "message delete",
 			cmd:  "message.delete",
 			data: deleteMessageData{
-				Channel:   "C7N2Q8L4P",
-				Timestamp: "1746284582.123456",
-				Deleted:   true,
-				DryRun:    true,
+				Channel: "C7N2Q8L4P",
+				TS:      "1746284582.123456",
+				Deleted: true,
+				DryRun:  true,
 			},
 			want: []string{
 				"Message deleted",
@@ -273,21 +273,20 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			want: []string{
 				"File uploaded",
 				"channel=C7N2Q8L4P",
-				"file_id=F123",
-				"file_name=report.txt",
-				"size=128",
-				`size_human="128 B"`,
+				"id=F123",
+				"name=report.txt",
+				`size="128 B"`,
 				"dry_run=true",
 			},
-			deny: []string{"INF", "command=file.upload"},
+			deny: []string{"INF", "command=file.upload", "file_id=", "file_name=", "size_human="},
 		},
 		{
 			name: "react add",
 			cmd:  "react.add",
 			data: reactionCommandData{Mutations: []reactionResult{{
-				Channel:   "C7N2Q8L4P",
-				Timestamp: "1746284582.123456",
-				Emoji:     "thumbsup",
+				Channel: "C7N2Q8L4P",
+				TS:      "1746284582.123456",
+				Emoji:   "thumbsup",
 			}}},
 			want: []string{
 				"Reaction added",

@@ -19,17 +19,17 @@ func isDMChannel(id string) bool { return strings.HasPrefix(id, "D") }
 
 // Target identifies the message a reaction operates on.
 type Target struct {
-	Channel   string `json:"channel"`
-	Timestamp string `json:"timestamp"`
+	Channel string `json:"channel"`
+	TS      string `json:"ts"`
 }
 
 // Result is the outcome of a single reaction add/remove operation.
 type Result struct {
-	Channel   string `json:"channel"`
-	Timestamp string `json:"timestamp"`
-	Emoji     string `json:"emoji,omitempty"`
-	Removed   bool   `json:"removed,omitempty"`
-	DryRun    bool   `json:"dry_run,omitempty"`
+	Channel string `json:"channel"`
+	TS      string `json:"ts"`
+	Emoji   string `json:"emoji,omitempty"`
+	Removed bool   `json:"removed,omitempty"`
+	DryRun  bool   `json:"dry_run,omitempty"`
 }
 
 // Data is the result type for all react subcommands. Mutations holds the
@@ -53,7 +53,7 @@ func (d Data) WritePlain(c *clioutput.CommandContext, command string, _ *clioutp
 			if showChannel(mutation.Channel) {
 				event = event.Str("channel", mutation.Channel)
 			}
-			clioutput.AddSlackTimestampFields(event, mutation.Timestamp, c.Now()).
+			clioutput.AddSlackTimestampFields(event, mutation.TS, c.Now()).
 				Str("emoji", mutation.Emoji).
 				Bool("removed", mutation.Removed).
 				Bool("dry_run", mutation.DryRun).
@@ -68,7 +68,7 @@ func (d Data) WritePlain(c *clioutput.CommandContext, command string, _ *clioutp
 	if showChannel(d.Target.Channel) {
 		event = event.Str("channel", d.Target.Channel)
 	}
-	clioutput.AddSlackTimestampFields(event, d.Target.Timestamp, c.Now()).
+	clioutput.AddSlackTimestampFields(event, d.Target.TS, c.Now()).
 		Msg(label)
 	return nil
 }
@@ -137,11 +137,11 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 		mutations := make([]Result, 0, len(emojis))
 		for _, emoji := range emojis {
 			mutations = append(mutations, Result{
-				Channel:   target.Channel,
-				Timestamp: target.Timestamp,
-				Emoji:     emoji,
-				Removed:   action == "remove",
-				DryRun:    true,
+				Channel: target.Channel,
+				TS:      target.TS,
+				Emoji:   emoji,
+				Removed: action == "remove",
+				DryRun:  true,
 			})
 		}
 		return ctx.WriteResult("react."+action, Data{Mutations: mutations, Target: target})
@@ -156,7 +156,7 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 	}
 	mutations := make([]Result, 0, len(emojis))
 	for _, emoji := range emojis {
-		ref := slackgo.NewRefToMessage(target.Channel, target.Timestamp)
+		ref := slackgo.NewRefToMessage(target.Channel, target.TS)
 		var apiErr error
 		if action == "remove" {
 			apiErr = client.RemoveReactionContext(cmd.Context(), emoji, ref)
@@ -167,10 +167,10 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), apiErr))
 		}
 		mutations = append(mutations, Result{
-			Channel:   target.Channel,
-			Timestamp: target.Timestamp,
-			Emoji:     emoji,
-			Removed:   action == "remove",
+			Channel: target.Channel,
+			TS:      target.TS,
+			Emoji:   emoji,
+			Removed: action == "remove",
 		})
 	}
 	return ctx.WriteResult("react."+action, Data{Mutations: mutations, Target: target})
@@ -193,7 +193,7 @@ func runReactionList(cmd *cobra.Command, runtime *cliruntime.RootRuntime) error 
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("reactions:read")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
-	item, err := client.GetReactionsContext(cmd.Context(), slackgo.NewRefToMessage(target.Channel, target.Timestamp), slackgo.GetReactionsParameters{})
+	item, err := client.GetReactionsContext(cmd.Context(), slackgo.NewRefToMessage(target.Channel, target.TS), slackgo.GetReactionsParameters{})
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
@@ -209,7 +209,7 @@ func reactionTargetFromFlags(cmd *cobra.Command) (Target, error) {
 	if strings.TrimSpace(timestamp) == "" {
 		return Target{}, errString("timestamp is required")
 	}
-	return Target{Channel: channel, Timestamp: timestamp}, nil
+	return Target{Channel: channel, TS: timestamp}, nil
 }
 
 func normalizeEmoji(value string) string {

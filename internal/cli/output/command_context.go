@@ -171,6 +171,21 @@ func (c *CommandContext) FinishResult(event *clog.Event, command string, paginat
 // Adding a new command? Add an entry. The TestCommandActionLabelCoverage
 // regression test in cmd/slick walks the cobra tree and fails if any leaf
 // command's dotted path lacks a label.
+//
+// A few entries below exist solely to satisfy that coverage test even
+// though their renderers do not call ActionLabel:
+//   - auth.status: StatusData renders a state-specific theme-rendered
+//     message via authStatusMessage(...), bypassing the registry.
+//   - version: versionData.WritePlain calls c.WriteString on a multi-line
+//     human-readable build summary.
+//   - manifest.template: emits raw JSON or YAML; no action-label line.
+//   - agent.guide / agent.schema: emit the workflow runbook text or the
+//     JSON schema; no action-label line.
+//
+// These stay registered so the coverage test keeps catching new leaf
+// commands that legitimately need a label. Removing them would force
+// the test to grow a parallel exception list, which is more disruptive
+// than the comment.
 var commandActionLabel = map[string]string{
 	"message.send":      "Message sent",
 	"message.edit":      "Message edited",

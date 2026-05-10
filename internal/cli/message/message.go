@@ -48,10 +48,10 @@ func (d SendData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 			if d.Message.ThreadTS != nil {
 				e.Str("thread_ts", *d.Message.ThreadTS)
 			}
-			if d.Permalink != nil {
-				e.Link("permalink", *d.Permalink, clioutput.HyperlinkText(permalinkText(*d.Permalink)))
-			}
 		})
+	if d.Permalink != nil {
+		event = event.Link("permalink", *d.Permalink, clioutput.HyperlinkText(PermalinkText(*d.Permalink)))
+	}
 	// Channel ID is opaque noise for DMs (the user typed --user); show it
 	// only for non-DM channels or under --debug.
 	if d.Message.Channel != nil && (clog.IsVerbose() || !strings.HasPrefix(channel, "D")) {
@@ -63,17 +63,17 @@ func (d SendData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 
 // DeleteData is the result type for message delete operations.
 type DeleteData struct {
-	Channel   string `json:"channel"`
-	Timestamp string `json:"timestamp"`
-	Deleted   bool   `json:"deleted"`
-	DryRun    bool   `json:"dry_run,omitempty"`
+	Channel string `json:"channel"`
+	TS      string `json:"ts"`
+	Deleted bool   `json:"deleted"`
+	DryRun  bool   `json:"dry_run,omitempty"`
 }
 
 var _ clioutput.PlainRenderer = DeleteData{}
 
 func (d DeleteData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Channel))
-	event = clioutput.AddSlackTimestampFields(event, d.Timestamp, c.Now()).
+	event = clioutput.AddSlackTimestampFields(event, d.TS, c.Now()).
 		Bool("deleted", d.Deleted).
 		Bool("dry_run", d.DryRun)
 	if clog.IsVerbose() || !strings.HasPrefix(d.Channel, "D") {
@@ -322,7 +322,7 @@ func runMessageDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRu
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("message delete requires --force unless --dry-run is used"))
 	}
 	if dryRun {
-		return ctx.WriteResult("message.delete", DeleteData{Channel: channel, Timestamp: timestamp, Deleted: true, DryRun: true})
+		return ctx.WriteResult("message.delete", DeleteData{Channel: channel, TS: timestamp, Deleted: true, DryRun: true})
 	}
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
@@ -336,9 +336,9 @@ func runMessageDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRu
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
 	return ctx.WriteResult("message.delete", DeleteData{
-		Channel:   cliutil.FirstNonEmpty(respChannel, channel),
-		Timestamp: cliutil.FirstNonEmpty(respTS, timestamp),
-		Deleted:   true,
+		Channel: cliutil.FirstNonEmpty(respChannel, channel),
+		TS:      cliutil.FirstNonEmpty(respTS, timestamp),
+		Deleted: true,
 	})
 }
 
@@ -494,11 +494,13 @@ func MessageOptions(content string, blocks []slackgo.Block, attribution ...agent
 	return options
 }
 
-// permalinkText returns the trailing message-id segment of a Slack
+// PermalinkText returns the trailing message-id segment of a Slack
 // permalink (e.g. "p1778384683937369") so terminal renderers can show a
 // short clickable label rather than the full URL. Falls back to the URL
 // itself if parsing fails or the path doesn't have the expected shape.
-func permalinkText(rawURL string) string {
+// Exported so other CLI packages (e.g. file uploads) can reuse the
+// short-label rendering for Slack URLs.
+func PermalinkText(rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Path == "" {
 		return rawURL

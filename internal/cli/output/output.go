@@ -322,15 +322,16 @@ func AddPaginationFields(event *clog.Event, pagination *Pagination) *clog.Event 
 }
 
 func AddSlackTimestampFields(event *clog.Event, ts string, now time.Time) *clog.Event {
-	return event.Str("ts", ts).
-		When(clog.IsVerbose(), func(e *clog.Event) {
-			parsed, ok := parseSlackTimestamp(ts)
-			if !ok {
-				return
-			}
-			e.Time("time", parsed).
-				Str("age", human.FormatTimeAgoCompactFrom(parsed, now))
-		})
+	event = event.Str("ts", ts)
+	parsed, ok := parseSlackTimestamp(ts)
+	if !ok {
+		return event
+	}
+	event = event.Str("age", human.FormatTimeAgoCompactFrom(parsed, now))
+	if clog.IsVerbose() {
+		event = event.Time("time", parsed)
+	}
+	return event
 }
 
 func parseSlackTimestamp(ts string) (time.Time, bool) {

@@ -3,6 +3,7 @@ package reaction
 import (
 	"strings"
 
+	"github.com/gechr/clog"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
@@ -10,6 +11,11 @@ import (
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
+
+// isDMChannel reports whether the channel id refers to a direct message
+// (D-prefix). DM channel ids are opaque to humans, so we hide them in
+// plain-mode output unless --debug is set.
+func isDMChannel(id string) bool { return strings.HasPrefix(id, "D") }
 
 // Target identifies the message a reaction operates on.
 type Target struct {
@@ -40,10 +46,13 @@ var _ clioutput.PlainRenderer = Data{}
 
 func (d Data) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	label := clioutput.ActionLabel(command)
+	showChannel := func(id string) bool { return clog.IsVerbose() || !isDMChannel(id) }
 	if len(d.Mutations) > 0 {
 		for _, mutation := range d.Mutations {
-			event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", mutation.Channel)).
-				Str("channel", mutation.Channel)
+			event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", mutation.Channel))
+			if showChannel(mutation.Channel) {
+				event = event.Str("channel", mutation.Channel)
+			}
 			clioutput.AddSlackTimestampFields(event, mutation.Timestamp, c.Now()).
 				Str("emoji", mutation.Emoji).
 				Bool("removed", mutation.Removed).
@@ -55,8 +64,10 @@ func (d Data) WritePlain(c *clioutput.CommandContext, command string, _ *clioutp
 	if len(d.Reactions) > 0 {
 		return c.WriteReactionTable(d.Reactions)
 	}
-	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Target.Channel)).
-		Str("channel", d.Target.Channel)
+	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Target.Channel))
+	if showChannel(d.Target.Channel) {
+		event = event.Str("channel", d.Target.Channel)
+	}
 	clioutput.AddSlackTimestampFields(event, d.Target.Timestamp, c.Now()).
 		Msg(label)
 	return nil

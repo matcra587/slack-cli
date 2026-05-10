@@ -34,8 +34,11 @@ type UploadData struct {
 var _ clioutput.PlainRenderer = UploadData{}
 
 func (d UploadData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
-	c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Channel)).
-		Str("channel", d.Channel).
+	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Channel))
+	if clog.IsVerbose() || !strings.HasPrefix(d.Channel, "D") {
+		event = event.Str("channel", d.Channel)
+	}
+	event.
 		Str("file_id", d.File.ID).
 		Str("file_name", d.File.Name).
 		Int("size", d.File.Size).

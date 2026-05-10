@@ -29,44 +29,79 @@ import (
 	"testing"
 )
 
+// --- message lifecycle ------------------------------------------------------
+
 func TestLiveMessageSendAndDelete(t *testing.T) {
 	env := requireLiveEnv(t)
 	binary := buildSlackBinary(t)
 	runID := newRunID(t)
 
-	body := fmt.Sprintf("phase 12 live test message — run id %s", runID)
-	stdout, stderr, err := runSlick(t, binary, env, "",
-		"message", "send",
+	channel, ts := postMessage(t, binary, env, runID, "phase 12 live send/delete")
+	cleanupMessage(t, binary, env, runID, channel, ts)
+}
+
+func TestLiveMessageEdit(t *testing.T) {
+	env := requireLiveEnv(t)
+	binary := buildSlackBinary(t)
+	runID := newRunID(t)
+
+	channel, ts := postMessage(t, binary, env, runID, "phase 12 live edit (initial)")
+	cleanupMessage(t, binary, env, runID, channel, ts)
+
+	editedBody := fmt.Sprintf("phase 12 live edit (updated) — run id %s", runID)
+	stdout, stderr, err := runSlick(t, binary, "",
+		"message", "edit",
 		"--workspace", env.workspace,
-		"--channel", env.channel,
-		"--message", body,
+		"--channel", channel,
+		"--timestamp", ts,
+		"--message", editedBody,
 		"--json",
 	)
 	if err != nil {
-		t.Fatalf("message send failed: %v\nstderr=%s", err, stderr)
+		t.Fatalf("message edit failed: %v\nstderr=%s", err, stderr)
 	}
-
 	envelope := decodeEnvelope(t, stdout)
-	channel := mustString(t, envelope, "data", "message", "channel")
-	timestamp := mustString(t, envelope, "data", "message", "ts")
-	if channel == "" || timestamp == "" {
-		t.Fatalf("missing channel/ts in envelope: %s", stdout)
+	if got := mustString(t, envelope, "data", "message", "ts"); got != ts {
+		t.Fatalf("edit returned ts=%q, want original %q", got, ts)
 	}
+	if got := mustString(t, envelope, "data", "message", "text"); got != "" && !strings.Contains(got, "updated") {
+		t.Fatalf("edit returned text=%q, want substring \"updated\"", got)
+	}
+}
 
-	t.Cleanup(func() {
-		_, cleanupStderr, cleanupErr := runSlick(t, binary, env, "",
-			"message", "delete",
-			"--workspace", env.workspace,
-			"--channel", channel,
-			"--timestamp", timestamp,
-			"--force",
-			"--json",
-		)
-		if cleanupErr != nil {
-			t.Logf("cleanup delete failed (run id %s, ts %s): %v\nstderr=%s",
-				runID, timestamp, cleanupErr, cleanupStderr)
-		}
-	})
+func TestLiveThreadReply(t *testing.T) {
+	env := requireLiveEnv(t)
+	binary := buildSlackBinary(t)
+	runID := newRunID(t)
+
+	channel, parentTS := postMessage(t, binary, env, runID, "phase 12 live thread parent")
+	cleanupMessage(t, binary, env, runID, channel, parentTS)
+
+	replyBody := fmt.Sprintf("phase 12 live thread reply — run id %s", runID)
+	stdout, stderr, err := runSlick(t, binary, "",
+		"reply",
+		"--workspace", env.workspace,
+		"--channel", channel,
+		"--parent", parentTS,
+		"--message", replyBody,
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("reply failed: %v\nstderr=%s", err, stderr)
+	}
+	envelope := decodeEnvelope(t, stdout)
+	replyTS := mustString(t, envelope, "data", "message", "ts")
+	if replyTS == "" {
+		t.Fatalf("reply envelope missing ts: %s", stdout)
+	}
+	if replyTS == parentTS {
+		t.Fatalf("reply ts %q equals parent ts; expected a distinct thread reply", replyTS)
+	}
+	// Slack thread_ts on the reply should equal the parent ts; the deleting
+	// the parent cascades the thread, no separate cleanup needed.
+	if got := mustString(t, envelope, "data", "message", "thread_ts"); got != "" && got != parentTS {
+		t.Fatalf("reply thread_ts=%q, want parent %q", got, parentTS)
+	}
 }
 
 func TestLiveReactionAddAndRemove(t *testing.T) {
@@ -74,61 +109,253 @@ func TestLiveReactionAddAndRemove(t *testing.T) {
 	binary := buildSlackBinary(t)
 	runID := newRunID(t)
 
-	body := fmt.Sprintf("phase 12 live reaction test — run id %s", runID)
-	sendOut, sendErr, err := runSlick(t, binary, env, "",
-		"message", "send",
-		"--workspace", env.workspace,
-		"--channel", env.channel,
-		"--message", body,
-		"--json",
-	)
-	if err != nil {
-		t.Fatalf("parent message send failed: %v\nstderr=%s", err, sendErr)
-	}
-	envelope := decodeEnvelope(t, sendOut)
-	channel := mustString(t, envelope, "data", "message", "channel")
-	timestamp := mustString(t, envelope, "data", "message", "ts")
-
-	t.Cleanup(func() {
-		_, cleanupStderr, cleanupErr := runSlick(t, binary, env, "",
-			"message", "delete",
-			"--workspace", env.workspace,
-			"--channel", channel,
-			"--timestamp", timestamp,
-			"--force",
-			"--json",
-		)
-		if cleanupErr != nil {
-			t.Logf("cleanup delete failed (run id %s, ts %s): %v\nstderr=%s",
-				runID, timestamp, cleanupErr, cleanupStderr)
-		}
-	})
+	channel, ts := postMessage(t, binary, env, runID, "phase 12 live reaction parent")
+	cleanupMessage(t, binary, env, runID, channel, ts)
 
 	const emojis = "white_check_mark,rocket,sparkles"
-	_, reactStderr, err := runSlick(t, binary, env, "",
+	if _, stderr, err := runSlick(t, binary, "",
 		"react", "add",
 		"--workspace", env.workspace,
 		"--channel", channel,
-		"--timestamp", timestamp,
+		"--timestamp", ts,
 		"--emoji", emojis,
 		"--json",
-	)
-	if err != nil {
-		t.Fatalf("react add failed: %v\nstderr=%s", err, reactStderr)
+	); err != nil {
+		t.Fatalf("react add failed: %v\nstderr=%s", err, stderr)
 	}
 
-	_, removeStderr, err := runSlick(t, binary, env, "",
+	if _, stderr, err := runSlick(t, binary, "",
 		"react", "remove",
 		"--workspace", env.workspace,
 		"--channel", channel,
-		"--timestamp", timestamp,
+		"--timestamp", ts,
 		"--emoji", emojis,
+		"--json",
+	); err != nil {
+		t.Fatalf("react remove failed: %v\nstderr=%s", err, stderr)
+	}
+}
+
+// --- discovery --------------------------------------------------------------
+
+func TestLiveHistoryList(t *testing.T) {
+	env := requireLiveEnv(t)
+	binary := buildSlackBinary(t)
+	runID := newRunID(t)
+
+	want := map[string]bool{}
+	for i := 0; i < 2; i++ {
+		_, ts := postMessage(t, binary, env, runID, fmt.Sprintf("phase 12 live history #%d", i+1))
+		cleanupMessage(t, binary, env, runID, env.channel, ts)
+		want[ts] = true
+	}
+
+	stdout, stderr, err := runSlick(t, binary, "",
+		"history", "list",
+		"--workspace", env.workspace,
+		"--channel", env.channel,
+		"--max-items", "20",
 		"--json",
 	)
 	if err != nil {
-		t.Fatalf("react remove failed: %v\nstderr=%s", err, removeStderr)
+		t.Fatalf("history list failed: %v\nstderr=%s", err, stderr)
+	}
+	envelope := decodeEnvelope(t, stdout)
+	messages := envelope["data"].(map[string]any)["messages"]
+	got := map[string]bool{}
+	for _, raw := range messages.([]any) {
+		msg := raw.(map[string]any)
+		if ts, ok := msg["ts"].(string); ok {
+			got[ts] = true
+		}
+	}
+	for ts := range want {
+		if !got[ts] {
+			t.Fatalf("history did not return ts=%s; got=%v", ts, got)
+		}
 	}
 }
+
+func TestLiveSearchMessagesCommandWorks(t *testing.T) {
+	env := requireLiveEnv(t)
+	binary := buildSlackBinary(t)
+	runID := newRunID(t)
+
+	// Slack search.messages is asynchronously indexed; results may take
+	// seconds to minutes to appear. The test verifies the command path
+	// (auth, scope, envelope shape) rather than result content.
+	channel, ts := postMessage(t, binary, env, runID, "phase 12 live search seed")
+	cleanupMessage(t, binary, env, runID, channel, ts)
+
+	stdout, stderr, err := runSlick(t, binary, "",
+		"lookup", "messages",
+		"--workspace", env.workspace,
+		"--query", runID,
+		"--max-items", "5",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("lookup messages failed: %v\nstderr=%s", err, stderr)
+	}
+	envelope := decodeEnvelope(t, stdout)
+	if _, ok := envelope["data"].(map[string]any)["messages"]; !ok {
+		t.Fatalf("envelope missing data.messages: %s", stdout)
+	}
+}
+
+func TestLiveCachePopulate(t *testing.T) {
+	env := requireLiveEnv(t)
+	binary := buildSlackBinary(t)
+
+	for _, resource := range []string{"users", "channels"} {
+		stdout, stderr, err := runSlick(t, binary, "",
+			"cache", resource,
+			"--workspace", env.workspace,
+			"--refresh",
+			"--json",
+		)
+		if err != nil {
+			t.Fatalf("cache %s failed: %v\nstderr=%s", resource, err, stderr)
+		}
+		envelope := decodeEnvelope(t, stdout)
+		data, ok := envelope["data"].(map[string]any)
+		if !ok {
+			t.Fatalf("cache %s envelope missing data: %s", resource, stdout)
+		}
+		items, ok := data[resource].([]any)
+		if !ok {
+			t.Fatalf("cache %s envelope missing data.%s array: %s", resource, resource, stdout)
+		}
+		if len(items) == 0 {
+			t.Fatalf("cache %s returned 0 items; expected at least one", resource)
+		}
+	}
+}
+
+// --- profile mutation -------------------------------------------------------
+
+func TestLiveStatusSetAndClear(t *testing.T) {
+	env := requireLiveEnv(t)
+	binary := buildSlackBinary(t)
+	runID := newRunID(t)
+
+	statusText := fmt.Sprintf("phase 12 live status %s", runID)
+	t.Cleanup(func() {
+		_, stderr, err := runSlick(t, binary, "",
+			"status", "clear",
+			"--workspace", env.workspace,
+			"--json",
+		)
+		if err != nil {
+			t.Logf("cleanup status clear failed (run id %s): %v\nstderr=%s", runID, err, stderr)
+		}
+	})
+
+	stdout, stderr, err := runSlick(t, binary, "",
+		"status", "set",
+		"--workspace", env.workspace,
+		"--text", statusText,
+		"--emoji", "test_tube",
+		"--expires-in", "5m",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("status set failed: %v\nstderr=%s", err, stderr)
+	}
+	envelope := decodeEnvelope(t, stdout)
+	if got := mustString(t, envelope, "data", "status_text"); got != "" && got != statusText {
+		t.Fatalf("status_text=%q, want %q", got, statusText)
+	}
+
+	if _, stderr, err := runSlick(t, binary, "",
+		"status", "clear",
+		"--workspace", env.workspace,
+		"--json",
+	); err != nil {
+		t.Fatalf("status clear failed: %v\nstderr=%s", err, stderr)
+	}
+}
+
+// --- output mode sweep ------------------------------------------------------
+
+func TestLiveOutputModesProduceExpectedShapes(t *testing.T) {
+	env := requireLiveEnv(t)
+	binary := buildSlackBinary(t)
+	runID := newRunID(t)
+
+	cases := []struct {
+		name      string
+		flag      string
+		assertion func(t *testing.T, stdout string)
+	}{
+		{
+			name: "json",
+			flag: "--json",
+			assertion: func(t *testing.T, stdout string) {
+				envelope := decodeEnvelope(t, stdout)
+				if _, ok := envelope["meta"].(map[string]any); !ok {
+					t.Fatalf("--json output missing meta envelope: %s", stdout)
+				}
+			},
+		},
+		{
+			name: "compact",
+			flag: "--compact",
+			assertion: func(t *testing.T, stdout string) {
+				var data map[string]any
+				if err := json.Unmarshal([]byte(stdout), &data); err != nil {
+					t.Fatalf("--compact output is not JSON: %v\n%s", err, stdout)
+				}
+				if _, hasMeta := data["meta"]; hasMeta {
+					t.Fatalf("--compact output should not include meta envelope: %s", stdout)
+				}
+				if _, hasMessage := data["message"]; !hasMessage {
+					t.Fatalf("--compact output missing message field: %s", stdout)
+				}
+			},
+		},
+		{
+			name: "plain",
+			flag: "--plain",
+			assertion: func(t *testing.T, stdout string) {
+				trimmed := strings.TrimSpace(stdout)
+				if strings.HasPrefix(trimmed, "{") {
+					t.Fatalf("--plain output looks like JSON: %s", stdout)
+				}
+				if trimmed == "" {
+					t.Fatalf("--plain output empty")
+				}
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body := fmt.Sprintf("phase 12 live output mode %s — run id %s", tc.name, runID)
+			stdout, stderr, err := runSlick(t, binary, "",
+				"message", "send",
+				"--workspace", env.workspace,
+				"--channel", env.channel,
+				"--message", body,
+				tc.flag,
+			)
+			if err != nil {
+				t.Fatalf("message send (%s) failed: %v\nstderr=%s", tc.name, err, stderr)
+			}
+			tc.assertion(t, stdout)
+
+			// Plain and compact modes don't emit a structured ts/channel that the
+			// envelope path uses; re-fetch from history to clean up so we don't
+			// leave residue regardless of output mode.
+			channel, ts := lookupRecentByText(t, binary, env, body)
+			if ts != "" {
+				cleanupMessage(t, binary, env, runID, channel, ts)
+			}
+		})
+	}
+}
+
+// --- helpers ----------------------------------------------------------------
 
 type liveEnv struct {
 	workspace string
@@ -161,7 +388,7 @@ func buildSlackBinary(t *testing.T) string {
 	return binary
 }
 
-func runSlick(t *testing.T, binary string, _ liveEnv, stdin string, args ...string) (string, string, error) {
+func runSlick(t *testing.T, binary, stdin string, args ...string) (string, string, error) {
 	t.Helper()
 	cmd := exec.Command(binary, args...)
 	cmd.Env = os.Environ()
@@ -171,6 +398,88 @@ func runSlick(t *testing.T, binary string, _ liveEnv, stdin string, args ...stri
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	return stdout.String(), stderr.String(), err
+}
+
+func postMessage(t *testing.T, binary string, env liveEnv, runID, label string) (channel, ts string) {
+	t.Helper()
+	body := fmt.Sprintf("%s — run id %s", label, runID)
+	stdout, stderr, err := runSlick(t, binary, "",
+		"message", "send",
+		"--workspace", env.workspace,
+		"--channel", env.channel,
+		"--message", body,
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("postMessage(%q) failed: %v\nstderr=%s", label, err, stderr)
+	}
+	envelope := decodeEnvelope(t, stdout)
+	channel = mustString(t, envelope, "data", "message", "channel")
+	ts = mustString(t, envelope, "data", "message", "ts")
+	if channel == "" || ts == "" {
+		t.Fatalf("postMessage(%q) envelope missing channel/ts: %s", label, stdout)
+	}
+	return channel, ts
+}
+
+func cleanupMessage(t *testing.T, binary string, env liveEnv, runID, channel, ts string) {
+	t.Helper()
+	t.Cleanup(func() {
+		_, stderr, err := runSlick(t, binary, "",
+			"message", "delete",
+			"--workspace", env.workspace,
+			"--channel", channel,
+			"--timestamp", ts,
+			"--force",
+			"--json",
+		)
+		if err != nil {
+			t.Logf("cleanup delete failed (run id %s, channel %s, ts %s): %v\nstderr=%s",
+				runID, channel, ts, err, stderr)
+		}
+	})
+}
+
+// lookupRecentByText scans recent channel history for the supplied exact text
+// and returns its (channel, ts) for cleanup. Returns ("", "") if no match.
+// Used by output-mode tests where the command output doesn't reveal ts/channel.
+func lookupRecentByText(t *testing.T, binary string, env liveEnv, text string) (string, string) {
+	t.Helper()
+	stdout, stderr, err := runSlick(t, binary, "",
+		"history", "list",
+		"--workspace", env.workspace,
+		"--channel", env.channel,
+		"--max-items", "20",
+		"--json",
+	)
+	if err != nil {
+		t.Logf("lookupRecentByText history list failed: %v\nstderr=%s", err, stderr)
+		return "", ""
+	}
+	envelope := decodeEnvelope(t, stdout)
+	data, ok := envelope["data"].(map[string]any)
+	if !ok {
+		return "", ""
+	}
+	messages, ok := data["messages"].([]any)
+	if !ok {
+		return "", ""
+	}
+	for _, raw := range messages {
+		msg, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if msgText, _ := msg["text"].(string); msgText == text {
+			ts, _ := msg["ts"].(string)
+			channel, _ := msg["channel"].(string)
+			if channel == "" {
+				channel = env.channel
+			}
+			return channel, ts
+		}
+	}
+	return "", ""
 }
 
 func repoRoot(t *testing.T) string {

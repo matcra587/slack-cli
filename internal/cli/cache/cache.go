@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gechr/clog"
-	"github.com/gechr/x/human"
 	slackcache "github.com/matcra587/slack-cli/internal/cache"
 	clichannel "github.com/matcra587/slack-cli/internal/cli/channel"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
@@ -118,6 +117,10 @@ func (d ChannelsData) WritePlain(c *clioutput.CommandContext, command string, _ 
 }
 
 func writeCacheSummary(c *clioutput.CommandContext, command, profile, resource string, count int, fromCache, truncated bool, fetchedAt time.Time) {
+	logger := c.StdoutLogger()
+	clioutput.ApplyFieldStyles(logger, c.Theme,
+		clioutput.HashedFieldStyle("profile", "workspace:"+profile),
+	)
 	event := c.ResultEvent(command).
 		Str("profile", profile).
 		Str("resource", resource).
@@ -127,7 +130,7 @@ func writeCacheSummary(c *clioutput.CommandContext, command, profile, resource s
 	// Only show fetched_at when serving from cache; for a fresh fetch
 	// from_cache=false already says "just now".
 	if fromCache && !fetchedAt.IsZero() {
-		event = event.Str("fetched_at", human.FormatTimeAgoCompactFrom(fetchedAt, c.Now()))
+		event = event.Time("fetched_at", fetchedAt)
 	}
 	event.Msg(clioutput.ActionLabel(command))
 }
@@ -135,6 +138,10 @@ func writeCacheSummary(c *clioutput.CommandContext, command, profile, resource s
 var _ clioutput.PlainRenderer = ClearData{}
 
 func (d ClearData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	logger := c.StdoutLogger()
+	clioutput.ApplyFieldStyles(logger, c.Theme,
+		clioutput.HashedFieldStyle("profile", "workspace:"+d.Profile),
+	)
 	// "cache clear <resource>" — single explicit resource.
 	if d.Resource != "" {
 		event := c.ResultEvent(command).Str("profile", d.Profile).Str("resource", d.Resource).Bool("removed", d.Removed)

@@ -173,6 +173,13 @@ func (c *CommandContext) numberCell(value *int) table.Cell {
 	return table.StyledCell(style.Render(text), text)
 }
 
+// numberCellInt is the value-typed sibling of numberCell for callers that
+// hold a plain int and never need an "absent" empty cell. Behavior is
+// otherwise identical: clog FieldNumber styling, with zero rendered dim.
+func (c *CommandContext) numberCellInt(value int) table.Cell {
+	return c.numberCell(&value)
+}
+
 // boolStateCell renders a boolean as styled text where true is the
 // "alarming" state (red) and false is "ok" (green). Empty input renders
 // as an empty cell.
@@ -306,15 +313,45 @@ func usersHavePresence(users []CliUser) bool {
 
 func (c *CommandContext) WriteReactionTable(reactions []CliReactionSummary) error {
 	columns := []table.Column[CliReactionSummary]{
-		{Name: "emoji", Header: "EMOJI", Render: func(row CliReactionSummary, _ *table.RenderContext) table.Cell { return table.TextCell(row.Name) }},
+		{Name: "emoji", Header: "EMOJI", Render: func(row CliReactionSummary, _ *table.RenderContext) table.Cell {
+			return c.hashCell("emoji:"+row.Name, row.Name)
+		}},
 		{Name: "count", Header: "COUNT", Render: func(row CliReactionSummary, _ *table.RenderContext) table.Cell {
-			return table.TextCell(strconv.Itoa(row.Count))
+			return c.numberCellInt(row.Count)
 		}},
 		{Name: "users", Header: "USERS", Flex: true, Render: func(row CliReactionSummary, _ *table.RenderContext) table.Cell {
-			return table.TextCell(strings.Join(row.Users, ","))
+			return c.reactionUsersCell(row.Users)
 		}},
 	}
 	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(reactions).String())
+}
+
+// reactionUsersCell hash-colors each comma-separated user ID using the
+// shared "user:<id>" seed so the same user is the same color across all
+// rows and across the message/search tables. Falls back to plain joined
+// text when styling is disabled.
+func (c *CommandContext) reactionUsersCell(users []string) table.Cell {
+	if len(users) == 0 {
+		return table.TextCell("")
+	}
+	plain := strings.Join(users, ",")
+	if !c.tableStyled() {
+		return table.TextCell(plain)
+	}
+	rendered := make([]string, 0, len(users))
+	for _, id := range users {
+		if id == "" {
+			rendered = append(rendered, "")
+			continue
+		}
+		style := HashEntityStyle(c.Theme, "user:"+id)
+		if style == nil {
+			rendered = append(rendered, id)
+			continue
+		}
+		rendered = append(rendered, style.Render(id))
+	}
+	return table.StyledCell(strings.Join(rendered, ","), plain)
 }
 
 // ConfigEntry is a key/value pair for the config list table. Defined here
@@ -383,7 +420,7 @@ func (c *CommandContext) WriteWorkspaceTable(workspaces []config.WorkspaceProfil
 			return table.TextCell(row.TeamName)
 		}},
 		{Name: "token", Header: "TOKEN", Render: func(row config.WorkspaceProfile, _ *table.RenderContext) table.Cell {
-			return table.TextCell(string(row.TokenType))
+			return c.hashCell("token_type:"+string(row.TokenType), string(row.TokenType))
 		}},
 	}
 	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(workspaces).String())

@@ -54,14 +54,19 @@ type StatusData struct {
 var _ clioutput.PlainRenderer = WorkspaceData{}
 
 func (d WorkspaceData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	logger := c.StdoutLogger()
 	if d.TeamID != "" {
-		clioutput.ApplyTeamIDStyle(c.StdoutLogger(), c.Theme, d.TeamID)
+		clioutput.ApplyTeamIDStyle(logger, c.Theme, d.TeamID)
 	}
+	clioutput.ApplyFieldStyles(logger, c.Theme,
+		clioutput.EntityFieldStyle("workspace", d.Workspace),
+		clioutput.HashedFieldStyle("token_type", "token_type:"+string(d.TokenType)),
+	)
 	// clog's OmitZero=true would strip a literal Bool("authenticated", false),
 	// hiding the field after `auth logout`. Render it as a string so the field
 	// always appears, and apply state coloring (green=true, red=false) so the
 	// auth state is visually obvious.
-	clioutput.ApplyBoolValueStyle(c.StdoutLogger(), c.Theme, "authenticated", d.Authenticated)
+	clioutput.ApplyBoolValueStyle(logger, c.Theme, "authenticated", d.Authenticated)
 	event := c.ResultEvent(command).
 		Str("workspace", d.Workspace).
 		Str("authenticated", strconv.FormatBool(d.Authenticated)).
@@ -89,6 +94,10 @@ func (d StatusData) WritePlain(c *clioutput.CommandContext, _ string, _ *clioutp
 		if workspace.TeamID != "" {
 			clioutput.ApplyTeamIDStyle(logger, c.Theme, workspace.TeamID)
 		}
+		clioutput.ApplyFieldStyles(logger, c.Theme,
+			clioutput.EntityFieldStyle("workspace", workspace.Workspace),
+			clioutput.HashedFieldStyle("token_type", "token_type:"+string(workspace.TokenType)),
+		)
 		// Render authenticated as a string so OmitZero=true does not strip
 		// the false case, and color it (green=true, red=false) so the auth
 		// state is visible in the field list as well as the message label.

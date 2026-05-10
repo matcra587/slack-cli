@@ -47,6 +47,10 @@ type InitData struct {
 var _ clioutput.PlainRenderer = InitData{}
 
 func (d InitData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	clioutput.ApplyFieldStyles(c.StdoutLogger(), c.Theme,
+		clioutput.HashedFieldStyle("profile", "workspace:"+d.Profile),
+		clioutput.EntityFieldStyle("workspace", d.Workspace),
+	)
 	c.ResultEvent(command).
 		Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
 		Str("profile", d.Profile).
@@ -90,6 +94,9 @@ var _ clioutput.PlainRenderer = ListData{}
 
 func (d ListData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	if len(d.Settings) == 0 || clog.IsVerbose() {
+		clioutput.ApplyFieldStyles(c.StdoutLogger(), c.Theme,
+			clioutput.HashedFieldStyle("default_workspace", "workspace:"+d.DefaultWorkspace),
+		)
 		c.ResultEvent(command).
 			Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
 			Str("default_workspace", d.DefaultWorkspace).
@@ -141,11 +148,18 @@ type MutationData struct {
 var _ clioutput.PlainRenderer = MutationData{}
 
 func (d MutationData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
-	c.ResultEvent(command).
+	// Style the value field for the set case; omit the field entirely when
+	// unsetting since "value=" reads as noise when there is no value to
+	// display. (The set/unset distinction is also encoded in the command
+	// label and the JSON envelope's meta.command.)
+	clioutput.ApplyConfigValueStyle(c.StdoutLogger(), c.Theme, "value", d.Value)
+	event := c.ResultEvent(command).
 		Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
-		Str("key", d.Key).
-		Str("value", d.Value).
-		Msg(clioutput.ActionLabel(command))
+		Str("key", d.Key)
+	if d.Value != "" {
+		event = event.Str("value", d.Value)
+	}
+	event.Msg(clioutput.ActionLabel(command))
 	return nil
 }
 

@@ -36,13 +36,20 @@ var _ clioutput.PlainRenderer = InfoData{}
 
 func (d InfoData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	ch := d.Channel
-	event := c.ResultEventWithStyles(command,
+	styles := []clioutput.FieldStyle{
 		clioutput.EntityFieldStyle("channel", ch.ID),
 		clioutput.HashedFieldStyle("type", "channel_type:"+ch.Type),
-	).
+	}
+	if ch.User != nil {
+		styles = append(styles, clioutput.EntityFieldStyle("user", *ch.User))
+	}
+	event := c.ResultEventWithStyles(command, styles...).
 		Str("channel", ch.ID).
 		Str("name", ch.Name).
 		Str("type", ch.Type)
+	if ch.IsMember != nil {
+		clioutput.ApplyBoolStateStyle(c.StdoutLogger(), c.Theme, "is_member", *ch.IsMember)
+	}
 	event = clioutput.AddBoolField(event, "is_member", ch.IsMember)
 	event = clioutput.AddBoolField(event, "is_im", ch.IsIM)
 	if ch.IsArchived != nil {

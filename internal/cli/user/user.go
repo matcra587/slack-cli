@@ -36,6 +36,9 @@ func (d InfoData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("user", user.ID)).
 		Str("user", user.ID).
 		Str("name", user.Name)
+	if user.Deleted != nil {
+		clioutput.ApplyBoolStateStyle(c.StdoutLogger(), c.Theme, "deleted", *user.Deleted)
+	}
 	event = clioutput.AddBoolField(event, "deleted", user.Deleted)
 	if user.Timezone != nil {
 		clioutput.ApplyPreStyledKey(c.StdoutLogger(), "timezone")

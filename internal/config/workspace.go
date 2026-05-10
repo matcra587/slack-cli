@@ -82,6 +82,10 @@ func (c *Config) ResolveWorkspace(name string) (WorkspaceProfile, error) {
 	if err := c.Validate(); err != nil {
 		return WorkspaceProfile{}, err
 	}
+	// Stored keys are cleaned at the marshal boundary by cleanWorkspaceKeys,
+	// but caller-supplied names (flags, env vars, args) arrive raw — trim
+	// here so a user typing `--workspace 'default '` still resolves.
+	name = strings.TrimSpace(name)
 	if name == "" {
 		name = c.DefaultWorkspace
 	}
@@ -96,6 +100,7 @@ func (c *Config) ResolveWorkspaceName(name string) (string, error) {
 	if err := c.Validate(); err != nil {
 		return "", err
 	}
+	name = strings.TrimSpace(name)
 	if name == "" {
 		name = c.DefaultWorkspace
 	}

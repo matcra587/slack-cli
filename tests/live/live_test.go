@@ -46,7 +46,15 @@ func TestLiveMessageSendAndDelete(t *testing.T) {
 	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
 
-	channel, ts := postMessage(t, binary, env, runID, "phase 12 live send/delete")
+	body := fmt.Sprintf(`live-send-%s PR review: github.com/matcra587/slack-cli/pull/42
+
+Summary
+- CLI behavior looks right for normal message send/edit/reply flows.
+- Rate-limit handling is structured, but process-level fanout can still hit Slack 429s.
+- Markdown rendering is fixed: *bold*, _italic_, `+"`code`"+`, and 🫎 all render through Block Kit.
+
+LGTM after the docs note lands. 👀`, runID)
+	channel, ts := postMessage(t, binary, env, body)
 	cleanupMessage(t, binary, env, runID, channel, ts)
 }
 
@@ -55,16 +63,29 @@ func TestLiveMessageEdit(t *testing.T) {
 	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
 
-	channel, ts := postMessage(t, binary, env, runID, "phase 12 live edit (initial)")
+	initial := fmt.Sprintf(`live-edit-%s incident report — *INVESTIGATING*
+
+Symptom: elevated 429s on `+"`chat.postMessage`"+` since 23:00 UTC.
+Hypothesis: process-level fanout missing the special-tier route.
+Next: route the call through the throttler's `+"`tier_special`"+` bucket.`, runID)
+	channel, ts := postMessage(t, binary, env, initial)
 	cleanupMessage(t, binary, env, runID, channel, ts)
 
-	editedBody := fmt.Sprintf("phase 12 live edit (updated) — run id %s", runID)
+	updated := fmt.Sprintf(`live-edit-%s incident report — *RESOLVED*
+
+Root cause: `+"`chat.postMessage`"+` was on the default tier; bursts spilled into 429.
+Fix: PR #42 routes the call through `+"`tier_special`"+`. Deployed at 23:42 UTC.
+Action items:
+1. Add a live-test note for same-channel burst behavior.
+2. Document the fanout limitation in CLAUDE.md.
+
+Closing — incident over. 🫡`, runID)
 	stdout, stderr, err := runSlick(t, binary, "",
 		"message", "edit",
 		"--workspace", env.workspace,
 		"--channel", channel,
 		"--timestamp", ts,
-		"--message", editedBody,
+		"--message", updated,
 		"--json",
 	)
 	if err != nil {
@@ -74,8 +95,8 @@ func TestLiveMessageEdit(t *testing.T) {
 	if got := mustString(t, envelope, "data", "message", "ts"); got != ts {
 		t.Fatalf("edit returned ts=%q, want original %q", got, ts)
 	}
-	if got := mustString(t, envelope, "data", "message", "text"); got != "" && !strings.Contains(got, "updated") {
-		t.Fatalf("edit returned text=%q, want substring \"updated\"", got)
+	if got := mustString(t, envelope, "data", "message", "text"); got != "" && !strings.Contains(got, "RESOLVED") {
+		t.Fatalf("edit returned text=%q, want substring \"RESOLVED\"", got)
 	}
 }
 
@@ -84,10 +105,16 @@ func TestLiveThreadReply(t *testing.T) {
 	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
 
-	channel, parentTS := postMessage(t, binary, env, runID, "phase 12 live thread parent")
+	parent := fmt.Sprintf(`live-reply-%s PR review: github.com/matcra587/slack-cli/pull/43
+
+Requested changes
+1. Move `+"`chat.postMessage`"+` to Slack's special tier.
+2. Keep cross-process locking out for now; document the fanout limitation instead.
+3. Add one live-test note showing same-channel burst behavior.`, runID)
+	channel, parentTS := postMessage(t, binary, env, parent)
 	cleanupMessage(t, binary, env, runID, channel, parentTS)
 
-	replyBody := fmt.Sprintf("phase 12 live thread reply — run id %s", runID)
+	replyBody := fmt.Sprintf("live-reply-%s Done — pushed the docs note in commit `abc1234`. Closing the loop on item 3. 👍", runID)
 	stdout, stderr, err := runSlick(t, binary, "",
 		"reply",
 		"--workspace", env.workspace,
@@ -119,7 +146,14 @@ func TestLiveReactionAddAndRemove(t *testing.T) {
 	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
 
-	channel, ts := postMessage(t, binary, env, runID, "phase 12 live reaction parent")
+	body := fmt.Sprintf(`live-react-%s Release notes — slick v0.4.0
+
+- Added: ordered multi-emoji react support (`+"`react add --emoji thumbsup,rocket,sparkles`"+`).
+- Added: live test matrix gated by the `+"`live`"+` build tag (`+"`mise run test:live`"+`).
+- Fixed: Markdown bold/italic/code rendering through Block Kit.
+
+Approve with 🚀 once you've smoked it locally.`, runID)
+	channel, ts := postMessage(t, binary, env, body)
 	cleanupMessage(t, binary, env, runID, channel, ts)
 
 	const emojis = "white_check_mark,rocket,sparkles"
@@ -146,6 +180,69 @@ func TestLiveReactionAddAndRemove(t *testing.T) {
 	}
 }
 
+// --- markdown rendering -----------------------------------------------------
+
+// TestLiveMarkdownRoundTripsThroughBlockKit verifies that markdown features
+// (bold, italic, code spans, bulleted + numbered lists, unicode emoji) sent
+// via `slick message send` survive the Block Kit conversion: the message
+// posted to Slack has a non-empty `blocks` payload when read back through
+// `slick history list`. Slack's `text` field flattens visual formatting, so
+// the assertion is on the structured `blocks` instead.
+func TestLiveMarkdownRoundTripsThroughBlockKit(t *testing.T) {
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
+	runID := newRunID(t)
+
+	body := fmt.Sprintf(`live-markdown-%s Markdown coverage probe
+
+Inline marks: *bold*, _italic_, `+"`code`"+`, and 🫎 unicode emoji.
+
+Bulleted list:
+- alpha
+- bravo
+- charlie
+
+Numbered list:
+1. first
+2. second
+3. third
+
+Closing line — testing rich_text round-trip through Block Kit.`, runID)
+	channel, ts := postMessage(t, binary, env, body)
+	cleanupMessage(t, binary, env, runID, channel, ts)
+
+	stdout, stderr, err := runSlick(t, binary, "",
+		"history", "list",
+		"--workspace", env.workspace,
+		"--channel", env.channel,
+		"--max-items", "10",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("history list failed: %v\nstderr=%s", err, stderr)
+	}
+	envelope := decodeEnvelope(t, stdout)
+	messages, ok := envelope["data"].(map[string]any)["messages"].([]any)
+	if !ok {
+		t.Fatalf("envelope missing data.messages array: %s", stdout)
+	}
+	var found map[string]any
+	for _, raw := range messages {
+		msg := raw.(map[string]any)
+		if msg["ts"] == ts {
+			found = msg
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("history list did not return ts=%s", ts)
+	}
+	blocks, ok := found["blocks"].([]any)
+	if !ok || len(blocks) == 0 {
+		t.Fatalf("message ts=%s missing/empty blocks payload (markdown→Block Kit pipeline likely skipped): %v", ts, found)
+	}
+}
+
 // --- discovery --------------------------------------------------------------
 
 func TestLiveHistoryList(t *testing.T) {
@@ -154,8 +251,22 @@ func TestLiveHistoryList(t *testing.T) {
 	runID := newRunID(t)
 
 	want := map[string]bool{}
-	for i := 0; i < 2; i++ {
-		_, ts := postMessage(t, binary, env, runID, fmt.Sprintf("phase 12 live history #%d", i+1))
+	updates := []string{
+		fmt.Sprintf(`live-history-%s Deploy update — *starting* slick v0.4.0 rollout
+
+Touching:
+- `+"`internal/cli/runtime`"+` (NowFunc/RequestIDFunc cleanup)
+- `+"`tests/live`"+` (matrix expansion)
+Watch this thread for ETA.`, runID),
+		fmt.Sprintf(`live-history-%s Deploy update — *complete* slick v0.4.0 is live
+
+Smoke checks:
+1. `+"`mise run test:live`"+` → all green except status (scope-gated).
+2. `+"`mise run check`"+` → 0 issues.
+Closing the deploy thread. 🟢`, runID),
+	}
+	for _, body := range updates {
+		_, ts := postMessage(t, binary, env, body)
 		cleanupMessage(t, binary, env, runID, env.channel, ts)
 		want[ts] = true
 	}
@@ -194,7 +305,11 @@ func TestLiveSearchMessagesCommandWorks(t *testing.T) {
 	// Slack search.messages is asynchronously indexed; results may take
 	// seconds to minutes to appear. The test verifies the command path
 	// (auth, scope, envelope shape) rather than result content.
-	channel, ts := postMessage(t, binary, env, runID, "phase 12 live search seed")
+	body := fmt.Sprintf(`live-search-%s Slack indexing seed — search.messages is asynchronously indexed
+
+This message exists so the search command path (auth, scope, envelope) is exercised.
+The test does not assert on result content because indexing latency is unbounded.`, runID)
+	channel, ts := postMessage(t, binary, env, body)
 	cleanupMessage(t, binary, env, runID, channel, ts)
 
 	stdout, stderr, err := runSlick(t, binary, "",
@@ -249,7 +364,7 @@ func TestLiveStatusSetAndClear(t *testing.T) {
 	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
 
-	statusText := fmt.Sprintf("phase 12 live status %s", runID)
+	statusText := fmt.Sprintf("Heads down — slick v0.4 release prep (live-status-%s)", runID)
 	t.Cleanup(func() {
 		_, stderr, err := runSlick(t, binary, "",
 			"status", "clear",
@@ -344,7 +459,10 @@ func TestLiveOutputModesProduceExpectedShapes(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			body := fmt.Sprintf("phase 12 live output mode %s — run id %s", tc.name, runID)
+			body := fmt.Sprintf(`live-output-%s-%s Output mode probe — *%s*
+
+Verifying that `+"`message send`"+` emits the expected envelope shape for `+"`%s`"+` mode.
+This message is short on purpose so the assertion path is the focus.`, runID, tc.name, tc.name, tc.name)
 			stdout, stderr, err := runSlick(t, binary, "",
 				"message", "send",
 				"--workspace", env.workspace,
@@ -464,9 +582,11 @@ func runSlick(t *testing.T, binary, stdin string, args ...string) (string, strin
 	return stdout.String(), stderr.String(), err
 }
 
-func postMessage(t *testing.T, binary string, env liveEnv, runID, label string) (channel, ts string) {
+// postMessage sends body to env.channel and returns (channel, ts) from the
+// envelope. body should embed the runID on its first line so manual triage
+// can grep for residue when cleanup fails.
+func postMessage(t *testing.T, binary string, env liveEnv, body string) (channel, ts string) {
 	t.Helper()
-	body := fmt.Sprintf("%s — run id %s", label, runID)
 	stdout, stderr, err := runSlick(t, binary, "",
 		"message", "send",
 		"--workspace", env.workspace,
@@ -475,13 +595,13 @@ func postMessage(t *testing.T, binary string, env liveEnv, runID, label string) 
 		"--json",
 	)
 	if err != nil {
-		t.Fatalf("postMessage(%q) failed: %v\nstderr=%s", label, err, stderr)
+		t.Fatalf("postMessage failed: %v\nstderr=%s", err, stderr)
 	}
 	envelope := decodeEnvelope(t, stdout)
 	channel = mustString(t, envelope, "data", "message", "channel")
 	ts = mustString(t, envelope, "data", "message", "ts")
 	if channel == "" || ts == "" {
-		t.Fatalf("postMessage(%q) envelope missing channel/ts: %s", label, stdout)
+		t.Fatalf("postMessage envelope missing channel/ts: %s", stdout)
 	}
 	return channel, ts
 }

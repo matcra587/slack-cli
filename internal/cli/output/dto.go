@@ -175,15 +175,17 @@ func SearchMessageFromSlack(message slackgo.SearchMessage) SearchMessage {
 }
 
 // CliErrorFromSlack maps a slack-go error to a structured CLIError.
-// Optional kind args refine the message for codes whose meaning depends
-// on what was being named — e.g. `invalid_name` could be an emoji, a
-// channel, a username. Callers pass the noun they think Slack rejected
-// (e.g. "emoji"); only the first hint is consulted.
-func CliErrorFromSlack(ctx context.Context, err error, kind ...string) CLIError {
-	var subject string
-	if len(kind) > 0 {
-		subject = kind[0]
-	}
+// The kind hint refines messages for codes whose meaning depends on
+// what was being named — e.g. invalid_name could be an emoji, a
+// channel, or a username. Callers pass the noun they think Slack
+// rejected (e.g. "emoji"); pass "" when no contextual refinement is
+// needed and the raw Slack code is descriptive enough.
+//
+// kind must be a stable internal noun chosen by the call site; never
+// pass user-controlled input here since the value flows into the
+// rendered error message.
+func CliErrorFromSlack(ctx context.Context, err error, kind string) CLIError {
+	subject := kind
 	var scopeErr MissingScopeError
 	if errors.As(err, &scopeErr) {
 		return CLIError{Type: ErrorTypeAuth, Message: scopeErr.Error(), ExitCode: ExitCodeAuthFailure}

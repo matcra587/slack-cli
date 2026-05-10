@@ -78,14 +78,14 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+// ResolveWorkspace looks up the workspace profile for name. Callers are
+// responsible for trimming user-supplied input; this function does not
+// normalise whitespace. CLI entry points pass user input through
+// clioutput.TrimInputName before reaching here.
 func (c *Config) ResolveWorkspace(name string) (WorkspaceProfile, error) {
 	if err := c.Validate(); err != nil {
 		return WorkspaceProfile{}, err
 	}
-	// Stored keys are cleaned at the marshal boundary by cleanWorkspaceKeys,
-	// but caller-supplied names (flags, env vars, args) arrive raw — trim
-	// here so a user typing `--workspace 'default '` still resolves.
-	name = strings.TrimSpace(name)
 	if name == "" {
 		name = c.DefaultWorkspace
 	}
@@ -100,7 +100,6 @@ func (c *Config) ResolveWorkspaceName(name string) (string, error) {
 	if err := c.Validate(); err != nil {
 		return "", err
 	}
-	name = strings.TrimSpace(name)
 	if name == "" {
 		name = c.DefaultWorkspace
 	}

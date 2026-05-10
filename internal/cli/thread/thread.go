@@ -80,12 +80,12 @@ func runThreadReply(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src cli
 			return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 		}
 		if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("chat:write")); err != nil {
-			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 		}
 		options := append(climessage.MessageOptions(content, blocks, attribution), slackgo.MsgOptionTS(parent))
 		respChannel, ts, err := client.PostMessageContext(cmd.Context(), channel, options...)
 		if err != nil {
-			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 		}
 		result.Message = clioutput.Message{
 			Type:     "message",

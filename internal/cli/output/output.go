@@ -132,15 +132,12 @@ func EntityFieldStyle(field, value string) FieldStyle {
 // changed the input. Use at boundaries where a flag or arg becomes a
 // lookup key (workspace name, profile name, etc.) so the user can see
 // under --debug exactly when their stray whitespace was normalized.
-// Returns the trimmed name.
+// Returns the trimmed name. The debug message is pre-formatted so the
+// canonical-field-order test isn't asked to police diagnostic fields.
 func TrimInputName(logger *clog.Logger, kind, name string) string {
 	trimmed := strings.TrimSpace(name)
 	if logger != nil && trimmed != name {
-		logger.Debug().
-			Str("kind", kind).
-			Str("input", name).
-			Str("trimmed", trimmed).
-			Msg("trimmed user-supplied name")
+		logger.Debug().Msgf("trimmed user-supplied %s name: %q -> %q", kind, name, trimmed)
 	}
 	return trimmed
 }

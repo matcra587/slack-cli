@@ -149,7 +149,7 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("reactions:write")); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	mutations := make([]Result, 0, len(emojis))
 	for _, emoji := range emojis {
@@ -187,11 +187,11 @@ func runReactionList(cmd *cobra.Command, runtime *cliruntime.RootRuntime) error 
 		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("reactions:read")); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	item, err := client.GetReactionsContext(cmd.Context(), slackgo.NewRefToMessage(target.Channel, target.TS), slackgo.GetReactionsParameters{})
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	return ctx.WriteResult("react.list", Data{Reactions: clioutput.ReactionsFromSlack(item.Reactions), Target: target})
 }

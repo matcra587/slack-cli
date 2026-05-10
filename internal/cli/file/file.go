@@ -149,7 +149,7 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("files:write")); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	params := slackgo.UploadFileParameters{
 		Channel:         channel,
@@ -166,7 +166,7 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 	}
 	file, err := client.UploadFileContext(cmd.Context(), params)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	fileName := cliutil.FirstNonEmpty(file.Title, filename)
 	var filePermalink *string

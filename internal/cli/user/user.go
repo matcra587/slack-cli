@@ -97,7 +97,7 @@ func runUserListWithCommand(cmd *cobra.Command, runtime *cliruntime.RootRuntime,
 		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("users:read")); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	options := []slackgo.GetUsersOption{}
 	if opts.MaxItems > 0 {
@@ -110,7 +110,7 @@ func runUserListWithCommand(cmd *cobra.Command, runtime *cliruntime.RootRuntime,
 	pager := client.GetUsersPaginated(options...)
 	page, err := pager.Next(cmd.Context())
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	users := filterUsers(usersFromSlack(page.Users, opts.IncludeDeleted), opts.Filter)
 	return ctx.WriteResultWithPagination(command, ListData{Users: users}, &clioutput.Pagination{
@@ -136,17 +136,17 @@ func runUserInfoValue(cmd *cobra.Command, runtime *cliruntime.RootRuntime, comma
 		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("users:read")); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	user, err := client.GetUserInfoContext(cmd.Context(), userID)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	result := clioutput.UserFromSlack(*user)
 	if presence {
 		presenceResult, err := client.GetUserPresenceContext(cmd.Context(), userID)
 		if err != nil {
-			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 		}
 		if strings.TrimSpace(presenceResult.Presence) != "" {
 			p := presenceResult.Presence

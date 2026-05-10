@@ -134,10 +134,10 @@ func mutateSlackStatus(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ctx 
 		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("users.profile:write")); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	if err := client.SetUserCustomStatusContext(cmd.Context(), text, emoji, expiration); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	return ctx.WriteResult(command, data)
 }

@@ -371,7 +371,7 @@ func fetchUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile con
 		return nil, fetchError{err: clioutput.AuthCLIError(err.Error())}
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("users:read")); err != nil {
-		return nil, fetchError{err: clioutput.CliErrorFromSlack(cmd.Context(), err)}
+		return nil, fetchError{err: clioutput.CliErrorFromSlack(cmd.Context(), err, "")}
 	}
 	users, truncated, err := drainUsers(cmd.Context(), client, opts)
 	if err != nil {
@@ -387,7 +387,7 @@ func fetchChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile 
 	}
 	types := []string{"public_channel", "private_channel", "im", "mpim"}
 	if err := cliscope.Require(cmd.Context(), client, clichannel.ConversationReadScopeRequirement(types)); err != nil {
-		return nil, fetchError{err: clioutput.CliErrorFromSlack(cmd.Context(), err)}
+		return nil, fetchError{err: clioutput.CliErrorFromSlack(cmd.Context(), err, "")}
 	}
 	channels, truncated, err := drainChannels(cmd.Context(), client, opts, types)
 	if err != nil {
@@ -476,5 +476,5 @@ func cliErrorFromCacheError(ctx context.Context, err error) clioutput.CLIError {
 	if errors.As(err, &fetchErr) {
 		return fetchErr.err
 	}
-	return clioutput.CliErrorFromSlack(ctx, err)
+	return clioutput.CliErrorFromSlack(ctx, err, "")
 }

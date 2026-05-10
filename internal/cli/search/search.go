@@ -79,7 +79,7 @@ func runSearchMessages(cmd *cobra.Command, runtime *cliruntime.RootRuntime, quer
 		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("search:read")); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 
 	params := slackgo.SearchParameters{}
@@ -96,7 +96,7 @@ func runSearchMessages(cmd *cobra.Command, runtime *cliruntime.RootRuntime, quer
 
 	result, err := client.SearchMessagesContext(cmd.Context(), query, params)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	matches := cliSearchMessagesFromSlack(result.Matches)
 	var next *string

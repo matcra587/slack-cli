@@ -116,7 +116,7 @@ func runChannelListWithTypes(cmd *cobra.Command, runtime *cliruntime.RootRuntime
 		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
 	if err := cliscope.Require(cmd.Context(), client, conversationReadScopeRequirement(types)); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 
 	channels, nextCursor, err := client.GetConversationsContext(cmd.Context(), &slackgo.GetConversationsParameters{
@@ -125,7 +125,7 @@ func runChannelListWithTypes(cmd *cobra.Command, runtime *cliruntime.RootRuntime
 		Cursor: cursor,
 	})
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	result := ListData{Channels: filterChannels(ChannelsFromSlack(channels), filter)}
 	return ctx.WriteResultWithPagination(command, result, &clioutput.Pagination{
@@ -151,14 +151,14 @@ func runChannelInfoValue(cmd *cobra.Command, runtime *cliruntime.RootRuntime, co
 		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AnyOf("channels:read", "groups:read", "im:read", "mpim:read")); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	result, err := client.GetConversationInfoContext(cmd.Context(), &slackgo.GetConversationInfoInput{
 		ChannelID:         channel,
 		IncludeNumMembers: true,
 	})
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	return ctx.WriteResult(command, InfoData{Channel: clioutput.ChannelFromSlack(*result)})
 }

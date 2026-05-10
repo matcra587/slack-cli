@@ -106,7 +106,7 @@ func runHistoryList(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Li
 		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AnyOf("channels:history", "groups:history", "im:history", "mpim:history")); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	var res result
 	if opts.Thread != "" {
@@ -115,7 +115,7 @@ func runHistoryList(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Li
 		res, err = channelHistory(cmd.Context(), client, channel, opts)
 	}
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 
 	return ctx.WriteResultWithPagination("history.list", Data{Messages: res.Messages}, &clioutput.Pagination{

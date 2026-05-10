@@ -23,7 +23,13 @@ type AgentFlags struct {
 // entry point for command handlers in internal packages.
 func CommandContext(cmd *cobra.Command, runtime *RootRuntime) (*clioutput.CommandContext, config.WorkspaceProfile, agent.Attribution, error) {
 	flags := cmd.Root().PersistentFlags()
-	workspace, _ := flags.GetString("workspace")
+	flagWorkspace, _ := flags.GetString("workspace")
+	// The --workspace flag arrives raw from cobra; trim before the
+	// resolver sees it so a stray space doesn't manifest as "not found".
+	// Logger isn't built yet at this point, so the trim is silent here;
+	// auth.go's command handlers log via TrimInputName when they take
+	// the same kind of input through their own flags/args.
+	workspace := clioutput.TrimInputName(nil, "workspace", flagWorkspace)
 	jsonMode, _ := flags.GetBool("json")
 	plain, _ := flags.GetBool("plain")
 	compact, _ := flags.GetBool("compact")

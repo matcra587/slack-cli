@@ -72,11 +72,12 @@ var canonicalCategory = map[string]int{
 	"authenticated": 4, "valid": 4, "is_member": 4, "is_archived": 4,
 	"is_im": 4, "deleted": 4, "removed": 4, "cleared": 4, "written": 4,
 	"exists": 4, "dry_run": 4, "from_cache": 4, "truncated": 4,
-	"attribution": 4, "command": 4,
+	"attribution": 4, "command": 4, "kind": 4,
 	// 5. detail
 	"text": 5, "topic": 5, "emoji": 5, "presence": 5, "status_text": 5,
 	"timezone": 5, "permalink": 5, "description": 5, "value": 5,
 	"default_workspace": 5, "thread_ts": 5,
+	"input": 5, "trimmed": 5,
 	// 6. numbers
 	"count": 6, "members": 6, "num_members": 6, "size": 6, "replies": 6,
 	"removed_count": 6, "settings": 6, "expires_in": 6, "resources": 6,

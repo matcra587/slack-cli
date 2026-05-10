@@ -245,11 +245,13 @@ func runAuthLogin(cmd *cobra.Command, runtime *cliruntime.RootRuntime, input log
 	if err != nil {
 		ctx = cliruntime.LocalContext(cmd, runtime, "default")
 	}
+	input.WorkspaceName = clioutput.TrimInputName(ctx.StderrLogger(), "workspace", input.WorkspaceName)
 	interactive := runtime.IsTTY && input.WorkspaceName == "" && !input.HasTokenSource() && input.AuthMethod == ""
 	if interactive {
 		if err := runAuthLoginForm(ctx, runtime, &input); err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 		}
+		input.WorkspaceName = clioutput.TrimInputName(ctx.StderrLogger(), "workspace", input.WorkspaceName)
 	}
 	if input.WorkspaceName == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("workspace-name is required"))
@@ -967,6 +969,7 @@ func runAuthSwitch(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspac
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
+	workspace = clioutput.TrimInputName(ctx.StderrLogger(), "workspace", workspace)
 	if runtime.Config == nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("config is required"))
 	}
@@ -987,6 +990,7 @@ func runAuthLogout(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspac
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
+	workspace = clioutput.TrimInputName(ctx.StderrLogger(), "workspace", workspace)
 
 	keepToken, _ := cmd.Flags().GetBool("keep-token")
 

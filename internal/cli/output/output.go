@@ -127,6 +127,24 @@ func EntityFieldStyle(field, value string) FieldStyle {
 	return FieldStyle{Field: field, Seed: field + ":" + value}
 }
 
+// TrimInputName trims surrounding whitespace from a user-supplied
+// identifier and emits a debug log on the given logger when the trim
+// changed the input. Use at boundaries where a flag or arg becomes a
+// lookup key (workspace name, profile name, etc.) so the user can see
+// under --debug exactly when their stray whitespace was normalized.
+// Returns the trimmed name.
+func TrimInputName(logger *clog.Logger, kind, name string) string {
+	trimmed := strings.TrimSpace(name)
+	if logger != nil && trimmed != name {
+		logger.Debug().
+			Str("kind", kind).
+			Str("input", name).
+			Str("trimmed", trimmed).
+			Msg("trimmed user-supplied name")
+	}
+	return trimmed
+}
+
 // Field-rendering convention: WritePlain methods (and any helper that
 // terminates a chain with event.Msg) emit fields left-to-right in this
 // canonical order so output reads consistently across commands:

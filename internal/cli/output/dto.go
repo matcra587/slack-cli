@@ -196,6 +196,18 @@ func CliErrorFromSlack(ctx context.Context, err error) CLIError {
 			return CLIError{Type: ErrorTypeNotFound, Message: slackErr.Err, ExitCode: ExitCodeNotFound}
 		case "not_allowed_token_type", "invalid_arguments", "cant_update_message", "cant_delete_message":
 			return CLIError{Type: ErrorTypeValidation, Message: slackErr.Err, ExitCode: ExitCodeValidation}
+		case "invalid_name":
+			return CLIError{
+				Type:     ErrorTypeValidation,
+				Message:  "invalid_name: Slack rejected the value (for reactions, check the emoji name; for channels, check the channel slug)",
+				ExitCode: ExitCodeValidation,
+			}
+		case "already_reacted":
+			return CLIError{Type: ErrorTypeValidation, Message: "already_reacted: this emoji is already on the message", ExitCode: ExitCodeValidation}
+		case "no_reaction":
+			return CLIError{Type: ErrorTypeNotFound, Message: "no_reaction: no such reaction on this message to remove", ExitCode: ExitCodeNotFound}
+		case "too_many_reactions":
+			return CLIError{Type: ErrorTypeValidation, Message: "too_many_reactions: Slack message reaction limit reached", ExitCode: ExitCodeValidation}
 		case "invalid_auth", "not_authed", "account_inactive", "token_revoked", "missing_scope", "no_permission":
 			return CLIError{Type: ErrorTypeAuth, Message: slackErr.Err, ExitCode: ExitCodeAuthFailure}
 		case "ratelimited":

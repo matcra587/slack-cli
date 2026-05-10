@@ -46,7 +46,7 @@ func (d InfoData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 	if user.StatusText != nil {
 		event = event.Str("status_text", *user.StatusText)
 	}
-	event.Send()
+	event.Msg(clioutput.ActionLabel(command))
 	return nil
 }
 

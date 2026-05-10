@@ -41,7 +41,7 @@ func (d UploadData) WritePlain(c *clioutput.CommandContext, command string, _ *c
 		Int("size", d.File.Size).
 		Str("size_human", human.FormatIECBytes(float64(d.File.Size))).
 		Bool("dry_run", d.DryRun).
-		Send()
+		Msg(clioutput.ActionLabel(command))
 	return nil
 }
 

@@ -603,7 +603,7 @@ func TestAuthLoginOAuthTTYOutputsClogFields(t *testing.T) {
 	if strings.Contains(stdout, "{") {
 		t.Fatalf("stdout = %q, want clog human output, not JSON", stdout)
 	}
-	for _, fragment := range []string{"INF", "workspace=oauth-profile", "authenticated=true", "token_type=user", "team_id=TOAUTH", `team_name="OAuth Workspace"`} {
+	for _, fragment := range []string{"Login complete", "workspace=oauth-profile", "authenticated=true", "token_type=user", "team_id=TOAUTH", `team_name="OAuth Workspace"`} {
 		if !strings.Contains(stdout, fragment) {
 			t.Fatalf("stdout = %q, want fragment %q", stdout, fragment)
 		}

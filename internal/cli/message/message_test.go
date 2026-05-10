@@ -153,12 +153,12 @@ func TestMessageSendCommandPlainDryRunUsesClogFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
 	}
-	for _, fragment := range []string{"INF", "command=message.send", "channel=C123", "ts=dry-run", "dry_run=true"} {
+	for _, fragment := range []string{"Message sent", "channel=C123", "ts=dry-run", "dry_run=true"} {
 		if !strings.Contains(stdout, fragment) {
 			t.Fatalf("stdout = %q, want fragment %q", stdout, fragment)
 		}
 	}
-	for _, fragment := range []string{"attribution=", "permalink=", "thread_ts=", "age=", "time="} {
+	for _, fragment := range []string{"INF", "command=message.send", "attribution=", "permalink=", "thread_ts=", "age=", "time="} {
 		if strings.Contains(stdout, fragment) {
 			t.Fatalf("stdout = %q, did not want debug field %q", stdout, fragment)
 		}

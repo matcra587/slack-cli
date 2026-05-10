@@ -121,7 +121,7 @@ func (d ClearData) WritePlain(c *clioutput.CommandContext, command string, _ *cl
 			e.Str("resource", d.Resource).Bool("removed", d.Removed)
 		}).
 		Int("removed_count", d.RemovedCount).
-		Send()
+		Msg(clioutput.ActionLabel(command))
 	return nil
 }
 

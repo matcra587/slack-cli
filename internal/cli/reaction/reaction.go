@@ -39,6 +39,7 @@ type Data struct {
 var _ clioutput.PlainRenderer = Data{}
 
 func (d Data) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	label := clioutput.ActionLabel(command)
 	if len(d.Mutations) > 0 {
 		for _, mutation := range d.Mutations {
 			event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", mutation.Channel)).
@@ -47,7 +48,7 @@ func (d Data) WritePlain(c *clioutput.CommandContext, command string, _ *clioutp
 				Str("emoji", mutation.Emoji).
 				Bool("removed", mutation.Removed).
 				Bool("dry_run", mutation.DryRun).
-				Send()
+				Msg(label)
 		}
 		return nil
 	}
@@ -57,7 +58,7 @@ func (d Data) WritePlain(c *clioutput.CommandContext, command string, _ *clioutp
 	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Target.Channel)).
 		Str("channel", d.Target.Channel)
 	clioutput.AddSlackTimestampFields(event, d.Target.Timestamp, c.Now()).
-		Send()
+		Msg(label)
 	return nil
 }
 

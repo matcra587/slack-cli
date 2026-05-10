@@ -51,7 +51,7 @@ func (d InitData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 		Str("profile", d.Profile).
 		Str("workspace", d.Workspace).
 		Bool("written", d.Written).
-		Send()
+		Msg(clioutput.ActionLabel(command))
 	return nil
 }
 
@@ -67,7 +67,7 @@ func (d PathData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 	c.ResultEvent(command).
 		Link("path", d.Path, human.ContractHome(d.Path)).
 		Bool("exists", d.Exists).
-		Send()
+		Msg(clioutput.ActionLabel(command))
 	return nil
 }
 
@@ -92,7 +92,7 @@ func (d ListData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 		Link("path", d.Path, human.ContractHome(d.Path)).
 		Str("default_workspace", d.DefaultWorkspace).
 		Int("settings", len(d.Settings)).
-		Send()
+		Msg(clioutput.ActionLabel(command))
 	if len(d.Settings) == 0 {
 		return nil
 	}
@@ -117,7 +117,7 @@ func (d GetData) WritePlain(c *clioutput.CommandContext, command string, _ *clio
 	c.ResultEvent(command).
 		Str("key", d.Key).
 		Str("value", d.Value).
-		Send()
+		Msg(clioutput.ActionLabel(command))
 	return nil
 }
 
@@ -135,7 +135,7 @@ func (d MutationData) WritePlain(c *clioutput.CommandContext, command string, _ 
 		Link("path", d.Path, human.ContractHome(d.Path)).
 		Str("key", d.Key).
 		Str("value", d.Value).
-		Send()
+		Msg(clioutput.ActionLabel(command))
 	return nil
 }
 

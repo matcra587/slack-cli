@@ -386,6 +386,8 @@ var buildBaseLoggers = clioutput.BuildBaseLoggers
 
 var applyRenderMode = clioutput.ApplyRenderMode
 
+var actionLabel = clioutput.ActionLabel
+
 func profileAttributionSetting(profile config.WorkspaceProfile) *bool {
 	if profile.Attribution.Enabled != nil {
 		return profile.Attribution.Enabled

@@ -116,7 +116,10 @@ func EntityFieldStyle(field, value string) FieldStyle {
 func BuildBaseLoggers(stdout, stderr io.Writer, colorMode clog.ColorMode) (*clog.Logger, *clog.Logger) {
 	sl := clog.New(clog.NewOutput(stdout, colorMode))
 	sl.SetOmitZero(true)
-	sl.SetParts(clog.PartLevel, clog.PartMessage, clog.PartFields)
+	// Success events on stdout read as actions ("Message sent  ts=...") with
+	// no level prefix. Warning and error events still go through stderr's
+	// logger which keeps the slog-style level prefix.
+	sl.SetParts(clog.PartMessage, clog.PartFields)
 
 	el := clog.New(clog.NewOutput(stderr, colorMode))
 	el.SetOmitZero(true)

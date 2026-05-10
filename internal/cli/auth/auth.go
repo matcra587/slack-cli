@@ -50,19 +50,17 @@ type StatusData struct {
 var _ clioutput.PlainRenderer = WorkspaceData{}
 
 func (d WorkspaceData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
-	logger := c.StdoutLogger()
 	if d.TeamID != "" {
-		clioutput.ApplyTeamIDStyle(logger, c.Theme, d.TeamID)
+		clioutput.ApplyTeamIDStyle(c.StdoutLogger(), c.Theme, d.TeamID)
 	}
-	event := logger.Info().
-		Str("command", command).
+	event := c.ResultEvent(command).
 		Str("workspace", d.Workspace).
 		Bool("authenticated", d.Authenticated).
 		Str("token_type", string(d.TokenType)).
 		Str("team_id", d.TeamID).
 		Str("team_name", d.TeamName).
 		Str("validation_error", d.ValidationError)
-	event.Send()
+	event.Msg(clioutput.ActionLabel(command))
 	return nil
 }
 

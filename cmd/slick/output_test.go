@@ -143,7 +143,6 @@ func TestWriteResultPlainAuthStatusUsesClogFields(t *testing.T) {
 	got := stdout.String()
 	plain := ansi.Strip(got)
 	for _, fragment := range []string{
-		"INF",
 		"auth status",
 		"workspace=default",
 		"authenticated=true",
@@ -192,7 +191,7 @@ func TestWriteResultPlainMessageSendUsesClogFieldsAndDebugDetails(t *testing.T) 
 	got := stdout.String()
 	plain := ansi.Strip(got)
 	for _, fragment := range []string{
-		"INF",
+		"Message sent",
 		"command=message.send",
 		"channel=C7N2Q8L4P",
 		"ts=1746284582.123456",
@@ -232,21 +231,21 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				TeamName:      "Example Notifications",
 			},
 			want: []string{
-				"INF",
-				"command=auth.login",
+				"Login complete",
 				"workspace=default",
 				"authenticated=true",
 				"token_type=user",
 				"team_id=T8KQ42P9D",
 				"team_name=\"Example Notifications\"",
 			},
+			deny: []string{"INF", "command=auth.login"},
 		},
 		{
 			name: "auth switch",
 			cmd:  "auth.switch",
 			data: authWorkspaceData{Workspace: "example"},
-			want: []string{"INF", "command=auth.switch", "workspace=example"},
-			deny: []string{"data="},
+			want: []string{"Workspace switched", "workspace=example"},
+			deny: []string{"INF", "command=auth.switch", "data="},
 		},
 		{
 			name: "message delete",
@@ -258,13 +257,13 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				DryRun:    true,
 			},
 			want: []string{
-				"INF",
-				"command=message.delete",
+				"Message deleted",
 				"channel=C7N2Q8L4P",
 				"ts=1746284582.123456",
 				"deleted=true",
 				"dry_run=true",
 			},
+			deny: []string{"INF", "command=message.delete"},
 		},
 		{
 			name: "file upload",
@@ -279,8 +278,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				DryRun: true,
 			},
 			want: []string{
-				"INF",
-				"command=file.upload",
+				"File uploaded",
 				"channel=C7N2Q8L4P",
 				"file_id=F123",
 				"file_name=report.txt",
@@ -288,6 +286,7 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				`size_human="128 B"`,
 				"dry_run=true",
 			},
+			deny: []string{"INF", "command=file.upload"},
 		},
 		{
 			name: "react add",
@@ -298,13 +297,12 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				Emoji:     "thumbsup",
 			}}},
 			want: []string{
-				"INF",
-				"command=react.add",
+				"Reaction added",
 				"channel=C7N2Q8L4P",
 				"ts=1746284582.123456",
 				"emoji=thumbsup",
 			},
-			deny: []string{"removed=false", "dry_run=false"},
+			deny: []string{"INF", "command=react.add", "removed=false", "dry_run=false"},
 		},
 		{
 			name: "config init",
@@ -316,37 +314,35 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				Written:   true,
 			},
 			want: []string{
-				"INF",
-				"command=config.init",
+				"Config initialized",
 				"path=/tmp/slick/config.toml",
 				"profile=default",
 				"workspace=default",
 				"written=true",
 			},
+			deny: []string{"INF", "command=config.init"},
 		},
 		{
 			name: "config path",
 			cmd:  "config.path",
 			data: cliconfig.PathData{Path: "/tmp/slick/config.toml", Exists: true},
 			want: []string{
-				"INF",
-				"command=config.path",
+				"Config path resolved",
 				"path=/tmp/slick/config.toml",
 				"exists=true",
 			},
-			deny: []string{"data="},
+			deny: []string{"INF", "command=config.path", "data="},
 		},
 		{
 			name: "config get",
 			cmd:  "config.get",
 			data: cliconfig.GetData{Key: "workspaces.default.default_channel", Value: "C7N2Q8L4P"},
 			want: []string{
-				"INF",
-				"command=config.get",
+				"Config value retrieved",
 				"key=workspaces.default.default_channel",
 				"value=C7N2Q8L4P",
 			},
-			deny: []string{"data="},
+			deny: []string{"INF", "command=config.get", "data="},
 		},
 		{
 			name: "config set",
@@ -357,13 +353,12 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				Value: "Sent via slick",
 			},
 			want: []string{
-				"INF",
-				"command=config.set",
+				"Config value set",
 				"path=/tmp/slick/config.toml",
 				"key=workspaces.default.attribution.message",
 				"value=\"Sent via slick\"",
 			},
-			deny: []string{"data="},
+			deny: []string{"INF", "command=config.set", "data="},
 		},
 		{
 			name: "config unset",
@@ -373,12 +368,11 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				Key:  "workspaces.default.attribution.message",
 			},
 			want: []string{
-				"INF",
-				"command=config.unset",
+				"Config value unset",
 				"path=/tmp/slick/config.toml",
 				"key=workspaces.default.attribution.message",
 			},
-			deny: []string{"data=", "value="},
+			deny: []string{"INF", "command=config.unset", "data=", "value="},
 		},
 	}
 
@@ -429,8 +423,7 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 	got := stdout.String()
 	plain := ansi.Strip(got)
 	for _, fragment := range []string{
-		"INF",
-		"command=lookup.channel",
+		"Channel resolved",
 		"channel=C7N2Q8L4P",
 		"name=alerts",
 		"type=channel",
@@ -440,6 +433,11 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 	} {
 		if !strings.Contains(plain, fragment) {
 			t.Fatalf("stdout = %q, want fragment %q", got, fragment)
+		}
+	}
+	for _, fragment := range []string{"INF", "command=lookup.channel"} {
+		if strings.Contains(plain, fragment) {
+			t.Fatalf("stdout = %q, did not want fragment %q in non-verbose plain mode", got, fragment)
 		}
 	}
 	if strings.Contains(plain, "CHANNEL") || strings.Contains(plain, "{") || strings.Contains(plain, "is_archived=false") {
@@ -461,8 +459,7 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 	got = stdout.String()
 	plain = ansi.Strip(got)
 	for _, fragment := range []string{
-		"INF",
-		"command=lookup.user",
+		"User resolved",
 		"user=U7N2Q8L4P",
 		"name=matt",
 		"timezone=America/Toronto",
@@ -471,6 +468,11 @@ func TestWriteResultPlainSingletonLookupUsesClogFields(t *testing.T) {
 	} {
 		if !strings.Contains(plain, fragment) {
 			t.Fatalf("stdout = %q, want fragment %q", got, fragment)
+		}
+	}
+	for _, fragment := range []string{"INF", "command=lookup.user"} {
+		if strings.Contains(plain, fragment) {
+			t.Fatalf("stdout = %q, did not want fragment %q in non-verbose plain mode", got, fragment)
 		}
 	}
 	if strings.Contains(plain, "USER") || strings.Contains(plain, "{") || strings.Contains(plain, "deleted=false") {
@@ -498,8 +500,7 @@ func TestWriteResultPlainConfigListUsesPerSettingClogLines(t *testing.T) {
 	got := stdout.String()
 	plain := ansi.Strip(got)
 	for _, fragment := range []string{
-		"INF",
-		"command=config.list",
+		"Config listed",
 		"path=/tmp/slick/config.toml",
 		"default_workspace=default",
 		"settings=2",
@@ -511,6 +512,11 @@ func TestWriteResultPlainConfigListUsesPerSettingClogLines(t *testing.T) {
 	} {
 		if !strings.Contains(plain, fragment) {
 			t.Fatalf("stdout = %q, want fragment %q", got, fragment)
+		}
+	}
+	for _, fragment := range []string{"INF", "command=config.list"} {
+		if strings.Contains(plain, fragment) {
+			t.Fatalf("stdout = %q, did not want fragment %q in non-verbose plain mode", got, fragment)
 		}
 	}
 	if strings.Contains(plain, "{") || strings.Contains(plain, "description=") {
@@ -554,8 +560,11 @@ func TestWriteResultPlainFallbackUsesClogEvent(t *testing.T) {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 	got := stdout.String()
-	if !strings.Contains(got, "INF") || !strings.Contains(got, "unknown") || !strings.Contains(got, "command=unknown") {
-		t.Fatalf("stdout = %q, want clog event output", got)
+	if !strings.Contains(got, "unknown") {
+		t.Fatalf("stdout = %q, want action label fallback for unknown command", got)
+	}
+	if strings.Contains(got, "INF") || strings.Contains(got, "command=unknown") {
+		t.Fatalf("stdout = %q, did not want INF or command field in non-verbose plain mode", got)
 	}
 	if strings.Contains(got, "{\"ok\"") {
 		t.Fatalf("stdout = %q, did not want raw JSON in plain mode", got)
@@ -599,7 +608,9 @@ func newOutputTestContext(mode RenderMode, colorMode ...clog.ColorMode) (*Comman
 func buildTestLoggers(stdout, stderr *bytes.Buffer) (*clog.Logger, *clog.Logger) {
 	sl := clog.New(clog.TestOutput(stdout))
 	sl.SetOmitZero(true)
-	sl.SetParts(clog.PartLevel, clog.PartMessage, clog.PartFields)
+	// Mirror BuildBaseLoggers: stdout success events drop the level prefix so
+	// plain-mode output reads as "Message sent  ts=..." not "INF Message sent".
+	sl.SetParts(clog.PartMessage, clog.PartFields)
 
 	el := clog.New(clog.TestOutput(stderr))
 	el.SetOmitZero(true)

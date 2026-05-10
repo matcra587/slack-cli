@@ -50,10 +50,12 @@ func (d SendData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 				e.Str("permalink", *d.Permalink)
 			}
 		})
-	if d.Message.Channel != nil {
+	// Channel ID is opaque noise for DMs (the user typed --user); show it
+	// only for non-DM channels or under --debug.
+	if d.Message.Channel != nil && (clog.IsVerbose() || !strings.HasPrefix(channel, "D")) {
 		event = event.Str("channel", *d.Message.Channel)
 	}
-	event.Send()
+	event.Msg(clioutput.ActionLabel(command))
 	return nil
 }
 
@@ -68,12 +70,14 @@ type DeleteData struct {
 var _ clioutput.PlainRenderer = DeleteData{}
 
 func (d DeleteData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
-	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Channel)).
-		Str("channel", d.Channel)
+	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Channel))
 	event = clioutput.AddSlackTimestampFields(event, d.Timestamp, c.Now()).
 		Bool("deleted", d.Deleted).
 		Bool("dry_run", d.DryRun)
-	event.Send()
+	if clog.IsVerbose() || !strings.HasPrefix(d.Channel, "D") {
+		event = event.Str("channel", d.Channel)
+	}
+	event.Msg(clioutput.ActionLabel(command))
 	return nil
 }
 

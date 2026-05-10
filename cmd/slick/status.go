@@ -30,7 +30,7 @@ func (d statusCommandData) WritePlain(c *CommandContext, command string, _ *Pagi
 		When(d.Expiration > 0, func(e *clog.Event) {
 			e.Int64("expiration", d.Expiration)
 		})
-	event.Send()
+	event.Msg(actionLabel(command))
 	return nil
 }
 

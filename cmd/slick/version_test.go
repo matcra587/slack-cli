@@ -46,7 +46,7 @@ func TestVersionCommandPlainMatchesPDCShape(t *testing.T) {
 			t.Fatalf("stdout = %q, want fragment %q", stdout, fragment)
 		}
 	}
-	if strings.Contains(stdout, "data=") || strings.Contains(stdout, "INF") {
+	if strings.Contains(stdout, "data=") {
 		t.Fatalf("stdout = %q, want rendered version text only", stdout)
 	}
 }

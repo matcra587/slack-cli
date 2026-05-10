@@ -50,7 +50,7 @@ func (d InfoData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 		event = event.Str("topic", *ch.Topic)
 	}
 	event = clioutput.AddIntField(event, "num_members", ch.NumMembers)
-	event.Send()
+	event.Msg(clioutput.ActionLabel(command))
 	return nil
 }
 

@@ -9,7 +9,6 @@ import (
 	"charm.land/lipgloss/v2"
 	clibtheme "github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
-	clogstyle "github.com/gechr/clog/style"
 	"github.com/gechr/primer/table"
 	termansi "github.com/gechr/x/ansi"
 	"github.com/gechr/x/terminal"
@@ -22,27 +21,18 @@ import (
 // in-event rendering.
 var clogDefaults = clog.DefaultStyles()
 
-func clogFieldTimeStyle() *lipgloss.Style   { return styleFromConfig(clogDefaults, fieldTime) }
-func clogFieldNumberStyle() *lipgloss.Style { return styleFromConfig(clogDefaults, fieldNumber) }
-
-type fieldStyleSelector int
-
-const (
-	fieldTime fieldStyleSelector = iota
-	fieldNumber
-)
-
-func styleFromConfig(cfg *clogstyle.Config, sel fieldStyleSelector) *lipgloss.Style {
-	if cfg == nil {
+func clogFieldTimeStyle() *lipgloss.Style {
+	if clogDefaults == nil {
 		return nil
 	}
-	switch sel {
-	case fieldTime:
-		return cfg.FieldTime
-	case fieldNumber:
-		return cfg.FieldNumber
+	return clogDefaults.FieldTime
+}
+
+func clogFieldNumberStyle() *lipgloss.Style {
+	if clogDefaults == nil {
+		return nil
 	}
-	return nil
+	return clogDefaults.FieldNumber
 }
 
 type slackTableTheme struct {
@@ -164,7 +154,7 @@ func (c *CommandContext) numberCell(value *int) table.Cell {
 		return table.TextCell(text)
 	}
 	style := clogFieldNumberStyle()
-	if value != nil && *value == 0 && c.Theme != nil && c.Theme.Dim != nil {
+	if *value == 0 && c.Theme != nil && c.Theme.Dim != nil {
 		style = c.Theme.Dim
 	}
 	if style == nil {
@@ -184,11 +174,11 @@ func (c *CommandContext) numberCellInt(value int) table.Cell {
 // polarity: true is the "alarming" state (red) and false is the
 // routine/expected state (dim). Empty input renders as an empty cell.
 func (c *CommandContext) boolStateCell(value *bool) table.Cell {
-	text := ptrBool(value)
-	if text == "" {
+	if value == nil {
 		return table.TextCell("")
 	}
-	if !c.tableStyled() || c.Theme == nil || value == nil {
+	text := strconv.FormatBool(*value)
+	if !c.tableStyled() || c.Theme == nil {
 		return table.TextCell(text)
 	}
 	style := c.Theme.Dim
@@ -222,29 +212,29 @@ func (c *CommandContext) tableWidth() int {
 	return 0
 }
 
-func (c *CommandContext) WriteMessageTable(messages []CliMessage) error {
-	columns := []table.Column[CliMessage]{
-		{Name: "ts", Header: "TS", Render: func(row CliMessage, _ *table.RenderContext) table.Cell { return c.timestampCell(row.TS) }},
-		{Name: "user", Header: "USER", Render: func(row CliMessage, _ *table.RenderContext) table.Cell {
+func (c *CommandContext) WriteMessageTable(messages []Message) error {
+	columns := []table.Column[Message]{
+		{Name: "ts", Header: "TS", Render: func(row Message, _ *table.RenderContext) table.Cell { return c.timestampCell(row.TS) }},
+		{Name: "user", Header: "USER", Render: func(row Message, _ *table.RenderContext) table.Cell {
 			id := ptrString(row.User)
 			return c.hashCell("user:"+id, id)
 		}},
-		{Name: "text", Header: "TEXT", Flex: true, Render: func(row CliMessage, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.Text)) }},
-		{Name: "replies", Header: "REPLIES", Render: func(row CliMessage, _ *table.RenderContext) table.Cell { return c.numberCell(row.ReplyCount) }},
+		{Name: "text", Header: "TEXT", Flex: true, Render: func(row Message, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.Text)) }},
+		{Name: "replies", Header: "REPLIES", Render: func(row Message, _ *table.RenderContext) table.Cell { return c.numberCell(row.ReplyCount) }},
 	}
 	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(messages).String())
 }
 
-func (c *CommandContext) WriteSearchTable(matches []CliSearchMessage, full bool) error {
-	columns := []table.Column[CliSearchMessage]{
-		{Name: "ts", Header: "TS", Render: func(row CliSearchMessage, _ *table.RenderContext) table.Cell { return c.timestampCell(row.TS) }},
-		{Name: "channel", Header: "CHANNEL", Render: func(row CliSearchMessage, _ *table.RenderContext) table.Cell {
+func (c *CommandContext) WriteSearchTable(matches []SearchMessage, full bool) error {
+	columns := []table.Column[SearchMessage]{
+		{Name: "ts", Header: "TS", Render: func(row SearchMessage, _ *table.RenderContext) table.Cell { return c.timestampCell(row.TS) }},
+		{Name: "channel", Header: "CHANNEL", Render: func(row SearchMessage, _ *table.RenderContext) table.Cell {
 			return c.hashCell("channel:"+row.Channel.ID, cliutil.FirstNonEmpty(row.Channel.Name, row.Channel.ID))
 		}},
-		{Name: "user", Header: "USER", Render: func(row CliSearchMessage, _ *table.RenderContext) table.Cell {
+		{Name: "user", Header: "USER", Render: func(row SearchMessage, _ *table.RenderContext) table.Cell {
 			return c.hashCell("user:"+row.User, row.User)
 		}},
-		{Name: "text", Header: "TEXT", Flex: true, Render: func(row CliSearchMessage, _ *table.RenderContext) table.Cell {
+		{Name: "text", Header: "TEXT", Flex: true, Render: func(row SearchMessage, _ *table.RenderContext) table.Cell {
 			text := row.Text
 			if !full {
 				text = termansi.Truncate(text, 300, "...")
@@ -255,53 +245,53 @@ func (c *CommandContext) WriteSearchTable(matches []CliSearchMessage, full bool)
 	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(matches).String())
 }
 
-func (c *CommandContext) WriteChannelTable(command string, channels []CliChannel) error {
-	columns := []table.Column[CliChannel]{
-		{Name: "channel", Header: "CHANNEL", Render: func(row CliChannel, _ *table.RenderContext) table.Cell {
+func (c *CommandContext) WriteChannelTable(command string, channels []Channel) error {
+	columns := []table.Column[Channel]{
+		{Name: "channel", Header: "CHANNEL", Render: func(row Channel, _ *table.RenderContext) table.Cell {
 			return c.hashCell("channel:"+row.ID, row.ID)
 		}},
-		{Name: "name", Header: "NAME", Render: func(row CliChannel, _ *table.RenderContext) table.Cell {
+		{Name: "name", Header: "NAME", Render: func(row Channel, _ *table.RenderContext) table.Cell {
 			return table.TextCell(row.Name)
 		}},
-		{Name: "type", Header: "TYPE", Render: func(row CliChannel, _ *table.RenderContext) table.Cell {
+		{Name: "type", Header: "TYPE", Render: func(row Channel, _ *table.RenderContext) table.Cell {
 			return c.hashCell("channel_type:"+row.Type, row.Type)
 		}},
-		{Name: "user", Header: "USER", Render: func(row CliChannel, _ *table.RenderContext) table.Cell {
+		{Name: "user", Header: "USER", Render: func(row Channel, _ *table.RenderContext) table.Cell {
 			id := ptrString(row.User)
 			return c.hashCell("user:"+id, id)
 		}},
-		{Name: "member", Header: "MEMBER", Render: func(row CliChannel, _ *table.RenderContext) table.Cell {
+		{Name: "member", Header: "MEMBER", Render: func(row Channel, _ *table.RenderContext) table.Cell {
 			return c.dimWhenCell(row.IsMember)
 		}},
-		{Name: "archived", Header: "ARCHIVED", Render: func(row CliChannel, _ *table.RenderContext) table.Cell {
+		{Name: "archived", Header: "ARCHIVED", Render: func(row Channel, _ *table.RenderContext) table.Cell {
 			return c.boolStateCell(row.IsArchived)
 		}},
-		{Name: "members", Header: "MEMBERS", Render: func(row CliChannel, _ *table.RenderContext) table.Cell { return c.numberCell(row.NumMembers) }},
-		{Name: "topic", Header: "TOPIC", Flex: true, Render: func(row CliChannel, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.Topic)) }},
+		{Name: "members", Header: "MEMBERS", Render: func(row Channel, _ *table.RenderContext) table.Cell { return c.numberCell(row.NumMembers) }},
+		{Name: "topic", Header: "TOPIC", Flex: true, Render: func(row Channel, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.Topic)) }},
 	}
 	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(channels).String())
 }
 
-func (c *CommandContext) WriteUserTable(users []CliUser) error {
-	columns := []table.Column[CliUser]{
-		{Name: "user", Header: "USER", Render: func(row CliUser, _ *table.RenderContext) table.Cell {
+func (c *CommandContext) WriteUserTable(users []User) error {
+	columns := []table.Column[User]{
+		{Name: "user", Header: "USER", Render: func(row User, _ *table.RenderContext) table.Cell {
 			return c.hashCell("user:"+row.ID, row.ID)
 		}},
-		{Name: "name", Header: "NAME", Render: func(row CliUser, _ *table.RenderContext) table.Cell {
+		{Name: "name", Header: "NAME", Render: func(row User, _ *table.RenderContext) table.Cell {
 			return table.TextCell(row.Name)
 		}},
 	}
 	if usersHavePresence(users) {
-		columns = append(columns, table.Column[CliUser]{
+		columns = append(columns, table.Column[User]{
 			Name:   "presence",
 			Header: "PRESENCE",
-			Render: func(row CliUser, _ *table.RenderContext) table.Cell {
+			Render: func(row User, _ *table.RenderContext) table.Cell {
 				return table.TextCell(ptrString(row.Presence))
 			},
 		})
 	}
 	columns = append(columns,
-		table.Column[CliUser]{Name: "tz", Header: "TZ", Render: func(row CliUser, _ *table.RenderContext) table.Cell {
+		table.Column[User]{Name: "tz", Header: "TZ", Render: func(row User, _ *table.RenderContext) table.Cell {
 			tz := ptrString(row.Timezone)
 			if tz == "" {
 				return table.TextCell("")
@@ -311,12 +301,12 @@ func (c *CommandContext) WriteUserTable(users []CliUser) error {
 			}
 			return table.StyledCell(RenderTimezone(c.Theme, tz), tz)
 		}},
-		table.Column[CliUser]{Name: "status", Header: "STATUS", Flex: true, Render: func(row CliUser, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.StatusText)) }},
+		table.Column[User]{Name: "status", Header: "STATUS", Flex: true, Render: func(row User, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.StatusText)) }},
 	)
 	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(users).String())
 }
 
-func usersHavePresence(users []CliUser) bool {
+func usersHavePresence(users []User) bool {
 	for _, user := range users {
 		if strings.TrimSpace(ptrString(user.Presence)) != "" {
 			return true
@@ -325,15 +315,15 @@ func usersHavePresence(users []CliUser) bool {
 	return false
 }
 
-func (c *CommandContext) WriteReactionTable(reactions []CliReactionSummary) error {
-	columns := []table.Column[CliReactionSummary]{
-		{Name: "emoji", Header: "EMOJI", Render: func(row CliReactionSummary, _ *table.RenderContext) table.Cell {
+func (c *CommandContext) WriteReactionTable(reactions []ReactionSummary) error {
+	columns := []table.Column[ReactionSummary]{
+		{Name: "emoji", Header: "EMOJI", Render: func(row ReactionSummary, _ *table.RenderContext) table.Cell {
 			return c.hashCell("emoji:"+row.Name, row.Name)
 		}},
-		{Name: "count", Header: "COUNT", Render: func(row CliReactionSummary, _ *table.RenderContext) table.Cell {
+		{Name: "count", Header: "COUNT", Render: func(row ReactionSummary, _ *table.RenderContext) table.Cell {
 			return c.numberCellInt(row.Count)
 		}},
-		{Name: "users", Header: "USERS", Flex: true, Render: func(row CliReactionSummary, _ *table.RenderContext) table.Cell {
+		{Name: "users", Header: "USERS", Flex: true, Render: func(row ReactionSummary, _ *table.RenderContext) table.Cell {
 			return c.reactionUsersCell(row.Users)
 		}},
 	}

@@ -41,7 +41,6 @@ type InitData struct {
 	Path      string `json:"path"`
 	Profile   string `json:"profile"`
 	Workspace string `json:"workspace"`
-	Written   bool   `json:"written"`
 }
 
 var _ clioutput.PlainRenderer = InitData{}
@@ -55,7 +54,6 @@ func (d InitData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 		Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
 		Str("profile", d.Profile).
 		Str("workspace", d.Workspace).
-		Bool("written", d.Written).
 		Msg(clioutput.ActionLabel(command))
 	return nil
 }
@@ -249,7 +247,7 @@ func runInit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts InitOptio
 	}
 	exists, err := xfs.Exists(path)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 	}
 	if exists && !opts.Force {
 		if !runtime.IsTTY {
@@ -260,7 +258,7 @@ func runInit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts InitOptio
 			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 		}
 		if !overwrite {
-			return ctx.WriteResult("config.init", InitData{Path: path, Profile: opts.Profile, Workspace: opts.Profile, Written: false})
+			return ctx.WriteResult("config.init", InitData{Path: path, Profile: opts.Profile, Workspace: opts.Profile})
 		}
 	}
 
@@ -281,10 +279,10 @@ func runInit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts InitOptio
 		},
 	}
 	if err := config.SaveFile(path, cfg); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 	}
 	runtime.Config = cfg
-	return ctx.WriteResult("config.init", InitData{Path: path, Profile: profile.Name, Workspace: profile.Name, Written: true})
+	return ctx.WriteResult("config.init", InitData{Path: path, Profile: profile.Name, Workspace: profile.Name})
 }
 
 func shouldPromptInit(cmd *cobra.Command) bool {
@@ -411,7 +409,7 @@ func newListCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			ctx := cliruntime.LocalContext(cmd, runtime, "config")
 			cfg, err := loadConfig(runtime)
 			if err != nil {
-				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+				return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 			}
 			return ctx.WriteResult("config.list", ListData{
 				Path:             runtime.ConfigPath,
@@ -432,7 +430,7 @@ func newGetCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			ctx := cliruntime.LocalContext(cmd, runtime, "config")
 			cfg, err := loadConfig(runtime)
 			if err != nil {
-				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+				return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 			}
 			value, err := getValue(cfg, args[0])
 			if err != nil {
@@ -453,13 +451,13 @@ func newSetCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			ctx := cliruntime.LocalContext(cmd, runtime, "config")
 			cfg, err := loadConfig(runtime)
 			if err != nil {
-				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+				return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 			}
 			if err := setValue(cfg, args[0], args[1]); err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 			}
 			if err := config.SaveFile(runtime.ConfigPath, cfg); err != nil {
-				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+				return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 			}
 			runtime.Config = cfg
 			return ctx.WriteResult("config.set", MutationData{Path: runtime.ConfigPath, Key: args[0], Value: args[1]})
@@ -478,13 +476,13 @@ func newUnsetCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			ctx := cliruntime.LocalContext(cmd, runtime, "config")
 			cfg, err := loadConfig(runtime)
 			if err != nil {
-				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+				return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 			}
 			if err := unsetValue(cfg, args[0]); err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 			}
 			if err := config.SaveFile(runtime.ConfigPath, cfg); err != nil {
-				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+				return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 			}
 			runtime.Config = cfg
 			return ctx.WriteResult("config.unset", MutationData{Path: runtime.ConfigPath, Key: args[0]})

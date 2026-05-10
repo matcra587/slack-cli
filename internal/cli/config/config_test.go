@@ -180,8 +180,8 @@ func TestConfigInitTTYPromptsBeforeOverwritingExistingConfig(t *testing.T) {
 	if !strings.Contains(stderr, "Overwrite existing config?") {
 		t.Fatalf("stderr prompts = %q, want overwrite prompt", stderr)
 	}
-	if strings.Contains(stdout, "written=false") {
-		t.Fatalf("stdout = %s, should omit false written field", stdout)
+	if strings.Contains(stdout, "written=") {
+		t.Fatalf("stdout = %s, should not include written field", stdout)
 	}
 	raw, err := os.ReadFile(configPath)
 	if err != nil {
@@ -213,8 +213,8 @@ func TestConfigInitTTYUsesHuhForm(t *testing.T) {
 			t.Fatalf("stderr prompts = %q, did not want auth prompt fragment %q", stderr, fragment)
 		}
 	}
-	if !strings.Contains(stdout, "written=true") {
-		t.Fatalf("stdout = %s, want written result", stdout)
+	if !strings.Contains(stdout, "Config initialized") {
+		t.Fatalf("stdout = %s, want config.init action label", stdout)
 	}
 	cfg, err := config.LoadFile(configPath)
 	if err != nil {

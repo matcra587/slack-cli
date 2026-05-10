@@ -192,7 +192,7 @@ perform the task, what to parse, and which quirks matter.
 - Multi-emoji command: ` + "`slick react add --channel <channel-id> --timestamp <message-ts> --emoji thumbsup,white_check_mark,rocket --json`" + ` applies the emojis in input order. Repeat ` + "`--emoji`" + ` instead of comma-separating if a value contains a comma.
 - Remove command: ` + "`slick react remove --channel <channel-id> --timestamp <message-ts> --emoji :thumbsup: --json`" + `.
 - List command: ` + "`slick react list --channel <channel-id> --timestamp <message-ts> --json`" + `.
-- Parse: ` + "`data.mutations[]`" + ` lists ` + "`{channel, ts, emoji, removed, dry_run}`" + ` for each emoji applied (length 1 for the single-emoji case, length N for ordered multi-emoji); ` + "`data.target.channel`" + ` and ` + "`data.target.ts`" + ` identify the target. List output uses ` + "`data.reactions[]`" + ` with reaction names, counts, and users.
+- Parse: ` + "`data.mutations[]`" + ` lists ` + "`{channel, ts, emoji, dry_run}`" + ` for each emoji applied (length 1 for the single-emoji case, length N for ordered multi-emoji); ` + "`data.target.channel`" + ` and ` + "`data.target.ts`" + ` identify the target. The action label (` + "`react.add`" + ` vs ` + "`react.remove`" + `) conveys which side was applied. List output uses ` + "`data.reactions[]`" + ` with reaction names, counts, and users.
 - Quirks: timestamps are channel-scoped Slack strings such as ` + "`1746284582.123456`" + `.
 - Quirks: emoji may be passed as ` + "`thumbsup`" + ` or ` + "`:thumbsup:`" + `.
 - Quirks: ordered multi-emoji halts on the first failure; ` + "`data.mutations[]`" + ` will be absent on the error envelope, so retry the remaining emojis from a known-good state rather than assuming partial success.
@@ -346,6 +346,7 @@ perform the task, what to parse, and which quirks matter.
 - TTL: default freshness is 1440 minutes. Use ` + "`--ttl-minutes 10080`" + ` for a weekly refresh window.
 - Bounds: use ` + "`--page-size <n>`" + ` and ` + "`--max-pages <n>`" + ` to control pagination when priming large workspaces.
 - Clear: ` + "`slick cache clear users`" + ` or ` + "`slick cache clear channels`" + ` removes one cache resource. ` + "`slick cache clear`" + ` removes all resources for the active profile.
+- Parse: ` + "`slick cache clear <resource>`" + ` returns ` + "`{profile, resource, cleared}`" + ` where ` + "`cleared=true`" + ` means the resource existed and was removed; ` + "`cleared=false`" + ` means the cache was already empty. ` + "`slick cache clear`" + ` (no resource) returns ` + "`{profile, resources}`" + ` where ` + "`resources[]`" + ` lists every removed name; an empty or absent slice means nothing was removed. On a partial failure the error envelope includes ` + "`details.partial`" + ` with the resources removed before the failure.
 - Path: cache files live under XDG cache home, normally ` + "`~/.cache/slick/<profile>/`" + `.
 - Quirks: shell completion prefers fresh cached users/channels before live Slack API calls.
 - Quirks: cache files are metadata only; they do not store tokens or message content.
@@ -372,7 +373,7 @@ perform the task, what to parse, and which quirks matter.
 - Positional command: ` + "`slick status set \"In a meeting\" :calendar: --json`" + `.
 - Clear command: ` + "`slick status clear --json`" + `.
 - Dry-run: use ` + "`--dry-run`" + ` to preview the status payload without calling Slack.
-- Parse: keep ` + "`data.text`" + `, ` + "`data.emoji`" + `, ` + "`data.expiration`" + `, and ` + "`data.cleared`" + `.
+- Parse: keep ` + "`data.text`" + `, ` + "`data.emoji`" + `, and ` + "`data.expiration`" + `. The action label (` + "`status.set`" + ` vs ` + "`status.clear`" + `) tells you which path ran.
 - Quirks: status requires a user token with ` + "`users.profile:write`" + `; bot-token profiles cannot set a user's status.
 
 ## safe_mutation

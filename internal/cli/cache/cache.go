@@ -35,19 +35,19 @@ var Resources = []string{"users", "channels"}
 
 // usersPayload is the on-disk payload for the cached active-user list.
 type usersPayload struct {
-	Users     []clioutput.CliUser `json:"users"`
-	Truncated bool                `json:"truncated,omitempty"`
+	Users     []clioutput.User `json:"users"`
+	Truncated bool             `json:"truncated,omitempty"`
 }
 
 // channelsPayload is the on-disk payload for the cached conversation list.
 type channelsPayload struct {
-	Channels  []clioutput.CliChannel `json:"channels"`
-	Truncated bool                   `json:"truncated,omitempty"`
+	Channels  []clioutput.Channel `json:"channels"`
+	Truncated bool                `json:"truncated,omitempty"`
 }
 
 // LoadCachedUsers returns the cached user list for the profile, or
 // (nil, false) if the cache is missing, stale, or fails to decode.
-func LoadCachedUsers(profile string) ([]clioutput.CliUser, bool) {
+func LoadCachedUsers(profile string) ([]clioutput.User, bool) {
 	var payload usersPayload
 	if !readCache(profile, "users", &payload) {
 		return nil, false
@@ -57,7 +57,7 @@ func LoadCachedUsers(profile string) ([]clioutput.CliUser, bool) {
 
 // LoadCachedChannels returns the cached channel list for the profile, or
 // (nil, false) if the cache is missing, stale, or fails to decode.
-func LoadCachedChannels(profile string) ([]clioutput.CliChannel, bool) {
+func LoadCachedChannels(profile string) ([]clioutput.Channel, bool) {
 	var payload channelsPayload
 	if !readCache(profile, "channels", &payload) {
 		return nil, false
@@ -75,31 +75,41 @@ func readCache(profile, resource string, target any) bool {
 
 // UsersData is the result returned by `slick cache users`.
 type UsersData struct {
+	Profile   string           `json:"profile"`
+	Users     []clioutput.User `json:"users"`
+	Count     int              `json:"count"`
+	FromCache bool             `json:"from_cache"`
+	FetchedAt time.Time        `json:"fetched_at"`
+	Truncated bool             `json:"truncated,omitempty"`
+}
+
+// ChannelsData is the result returned by `slick cache channels`.
+type ChannelsData struct {
 	Profile   string              `json:"profile"`
-	Users     []clioutput.CliUser `json:"users"`
+	Channels  []clioutput.Channel `json:"channels"`
 	Count     int                 `json:"count"`
 	FromCache bool                `json:"from_cache"`
 	FetchedAt time.Time           `json:"fetched_at"`
 	Truncated bool                `json:"truncated,omitempty"`
 }
 
-// ChannelsData is the result returned by `slick cache channels`.
-type ChannelsData struct {
-	Profile   string                 `json:"profile"`
-	Channels  []clioutput.CliChannel `json:"channels"`
-	Count     int                    `json:"count"`
-	FromCache bool                   `json:"from_cache"`
-	FetchedAt time.Time              `json:"fetched_at"`
-	Truncated bool                   `json:"truncated,omitempty"`
+// ClearResourceData is the result of `slick cache clear <resource>` —
+// a single named resource clear. Cleared=true means the file existed
+// and was removed; Cleared=false means the cache was already empty.
+// The action label can't distinguish those two outcomes alone, which
+// is why the Cleared bool stays.
+type ClearResourceData struct {
+	Profile  string `json:"profile"`
+	Resource string `json:"resource"`
+	Cleared  bool   `json:"cleared"`
 }
 
-// ClearData is the result returned by `slick cache clear`.
-type ClearData struct {
-	Profile      string   `json:"profile"`
-	Resource     string   `json:"resource,omitempty"`
-	Removed      bool     `json:"removed,omitempty"`
-	RemovedCount int      `json:"removed_count,omitempty"`
-	Resources    []string `json:"resources,omitempty"`
+// ClearProfileData is the result of `slick cache clear` (no resource
+// argument) — a profile sweep. Resources lists everything removed; an
+// empty or nil slice means there was nothing to remove.
+type ClearProfileData struct {
+	Profile   string   `json:"profile"`
+	Resources []string `json:"resources,omitempty"`
 }
 
 var _ clioutput.PlainRenderer = UsersData{}
@@ -139,33 +149,38 @@ func writeCacheSummary(c *clioutput.CommandContext, command, profile, resource s
 	event.Msg(clioutput.ActionLabel(command))
 }
 
-var _ clioutput.PlainRenderer = ClearData{}
+var _ clioutput.PlainRenderer = ClearResourceData{}
 
-func (d ClearData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+func (d ClearResourceData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	logger := c.StdoutLogger()
 	clioutput.ApplyFieldStyles(logger, c.Theme,
 		clioutput.HashedFieldStyle("profile", "workspace:"+d.Profile),
 	)
-	// "cache clear <resource>" — single explicit resource.
-	if d.Resource != "" {
-		event := c.ResultEvent(command).Str("profile", d.Profile).Str("resource", d.Resource).Bool("removed", d.Removed)
-		if d.Removed {
-			event.Msg(clioutput.ActionLabel(command))
-			return nil
-		}
-		event.Msg("Cache already empty")
+	event := c.ResultEvent(command).Str("profile", d.Profile).Str("resource", d.Resource).Bool("cleared", d.Cleared)
+	if d.Cleared {
+		event.Msg(clioutput.ActionLabel(command))
 		return nil
 	}
-	// "cache clear" with no args — sweep the profile.
-	if d.RemovedCount == 0 {
+	event.Msg("Cache already empty")
+	return nil
+}
+
+var _ clioutput.PlainRenderer = ClearProfileData{}
+
+func (d ClearProfileData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	logger := c.StdoutLogger()
+	clioutput.ApplyFieldStyles(logger, c.Theme,
+		clioutput.HashedFieldStyle("profile", "workspace:"+d.Profile),
+	)
+	if len(d.Resources) == 0 {
 		c.ResultEvent(command).Str("profile", d.Profile).Msg("Cache already empty")
 		return nil
 	}
-	event := c.ResultEvent(command).Str("profile", d.Profile)
-	if len(d.Resources) > 0 {
-		event = event.Str("resources", strings.Join(d.Resources, ","))
-	}
-	event.Int("removed_count", d.RemovedCount).Msg(clioutput.ActionLabel(command))
+	c.ResultEvent(command).
+		Str("profile", d.Profile).
+		Str("resources", strings.Join(d.Resources, ",")).
+		Int("removed_count", len(d.Resources)).
+		Msg(clioutput.ActionLabel(command))
 	return nil
 }
 
@@ -269,7 +284,7 @@ func runUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Options)
 	}
 	var payload usersPayload
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(fmt.Sprintf("cache.users: decode cached payload: %v", err)))
+		return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(fmt.Sprintf("cache.users: decode cached payload: %v", err)))
 	}
 	return ctx.WriteResult("cache.users", UsersData{
 		Profile:   profile.Name,
@@ -294,7 +309,7 @@ func runChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Optio
 	}
 	var payload channelsPayload
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(fmt.Sprintf("cache.channels: decode cached payload: %v", err)))
+		return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(fmt.Sprintf("cache.channels: decode cached payload: %v", err)))
 	}
 	return ctx.WriteResult("cache.channels", ChannelsData{
 		Profile:   profile.Name,
@@ -314,16 +329,23 @@ func runClear(cmd *cobra.Command, runtime *cliruntime.RootRuntime, args []string
 	if len(args) == 0 {
 		resources, err := slackcache.ClearProfile(profile.Name)
 		if err != nil {
-			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+			cliErr := clioutput.RuntimeCLIError(err.Error())
+			if len(resources) > 0 {
+				cliErr = cliErr.WithDetails(map[string]any{
+					"partial":       resources,
+					"removed_count": len(resources),
+				})
+			}
+			return clioutput.WriteCommandError(ctx, cliErr)
 		}
-		return ctx.WriteResult("cache.clear", ClearData{Profile: profile.Name, Resources: resources, RemovedCount: len(resources)})
+		return ctx.WriteResult("cache.clear", ClearProfileData{Profile: profile.Name, Resources: resources})
 	}
 	resource := args[0]
-	removed, err := slackcache.Clear(profile.Name, resource)
+	cleared, err := slackcache.Clear(profile.Name, resource)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 	}
-	return ctx.WriteResult("cache.clear", ClearData{Profile: profile.Name, Resource: resource, Removed: removed})
+	return ctx.WriteResult("cache.clear", ClearResourceData{Profile: profile.Name, Resource: resource, Cleared: cleared})
 }
 
 func readOrFetch(profile, resource string, ttl time.Duration, refresh bool, fetch func() (json.RawMessage, error)) (json.RawMessage, bool, time.Time, error) {
@@ -374,9 +396,9 @@ func fetchChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile 
 	return marshalPayload(channelsPayload{Channels: channels, Truncated: truncated})
 }
 
-func drainUsers(ctx context.Context, client *slackgo.Client, opts Options) ([]clioutput.CliUser, bool, error) {
+func drainUsers(ctx context.Context, client *slackgo.Client, opts Options) ([]clioutput.User, bool, error) {
 	pager := client.GetUsersPaginated(slackgo.GetUsersOptionLimit(normalizePageSize(opts.PageSize)))
-	users := []clioutput.CliUser{}
+	users := []clioutput.User{}
 	for range normalizeMaxPages(opts.MaxPages) {
 		page, err := pager.Next(ctx)
 		if pager.Done(err) {
@@ -385,7 +407,7 @@ func drainUsers(ctx context.Context, client *slackgo.Client, opts Options) ([]cl
 		if err != nil {
 			return nil, false, err
 		}
-		users = append(users, cliuser.CliUsersFromSlack(page.Users, false)...)
+		users = append(users, cliuser.UsersFromSlack(page.Users, false)...)
 		if page.Cursor == "" {
 			return users, false, nil
 		}
@@ -394,8 +416,8 @@ func drainUsers(ctx context.Context, client *slackgo.Client, opts Options) ([]cl
 	return users, true, nil
 }
 
-func drainChannels(ctx context.Context, client *slackgo.Client, opts Options, types []string) ([]clioutput.CliChannel, bool, error) {
-	channels := []clioutput.CliChannel{}
+func drainChannels(ctx context.Context, client *slackgo.Client, opts Options, types []string) ([]clioutput.Channel, bool, error) {
+	channels := []clioutput.Channel{}
 	cursor := ""
 	for range normalizeMaxPages(opts.MaxPages) {
 		page, nextCursor, err := client.GetConversationsContext(ctx, &slackgo.GetConversationsParameters{
@@ -407,7 +429,7 @@ func drainChannels(ctx context.Context, client *slackgo.Client, opts Options, ty
 		if err != nil {
 			return nil, false, err
 		}
-		channels = append(channels, clichannel.CliChannelsFromSlack(page)...)
+		channels = append(channels, clichannel.ChannelsFromSlack(page)...)
 		if nextCursor == "" {
 			return channels, false, nil
 		}

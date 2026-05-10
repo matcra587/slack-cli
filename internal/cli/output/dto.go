@@ -10,29 +10,29 @@ import (
 	slackgo "github.com/slack-go/slack"
 )
 
-type CliMessage struct {
-	Type       string               `json:"type,omitempty"`
-	Subtype    *string              `json:"subtype,omitempty"`
-	User       *string              `json:"user,omitempty"`
-	BotID      *string              `json:"bot_id,omitempty"`
-	Text       *string              `json:"text,omitempty"`
-	TS         string               `json:"ts,omitempty"`
-	ThreadTS   *string              `json:"thread_ts,omitempty"`
-	Channel    *string              `json:"channel,omitempty"`
-	Permalink  *string              `json:"permalink,omitempty"`
-	ReplyCount *int                 `json:"reply_count,omitempty"`
-	Replies    []CliMessage         `json:"replies,omitempty"`
-	Reactions  []CliReactionSummary `json:"reactions,omitempty"`
-	Blocks     *slackgo.Blocks      `json:"blocks,omitempty"`
+type Message struct {
+	Type       string            `json:"type,omitempty"`
+	Subtype    *string           `json:"subtype,omitempty"`
+	User       *string           `json:"user,omitempty"`
+	BotID      *string           `json:"bot_id,omitempty"`
+	Text       *string           `json:"text,omitempty"`
+	TS         string            `json:"ts,omitempty"`
+	ThreadTS   *string           `json:"thread_ts,omitempty"`
+	Channel    *string           `json:"channel,omitempty"`
+	Permalink  *string           `json:"permalink,omitempty"`
+	ReplyCount *int              `json:"reply_count,omitempty"`
+	Replies    []Message         `json:"replies,omitempty"`
+	Reactions  []ReactionSummary `json:"reactions,omitempty"`
+	Blocks     *slackgo.Blocks   `json:"blocks,omitempty"`
 }
 
-type CliReactionSummary struct {
+type ReactionSummary struct {
 	Name  string   `json:"name,omitempty"`
 	Count int      `json:"count,omitempty"`
 	Users []string `json:"users,omitempty"`
 }
 
-type CliChannel struct {
+type Channel struct {
 	ID         string  `json:"id,omitempty"`
 	Name       string  `json:"name,omitempty"`
 	Type       string  `json:"type,omitempty"`
@@ -44,7 +44,7 @@ type CliChannel struct {
 	IsArchived *bool   `json:"is_archived,omitempty"`
 }
 
-type CliUser struct {
+type User struct {
 	ID         string  `json:"id,omitempty"`
 	Name       string  `json:"name,omitempty"`
 	Deleted    *bool   `json:"deleted,omitempty"`
@@ -53,22 +53,22 @@ type CliUser struct {
 	StatusText *string `json:"status_text,omitempty"`
 }
 
-type CliSearchMessage struct {
-	Channel   CliSearchChannel `json:"channel"`
-	User      string           `json:"user,omitempty"`
-	Text      string           `json:"text,omitempty"`
-	TS        string           `json:"ts,omitempty"`
-	Permalink string           `json:"permalink,omitempty"`
-	Snippet   string           `json:"snippet,omitempty"`
+type SearchMessage struct {
+	Channel   SearchChannel `json:"channel"`
+	User      string        `json:"user,omitempty"`
+	Text      string        `json:"text,omitempty"`
+	TS        string        `json:"ts,omitempty"`
+	Permalink string        `json:"permalink,omitempty"`
+	Snippet   string        `json:"snippet,omitempty"`
 }
 
-type CliSearchChannel struct {
+type SearchChannel struct {
 	ID   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
 }
 
-func CliMessageFromSlack(message slackgo.Message, fallbackChannel string) CliMessage {
-	out := CliMessage{
+func MessageFromSlack(message slackgo.Message, fallbackChannel string) Message {
+	out := Message{
 		Type: message.Type,
 		TS:   message.Timestamp,
 	}
@@ -97,7 +97,7 @@ func CliMessageFromSlack(message slackgo.Message, fallbackChannel string) CliMes
 	if message.ReplyCount > 0 {
 		out.ReplyCount = new(message.ReplyCount)
 	}
-	out.Reactions = CliReactionsFromSlack(message.Reactions)
+	out.Reactions = ReactionsFromSlack(message.Reactions)
 	if len(message.Blocks.BlockSet) > 0 {
 		blocks := message.Blocks
 		out.Blocks = &blocks
@@ -105,19 +105,19 @@ func CliMessageFromSlack(message slackgo.Message, fallbackChannel string) CliMes
 	return out
 }
 
-func CliReactionsFromSlack(reactions []slackgo.ItemReaction) []CliReactionSummary {
+func ReactionsFromSlack(reactions []slackgo.ItemReaction) []ReactionSummary {
 	if len(reactions) == 0 {
 		return nil
 	}
-	out := make([]CliReactionSummary, 0, len(reactions))
+	out := make([]ReactionSummary, 0, len(reactions))
 	for _, reaction := range reactions {
-		out = append(out, CliReactionSummary{Name: reaction.Name, Count: reaction.Count, Users: reaction.Users})
+		out = append(out, ReactionSummary{Name: reaction.Name, Count: reaction.Count, Users: reaction.Users})
 	}
 	return out
 }
 
-func CliChannelFromSlack(channel slackgo.Channel) CliChannel {
-	out := CliChannel{
+func ChannelFromSlack(channel slackgo.Channel) Channel {
+	out := Channel{
 		ID:         channel.ID,
 		Name:       channel.Name,
 		Type:       conversationType(channel),
@@ -145,8 +145,8 @@ func conversationType(channel slackgo.Channel) string {
 	return "channel"
 }
 
-func CliUserFromSlack(user slackgo.User) CliUser {
-	out := CliUser{
+func UserFromSlack(user slackgo.User) User {
+	out := User{
 		ID:       user.ID,
 		Name:     user.Name,
 		Deleted:  new(user.Deleted),
@@ -161,9 +161,9 @@ func CliUserFromSlack(user slackgo.User) CliUser {
 	return out
 }
 
-func CliSearchMessageFromSlack(message slackgo.SearchMessage) CliSearchMessage {
-	return CliSearchMessage{
-		Channel: CliSearchChannel{
+func SearchMessageFromSlack(message slackgo.SearchMessage) SearchMessage {
+	return SearchMessage{
+		Channel: SearchChannel{
 			ID:   message.Channel.ID,
 			Name: message.Channel.Name,
 		},

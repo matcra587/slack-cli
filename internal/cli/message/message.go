@@ -27,10 +27,10 @@ import (
 
 // SendData is the result type for message send and edit operations.
 type SendData struct {
-	Message     clioutput.CliMessage `json:"message"`
-	Permalink   *string              `json:"permalink,omitempty"`
-	DryRun      bool                 `json:"dry_run,omitempty"`
-	Attribution bool                 `json:"attribution"`
+	Message     clioutput.Message `json:"message"`
+	Permalink   *string           `json:"permalink,omitempty"`
+	DryRun      bool              `json:"dry_run,omitempty"`
+	Attribution bool              `json:"attribution"`
 }
 
 var _ clioutput.PlainRenderer = SendData{}
@@ -65,7 +65,6 @@ func (d SendData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 type DeleteData struct {
 	Channel string `json:"channel"`
 	TS      string `json:"ts"`
-	Deleted bool   `json:"deleted"`
 	DryRun  bool   `json:"dry_run,omitempty"`
 }
 
@@ -77,7 +76,6 @@ func (d DeleteData) WritePlain(c *clioutput.CommandContext, command string, _ *c
 		event = event.Str("channel", d.Channel)
 	}
 	event = clioutput.AddSlackTimestampFields(event, d.TS, c.Now()).
-		Bool("deleted", d.Deleted).
 		Bool("dry_run", d.DryRun)
 	event.Msg(clioutput.ActionLabel(command))
 	return nil
@@ -217,7 +215,7 @@ func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 
 	result := SendData{Attribution: attribution.Enabled}
 	if dryRun {
-		result.Message = clioutput.CliMessage{Type: "message", TS: "dry-run", Channel: cliutil.StringPtr(target.previewChannel()), Text: cliutil.StringPtr(strings.TrimSpace(content))}
+		result.Message = clioutput.Message{Type: "message", TS: "dry-run", Channel: cliutil.StringPtr(target.previewChannel()), Text: cliutil.StringPtr(strings.TrimSpace(content))}
 		result.DryRun = true
 	} else {
 		client, err := slackclient.Client(cmd, profile, runtime)
@@ -247,7 +245,7 @@ func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 		if err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 		}
-		result.Message = clioutput.CliMessage{Type: "message", TS: ts, Channel: cliutil.StringPtr(channel), Text: cliutil.StringPtr(strings.TrimSpace(content))}
+		result.Message = clioutput.Message{Type: "message", TS: ts, Channel: cliutil.StringPtr(channel), Text: cliutil.StringPtr(strings.TrimSpace(content))}
 		result.Permalink = Permalink(cmd.Context(), client, channel, ts)
 	}
 
@@ -277,7 +275,7 @@ func runMessageEdit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 	}
 	result := SendData{Attribution: attribution.Enabled}
 	if dryRun {
-		result.Message = clioutput.CliMessage{Type: "message", TS: timestamp, Channel: cliutil.StringPtr(channel), Text: cliutil.StringPtr(strings.TrimSpace(content))}
+		result.Message = clioutput.Message{Type: "message", TS: timestamp, Channel: cliutil.StringPtr(channel), Text: cliutil.StringPtr(strings.TrimSpace(content))}
 		result.DryRun = true
 	} else {
 		client, err := slackclient.Client(cmd, profile, runtime)
@@ -291,7 +289,7 @@ func runMessageEdit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 		if err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 		}
-		result.Message = clioutput.CliMessage{
+		result.Message = clioutput.Message{
 			Type:    "message",
 			TS:      cliutil.FirstNonEmpty(respTS, timestamp),
 			Channel: cliutil.StringPtr(cliutil.FirstNonEmpty(respChannel, channel)),
@@ -322,7 +320,7 @@ func runMessageDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRu
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("message delete requires --force unless --dry-run is used"))
 	}
 	if dryRun {
-		return ctx.WriteResult("message.delete", DeleteData{Channel: channel, TS: timestamp, Deleted: true, DryRun: true})
+		return ctx.WriteResult("message.delete", DeleteData{Channel: channel, TS: timestamp, DryRun: true})
 	}
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
@@ -338,7 +336,6 @@ func runMessageDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRu
 	return ctx.WriteResult("message.delete", DeleteData{
 		Channel: cliutil.FirstNonEmpty(respChannel, channel),
 		TS:      cliutil.FirstNonEmpty(respTS, timestamp),
-		Deleted: true,
 	})
 }
 

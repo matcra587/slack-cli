@@ -18,7 +18,7 @@ import (
 
 // ListData is the result type for channel list operations.
 type ListData struct {
-	Channels []clioutput.CliChannel `json:"channels"`
+	Channels []clioutput.Channel `json:"channels"`
 }
 
 var _ clioutput.PlainRenderer = ListData{}
@@ -29,7 +29,7 @@ func (d ListData) WritePlain(c *clioutput.CommandContext, command string, pagina
 
 // InfoData is the result type for channel info operations.
 type InfoData struct {
-	Channel clioutput.CliChannel `json:"channel"`
+	Channel clioutput.Channel `json:"channel"`
 }
 
 var _ clioutput.PlainRenderer = InfoData{}
@@ -127,7 +127,7 @@ func runChannelListWithTypes(cmd *cobra.Command, runtime *cliruntime.RootRuntime
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
-	result := ListData{Channels: filterChannels(CliChannelsFromSlack(channels), filter)}
+	result := ListData{Channels: filterChannels(ChannelsFromSlack(channels), filter)}
 	return ctx.WriteResultWithPagination(command, result, &clioutput.Pagination{
 		Cursor:        cliutil.StringPtr(cursor),
 		NextCursor:    cliutil.StringPtr(nextCursor),
@@ -160,23 +160,23 @@ func runChannelInfoValue(cmd *cobra.Command, runtime *cliruntime.RootRuntime, co
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
-	return ctx.WriteResult(command, InfoData{Channel: clioutput.CliChannelFromSlack(*result)})
+	return ctx.WriteResult(command, InfoData{Channel: clioutput.ChannelFromSlack(*result)})
 }
 
-// CliChannelsFromSlack converts a slice of slack-go Channels to CliChannel DTOs.
-func CliChannelsFromSlack(channels []slackgo.Channel) []clioutput.CliChannel {
-	out := make([]clioutput.CliChannel, 0, len(channels))
+// ChannelsFromSlack converts a slice of slack-go Channels to Channel DTOs.
+func ChannelsFromSlack(channels []slackgo.Channel) []clioutput.Channel {
+	out := make([]clioutput.Channel, 0, len(channels))
 	for i := range channels {
-		out = append(out, clioutput.CliChannelFromSlack(channels[i]))
+		out = append(out, clioutput.ChannelFromSlack(channels[i]))
 	}
 	return out
 }
 
-func filterChannels(channels []clioutput.CliChannel, filter string) []clioutput.CliChannel {
+func filterChannels(channels []clioutput.Channel, filter string) []clioutput.Channel {
 	if filter == "" {
 		return channels
 	}
-	out := make([]clioutput.CliChannel, 0, len(channels))
+	out := make([]clioutput.Channel, 0, len(channels))
 	for _, channel := range channels {
 		if cliutil.ContainsAnyFold(filter, channel.ID, channel.Name) {
 			out = append(out, channel)

@@ -15,7 +15,7 @@ import (
 
 // ListData is the result type for user list operations.
 type ListData struct {
-	Users []clioutput.CliUser `json:"users"`
+	Users []clioutput.User `json:"users"`
 }
 
 var _ clioutput.PlainRenderer = ListData{}
@@ -26,7 +26,7 @@ func (d ListData) WritePlain(c *clioutput.CommandContext, command string, pagina
 
 // InfoData is the result type for user info operations.
 type InfoData struct {
-	User clioutput.CliUser `json:"user"`
+	User clioutput.User `json:"user"`
 }
 
 var _ clioutput.PlainRenderer = InfoData{}
@@ -112,7 +112,7 @@ func runUserListWithCommand(cmd *cobra.Command, runtime *cliruntime.RootRuntime,
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
-	users := filterUsers(cliUsersFromSlack(page.Users, opts.IncludeDeleted), opts.Filter)
+	users := filterUsers(usersFromSlack(page.Users, opts.IncludeDeleted), opts.Filter)
 	return ctx.WriteResultWithPagination(command, ListData{Users: users}, &clioutput.Pagination{
 		Cursor:        cliutil.StringPtr(opts.Cursor),
 		NextCursor:    cliutil.StringPtr(page.Cursor),
@@ -142,7 +142,7 @@ func runUserInfoValue(cmd *cobra.Command, runtime *cliruntime.RootRuntime, comma
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
-	result := clioutput.CliUserFromSlack(*user)
+	result := clioutput.UserFromSlack(*user)
 	if presence {
 		presenceResult, err := client.GetUserPresenceContext(cmd.Context(), userID)
 		if err != nil {
@@ -156,27 +156,27 @@ func runUserInfoValue(cmd *cobra.Command, runtime *cliruntime.RootRuntime, comma
 	return ctx.WriteResult(command, InfoData{User: result})
 }
 
-// CliUsersFromSlack converts a slice of slack-go Users to CliUser DTOs.
-func CliUsersFromSlack(users []slackgo.User, includeDeleted bool) []clioutput.CliUser {
-	return cliUsersFromSlack(users, includeDeleted)
+// UsersFromSlack converts a slice of slack-go Users to User DTOs.
+func UsersFromSlack(users []slackgo.User, includeDeleted bool) []clioutput.User {
+	return usersFromSlack(users, includeDeleted)
 }
 
-func cliUsersFromSlack(users []slackgo.User, includeDeleted bool) []clioutput.CliUser {
-	out := make([]clioutput.CliUser, 0, len(users))
+func usersFromSlack(users []slackgo.User, includeDeleted bool) []clioutput.User {
+	out := make([]clioutput.User, 0, len(users))
 	for _, user := range users {
 		if user.Deleted && !includeDeleted {
 			continue
 		}
-		out = append(out, clioutput.CliUserFromSlack(user))
+		out = append(out, clioutput.UserFromSlack(user))
 	}
 	return out
 }
 
-func filterUsers(users []clioutput.CliUser, filter string) []clioutput.CliUser {
+func filterUsers(users []clioutput.User, filter string) []clioutput.User {
 	if filter == "" {
 		return users
 	}
-	out := make([]clioutput.CliUser, 0, len(users))
+	out := make([]clioutput.User, 0, len(users))
 	for _, user := range users {
 		if cliutil.ContainsAnyFold(filter, user.ID, user.Name) {
 			out = append(out, user)

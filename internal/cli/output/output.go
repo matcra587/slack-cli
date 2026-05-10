@@ -3,6 +3,7 @@ package output
 import (
 	"hash/fnv"
 	"io"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -94,6 +95,19 @@ type CLIError struct {
 	Details           map[string]any `json:"details,omitempty"`
 	RetryAfterSeconds *int           `json:"retry_after_seconds,omitempty"`
 	ExitCode          int            `json:"exit_code"`
+}
+
+// WithDetails attaches structured details to the error and returns the
+// updated CLIError so callers can chain builder helpers.
+func (e CLIError) WithDetails(details map[string]any) CLIError {
+	if len(details) == 0 {
+		return e
+	}
+	merged := make(map[string]any, len(e.Details)+len(details))
+	maps.Copy(merged, e.Details)
+	maps.Copy(merged, details)
+	e.Details = merged
+	return e
 }
 
 type CommandError struct {
@@ -448,4 +462,14 @@ func ValidationCLIError(message string) CLIError {
 
 func AuthCLIError(message string) CLIError {
 	return CLIError{Type: ErrorTypeAuth, Message: message, ExitCode: ExitCodeAuthFailure}
+}
+
+// RuntimeCLIError wraps a non-user, non-validation failure (filesystem
+// permission errors, keychain backend errors, or other system resources
+// the user did not directly control). Distinguishing from
+// ValidationCLIError lets callers see "this failed because of the
+// system, not because of bad input" without inspecting message text.
+// Maps to ErrorTypeServer / ExitCodeServer.
+func RuntimeCLIError(message string) CLIError {
+	return CLIError{Type: ErrorTypeServer, Message: message, ExitCode: ExitCodeServer}
 }

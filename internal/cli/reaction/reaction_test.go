@@ -64,8 +64,8 @@ func TestReactionCommandDryRunSkipsMutation(t *testing.T) {
 		method string
 		want   string
 	}{
-		{name: "add", action: "add", method: "reactions.add", want: `"dry_run":true`},
-		{name: "remove", action: "remove", method: "reactions.remove", want: `"removed":true`},
+		{name: "add", action: "add", method: "reactions.add", want: `"command":"react.add"`},
+		{name: "remove", action: "remove", method: "reactions.remove", want: `"command":"react.remove"`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			server := testutil.NewSlackServer(t, nil)

@@ -1,4 +1,6 @@
-package main
+// Package status implements the `slick status` cobra command tree for
+// reading and writing the authenticated user's Slack custom status.
+package status
 
 import (
 	"errors"
@@ -7,6 +9,10 @@ import (
 	"time"
 
 	"github.com/gechr/clog"
+	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
+	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
+	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
+	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -15,22 +21,20 @@ type statusCommandData struct {
 	Text       string `json:"text,omitempty"`
 	Emoji      string `json:"emoji,omitempty"`
 	Expiration int64  `json:"expiration,omitempty"`
-	Cleared    bool   `json:"cleared,omitempty"`
 	DryRun     bool   `json:"dry_run,omitempty"`
 }
 
-var _ PlainRenderer = statusCommandData{}
+var _ clioutput.PlainRenderer = statusCommandData{}
 
-func (d statusCommandData) WritePlain(c *CommandContext, command string, _ *Pagination) error {
+func (d statusCommandData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	event := c.ResultEvent(command).
 		When(d.Expiration > 0, func(e *clog.Event) {
 			e.Int64("expiration", d.Expiration)
 		}).
-		Bool("cleared", d.Cleared).
 		Bool("dry_run", d.DryRun).
 		Str("text", d.Text).
 		Str("emoji", d.Emoji)
-	event.Msg(actionLabel(command))
+	event.Msg(clioutput.ActionLabel(command))
 	return nil
 }
 
@@ -42,7 +46,8 @@ type statusSetOptions struct {
 	DryRun    bool
 }
 
-func newStatusCommand(runtime *RootRuntime) *cobra.Command {
+// NewCommand returns the `slick status` parent command.
+func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	statusCmd := &cobra.Command{
 		Use:          "status",
 		Short:        "Set or clear Slack status",
@@ -91,51 +96,48 @@ func newStatusCommand(runtime *RootRuntime) *cobra.Command {
 	return statusCmd
 }
 
-func runStatusSet(cmd *cobra.Command, runtime *RootRuntime, opts statusSetOptions) error {
-	ctx, profile, _, err := commandContext(cmd, runtime)
+func runStatusSet(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts statusSetOptions) error {
+	ctx, profile, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
-		return writeRuntimeError(runtime, validationCLIError(err.Error()))
+		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 	text := strings.TrimSpace(opts.Text)
 	emoji := normalizeStatusEmoji(opts.Emoji)
 	if text == "" && emoji == "" {
-		return writeCommandError(ctx, validationCLIError("status text or emoji is required"))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("status text or emoji is required"))
 	}
 	expiration, err := parseStatusExpiration(ctx.Now(), opts.ExpiresIn, opts.Until)
 	if err != nil {
-		return writeCommandError(ctx, validationCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
 	return mutateSlackStatus(cmd, runtime, ctx, profile, text, emoji, expiration, opts.DryRun, "status.set")
 }
 
-func runStatusClear(cmd *cobra.Command, runtime *RootRuntime, dryRun bool) error {
-	ctx, profile, _, err := commandContext(cmd, runtime)
+func runStatusClear(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRun bool) error {
+	ctx, profile, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
-		return writeRuntimeError(runtime, validationCLIError(err.Error()))
+		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 	return mutateSlackStatus(cmd, runtime, ctx, profile, "", "", 0, dryRun, "status.clear")
 }
 
-func mutateSlackStatus(cmd *cobra.Command, runtime *RootRuntime, ctx *CommandContext, profile config.WorkspaceProfile, text, emoji string, expiration int64, dryRun bool, command string) error {
+func mutateSlackStatus(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ctx *clioutput.CommandContext, profile config.WorkspaceProfile, text, emoji string, expiration int64, dryRun bool, command string) error {
 	data := statusCommandData{Text: text, Emoji: emoji, Expiration: expiration, DryRun: dryRun}
-	if text == "" && emoji == "" && expiration == 0 {
-		data.Cleared = true
-	}
 	if dryRun {
 		return ctx.WriteResult(command, data)
 	}
 	if profile.TokenType != config.TokenTypeUser {
-		return writeCommandError(ctx, authCLIError("status requires a user token with users.profile:write"))
+		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError("status requires a user token with users.profile:write"))
 	}
-	client, err := slackClient(cmd, profile, runtime)
+	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return writeCommandError(ctx, authCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 	}
-	if err := requireSlackScopes(cmd.Context(), client, allScopes("users.profile:write")); err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
+	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("users.profile:write")); err != nil {
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
 	if err := client.SetUserCustomStatusContext(cmd.Context(), text, emoji, expiration); err != nil {
-		return writeCommandError(ctx, cliErrorFromSlack(cmd.Context(), err))
+		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 	}
 	return ctx.WriteResult(command, data)
 }

@@ -16,9 +16,9 @@ import (
 
 // Data is the result type for search messages operations.
 type Data struct {
-	Matches []clioutput.CliSearchMessage `json:"matches"`
-	Query   string                       `json:"query,omitempty"`
-	Full    bool                         `json:"-"`
+	Matches []clioutput.SearchMessage `json:"matches"`
+	Query   string                    `json:"query,omitempty"`
+	Full    bool                      `json:"-"`
 }
 
 var _ clioutput.PlainRenderer = Data{}
@@ -113,10 +113,10 @@ func runSearchMessages(cmd *cobra.Command, runtime *cliruntime.RootRuntime, quer
 	})
 }
 
-func cliSearchMessagesFromSlack(messages []slackgo.SearchMessage) []clioutput.CliSearchMessage {
-	out := make([]clioutput.CliSearchMessage, 0, len(messages))
+func cliSearchMessagesFromSlack(messages []slackgo.SearchMessage) []clioutput.SearchMessage {
+	out := make([]clioutput.SearchMessage, 0, len(messages))
 	for _, message := range messages {
-		out = append(out, clioutput.CliSearchMessageFromSlack(message))
+		out = append(out, clioutput.SearchMessageFromSlack(message))
 	}
 	return out
 }

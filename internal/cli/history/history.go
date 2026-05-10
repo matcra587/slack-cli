@@ -15,7 +15,7 @@ import (
 
 // Data is the result type for history list operations.
 type Data struct {
-	Messages []clioutput.CliMessage `json:"messages"`
+	Messages []clioutput.Message `json:"messages"`
 }
 
 var _ clioutput.PlainRenderer = Data{}
@@ -37,7 +37,7 @@ type ListOptions struct {
 }
 
 type result struct {
-	Messages   []clioutput.CliMessage
+	Messages   []clioutput.Message
 	NextCursor *string
 }
 
@@ -175,19 +175,19 @@ func threadHistory(ctx context.Context, client *slackgo.Client, channel, threadT
 	return result{Messages: cliMessagesFromSlack(messages, channel), NextCursor: cliutil.StringPtr(nextCursor)}, nil
 }
 
-func cliMessagesFromSlack(messages []slackgo.Message, channel string) []clioutput.CliMessage {
-	out := make([]clioutput.CliMessage, 0, len(messages))
+func cliMessagesFromSlack(messages []slackgo.Message, channel string) []clioutput.Message {
+	out := make([]clioutput.Message, 0, len(messages))
 	for _, message := range messages {
-		out = append(out, clioutput.CliMessageFromSlack(message, channel))
+		out = append(out, clioutput.MessageFromSlack(message, channel))
 	}
 	return out
 }
 
-func filterMessagesByUser(messages []clioutput.CliMessage, user string) []clioutput.CliMessage {
+func filterMessagesByUser(messages []clioutput.Message, user string) []clioutput.Message {
 	if user == "" {
 		return messages
 	}
-	out := make([]clioutput.CliMessage, 0, len(messages))
+	out := make([]clioutput.Message, 0, len(messages))
 	for _, message := range messages {
 		if message.User != nil && *message.User == user {
 			out = append(out, message)
@@ -196,8 +196,8 @@ func filterMessagesByUser(messages []clioutput.CliMessage, user string) []cliout
 	return out
 }
 
-func repliesOnly(parent string, messages []clioutput.CliMessage) []clioutput.CliMessage {
-	out := make([]clioutput.CliMessage, 0, len(messages))
+func repliesOnly(parent string, messages []clioutput.Message) []clioutput.Message {
+	out := make([]clioutput.Message, 0, len(messages))
 	for _, message := range messages {
 		if message.TS == parent {
 			continue

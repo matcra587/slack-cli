@@ -32,7 +32,7 @@ import (
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	clireaction "github.com/matcra587/slack-cli/internal/cli/reaction"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
-	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
+	clistatus "github.com/matcra587/slack-cli/internal/cli/status"
 	clithread "github.com/matcra587/slack-cli/internal/cli/thread"
 	clitoken "github.com/matcra587/slack-cli/internal/cli/token"
 	cliuser "github.com/matcra587/slack-cli/internal/cli/user"
@@ -80,9 +80,9 @@ type PlainRenderer = clioutput.PlainRenderer
 
 // DTO type aliases so existing cmd/slick files compile without changes.
 type (
-	cliMessage = clioutput.CliMessage
-	cliChannel = clioutput.CliChannel
-	cliUser    = clioutput.CliUser
+	cliMessage = clioutput.Message
+	cliChannel = clioutput.Channel
+	cliUser    = clioutput.User
 )
 
 // Command data type aliases so existing cmd/slick code compiles unchanged.
@@ -99,16 +99,6 @@ type (
 type (
 	authWorkspaceData = cliauth.WorkspaceData
 	authStatusData    = cliauth.StatusData
-)
-
-// DTO converter aliases.
-var (
-	cliErrorFromSlack = clioutput.CliErrorFromSlack
-)
-
-// Slack client aliases — all cmd/slick command files call slackClient(cmd, profile, runtime).
-var (
-	slackClient = slackclient.Client
 )
 
 type RootOptions struct {
@@ -276,7 +266,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	reactCmd.GroupID = "messaging"
 	root.AddCommand(reactCmd)
 
-	statusCmd := newStatusCommand(runtime)
+	statusCmd := clistatus.NewCommand(runtime)
 	statusCmd.GroupID = "messaging"
 	root.AddCommand(statusCmd)
 
@@ -335,10 +325,6 @@ func defaultConfigPath() string {
 	return filepath.Join(dir, "slick", "config.toml")
 }
 
-func commandContext(cmd *cobra.Command, runtime *RootRuntime) (*CommandContext, config.WorkspaceProfile, Attribution, error) {
-	return cliruntime.CommandContext(cmd, runtime)
-}
-
 func NewCommandContext(opts RootOptions) (*CommandContext, Attribution, error) {
 	workspace := "default"
 	agentFlags := opts.Agent
@@ -386,8 +372,6 @@ var buildBaseLoggers = clioutput.BuildBaseLoggers
 
 var applyRenderMode = clioutput.ApplyRenderMode
 
-var actionLabel = clioutput.ActionLabel
-
 func profileAttributionSetting(profile config.WorkspaceProfile) *bool {
 	if profile.Attribution.Enabled != nil {
 		return profile.Attribution.Enabled
@@ -406,16 +390,6 @@ type CLIError = clioutput.CLIError
 type CommandError = clioutput.CommandError
 
 var validationCLIError = clioutput.ValidationCLIError
-
-var authCLIError = clioutput.AuthCLIError
-
-func writeCommandError(ctx *CommandContext, err CLIError) error {
-	return clioutput.WriteCommandError(ctx, err)
-}
-
-func writeRuntimeError(runtime *RootRuntime, err CLIError) error {
-	return cliruntime.WriteRuntimeError(runtime, err)
-}
 
 func truncateText(value string, limit int) string {
 	return clioutput.TruncateText(value, limit)

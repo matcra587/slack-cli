@@ -106,8 +106,8 @@ func TestCacheClearRemovesOneResource(t *testing.T) {
 		t.Fatalf("cache clear users returned error: %v\nstderr=%s", err, stderr)
 	}
 	data := envelopeData(t, stdout)
-	if data["removed"] != true {
-		t.Fatalf("removed = %v, want true", data["removed"])
+	if data["cleared"] != true {
+		t.Fatalf("cleared = %v, want true", data["cleared"])
 	}
 	if _, ok, _, _ := slackcache.Read("default", "users", 0); ok {
 		t.Fatal("users cache still exists")

@@ -66,7 +66,7 @@ func runThreadReply(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src cli
 
 	result := climessage.SendData{Attribution: attribution.Enabled}
 	if dryRun {
-		result.Message = clioutput.CliMessage{
+		result.Message = clioutput.Message{
 			Type:     "message",
 			TS:       "dry-run",
 			Channel:  cliutil.StringPtr(channel),
@@ -87,7 +87,7 @@ func runThreadReply(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src cli
 		if err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err))
 		}
-		result.Message = clioutput.CliMessage{
+		result.Message = clioutput.Message{
 			Type:     "message",
 			TS:       ts,
 			Channel:  cliutil.StringPtr(respChannel),

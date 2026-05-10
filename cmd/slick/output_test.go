@@ -246,17 +246,15 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 			data: deleteMessageData{
 				Channel: "C7N2Q8L4P",
 				TS:      "1746284582.123456",
-				Deleted: true,
 				DryRun:  true,
 			},
 			want: []string{
 				"Message deleted",
 				"channel=C7N2Q8L4P",
 				"ts=1746284582.123456",
-				"deleted=true",
 				"dry_run=true",
 			},
-			deny: []string{"INF", "command=message.delete"},
+			deny: []string{"INF", "command=message.delete", "deleted="},
 		},
 		{
 			name: "file upload",
@@ -303,16 +301,14 @@ func TestWriteResultPlainActionOutputsUseConciseClogFields(t *testing.T) {
 				Path:      "/tmp/slick/config.toml",
 				Profile:   "default",
 				Workspace: "default",
-				Written:   true,
 			},
 			want: []string{
 				"Config initialized",
 				"path=/tmp/slick/config.toml",
 				"profile=default",
 				"workspace=default",
-				"written=true",
 			},
-			deny: []string{"INF", "command=config.init"},
+			deny: []string{"INF", "command=config.init", "written="},
 		},
 		{
 			name: "config path",

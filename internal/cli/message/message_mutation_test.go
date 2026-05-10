@@ -214,8 +214,8 @@ func TestMessageDeleteCommandDeletesOwnedMessageWithForce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
 	}
-	if !strings.Contains(stdout, `"deleted":true`) {
-		t.Fatalf("stdout = %s, want deleted true", stdout)
+	if !strings.Contains(stdout, `"command":"message.delete"`) {
+		t.Fatalf("stdout = %s, want message.delete result", stdout)
 	}
 }
 
@@ -233,8 +233,8 @@ func TestMessageDeleteCommandDeletesThreadReplyWithForce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
 	}
-	if !strings.Contains(stdout, `"deleted":true`) {
-		t.Fatalf("stdout = %s, want deleted true", stdout)
+	if !strings.Contains(stdout, `"command":"message.delete"`) {
+		t.Fatalf("stdout = %s, want message.delete result", stdout)
 	}
 }
 

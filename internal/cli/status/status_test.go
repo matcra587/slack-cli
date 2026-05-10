@@ -1,4 +1,4 @@
-package main
+package status_test
 
 import (
 	"encoding/json"
@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/matcra587/slack-cli/internal/cli/runtime/runtimetest"
+	clistatus "github.com/matcra587/slack-cli/internal/cli/status"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/matcra587/slack-cli/internal/testutil"
 )
@@ -66,7 +68,36 @@ func TestStatusClearCommandClearsCustomStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
 	}
-	if !strings.Contains(stdout, `"command":"status.clear"`) || !strings.Contains(stdout, `"cleared":true`) {
+	if !strings.Contains(stdout, `"command":"status.clear"`) {
 		t.Fatalf("stdout = %s, want status.clear result", stdout)
+	}
+}
+
+// --- helpers ---
+
+func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, args []string) (string, string, error) {
+	t.Helper()
+	runtime, stdout, stderr := runtimetest.NewRuntime(t, runtimetest.Options{
+		Config:       cfg,
+		SlackBaseURL: baseURL,
+		Stdin:        strings.NewReader(stdin),
+	})
+	root := runtimetest.NewRoot(runtime, stdout, stderr)
+	root.AddCommand(clistatus.NewCommand(runtime))
+	return runtimetest.Run(t, root, args, stdout, stderr)
+}
+
+func workspaceConfig(tokenType config.TokenType) *config.Config {
+	return &config.Config{
+		SchemaVersion:    config.SchemaVersion,
+		DefaultWorkspace: "default",
+		Workspaces: map[string]config.WorkspaceProfile{
+			"default": {
+				Name:      "default",
+				TeamID:    "T123",
+				TokenType: tokenType,
+				TokenRef:  "env:SLACK_TEST_TOKEN",
+			},
+		},
 	}
 }

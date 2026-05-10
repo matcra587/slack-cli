@@ -82,7 +82,6 @@ func (c *Config) ResolveWorkspace(name string) (WorkspaceProfile, error) {
 	if err := c.Validate(); err != nil {
 		return WorkspaceProfile{}, err
 	}
-	name = strings.TrimSpace(name)
 	if name == "" {
 		name = c.DefaultWorkspace
 	}
@@ -97,7 +96,6 @@ func (c *Config) ResolveWorkspaceName(name string) (string, error) {
 	if err := c.Validate(); err != nil {
 		return "", err
 	}
-	name = strings.TrimSpace(name)
 	if name == "" {
 		name = c.DefaultWorkspace
 	}

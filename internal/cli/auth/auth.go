@@ -237,10 +237,9 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 }
 
 func runAuthLogin(cmd *cobra.Command, runtime *cliruntime.RootRuntime, input loginInput) error {
-	input.WorkspaceName = strings.TrimSpace(input.WorkspaceName)
 	if input.WorkspaceName == "" {
 		flagWorkspace, _ := cmd.Root().PersistentFlags().GetString("workspace")
-		input.WorkspaceName = strings.TrimSpace(flagWorkspace)
+		input.WorkspaceName = flagWorkspace
 	}
 	ctx, _, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
@@ -252,7 +251,6 @@ func runAuthLogin(cmd *cobra.Command, runtime *cliruntime.RootRuntime, input log
 			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 		}
 	}
-	input.WorkspaceName = strings.TrimSpace(input.WorkspaceName)
 	if input.WorkspaceName == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("workspace-name is required"))
 	}
@@ -323,7 +321,7 @@ func runAuthLogin(cmd *cobra.Command, runtime *cliruntime.RootRuntime, input log
 	cfg.Workspaces[profileName] = profile
 	if runtime.ConfigPath != "" {
 		if err := config.SaveFile(runtime.ConfigPath, cfg); err != nil {
-			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+			return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 		}
 	}
 	runtime.Config = cfg
@@ -965,7 +963,6 @@ func runAuthStatus(cmd *cobra.Command, runtime *cliruntime.RootRuntime) error {
 }
 
 func runAuthSwitch(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspace string) error {
-	workspace = strings.TrimSpace(workspace)
 	ctx, _, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
@@ -979,14 +976,13 @@ func runAuthSwitch(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspac
 	runtime.Config.DefaultWorkspace = workspace
 	if runtime.ConfigPath != "" {
 		if err := config.SaveFile(runtime.ConfigPath, runtime.Config); err != nil {
-			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+			return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 		}
 	}
 	return ctx.WriteResult("auth.switch", WorkspaceData{Workspace: workspace})
 }
 
 func runAuthLogout(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspace string) error {
-	workspace = strings.TrimSpace(workspace)
 	ctx, _, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
@@ -1007,7 +1003,9 @@ func runAuthLogout(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspac
 				ctx.StderrLogger().Warn().Err(revokeErr).Str("workspace", workspace).Msg("token revocation failed; proceeding with local cleanup")
 			}
 		}
-		_ = runtime.CredentialStore.Delete("slack-cli", workspace)
+		if err := runtime.CredentialStore.Delete("slack-cli", workspace); err != nil && !errors.Is(err, config.ErrCredentialNotFound) {
+			ctx.StderrLogger().Warn().Err(err).Str("workspace", workspace).Msg("keychain delete failed during logout")
+		}
 	}
 
 	if runtime.Config != nil && runtime.Config.Workspaces != nil {
@@ -1028,7 +1026,7 @@ func runAuthLogout(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspac
 		}
 		if runtime.ConfigPath != "" && len(runtime.Config.Workspaces) > 0 {
 			if err := config.SaveFile(runtime.ConfigPath, runtime.Config); err != nil {
-				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+				return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 			}
 		}
 	}

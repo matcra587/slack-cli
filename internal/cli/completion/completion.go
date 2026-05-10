@@ -235,7 +235,7 @@ func completeCachedChannels(shell, profile string) bool {
 	return true
 }
 
-func cachedUserActive(user clioutput.CliUser) bool {
+func cachedUserActive(user clioutput.User) bool {
 	return user.Deleted == nil || !*user.Deleted
 }
 
@@ -268,7 +268,7 @@ func channelDescription(channel slackgo.Channel) string {
 	return ""
 }
 
-func cachedChannelDescription(channel clioutput.CliChannel) string {
+func cachedChannelDescription(channel clioutput.Channel) string {
 	if channel.Name != "" {
 		return channel.Name
 	}

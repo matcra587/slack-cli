@@ -55,7 +55,7 @@ func TestSearchMessagesCommandReturnsEmptyMatchesForNoResults(t *testing.T) {
 	}
 	var envelope struct {
 		Data struct {
-			Matches []clioutput.CliSearchMessage `json:"matches"`
+			Matches []clioutput.SearchMessage `json:"matches"`
 		} `json:"data"`
 		Errors []clioutput.CLIError `json:"errors"`
 	}

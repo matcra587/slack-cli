@@ -222,7 +222,7 @@ var commandActionLabel = map[string]string{
 	"version":           "Version printed",
 }
 
-func (c *CommandContext) WriteMessages(command string, messages []CliMessage, pagination *Pagination) error {
+func (c *CommandContext) WriteMessages(command string, messages []Message, pagination *Pagination) error {
 	if len(messages) > 0 {
 		return c.WriteMessageTable(messages)
 	}
@@ -231,7 +231,7 @@ func (c *CommandContext) WriteMessages(command string, messages []CliMessage, pa
 	return nil
 }
 
-func (c *CommandContext) WriteSearch(command string, matches []CliSearchMessage, full bool, pagination *Pagination) error {
+func (c *CommandContext) WriteSearch(command string, matches []SearchMessage, full bool, pagination *Pagination) error {
 	if len(matches) > 0 {
 		return c.WriteSearchTable(matches, full)
 	}
@@ -240,7 +240,7 @@ func (c *CommandContext) WriteSearch(command string, matches []CliSearchMessage,
 	return nil
 }
 
-func (c *CommandContext) WriteChannels(command string, channels []CliChannel, pagination *Pagination) error {
+func (c *CommandContext) WriteChannels(command string, channels []Channel, pagination *Pagination) error {
 	if len(channels) > 0 {
 		return c.WriteChannelTable(command, channels)
 	}
@@ -249,7 +249,7 @@ func (c *CommandContext) WriteChannels(command string, channels []CliChannel, pa
 	return nil
 }
 
-func (c *CommandContext) WriteUsers(command string, users []CliUser, pagination *Pagination) error {
+func (c *CommandContext) WriteUsers(command string, users []User, pagination *Pagination) error {
 	if len(users) > 0 {
 		return c.WriteUserTable(users)
 	}

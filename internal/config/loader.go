@@ -19,6 +19,7 @@ func LoadFile(path string) (*Config, error) {
 
 	migrateTokenRefs(cfg)
 	applyEnv(cfg)
+	cleanWorkspaceKeys(cfg)
 	if err := Migrate(cfg); err != nil {
 		return nil, err
 	}
@@ -27,6 +28,27 @@ func LoadFile(path string) (*Config, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// cleanWorkspaceKeys trims surrounding whitespace from workspace map
+// keys, the embedded profile names, and the DefaultWorkspace selector.
+// Callers (LoadFile/SaveFile, mutation helpers) rely on this to ensure
+// downstream lookups never need to TrimSpace again.
+func cleanWorkspaceKeys(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.DefaultWorkspace = strings.TrimSpace(cfg.DefaultWorkspace)
+	if len(cfg.Workspaces) == 0 {
+		return
+	}
+	cleaned := make(map[string]WorkspaceProfile, len(cfg.Workspaces))
+	for key, workspace := range cfg.Workspaces {
+		trimmed := strings.TrimSpace(key)
+		workspace.Name = strings.TrimSpace(workspace.Name)
+		cleaned[trimmed] = workspace
+	}
+	cfg.Workspaces = cleaned
 }
 
 // migrateTokenRefs upgrades workspaces that still use the legacy "token" TOML
@@ -61,6 +83,7 @@ func Migrate(cfg *Config) error {
 }
 
 func SaveFile(path string, cfg *Config) error {
+	cleanWorkspaceKeys(cfg)
 	if err := cfg.Validate(); err != nil {
 		return err
 	}

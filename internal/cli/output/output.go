@@ -205,6 +205,24 @@ func ApplyBoolStateStyle(logger *clog.Logger, th *theme.Theme, key string, value
 	logger.SetStyles(&clogstyle.Config{Keys: clogstyle.Map{key: style}})
 }
 
+// ApplyBoolValueStyle paints key green when value is true (a "good" state
+// such as authenticated) and red when false. This is the inverse of
+// ApplyBoolStateStyle; use it for fields where true is the desirable
+// outcome. Falls back to no-op when the theme is missing.
+func ApplyBoolValueStyle(logger *clog.Logger, th *theme.Theme, key string, value bool) {
+	if logger == nil || th == nil || key == "" {
+		return
+	}
+	style := th.Red
+	if value {
+		style = th.Green
+	}
+	if style == nil {
+		return
+	}
+	logger.SetStyles(&clogstyle.Config{Keys: clogstyle.Map{key: style}})
+}
+
 // ApplyNumberKeyStyle paints key with clog's default FieldNumber style
 // (typically magenta). Useful when the value is rendered as a string but
 // should look like a numeric field (e.g. count=0 surviving OmitZero).

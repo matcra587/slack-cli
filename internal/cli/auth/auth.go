@@ -13,7 +13,11 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
+	"strconv"
 	"strings"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"charm.land/huh/v2"
@@ -53,9 +57,14 @@ func (d WorkspaceData) WritePlain(c *clioutput.CommandContext, command string, _
 	if d.TeamID != "" {
 		clioutput.ApplyTeamIDStyle(c.StdoutLogger(), c.Theme, d.TeamID)
 	}
+	// clog's OmitZero=true would strip a literal Bool("authenticated", false),
+	// hiding the field after `auth logout`. Render it as a string so the field
+	// always appears, and apply state coloring (green=true, red=false) so the
+	// auth state is visually obvious.
+	clioutput.ApplyBoolValueStyle(c.StdoutLogger(), c.Theme, "authenticated", d.Authenticated)
 	event := c.ResultEvent(command).
 		Str("workspace", d.Workspace).
-		Bool("authenticated", d.Authenticated).
+		Str("authenticated", strconv.FormatBool(d.Authenticated)).
 		Str("token_type", string(d.TokenType)).
 		Str("team_id", d.TeamID).
 		Str("team_name", d.TeamName).
@@ -80,8 +89,13 @@ func (d StatusData) WritePlain(c *clioutput.CommandContext, _ string, _ *clioutp
 		if workspace.TeamID != "" {
 			clioutput.ApplyTeamIDStyle(logger, c.Theme, workspace.TeamID)
 		}
+		// Render authenticated as a string so OmitZero=true does not strip
+		// the false case, and color it (green=true, red=false) so the auth
+		// state is visible in the field list as well as the message label.
+		clioutput.ApplyBoolValueStyle(logger, c.Theme, "authenticated", workspace.Authenticated)
 		event := logger.Info().
 			Str("workspace", workspace.Workspace).
+			Str("authenticated", strconv.FormatBool(workspace.Authenticated)).
 			Str("token_type", string(workspace.TokenType)).
 			Str("team_id", workspace.TeamID).
 			Str("team_name", workspace.TeamName)
@@ -324,13 +338,20 @@ func workspaceHasAuth(profile config.WorkspaceProfile) bool {
 // a non-empty secret for profileName. Used to avoid blocking re-login when
 // the keychain entry is gone but the workspace metadata still lingers in
 // config.toml.
+//
+// This guard fails CLOSED on unexpected errors. Only an explicit
+// ErrCredentialNotFound from the store is treated as "no credential".
+// Any other error (locked keychain, unavailable backend, transport
+// failure) is reported as "credential present" so the caller keeps the
+// existing --force requirement rather than silently overwriting a
+// secret that may still exist but is currently inaccessible.
 func hasStoredCredential(runtime *cliruntime.RootRuntime, profileName string) bool {
 	if runtime == nil || runtime.CredentialStore == nil {
 		return false
 	}
 	secret, err := runtime.CredentialStore.Get("slack-cli", profileName)
 	if err != nil {
-		return false
+		return !errors.Is(err, config.ErrCredentialNotFound)
 	}
 	return strings.TrimSpace(secret) != ""
 }
@@ -616,9 +637,21 @@ func completeOAuthLogin(reqCtx context.Context, ctx *clioutput.CommandContext, r
 	// Detach from reqCtx so the OAuth wait isn't bound to the global
 	// --timeout deadline (default 30s). The browser round-trip easily
 	// exceeds that; OAuthTimeout governs the human-interaction budget.
-	oauthCtx, cancelOAuth := context.WithTimeout(context.WithoutCancel(reqCtx), timeout)
+	// Re-attach SIGINT/SIGTERM cancellation explicitly: context.WithoutCancel
+	// strips both the deadline AND the signal handler installed by
+	// signal.NotifyContext at the root, so without this Ctrl-C during the
+	// up-to-2-minute OAuth wait would do nothing.
+	signalCtx, signalStop := signal.NotifyContext(context.WithoutCancel(reqCtx), os.Interrupt, syscall.SIGTERM)
+	defer signalStop()
+	oauthCtx, cancelOAuth := context.WithTimeout(signalCtx, timeout)
 	defer cancelOAuth()
-	var response *slackgo.OAuthV2Response
+	// Capture the OAuth exchange response via atomic.Pointer so the
+	// task goroutine inside Spinner.Wait synchronizes with the main
+	// goroutine. clog's runAnimation races task return against
+	// ctx.Done(); if ctx wins, Wait returns while the task may still
+	// be writing. atomic.Pointer gives us a happens-before edge for
+	// the load below.
+	var responsePtr atomic.Pointer[slackgo.OAuthV2Response]
 	spinner := ctx.StderrLogger().Spinner("Waiting for Slack OAuth callback").
 		Link("authorize_url", authorizeURL, clioutput.HyperlinkText(authorizeURL)).
 		Link("redirect_url", redirectURL.String(), clioutput.HyperlinkText(redirectURL.String()))
@@ -640,12 +673,16 @@ func completeOAuthLogin(reqCtx context.Context, ctx *clioutput.CommandContext, r
 			}
 			// The exchange is a single Slack POST that runs after the user has
 			// already interacted; give it its own fresh per-request timeout
-			// rather than racing with what's left of OAuthTimeout.
-			exchangeCtx, cancelExchange := context.WithTimeout(context.WithoutCancel(reqCtx), exchangeTimeout)
+			// rather than racing with what's left of OAuthTimeout. Layer it
+			// on signalCtx so Ctrl-C also kills the in-flight request.
+			exchangeCtx, cancelExchange := context.WithTimeout(signalCtx, exchangeTimeout)
 			defer cancelExchange()
-			var err error
-			response, err = oauthExchangeCode(exchangeCtx, runtime, input.ClientID, callback.Code, redirectURL.String(), verifier)
-			return err
+			resp, err := oauthExchangeCode(exchangeCtx, runtime, input.ClientID, callback.Code, redirectURL.String(), verifier)
+			if err != nil {
+				return err
+			}
+			responsePtr.Store(resp)
+			return nil
 		}).Silent()
 	if spinErr != nil {
 		// runAnimation races the task return against ctx.Done(); if the ctx
@@ -656,6 +693,7 @@ func completeOAuthLogin(reqCtx context.Context, ctx *clioutput.CommandContext, r
 		}
 		return false, spinErr
 	}
+	response := responsePtr.Load()
 	if err := applyOAuthResponse(input, response); err != nil {
 		return false, err
 	}

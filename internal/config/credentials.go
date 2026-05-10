@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -63,20 +64,29 @@ func NewKeyringCredentialStore() KeyringCredentialStore {
 }
 
 func (KeyringCredentialStore) Set(service, user, secret string) error {
-	return keyring.Set(service, user, secret)
+	if err := keyring.Set(service, user, secret); err != nil {
+		return fmt.Errorf("keyring set %s/%s: %w", service, user, err)
+	}
+	return nil
 }
 
 func (KeyringCredentialStore) Get(service, user string) (string, error) {
 	secret, err := keyring.Get(service, user)
 	if err != nil {
-		return "", ErrCredentialNotFound
+		if errors.Is(err, keyring.ErrNotFound) {
+			return "", ErrCredentialNotFound
+		}
+		return "", fmt.Errorf("keyring get %s/%s: %w", service, user, err)
 	}
 	return secret, nil
 }
 
 func (KeyringCredentialStore) Delete(service, user string) error {
 	if err := keyring.Delete(service, user); err != nil {
-		return ErrCredentialNotFound
+		if errors.Is(err, keyring.ErrNotFound) {
+			return ErrCredentialNotFound
+		}
+		return fmt.Errorf("keyring delete %s/%s: %w", service, user, err)
 	}
 	return nil
 }

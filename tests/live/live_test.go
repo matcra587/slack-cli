@@ -208,8 +208,8 @@ func TestLiveSearchMessagesCommandWorks(t *testing.T) {
 		t.Fatalf("lookup messages failed: %v\nstderr=%s", err, stderr)
 	}
 	envelope := decodeEnvelope(t, stdout)
-	if _, ok := envelope["data"].(map[string]any)["messages"]; !ok {
-		t.Fatalf("envelope missing data.messages: %s", stdout)
+	if _, ok := envelope["data"].(map[string]any)["matches"]; !ok {
+		t.Fatalf("envelope missing data.matches: %s", stdout)
 	}
 }
 
@@ -256,7 +256,7 @@ func TestLiveStatusSetAndClear(t *testing.T) {
 			"--workspace", env.workspace,
 			"--json",
 		)
-		if err != nil {
+		if err != nil && missingScopeFromStderr(stderr) == "" {
 			t.Logf("cleanup status clear failed (run id %s): %v\nstderr=%s", runID, err, stderr)
 		}
 	})
@@ -270,6 +270,9 @@ func TestLiveStatusSetAndClear(t *testing.T) {
 		"--json",
 	)
 	if err != nil {
+		if scope := missingScopeFromStderr(stderr); scope != "" {
+			t.Skipf("workspace token missing required scope %q; status set/clear needs a user token with users.profile:write", scope)
+		}
 		t.Fatalf("status set failed: %v\nstderr=%s", err, stderr)
 	}
 	envelope := decodeEnvelope(t, stdout)
@@ -541,6 +544,37 @@ func lookupRecentByText(t *testing.T, binary string, env liveEnv, text string) (
 		}
 	}
 	return "", ""
+}
+
+// missingScopeFromStderr extracts the scope name from a structured error
+// envelope (e.g. {"errors":[{"type":"auth_failure","message":"missing required
+// Slack scope: users.profile:write"...}]}). Returns "" if stderr isn't
+// recognisable as a missing-scope error. Used by tests that gracefully skip
+// when the live workspace token lacks the scope they exercise.
+func missingScopeFromStderr(stderr string) string {
+	stderr = strings.TrimSpace(stderr)
+	if stderr == "" {
+		return ""
+	}
+	var envelope struct {
+		Errors []struct {
+			Type    string `json:"type"`
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal([]byte(stderr), &envelope); err != nil {
+		return ""
+	}
+	const prefix = "missing required Slack scope: "
+	for _, e := range envelope.Errors {
+		if e.Type != "auth_failure" {
+			continue
+		}
+		if rest, ok := strings.CutPrefix(e.Message, prefix); ok {
+			return strings.TrimSpace(rest)
+		}
+	}
+	return ""
 }
 
 func newRunID(t *testing.T) string {

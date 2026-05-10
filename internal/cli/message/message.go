@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/url"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/gechr/clog"
@@ -495,12 +497,17 @@ func MessageOptions(content string, blocks []slackgo.Block, attribution ...agent
 // permalinkText returns the trailing message-id segment of a Slack
 // permalink (e.g. "p1778384683937369") so terminal renderers can show a
 // short clickable label rather than the full URL. Falls back to the URL
-// itself if the path doesn't have the expected shape.
-func permalinkText(url string) string {
-	if i := strings.LastIndexByte(url, '/'); i >= 0 && i < len(url)-1 {
-		return url[i+1:]
+// itself if parsing fails or the path doesn't have the expected shape.
+func permalinkText(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Path == "" {
+		return rawURL
 	}
-	return url
+	base := path.Base(u.Path)
+	if base == "." || base == "/" {
+		return rawURL
+	}
+	return base
 }
 
 // Permalink fetches the permalink for a message, returning nil on failure.

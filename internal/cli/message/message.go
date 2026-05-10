@@ -49,7 +49,7 @@ func (d SendData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 				e.Str("thread_ts", *d.Message.ThreadTS)
 			}
 			if d.Permalink != nil {
-				e.Link("permalink", *d.Permalink, permalinkText(*d.Permalink))
+				e.Link("permalink", *d.Permalink, clioutput.HyperlinkText(permalinkText(*d.Permalink)))
 			}
 		})
 	// Channel ID is opaque noise for DMs (the user typed --user); show it

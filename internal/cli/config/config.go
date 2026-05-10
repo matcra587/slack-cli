@@ -47,7 +47,7 @@ var _ clioutput.PlainRenderer = InitData{}
 
 func (d InitData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	c.ResultEvent(command).
-		Link("path", d.Path, human.ContractHome(d.Path)).
+		Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
 		Str("profile", d.Profile).
 		Str("workspace", d.Workspace).
 		Bool("written", d.Written).
@@ -65,7 +65,7 @@ var _ clioutput.PlainRenderer = PathData{}
 
 func (d PathData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	c.ResultEvent(command).
-		Link("path", d.Path, human.ContractHome(d.Path)).
+		Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
 		Bool("exists", d.Exists).
 		Msg(clioutput.ActionLabel(command))
 	return nil
@@ -89,7 +89,7 @@ var _ clioutput.PlainRenderer = ListData{}
 
 func (d ListData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	c.ResultEvent(command).
-		Link("path", d.Path, human.ContractHome(d.Path)).
+		Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
 		Str("default_workspace", d.DefaultWorkspace).
 		Int("settings", len(d.Settings)).
 		Msg(clioutput.ActionLabel(command))
@@ -132,7 +132,7 @@ var _ clioutput.PlainRenderer = MutationData{}
 
 func (d MutationData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	c.ResultEvent(command).
-		Link("path", d.Path, human.ContractHome(d.Path)).
+		Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
 		Str("key", d.Key).
 		Str("value", d.Value).
 		Msg(clioutput.ActionLabel(command))

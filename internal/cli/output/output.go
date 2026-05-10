@@ -143,6 +143,18 @@ func ApplyMessageStyle(logger *clog.Logger, th *theme.Theme) {
 	})
 }
 
+// underlinedHyperlink is the style applied to the visible text of a
+// terminal hyperlink so the click affordance is obvious even when the
+// terminal does not auto-underline OSC 8 hyperlinks. Used by HyperlinkText.
+var underlinedHyperlink = lipgloss.NewStyle().Underline(true)
+
+// HyperlinkText returns text rendered with the slick hyperlink underline
+// style. Pass the result as the third argument to clog's event.Link so the
+// underlined text sits inside the OSC 8 wrapper rather than around it
+// (lipgloss does not understand OSC 8 byte sequences and would otherwise
+// style each escape byte individually).
+func HyperlinkText(text string) string { return underlinedHyperlink.Render(text) }
+
 func ApplyRenderMode(sl *clog.Logger, mode RenderMode) {
 	switch mode {
 	case RenderModeRaw:

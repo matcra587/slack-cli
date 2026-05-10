@@ -143,6 +143,14 @@ func BuildBaseLoggers(stdout, stderr io.Writer, colorMode clog.ColorMode) (*clog
 	el.SetNonTTYLevel(clog.LevelWarn)
 	el.SetJSONPrintMode(clog.JSONFlat)
 
+	// Slack timestamps and time-derived fields render as strings (the
+	// Slack-native form like "1778441603.561129" is required for piping
+	// back into --timestamp). Style those keys with FieldTime so they
+	// match the color clog uses for genuine time.Time values.
+	timeKeys := []string{"ts", "age", "fetched_at", "expiration"}
+	ApplyTimeKeyStyle(sl, timeKeys...)
+	ApplyTimeKeyStyle(el, timeKeys...)
+
 	return sl, el
 }
 
@@ -267,6 +275,32 @@ func ApplyNumberKeyStyle(logger *clog.Logger, key string) {
 		return
 	}
 	logger.SetStyles(&clogstyle.Config{Keys: clogstyle.Map{key: defaults.FieldNumber}})
+}
+
+// ApplyTimeKeyStyle paints each named key with clog's default FieldTime
+// style (typically magenta). Use when a time-shaped value is emitted as
+// a Str — Slack timestamps render as "1778441603.561129", so we keep
+// the native form for plumbing back into --timestamp flags rather than
+// reformatting through event.Time(...) and losing the round-trip.
+func ApplyTimeKeyStyle(logger *clog.Logger, keys ...string) {
+	if logger == nil || len(keys) == 0 {
+		return
+	}
+	defaults := clog.DefaultStyles()
+	if defaults == nil || defaults.FieldTime == nil {
+		return
+	}
+	styles := clogstyle.Map{}
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		styles[key] = defaults.FieldTime
+	}
+	if len(styles) == 0 {
+		return
+	}
+	logger.SetStyles(&clogstyle.Config{Keys: styles})
 }
 
 // ApplyConfigValueStyle paints key based on the config value: green/red

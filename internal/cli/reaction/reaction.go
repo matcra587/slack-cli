@@ -161,7 +161,7 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 			apiErr = client.AddReactionContext(cmd.Context(), emoji, ref)
 		}
 		if apiErr != nil {
-			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), apiErr))
+			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), apiErr, "emoji"))
 		}
 		mutations = append(mutations, Result{
 			Channel: target.Channel,

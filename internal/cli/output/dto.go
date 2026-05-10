@@ -174,7 +174,16 @@ func SearchMessageFromSlack(message slackgo.SearchMessage) SearchMessage {
 	}
 }
 
-func CliErrorFromSlack(ctx context.Context, err error) CLIError {
+// CliErrorFromSlack maps a slack-go error to a structured CLIError.
+// Optional kind args refine the message for codes whose meaning depends
+// on what was being named — e.g. `invalid_name` could be an emoji, a
+// channel, a username. Callers pass the noun they think Slack rejected
+// (e.g. "emoji"); only the first hint is consulted.
+func CliErrorFromSlack(ctx context.Context, err error, kind ...string) CLIError {
+	var subject string
+	if len(kind) > 0 {
+		subject = kind[0]
+	}
 	var scopeErr MissingScopeError
 	if errors.As(err, &scopeErr) {
 		return CLIError{Type: ErrorTypeAuth, Message: scopeErr.Error(), ExitCode: ExitCodeAuthFailure}
@@ -199,7 +208,7 @@ func CliErrorFromSlack(ctx context.Context, err error) CLIError {
 		case "invalid_name":
 			return CLIError{
 				Type:     ErrorTypeValidation,
-				Message:  "invalid_name: Slack rejected the value (for reactions, check the emoji name; for channels, check the channel slug)",
+				Message:  invalidNameMessage(subject),
 				ExitCode: ExitCodeValidation,
 			}
 		case "already_reacted":
@@ -225,6 +234,26 @@ func CliErrorFromSlack(ctx context.Context, err error) CLIError {
 		return CLIError{Type: ErrorTypeCanceled, Message: "canceled", ExitCode: ExitCodeCanceled}
 	}
 	return CLIError{Type: ErrorTypeServer, Message: err.Error(), ExitCode: ExitCodeServer}
+}
+
+// invalidNameMessage returns a context-tailored message for Slack's
+// invalid_name code. The caller hint (e.g. "emoji", "channel", "user")
+// drives the wording so the user knows which field Slack rejected.
+func invalidNameMessage(subject string) string {
+	switch subject {
+	case "emoji":
+		return "invalid_name: Slack does not recognize that emoji name"
+	case "channel":
+		return "invalid_name: channel name is malformed or already in use"
+	case "user", "username":
+		return "invalid_name: username is invalid"
+	case "file":
+		return "invalid_name: file name is invalid"
+	case "":
+		return "invalid_name: Slack rejected the value as not recognized"
+	default:
+		return "invalid_name: Slack rejected the " + subject + " as not recognized"
+	}
 }
 
 // MissingScopeError is returned by scope-checking helpers when required Slack

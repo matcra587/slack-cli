@@ -77,7 +77,8 @@ description = "Run integration tests"
 run = "go test -v -tags=integration ./tests/integration -count=1 -timeout 60s"
 
 ["test:live"]
-description = "Run live tests against a real Slack workspace (requires SLICK_LIVE_WORKSPACE and SLICK_LIVE_CHANNEL)"
+description = "Run live tests against a real Slack workspace (uses your authed slick session by default; SLICK_LIVE_WORKSPACE and SLICK_LIVE_CHANNEL override)"
+depends = ["build"]
 run = "go test -v -tags=live ./tests/live -count=1 -timeout 120s"
 
 [fmt]

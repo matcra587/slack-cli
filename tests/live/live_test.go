@@ -5,10 +5,19 @@
 //
 //	mise run test:live
 //
-// Required environment:
+// The tests pick up your authenticated slick session by default. With no env
+// overrides, they use:
 //
-//	SLICK_LIVE_WORKSPACE - workspace profile name from your slick config
-//	SLICK_LIVE_CHANNEL   - channel ID (Cxxxxxxx) the test bot can post to
+//	workspace = config's default_workspace
+//	channel   = workspaces.<workspace>.default_channel
+//
+// Override either with env vars when you need a different target:
+//
+//	SLICK_LIVE_WORKSPACE=<name>    (override the config-derived workspace)
+//	SLICK_LIVE_CHANNEL=Cxxxxxxx    (override the config-derived channel)
+//
+// Tests skip with a helpful message when no workspace + channel can be
+// resolved (e.g. fresh environment without `slick config init`).
 //
 // The tests build the slick binary, post real messages tagged with a run ID,
 // verify Slack accepted them, and clean up by deleting/un-reacting the same
@@ -25,6 +34,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -32,8 +42,8 @@ import (
 // --- message lifecycle ------------------------------------------------------
 
 func TestLiveMessageSendAndDelete(t *testing.T) {
-	env := requireLiveEnv(t)
-	binary := buildSlackBinary(t)
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
 
 	channel, ts := postMessage(t, binary, env, runID, "phase 12 live send/delete")
@@ -41,8 +51,8 @@ func TestLiveMessageSendAndDelete(t *testing.T) {
 }
 
 func TestLiveMessageEdit(t *testing.T) {
-	env := requireLiveEnv(t)
-	binary := buildSlackBinary(t)
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
 
 	channel, ts := postMessage(t, binary, env, runID, "phase 12 live edit (initial)")
@@ -70,8 +80,8 @@ func TestLiveMessageEdit(t *testing.T) {
 }
 
 func TestLiveThreadReply(t *testing.T) {
-	env := requireLiveEnv(t)
-	binary := buildSlackBinary(t)
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
 
 	channel, parentTS := postMessage(t, binary, env, runID, "phase 12 live thread parent")
@@ -105,8 +115,8 @@ func TestLiveThreadReply(t *testing.T) {
 }
 
 func TestLiveReactionAddAndRemove(t *testing.T) {
-	env := requireLiveEnv(t)
-	binary := buildSlackBinary(t)
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
 
 	channel, ts := postMessage(t, binary, env, runID, "phase 12 live reaction parent")
@@ -139,8 +149,8 @@ func TestLiveReactionAddAndRemove(t *testing.T) {
 // --- discovery --------------------------------------------------------------
 
 func TestLiveHistoryList(t *testing.T) {
-	env := requireLiveEnv(t)
-	binary := buildSlackBinary(t)
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
 
 	want := map[string]bool{}
@@ -177,8 +187,8 @@ func TestLiveHistoryList(t *testing.T) {
 }
 
 func TestLiveSearchMessagesCommandWorks(t *testing.T) {
-	env := requireLiveEnv(t)
-	binary := buildSlackBinary(t)
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
 
 	// Slack search.messages is asynchronously indexed; results may take
@@ -204,8 +214,8 @@ func TestLiveSearchMessagesCommandWorks(t *testing.T) {
 }
 
 func TestLiveCachePopulate(t *testing.T) {
-	env := requireLiveEnv(t)
-	binary := buildSlackBinary(t)
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
 
 	for _, resource := range []string{"users", "channels"} {
 		stdout, stderr, err := runSlick(t, binary, "",
@@ -235,8 +245,8 @@ func TestLiveCachePopulate(t *testing.T) {
 // --- profile mutation -------------------------------------------------------
 
 func TestLiveStatusSetAndClear(t *testing.T) {
-	env := requireLiveEnv(t)
-	binary := buildSlackBinary(t)
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
 
 	statusText := fmt.Sprintf("phase 12 live status %s", runID)
@@ -279,8 +289,8 @@ func TestLiveStatusSetAndClear(t *testing.T) {
 // --- output mode sweep ------------------------------------------------------
 
 func TestLiveOutputModesProduceExpectedShapes(t *testing.T) {
-	env := requireLiveEnv(t)
-	binary := buildSlackBinary(t)
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
 
 	cases := []struct {
@@ -362,30 +372,81 @@ type liveEnv struct {
 	channel   string
 }
 
-func requireLiveEnv(t *testing.T) liveEnv {
+func requireLiveEnv(t *testing.T, binary string) liveEnv {
 	t.Helper()
 	workspace := os.Getenv("SLICK_LIVE_WORKSPACE")
 	channel := os.Getenv("SLICK_LIVE_CHANNEL")
 	if workspace == "" || channel == "" {
-		t.Skip("set SLICK_LIVE_WORKSPACE and SLICK_LIVE_CHANNEL to run live tests")
+		ws, ch := discoverLiveDefaults(t, binary)
+		if workspace == "" {
+			workspace = ws
+		}
+		if channel == "" {
+			channel = ch
+		}
+	}
+	if workspace == "" {
+		t.Skip("no workspace resolved; run `slick auth login` or set SLICK_LIVE_WORKSPACE")
+	}
+	if channel == "" {
+		t.Skipf("no channel resolved for workspace %q; run `slick config set workspaces.%s.default_channel <Cxxxx>` or set SLICK_LIVE_CHANNEL", workspace, workspace)
 	}
 	if !strings.HasPrefix(channel, "C") && !strings.HasPrefix(channel, "G") && !strings.HasPrefix(channel, "D") {
-		t.Fatalf("SLICK_LIVE_CHANNEL=%q does not look like a Slack channel ID", channel)
+		t.Fatalf("resolved channel %q does not look like a Slack channel ID", channel)
 	}
 	return liveEnv{workspace: workspace, channel: channel}
 }
 
-func buildSlackBinary(t *testing.T) string {
+// discoverLiveDefaults shells out to `slick config list --json` and returns
+// the configured default workspace + that workspace's default_channel.
+// Returns ("", "") when the user has no slick config yet.
+func discoverLiveDefaults(t *testing.T, binary string) (workspace, channel string) {
 	t.Helper()
-	root := repoRoot(t)
-	binary := filepath.Join(t.TempDir(), "slick")
-	cmd := exec.Command("go", "build", "-o", binary, "./cmd/slick")
-	cmd.Dir = root
-	out, err := cmd.CombinedOutput()
+	stdout, _, err := runSlick(t, binary, "", "config", "list", "--json")
 	if err != nil {
-		t.Fatalf("go build failed: %v\n%s", err, string(out))
+		return "", ""
 	}
-	return binary
+	var envelope map[string]any
+	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
+		return "", ""
+	}
+	data, _ := envelope["data"].(map[string]any)
+	if data == nil {
+		return "", ""
+	}
+	workspace, _ = data["default_workspace"].(string)
+	if workspace == "" {
+		return "", ""
+	}
+	settings, _ := data["settings"].([]any)
+	wantKey := "workspaces." + workspace + ".default_channel"
+	for _, raw := range settings {
+		setting, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if key, _ := setting["key"].(string); key == wantKey {
+			channel, _ = setting["value"].(string)
+			break
+		}
+	}
+	return workspace, channel
+}
+
+// slickBinary returns the path to the slick binary produced by `mise run
+// build`. test:live declares build as a dependency, so the binary is fresh
+// when this target runs.
+func slickBinary(t *testing.T) string {
+	t.Helper()
+	path := fmt.Sprintf("../../dist/slick-%s-%s", runtime.GOOS, runtime.GOARCH)
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("slick binary not found at %s; run `mise run test:live` (got %v)", path, err)
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		t.Fatalf("filepath.Abs(%s): %v", path, err)
+	}
+	return abs
 }
 
 func runSlick(t *testing.T, binary, stdin string, args ...string) (string, string, error) {
@@ -480,16 +541,6 @@ func lookupRecentByText(t *testing.T, binary string, env liveEnv, text string) (
 		}
 	}
 	return "", ""
-}
-
-func repoRoot(t *testing.T) string {
-	t.Helper()
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	out, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("git rev-parse: %v", err)
-	}
-	return strings.TrimSpace(string(out))
 }
 
 func newRunID(t *testing.T) string {

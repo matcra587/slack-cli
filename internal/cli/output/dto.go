@@ -162,16 +162,127 @@ func UserFromSlack(user slackgo.User) User {
 }
 
 func SearchMessageFromSlack(message slackgo.SearchMessage) SearchMessage {
+	text := message.Text
+	if text == "" {
+		// Slack's search.messages leaves Text empty for Block Kit
+		// messages and places the body inside Blocks. Walk the blocks
+		// to recover something readable. Only the common section /
+		// header / context shapes are flattened; richer block types
+		// fall through silently rather than producing garbled output.
+		text = searchTextFromBlocks(message.Blocks)
+	}
 	return SearchMessage{
 		Channel: SearchChannel{
 			ID:   message.Channel.ID,
 			Name: message.Channel.Name,
 		},
 		User:      message.User,
-		Text:      message.Text,
+		Text:      text,
 		TS:        message.Timestamp,
 		Permalink: message.Permalink,
 	}
+}
+
+// searchTextFromBlocks pulls human-readable text out of a Block Kit
+// payload returned by search.messages. Handles the block shapes Slack
+// emits in practice:
+//
+//   - section block:        text.text
+//   - header block:         text.text
+//   - context block:        each mrkdwn element's text
+//   - rich_text block:      flattened section/quote/preformatted/list
+//     content, with inline mention/emoji/link tokens preserved in
+//     readable form
+//
+// Joined with newlines so multi-block messages stay legible.
+func searchTextFromBlocks(blocks slackgo.Blocks) string {
+	var parts []string
+	for _, block := range blocks.BlockSet {
+		switch b := block.(type) {
+		case *slackgo.SectionBlock:
+			if b.Text != nil && b.Text.Text != "" {
+				parts = append(parts, b.Text.Text)
+			}
+		case *slackgo.HeaderBlock:
+			if b.Text != nil && b.Text.Text != "" {
+				parts = append(parts, b.Text.Text)
+			}
+		case *slackgo.ContextBlock:
+			for _, el := range b.ContextElements.Elements {
+				if t, ok := el.(*slackgo.TextBlockObject); ok && t.Text != "" {
+					parts = append(parts, t.Text)
+				}
+			}
+		case *slackgo.RichTextBlock:
+			if text := richTextBlockToString(b); text != "" {
+				parts = append(parts, text)
+			}
+		}
+	}
+	return strings.Join(parts, "\n")
+}
+
+// richTextBlockToString flattens a RichTextBlock — the format Slack's
+// composer uses for human-typed messages — into a readable string.
+// Each top-level child (section, quote, preformatted, list) renders on
+// its own line; lists prefix each item with "- ".
+func richTextBlockToString(block *slackgo.RichTextBlock) string {
+	var parts []string
+	for _, el := range block.Elements {
+		if text := richTextElementToString(el); text != "" {
+			parts = append(parts, text)
+		}
+	}
+	return strings.Join(parts, "\n")
+}
+
+func richTextElementToString(el slackgo.RichTextElement) string {
+	switch e := el.(type) {
+	case *slackgo.RichTextSection:
+		return richTextSectionElementsToString(e.Elements)
+	case *slackgo.RichTextQuote:
+		body := richTextSectionElementsToString(e.Elements)
+		if body == "" {
+			return ""
+		}
+		return "> " + body
+	case *slackgo.RichTextPreformatted:
+		return richTextSectionElementsToString(e.Elements)
+	case *slackgo.RichTextList:
+		var items []string
+		for _, item := range e.Elements {
+			if text := richTextElementToString(item); text != "" {
+				items = append(items, "- "+text)
+			}
+		}
+		return strings.Join(items, "\n")
+	}
+	return ""
+}
+
+func richTextSectionElementsToString(elems []slackgo.RichTextSectionElement) string {
+	var b strings.Builder
+	for _, el := range elems {
+		switch e := el.(type) {
+		case *slackgo.RichTextSectionTextElement:
+			b.WriteString(e.Text)
+		case *slackgo.RichTextSectionLinkElement:
+			if e.Text != "" {
+				b.WriteString(e.Text)
+			} else {
+				b.WriteString(e.URL)
+			}
+		case *slackgo.RichTextSectionEmojiElement:
+			b.WriteString(":" + e.Name + ":")
+		case *slackgo.RichTextSectionUserElement:
+			b.WriteString("<@" + e.UserID + ">")
+		case *slackgo.RichTextSectionChannelElement:
+			b.WriteString("<#" + e.ChannelID + ">")
+		case *slackgo.RichTextSectionBroadcastElement:
+			b.WriteString("<!" + e.Range + ">")
+		}
+	}
+	return b.String()
 }
 
 // CliErrorFromSlack maps a slack-go error to a structured CLIError.

@@ -37,10 +37,10 @@ func TestVersionCommandPlainMatchesPDCShape(t *testing.T) {
 	}
 	for _, fragment := range []string{
 		"slick dev",
-		"commit:",
-		"branch:",
-		"built:",
-		"built by:",
+		"commit",
+		"branch",
+		"built",
+		"built by",
 	} {
 		if !strings.Contains(stdout, fragment) {
 			t.Fatalf("stdout = %q, want fragment %q", stdout, fragment)

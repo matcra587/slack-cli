@@ -1,8 +1,9 @@
 package main
 
 import (
-	"strings"
+	"time"
 
+	"github.com/gechr/x/human"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	"github.com/matcra587/slack-cli/internal/version"
 	"github.com/spf13/cobra"
@@ -19,13 +20,26 @@ type versionData struct {
 var _ PlainRenderer = versionData{}
 
 func (d versionData) WritePlain(c *CommandContext, _ string, _ *Pagination) error {
-	var b strings.Builder
-	b.WriteString("slick " + d.Version + "\n")
-	b.WriteString("  commit:  " + d.Commit + "\n")
-	b.WriteString("  branch:  " + d.Branch + "\n")
-	b.WriteString("  built:   " + d.BuildTime + "\n")
-	b.WriteString("  built by: " + d.BuildBy)
-	return c.WriteString(b.String())
+	logger := c.StdoutLogger()
+	logger.Info().Msg("slick " + d.Version)
+	sub := logger.With().Indent().Logger()
+	sub.Info().Str("commit", d.Commit).Send()
+	sub.Info().Str("branch", d.Branch).Send()
+	sub.Info().Str("built", humanBuildTime(d.BuildTime)).Send()
+	sub.Info().Str("built by", d.BuildBy).Send()
+	return nil
+}
+
+// humanBuildTime renders an RFC3339 build timestamp as a relative phrase
+// (e.g. "3 days ago"). The JSON envelope keeps the precise timestamp;
+// plain mode is for humans. Falls back to the raw string when the value
+// can't be parsed (e.g. "unknown" for non-release builds).
+func humanBuildTime(buildTime string) string {
+	parsed, err := time.Parse(time.RFC3339, buildTime)
+	if err != nil {
+		return buildTime
+	}
+	return human.FormatTimeAgo(parsed)
 }
 
 func newVersionCommand(runtime *RootRuntime) *cobra.Command {

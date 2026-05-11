@@ -36,13 +36,29 @@ func TestGuideDocumentsBestEffortScopeAndPermissionErrors(t *testing.T) {
 	for _, fragment := range []string{
 		"Scope validation is best-effort",
 		"missing_scope",
+		"auth_failure",
 		"not_in_channel",
 		"no_permission",
-		"fixed exit-code contract",
+		"fixed structured error contract",
 	} {
 		if !strings.Contains(guide, fragment) {
 			t.Fatalf("send_dm guide missing %q:\n%s", fragment, guide)
 		}
+	}
+}
+
+func TestGuideDocumentsSlackErrorClasses(t *testing.T) {
+	guide := agenthelp.GetGuideSection("send_msg")
+	for _, fragment := range []string{
+		"`missing_scope` and `no_permission` map to structured auth failures",
+		"`not_in_channel` maps to `not_found`",
+	} {
+		if !strings.Contains(guide, fragment) {
+			t.Fatalf("send_msg guide missing %q:\n%s", fragment, guide)
+		}
+	}
+	if strings.Contains(guide, "`not_in_channel`, and `no_permission` map to structured auth failures") {
+		t.Fatalf("send_msg guide maps not_in_channel to auth failure:\n%s", guide)
 	}
 }
 
@@ -69,6 +85,8 @@ func TestGuideDocumentsCoreContract(t *testing.T) {
 		"--raw",
 		"mutually exclusive",
 		"Exit codes",
+		"canceled `6`",
+		"timeout `7`",
 		"errors[0].type",
 	} {
 		if !strings.Contains(guide, fragment) {
@@ -94,7 +112,7 @@ func TestGuideDocumentsConfigRunbook(t *testing.T) {
 
 func TestGuideDocumentsPromotedReplyAndReactCommands(t *testing.T) {
 	react := agenthelp.GetGuideSection("react")
-	for _, fragment := range []string{"slick react add", "slick react remove", "slick react list", "react.add", "react.remove", "react.list"} {
+	for _, fragment := range []string{"slick react add", "slick react remove", "slick react list", "meta.command", "react.add", "react.remove", "react.list"} {
 		if !strings.Contains(react, fragment) {
 			t.Fatalf("react guide missing %q:\n%s", fragment, react)
 		}
@@ -111,6 +129,39 @@ func TestGuideDocumentsPromotedReplyAndReactCommands(t *testing.T) {
 	}
 	if strings.Contains(reply, "slack thread reply") || strings.Contains(reply, "probationary") {
 		t.Fatalf("reply guide documents legacy/probationary command:\n%s", reply)
+	}
+}
+
+func TestGuideDocumentsStatusCommandMetadata(t *testing.T) {
+	guide := agenthelp.GetGuideSection("set_status")
+	for _, fragment := range []string{
+		"meta.command",
+		"status.set",
+		"status.clear",
+		"data.text",
+		"data.emoji",
+		"data.expiration",
+	} {
+		if !strings.Contains(guide, fragment) {
+			t.Fatalf("set_status guide missing %q:\n%s", fragment, guide)
+		}
+	}
+	if strings.Contains(guide, "The action label (`status.set`") {
+		t.Fatalf("set_status guide tells JSON callers to parse action label:\n%s", guide)
+	}
+}
+
+func TestGuideDocumentsMessageEditOutputShape(t *testing.T) {
+	guide := agenthelp.GetGuideSection("edit_msg")
+	for _, fragment := range []string{
+		"data.message.channel",
+		"data.message.ts",
+		"data.message.text",
+		"does not include returned `data.message.blocks`",
+	} {
+		if !strings.Contains(guide, fragment) {
+			t.Fatalf("edit_msg guide missing %q:\n%s", fragment, guide)
+		}
 	}
 }
 

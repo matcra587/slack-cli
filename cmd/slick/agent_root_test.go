@@ -104,6 +104,11 @@ func TestAgentSchemaIncludesBlocksAndOutputOnlyRawContract(t *testing.T) {
 	if !strings.Contains(strings.Join(schema.Output.Notes, "\n"), "--raw is output-only") {
 		t.Fatalf("output notes = %#v, want output-only --raw note", schema.Output.Notes)
 	}
+	for name, want := range map[string]int{"canceled": 6, "timeout": 7} {
+		if got := schema.ExitCodes[name]; got != want {
+			t.Fatalf("schema exit code %s = %d, want %d; codes=%#v", name, got, want, schema.ExitCodes)
+		}
+	}
 }
 
 func findSchemaCommand(commands []agenthelp.CommandInfo, path ...string) *agenthelp.CommandInfo {

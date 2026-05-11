@@ -129,7 +129,7 @@ perform the task, what to parse, and which quirks matter.
 - Output modes: ` + "`--json`" + `, ` + "`--plain`" + `, ` + "`--compact`" + `, and ` + "`--raw`" + ` are mutually exclusive.
 - Parse: stdout is command data only. stderr is diagnostics, progress, warnings, and structured errors.
 - Parse: failures in JSON mode put ` + "`errors[0].type`" + `, ` + "`errors[0].message`" + `, and ` + "`errors[0].exit_code`" + ` on stderr.
-- Exit codes: auth ` + "`1`" + `, not found ` + "`2`" + `, rate limit ` + "`3`" + `, validation ` + "`4`" + `, server ` + "`5`" + `.
+- Exit codes: auth ` + "`1`" + `, not found ` + "`2`" + `, rate limit ` + "`3`" + `, validation ` + "`4`" + `, server ` + "`5`" + `, canceled ` + "`6`" + `, timeout ` + "`7`" + `.
 - Quirks: ` + "`--compact`" + ` strips the envelope on success; use it only when the caller wants command-specific JSON.
 - Quirks: ` + "`--raw`" + ` is output-only. It does not select raw Block Kit input; use command-local ` + "`--blocks`" + ` for that.
 
@@ -183,7 +183,7 @@ perform the task, what to parse, and which quirks matter.
 - Quirks: Do not repeat attribution text in the message body. If attribution is enabled, Slack shows it in the context block below the message.
 - Quirks: for live workflow tests, send realistic content such as a PR review, incident update, or release note; synthetic marker text can hide UI issues.
 - Quirks: Slack timestamps are strings such as ` + "`1746284582.123456`" + `. Keep them as strings.
-- Error handling: ` + "`missing_scope`" + `, ` + "`not_in_channel`" + `, and ` + "`no_permission`" + ` map to structured auth failures; do not retry without changing scopes or destination.
+- Error handling: ` + "`missing_scope`" + ` and ` + "`no_permission`" + ` map to structured auth failures. ` + "`not_in_channel`" + ` maps to ` + "`not_found`" + `; change destination, membership, or app access before retrying.
 
 ## react
 - Runbook: use this to add, remove, or inspect emoji reactions on a known message.
@@ -192,7 +192,7 @@ perform the task, what to parse, and which quirks matter.
 - Multi-emoji command: ` + "`slick react add --channel <channel-id> --timestamp <message-ts> --emoji thumbsup,white_check_mark,rocket --json`" + ` applies the emojis in input order. Repeat ` + "`--emoji`" + ` instead of comma-separating if a value contains a comma.
 - Remove command: ` + "`slick react remove --channel <channel-id> --timestamp <message-ts> --emoji :thumbsup: --json`" + `.
 - List command: ` + "`slick react list --channel <channel-id> --timestamp <message-ts> --json`" + `.
-- Parse: ` + "`data.mutations[]`" + ` lists ` + "`{channel, ts, emoji, dry_run}`" + ` for each emoji applied (length 1 for the single-emoji case, length N for ordered multi-emoji); ` + "`data.target.channel`" + ` and ` + "`data.target.ts`" + ` identify the target. The action label (` + "`react.add`" + ` vs ` + "`react.remove`" + `) conveys which side was applied. List output uses ` + "`data.reactions[]`" + ` with reaction names, counts, and users.
+- Parse: ` + "`data.mutations[]`" + ` lists ` + "`{channel, ts, emoji, dry_run}`" + ` for each emoji applied (length 1 for the single-emoji case, length N for ordered multi-emoji); ` + "`data.target.channel`" + ` and ` + "`data.target.ts`" + ` identify the target. In JSON, ` + "`meta.command`" + ` (` + "`react.add`" + ` vs ` + "`react.remove`" + `) conveys which side was applied. List output uses ` + "`data.reactions[]`" + ` with reaction names, counts, and users.
 - Quirks: timestamps are channel-scoped Slack strings such as ` + "`1746284582.123456`" + `.
 - Quirks: emoji may be passed as ` + "`thumbsup`" + ` or ` + "`:thumbsup:`" + `.
 - Quirks: ordered multi-emoji halts on the first failure; ` + "`data.mutations[]`" + ` will be absent on the error envelope, so retry the remaining emojis from a known-good state rather than assuming partial success.
@@ -258,7 +258,7 @@ perform the task, what to parse, and which quirks matter.
 - Markdown command: ` + "`slick message edit --channel <channel-id> --timestamp <message-ts> --message <markdown> --json`" + `.
 - Stdin command: ` + "`printf '%s\n' \"$body\" | slick message edit --channel <channel-id> --timestamp <message-ts> --file - --json`" + `.
 - Raw Block Kit command: add ` + "`--blocks`" + ` only when the replacement is raw Block Kit JSON.
-- Parse: keep the returned channel, timestamp, and text or blocks.
+- Parse: keep ` + "`data.message.channel`" + `, ` + "`data.message.ts`" + `, and ` + "`data.message.text`" + ` when present. Edit output does not include returned ` + "`data.message.blocks`" + `; verify rendered Block Kit through history or the Slack UI when needed.
 - Quirks: Slack only allows editing own messages where token scopes permit it.
 - Quirks: the timestamp is unique only inside a channel; always pass both channel and timestamp.
 - Safety: use ` + "`--dry-run`" + ` before editing incident, release, or high-visibility channels.
@@ -364,7 +364,7 @@ perform the task, what to parse, and which quirks matter.
 - Quirks: email recipients are resolved with Slack ` + "`users.lookupByEmail`" + ` before opening the DM.
 - Quirks: user-token profiles are the normal choice for "DM anyone as me" workflows; bot-token profiles depend on app install and conversation access.
 - Quirks: ` + "`--dry-run`" + ` verifies message composition but cannot prove Slack will open the DM.
-- Error handling: Scope validation is best-effort when token metadata is available; Slack permission errors such as ` + "`missing_scope`" + `, ` + "`not_in_channel`" + `, and ` + "`no_permission`" + ` map to the fixed exit-code contract as a structured error.
+- Error handling: Scope validation is best-effort when token metadata is available. ` + "`missing_scope`" + ` and ` + "`no_permission`" + ` use ` + "`auth_failure`" + `; destination or membership errors such as ` + "`not_in_channel`" + ` still use the fixed structured error contract.
 
 ## set_status
 - Runbook: use this to set or clear the authenticated user's Slack status.
@@ -373,7 +373,7 @@ perform the task, what to parse, and which quirks matter.
 - Positional command: ` + "`slick status set \"In a meeting\" :calendar: --json`" + `.
 - Clear command: ` + "`slick status clear --json`" + `.
 - Dry-run: use ` + "`--dry-run`" + ` to preview the status payload without calling Slack.
-- Parse: keep ` + "`data.text`" + `, ` + "`data.emoji`" + `, and ` + "`data.expiration`" + `. The action label (` + "`status.set`" + ` vs ` + "`status.clear`" + `) tells you which path ran.
+- Parse: keep ` + "`data.text`" + `, ` + "`data.emoji`" + `, and ` + "`data.expiration`" + ` when present. In JSON, ` + "`meta.command`" + ` (` + "`status.set`" + ` vs ` + "`status.clear`" + `) tells you which path ran.
 - Quirks: status requires a user token with ` + "`users.profile:write`" + `; bot-token profiles cannot set a user's status.
 
 ## safe_mutation

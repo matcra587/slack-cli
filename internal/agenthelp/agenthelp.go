@@ -97,7 +97,7 @@ func GenerateSchema(root *cobra.Command) Schema {
 				"--raw is output-only; use command-local --blocks for raw Block Kit input",
 				"Markdown uses source-preserving Markdown fallback sections for unsupported block-level constructs",
 				"--blocks validates Slack Block Kit JSON rules before Slack mutation",
-				"Slack permission failures such as missing_scope, not_in_channel, and no_permission map to fixed exit codes",
+				"Slack errors such as missing_scope, not_in_channel, and no_permission map to fixed exit codes",
 				"--json, --plain, --compact, and --raw are mutually exclusive",
 			},
 		},
@@ -166,6 +166,8 @@ func exitCodes() map[string]int {
 		"rate_limit":       3,
 		"validation_error": 4,
 		"server_error":     5,
+		"canceled":         6,
+		"timeout":          7,
 	}
 }
 

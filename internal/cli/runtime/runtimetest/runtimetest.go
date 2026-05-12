@@ -120,11 +120,6 @@ func NewRoot(runtime *cliruntime.RootRuntime, stdout, stderr *bytes.Buffer) *cob
 	flags := root.PersistentFlags()
 	flags.StringP("workspace", "w", "", "Workspace profile")
 	flags.StringP("output", "o", clioutput.OutputAuto, "Output format: auto, human, json, compact")
-	flags.BoolP("agent", "a", false, "Force agent mode")
-	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
-	flags.StringP("agent-label", "G", "", "Override agent attribution label")
-	flags.StringP("agent-emoji", "Y", "", "Override agent attribution emoji")
-	flags.StringP("agent-message", "O", "", "Override agent attribution message")
 	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
 	flags.BoolP("debug", "D", false, "Enable debug-level output")
 

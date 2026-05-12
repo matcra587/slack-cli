@@ -80,27 +80,27 @@ func guideHelpFunc(renderer *help.Renderer) func(*cobra.Command, []string) {
 	})
 }
 
-// DetectAttribution computes the agent attribution settings (label/emoji/message)
+// DetectAttribution computes the attribution settings (label/emoji/message)
 // for the supplied flags. Used by main.go and tests that exercise attribution
 // fallthrough.
-func DetectAttribution(flags cliruntime.AgentFlags) agentpkg.Attribution {
+func DetectAttribution(flags cliruntime.AttributionFlags) agentpkg.Attribution {
 	detection := agentpkg.Detect(agentpkg.Options{
-		Force:              flags.Agent,
-		NoAttribution:      flags.NoAgentAttribution,
+		NoAttribution:      flags.NoAttribution,
 		ProfileAttribution: flags.ProfileAttribution,
-		Label:              flags.AgentLabel,
-		Emoji:              flags.AgentEmoji,
-		Message:            flags.AgentMessage,
+		Label:              flags.Label,
+		Emoji:              flags.Emoji,
+		Message:            flags.Message,
 	})
 	return agentpkg.NewAttribution(detection, agentpkg.Options{
-		Label:   flags.AgentLabel,
-		Emoji:   flags.AgentEmoji,
-		Message: flags.AgentMessage,
+		Label:   flags.Label,
+		Emoji:   flags.Emoji,
+		Message: flags.Message,
 	})
 }
 
-// DetectOutputMode reports whether output should be rendered in agent mode for
-// the supplied flags.
-func DetectOutputMode(flags cliruntime.AgentFlags) bool {
-	return agentpkg.Detect(agentpkg.Options{Force: flags.Agent}).Active
+// DetectOutputMode reports whether output should be rendered in agent mode.
+// True when an agent/CI env trigger is set; the user can also pick a
+// machine-friendly mode explicitly via --output=json|compact.
+func DetectOutputMode() bool {
+	return agentpkg.Detect(agentpkg.Options{}).Active
 }

@@ -106,9 +106,77 @@ func TestMessageSendCommandSupportsCustomAttributionPresentation(t *testing.T) {
 
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 		[]string{
-			"--agent-emoji", ":rocket:",
-			"--agent-message", "Sent from deploy job",
 			"message", "send", "--channel", "C123", "--message", "Deploy complete",
+			"--attribution-emoji", ":rocket:",
+			"--attribution-message", "Sent from deploy job",
+		},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+}
+
+func TestMessageSendCommandHonorsNoAttribution(t *testing.T) {
+	t.Setenv("CLAUDE_CODE", "1")
+
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"chat.postMessage": func(req testutil.SlackRequest) testutil.SlackResponse {
+			var blocks []map[string]any
+			if err := json.Unmarshal([]byte(req.Form.Get("blocks")), &blocks); err != nil {
+				t.Fatalf("blocks form value is not JSON: %v", err)
+			}
+			for _, block := range blocks {
+				if block["type"] == "context" {
+					t.Fatalf("--no-attribution did not suppress context block: %#v", blocks)
+				}
+			}
+			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","text":"Hi","ts":"1746284582.123456"}}`)
+		},
+		"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
+		},
+	})
+
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
+		[]string{"message", "send", "--channel", "C123", "--message", "Hi", "--no-attribution"},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, `"attribution":false`) {
+		t.Fatalf("stdout = %s, want attribution false", stdout)
+	}
+}
+
+func TestMessageEditCommandSupportsAttributionOverride(t *testing.T) {
+	t.Setenv("CLAUDE_CODE", "1")
+
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"chat.update": func(req testutil.SlackRequest) testutil.SlackResponse {
+			var blocks []map[string]any
+			if err := json.Unmarshal([]byte(req.Form.Get("blocks")), &blocks); err != nil {
+				t.Fatalf("blocks form value is not JSON: %v", err)
+			}
+			contextBlock := blocks[len(blocks)-1]
+			elements := contextBlock["elements"].([]any)
+			text := elements[0].(map[string]any)["text"]
+			if text != ":pencil: _Edited from script (agent mode)_" {
+				t.Fatalf("attribution text = %#v, want overridden values", text)
+			}
+			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456","text":"Updated"}`)
+		},
+		"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
+		},
+	})
+
+	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
+		[]string{
+			"message", "edit",
+			"--channel", "C123", "--timestamp", "1746284582.123456",
+			"--message", "Updated",
+			"--attribution-emoji", ":pencil:",
+			"--attribution-message", "Edited from script",
 		},
 	)
 	if err != nil {

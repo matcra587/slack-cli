@@ -13,7 +13,6 @@ const (
 )
 
 type Options struct {
-	Force              bool
 	NoAttribution      bool
 	ProfileAttribution *bool
 	Label              string
@@ -95,9 +94,6 @@ func Detect(opts Options) Detection {
 		}
 	}
 
-	if opts.Force {
-		return Detection{Active: true, Source: "flag", Name: "manual", Category: CategoryAutomation}
-	}
 	if opts.ProfileAttribution != nil && *opts.ProfileAttribution {
 		return Detection{Active: true, Source: "profile", Name: "profile", Category: CategoryCLI}
 	}

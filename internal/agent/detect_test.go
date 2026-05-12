@@ -112,13 +112,10 @@ func TestDetectRecognizesCICronAndGenericAutomation(t *testing.T) {
 	}
 }
 
-func TestDetectSupportsFlagAndExplicitOptOut(t *testing.T) {
+func TestDetectSupportsProfileAndExplicitOptOut(t *testing.T) {
 	profileOn := true
 	profileOff := false
 
-	if got := agent.Detect(agent.Options{Force: true}); !got.Active || got.Source != "flag" {
-		t.Fatalf("flag detection = %#v", got)
-	}
 	if got := agent.Detect(agent.Options{ProfileAttribution: &profileOn}); !got.Active || got.Source != "profile" {
 		t.Fatalf("profile attribution should force attribution: %#v", got)
 	}
@@ -126,7 +123,10 @@ func TestDetectSupportsFlagAndExplicitOptOut(t *testing.T) {
 	if got := agent.Detect(agent.Options{ProfileAttribution: &profileOff}); got.Active {
 		t.Fatalf("explicit profile opt-out should disable attribution: %#v", got)
 	}
-	if got := agent.Detect(agent.Options{Force: true, NoAttribution: true}); got.Active {
+	if got := agent.Detect(agent.Options{NoAttribution: true}); got.Active {
 		t.Fatalf("per-command opt-out should disable attribution: %#v", got)
+	}
+	if got := agent.Detect(agent.Options{ProfileAttribution: &profileOn, NoAttribution: true}); got.Active {
+		t.Fatalf("per-command opt-out must win against profile opt-in: %#v", got)
 	}
 }

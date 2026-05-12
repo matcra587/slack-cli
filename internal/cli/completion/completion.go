@@ -335,12 +335,17 @@ func extendRootFlags(root *cobra.Command) {
 		EnumDefault: "auto",
 		Terse:       "color mode",
 	})
-	cobracli.Extend(pf.Lookup("agent"), cobracli.FlagExtra{Group: "Agent", Terse: "agent mode"})
-	cobracli.Extend(pf.Lookup("no-agent-attribution"), cobracli.FlagExtra{Group: "Agent", Terse: "disable attribution"})
-	cobracli.Extend(pf.Lookup("agent-label"), cobracli.FlagExtra{Group: "Agent", Placeholder: "LABEL", Terse: "agent label"})
-	cobracli.Extend(pf.Lookup("agent-emoji"), cobracli.FlagExtra{Group: "Agent", Placeholder: ":robot_face:", Complete: "values=" + strings.Join(cliconfig.CommonEmojis(), " "), Terse: "agent emoji"})
-	cobracli.Extend(pf.Lookup("agent-message"), cobracli.FlagExtra{Group: "Agent", Placeholder: "TEXT", Terse: "agent message"})
 	cobracli.Extend(pf.Lookup("no-throttle"), cobracli.FlagExtra{Group: "Network", Terse: "disable throttle"})
+}
+
+func extendAttributionFlags(cmd *cobra.Command) {
+	if cmd == nil {
+		return
+	}
+	cobracli.Extend(flag(cmd, "no-attribution"), cobracli.FlagExtra{Group: "Attribution", Terse: "disable attribution"})
+	cobracli.Extend(flag(cmd, "attribution-label"), cobracli.FlagExtra{Group: "Attribution", Placeholder: "LABEL", Terse: "label"})
+	cobracli.Extend(flag(cmd, "attribution-emoji"), cobracli.FlagExtra{Group: "Attribution", Placeholder: ":robot_face:", Complete: "values=" + strings.Join(cliconfig.CommonEmojis(), " "), Terse: "emoji"})
+	cobracli.Extend(flag(cmd, "attribution-message"), cobracli.FlagExtra{Group: "Attribution", Placeholder: "TEXT", Terse: "message"})
 }
 
 func extendMessageFlags(root *cobra.Command) {
@@ -350,6 +355,7 @@ func extendMessageFlags(root *cobra.Command) {
 	extendFileHint(send, "file")
 	extendFileNameHint(send)
 	extendDryRunFlag(send)
+	extendAttributionFlags(send)
 
 	edit := commandPath(root, "message", "edit")
 	extendSlackTargetFlags(edit)
@@ -357,6 +363,7 @@ func extendMessageFlags(root *cobra.Command) {
 	extendSlackMessageInputFlags(edit)
 	extendFileHint(edit, "file")
 	extendDryRunFlag(edit)
+	extendAttributionFlags(edit)
 
 	deleteCmd := commandPath(root, "message", "delete")
 	extendSlackTargetFlags(deleteCmd)
@@ -384,6 +391,7 @@ func extendReplyFlags(root *cobra.Command) {
 	extendSlackMessageInputFlags(cmd)
 	extendFileHint(cmd, "file")
 	extendDryRunFlag(cmd)
+	extendAttributionFlags(cmd)
 }
 
 func extendReactFlags(root *cobra.Command) {
@@ -435,6 +443,7 @@ func extendFileFlags(root *cobra.Command) {
 	cobracli.Extend(flag(cmd, "message"), cobracli.FlagExtra{Placeholder: "TEXT", Terse: "message"})
 	extendTimestampFlag(cmd, "thread")
 	extendDryRunFlag(cmd)
+	extendAttributionFlags(cmd)
 }
 
 func extendStatusFlags(root *cobra.Command) {

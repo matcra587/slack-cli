@@ -101,34 +101,34 @@ type (
 )
 
 type RootOptions struct {
-	Config    *config.Config
-	Workspace string
-	Output    OutputFlags
-	Agent     AgentFlags
-	Stdout    io.Writer
-	Stderr    io.Writer
-	IsTTY     bool
-	ColorMode clog.ColorMode
-	Now       func() time.Time
-	RequestID func() string
-	Theme     *theme.Theme
+	Config      *config.Config
+	Workspace   string
+	Output      OutputFlags
+	Attribution AttributionFlags
+	Stdout      io.Writer
+	Stderr      io.Writer
+	IsTTY       bool
+	ColorMode   clog.ColorMode
+	Now         func() time.Time
+	RequestID   func() string
+	Theme       *theme.Theme
 }
 
-// AgentFlags carries the per-command agent/attribution overrides parsed from
-// cobra persistent flags.
-type AgentFlags = cliruntime.AgentFlags
+// AttributionFlags carries the per-command attribution overrides parsed from
+// the local mutating-command flags.
+type AttributionFlags = cliruntime.AttributionFlags
 
-// Attribution describes the agent attribution payload for sent messages.
+// Attribution describes the attribution payload for sent messages.
 type Attribution = agent.Attribution
 
-// DetectAgentMode computes the attribution payload for the supplied flags.
-func DetectAgentMode(flags AgentFlags) Attribution {
+// DetectAttribution computes the attribution payload for the supplied flags.
+func DetectAttribution(flags AttributionFlags) Attribution {
 	return cliagent.DetectAttribution(flags)
 }
 
 // DetectAgentOutputMode reports whether output should be rendered in agent mode.
-func DetectAgentOutputMode(flags AgentFlags) bool {
-	return cliagent.DetectOutputMode(flags)
+func DetectAgentOutputMode() bool {
+	return cliagent.DetectOutputMode()
 }
 
 type RootRuntime = cliruntime.RootRuntime
@@ -213,11 +213,6 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	flags := root.PersistentFlags()
 	flags.StringP("workspace", "w", "", "Workspace profile")
 	flags.StringP("output", "o", clioutput.OutputAuto, "Output format: auto, human, json, compact")
-	flags.BoolP("agent", "a", false, "Force agent mode")
-	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
-	flags.StringP("agent-label", "G", "", "Override agent attribution label")
-	flags.StringP("agent-emoji", "Y", "", "Override agent attribution emoji")
-	flags.StringP("agent-message", "O", "", "Override agent attribution message")
 	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
 	flags.BoolP("debug", "D", false, "Enable debug-level output")
 	flags.DurationP("timeout", "I", 30*time.Second, "Slack API call timeout")
@@ -327,30 +322,30 @@ func defaultConfigPath() string {
 
 func NewCommandContext(opts RootOptions) (*CommandContext, Attribution, error) {
 	workspace := "default"
-	agentFlags := opts.Agent
+	attrFlags := opts.Attribution
 	if opts.Config != nil {
 		profile, err := opts.Config.ResolveWorkspace(opts.Workspace)
 		if err != nil {
 			return nil, Attribution{}, err
 		}
 		workspace = profile.Name
-		agentFlags.ProfileAttribution = profileAttributionSetting(profile)
+		attrFlags.ProfileAttribution = profileAttributionSetting(profile)
 		settings := profile.AgentSettings()
-		if agentFlags.AgentLabel == "" {
-			agentFlags.AgentLabel = settings.Label
+		if attrFlags.Label == "" {
+			attrFlags.Label = settings.Label
 		}
-		if agentFlags.AgentEmoji == "" {
-			agentFlags.AgentEmoji = settings.Emoji
+		if attrFlags.Emoji == "" {
+			attrFlags.Emoji = settings.Emoji
 		}
-		if agentFlags.AgentMessage == "" {
-			agentFlags.AgentMessage = settings.Message
+		if attrFlags.Message == "" {
+			attrFlags.Message = settings.Message
 		}
 	} else if opts.Workspace != "" {
 		workspace = opts.Workspace
 	}
 
-	mode := opts.Output.Resolve(opts.IsTTY, DetectAgentOutputMode(agentFlags))
-	attribution := DetectAgentMode(agentFlags)
+	mode := opts.Output.Resolve(opts.IsTTY, DetectAgentOutputMode())
+	attribution := DetectAttribution(attrFlags)
 	stdoutLog, stderrLog := buildBaseLoggers(opts.Stdout, opts.Stderr, opts.ColorMode)
 	applyRenderMode(stdoutLog, mode)
 	return &CommandContext{

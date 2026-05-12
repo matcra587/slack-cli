@@ -77,19 +77,21 @@ commands do not edit them.
 | `manifest` | [manifest.md](docs/manifest.md) |
 | `agent`, `version` | [agent.md](docs/agent.md), [version.md](docs/version.md) |
 
-## Agent attribution
+## Attribution
 
-When slick detects an agent environment, mutating commands attach a Block
-Kit context block to the Slack message. The trigger set covers most popular
-AI assistants (Claude Code, Cursor, Codex, Aider, Cline, Windsurf, GitHub
-Copilot, Codeium, Amazon Q, Gemini Code Assist, Cody) and CI systems
-(GitHub Actions, Buildkite, Jenkins, GitLab CI, CircleCI, Travis, Bitbucket
+When slick detects an agent or CI environment, the four mutating commands
+(`message send`, `message edit`, `reply`, `file upload`) attach a Block Kit
+context block to the Slack message. The trigger set covers most popular AI
+assistants (Claude Code, Cursor, Codex, Aider, Cline, Windsurf, GitHub
+Copilot, Codeium, Amazon Q, Gemini Code Assist, Cody) and CI systems (GitHub
+Actions, Buildkite, Jenkins, GitLab CI, CircleCI, Travis, Bitbucket
 Pipelines, TeamCity, Azure Pipelines, and the generic `CI` variable). The
 authoritative list lives in
 [`internal/agent/detect.go`](internal/agent/detect.go). Override per-call
-with `--agent-label`, `--agent-emoji`, `--agent-message`; disable with
-`--no-agent-attribution`; force with `--agent`. Pin defaults per workspace
-in config:
+with `--attribution-label`, `--attribution-emoji`, `--attribution-message`;
+disable with `--no-attribution` (short `-z`). To force attribution outside a
+detected environment, set `FORCE_AGENT_MODE=1` in the environment. Pin
+defaults per workspace in config:
 
 ```sh
 slick config set workspaces.default.attribution.enabled true

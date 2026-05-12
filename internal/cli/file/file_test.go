@@ -158,6 +158,52 @@ func TestFileUploadCommandAppliesAgentAttributionBlocksToUploadMessage(t *testin
 	}
 }
 
+func TestFileUploadCommandHonorsNoAttribution(t *testing.T) {
+	t.Setenv("CLAUDE_CODE", "1")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/auth.test":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ok":true,"user_id":"U123"}`))
+		case "/api/files.getUploadURLExternal":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ok":true,"upload_url":"` + "http://" + r.Host + `/upload","file_id":"F123"}`))
+		case "/upload":
+			_, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusOK)
+		case "/api/files.completeUploadExternal":
+			if blocksValue := r.FormValue("blocks"); blocksValue != "" {
+				var blocks []map[string]any
+				if err := json.Unmarshal([]byte(blocksValue), &blocks); err != nil {
+					t.Fatalf("blocks form value is not JSON: %v", err)
+				}
+				for _, block := range blocks {
+					if block["type"] == "context" {
+						t.Fatalf("--no-attribution did not suppress context block: %#v", blocks)
+					}
+				}
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ok":true,"files":[{"id":"F123","name":"stdin.txt","size":11,"permalink":"https://example.slack.com/files/F123"}]}`))
+		case "/api/files.info":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ok":true,"file":{"id":"F123","name":"stdin.txt","title":"stdin.txt","size":11,"permalink":"https://example.slack.com/files/F123"}}`))
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.URL,
+		"hello world",
+		[]string{"file", "upload", "--channel", "C123", "--file", "-", "--filename", "stdin.txt", "--message", "Build artifact", "--no-attribution"},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+}
+
 func TestFileUploadCommandSupportsBlockInputForUploadMessage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {

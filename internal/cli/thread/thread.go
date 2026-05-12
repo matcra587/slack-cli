@@ -37,6 +37,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	replyCmd.Flags().StringVarP(&src.File, "file", "f", "", "Read message body from file or - for stdin")
 	replyCmd.Flags().BoolVarP(&src.Blocks, "blocks", "b", false, "Treat message source as raw Block Kit JSON")
 	replyCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview without sending")
+	cliruntime.RegisterAttributionFlags(replyCmd)
 	return replyCmd
 }
 

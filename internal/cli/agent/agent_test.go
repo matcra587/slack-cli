@@ -11,7 +11,7 @@ import (
 func TestDetectAttributionUsesInternalAgentDetection(t *testing.T) {
 	t.Setenv("CLAUDE_CODE", "1")
 
-	got := cliagent.DetectAttribution(cliruntime.AgentFlags{})
+	got := cliagent.DetectAttribution(cliruntime.AttributionFlags{})
 	if !got.Enabled {
 		t.Fatal("DetectAttribution Enabled = false, want true")
 	}
@@ -26,7 +26,7 @@ func TestDetectAttributionUsesInternalAgentDetection(t *testing.T) {
 func TestDetectAttributionHonorsCommandOptOut(t *testing.T) {
 	t.Setenv("CLAUDE_CODE", "1")
 
-	got := cliagent.DetectAttribution(cliruntime.AgentFlags{NoAgentAttribution: true})
+	got := cliagent.DetectAttribution(cliruntime.AttributionFlags{NoAttribution: true})
 	if got.Enabled {
 		t.Fatalf("DetectAttribution opt-out = %#v, want disabled", got)
 	}

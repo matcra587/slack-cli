@@ -38,7 +38,11 @@ The schema's top-level object includes:
 *   `auth` — supported auth shapes and required scopes.
 *   `output` — output modes (`--output=auto|human|json|compact`).
 *   `global_flags` — flags accepted on every command (workspace selection,
-    output mode, agent attribution, debug).
+    output mode, debug, color, timeout, throttle). Attribution overrides
+    (`--no-attribution`, `--attribution-{label,emoji,message}`) are
+    command-local on the four mutating commands (`message send`,
+    `message edit`, `reply`, `file upload`) and appear under each command's
+    `flags` entry rather than `global_flags`.
 *   `commands` — the full command tree, with each entry carrying `name`,
     `full_path`, `description`, `read_only`, optional `flags`, and a
     recursive `subcommands` array.

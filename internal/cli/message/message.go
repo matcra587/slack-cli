@@ -140,6 +140,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	sendCmd.Flags().StringVarP(&filename, "filename", "N", "", "Filename metadata for stdin sources")
 	sendCmd.Flags().BoolVarP(&src.Blocks, "blocks", "b", false, "Treat message source as raw Block Kit JSON")
 	sendCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview without sending")
+	cliruntime.RegisterAttributionFlags(sendCmd)
 	sendCmd.MarkFlagsMutuallyExclusive("channel", "user")
 	sendCmd.PreRunE = func(cmd *cobra.Command, _ []string) error {
 		if err := cmd.ValidateFlagGroups(); err != nil {
@@ -166,6 +167,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	editCmd.Flags().StringVarP(&editSrc.File, "file", "f", "", "Read message body from file or - for stdin")
 	editCmd.Flags().BoolVarP(&editSrc.Blocks, "blocks", "b", false, "Treat message source as raw Block Kit JSON")
 	editCmd.Flags().BoolVarP(&editDryRun, "dry-run", "n", false, "Preview without mutating")
+	cliruntime.RegisterAttributionFlags(editCmd)
 	messageCmd.AddCommand(editCmd)
 
 	var deleteDryRun bool

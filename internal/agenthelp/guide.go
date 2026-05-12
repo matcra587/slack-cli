@@ -175,7 +175,7 @@ perform the task, what to parse, and which quirks matter.
 - Group DM command: repeat ` + "`--user`" + ` or comma-separate values, such as ` + "`slick message send --user alice@example.com,bob@example.com --user U123 --message <markdown> --output=json`" + `.
 - Raw Block Kit command: pass ` + "`--blocks`" + ` only when the body is a raw Block Kit JSON array. ` + "`--blocks`" + ` validates Slack Block Kit JSON rules before any Slack mutation.
 - Parse: keep ` + "`data.message.channel`" + `, ` + "`data.message.ts`" + `, ` + "`data.message.thread_ts`" + ` for replies, and ` + "`data.permalink`" + ` when present.
-- Agent attribution: agent mode can be triggered by env vars or ` + "`--agent`" + `. Configure with ` + "`attribution.enabled`" + `, ` + "`attribution.message`" + `, ` + "`attribution.emoji`" + `, ` + "`--agent-message`" + `, and ` + "`--agent-emoji`" + `.
+- Attribution: an attribution context block is auto-attached when an agent/CI env var is detected. Configure persistent defaults with ` + "`attribution.enabled`" + `, ` + "`attribution.message`" + `, ` + "`attribution.emoji`" + `; override per call with ` + "`--attribution-label`" + `, ` + "`--attribution-emoji`" + `, ` + "`--attribution-message`" + `; suppress with ` + "`--no-attribution`" + `.
 - Quirks: ` + "`--channel`" + ` and ` + "`--user`" + ` are mutually exclusive. Passing neither uses configured ` + "`default_channel`" + ` when present; otherwise it is a validation error.
 - Quirks: email DM targeting calls Slack ` + "`users.lookupByEmail`" + ` and requires ` + "`users:read.email`" + `.
 - Quirks: Markdown is converted to Block Kit by default. ` + "`--output`" + ` selects an output mode only and does not select raw Block Kit input; use command-local ` + "`--blocks`" + ` for that.

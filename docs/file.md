@@ -40,6 +40,10 @@ slick file upload --channel C1234567890 --file ./report.txt --dry-run
 -b, --blocks             Treat upload message as raw Block Kit JSON
 -t, --thread <TS>        Thread timestamp
 -n, --dry-run            Preview without uploading
+-z, --no-attribution     Disable attribution for this command
+    --attribution-label <LABEL>      Override attribution label
+    --attribution-emoji <EMOJI>      Override attribution emoji
+    --attribution-message <TEXT>     Override attribution message
 ```
 
 Progress and diagnostics go to stderr; stdout stays reserved for command

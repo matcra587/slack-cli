@@ -68,20 +68,10 @@ func TestNewRootCommandDefinesPersistentFlags(t *testing.T) {
 	for _, name := range []string{
 		"workspace",
 		"output",
-		"agent",
-		"no-agent-attribution",
-		"agent-label",
-		"agent-emoji",
-		"agent-message",
 		"no-throttle",
 	} {
 		if cmd.PersistentFlags().Lookup(name) == nil {
 			t.Fatalf("persistent flag %q is missing", name)
-		}
-	}
-	for _, name := range []string{"json", "plain", "compact", "raw", "agent-attribution-mode", "agent-color"} {
-		if cmd.PersistentFlags().Lookup(name) != nil {
-			t.Fatalf("persistent flag %q should not exist", name)
 		}
 	}
 }
@@ -140,6 +130,11 @@ func TestNewRootCommandDefinesVisibleShortFlags(t *testing.T) {
 	visit = func(cmd *cobra.Command) {
 		cmd.LocalNonPersistentFlags().VisitAll(func(flag *pflag.Flag) {
 			if flag.Hidden || flag.Shorthand != "" || flag.Name == "help" {
+				return
+			}
+			// Attribution overrides are long-form only; they're niche
+			// per-call overrides and the long names are self-documenting.
+			if strings.HasPrefix(flag.Name, "attribution-") {
 				return
 			}
 			missing = append(missing, cmd.CommandPath()+" --"+flag.Name)
@@ -441,11 +436,11 @@ func TestNewCommandContextWiresAgentDetection(t *testing.T) {
 	t.Setenv("CLAUDE_CODE", "1")
 
 	ctx, attribution, err := NewCommandContext(RootOptions{
-		Output: OutputFlags{},
-		Agent:  AgentFlags{},
-		Stdout: &bytes.Buffer{},
-		Stderr: &bytes.Buffer{},
-		IsTTY:  true,
+		Output:      OutputFlags{},
+		Attribution: AttributionFlags{},
+		Stdout:      &bytes.Buffer{},
+		Stderr:      &bytes.Buffer{},
+		IsTTY:       true,
 	})
 	if err != nil {
 		t.Fatalf("NewCommandContext returned error: %v", err)

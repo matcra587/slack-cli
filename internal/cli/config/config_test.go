@@ -95,18 +95,9 @@ func TestConfigInitExposesCanonicalAttributionFlags(t *testing.T) {
 			t.Fatalf("config init flag %q is hidden; canonical attribution flags must be discoverable", name)
 		}
 	}
-	aliases := map[string]string{
-		"agent-attribution": "attribution-enabled",
-		"agent-label":       "attribution-label",
-		"agent-emoji":       "attribution-emoji",
-		"agent-message":     "attribution-message",
-	}
-	for alias, canonical := range aliases {
-		if got := initCmd.LocalFlags().Lookup(alias); got != nil {
-			t.Errorf("legacy alias %q should not be a local pflag on config init; use SetNormalizeFunc instead", alias)
-		}
-		if got := initCmd.LocalFlags().Lookup(canonical); got == nil {
-			t.Errorf("canonical local flag %q missing after alias %q check", canonical, alias)
+	for _, name := range []string{"agent-attribution", "agent-label", "agent-emoji", "agent-message"} {
+		if initCmd.Flags().Lookup(name) != nil {
+			t.Errorf("legacy alias %q must not be reachable on config init", name)
 		}
 	}
 }
@@ -387,11 +378,6 @@ func buildTestRoot(cfg *config.Config, configPath, baseURL string, store config.
 	flags := root.PersistentFlags()
 	flags.StringP("workspace", "w", "", "Workspace profile")
 	flags.StringP("output", "o", clioutput.OutputAuto, "Output format: auto, human, json, compact")
-	flags.BoolP("agent", "a", false, "Force agent mode")
-	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
-	flags.StringP("agent-label", "G", "", "Override agent attribution label")
-	flags.StringP("agent-emoji", "Y", "", "Override agent attribution emoji")
-	flags.StringP("agent-message", "O", "", "Override agent attribution message")
 	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
 	flags.BoolP("debug", "D", false, "Enable debug-level output")
 

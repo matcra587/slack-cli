@@ -41,6 +41,10 @@ slick message send --channel C1234567890 --message "Deploy complete" --dry-run
 -N, --filename <NAME>    Filename metadata for stdin sources
 -b, --blocks             Treat message source as raw Block Kit JSON
 -n, --dry-run            Preview without sending
+-z, --no-attribution     Disable attribution for this command
+    --attribution-label <LABEL>      Override attribution label
+    --attribution-emoji <EMOJI>      Override attribution emoji
+    --attribution-message <TEXT>     Override attribution message
 ```
 
 If `default_channel` is set in config, both `--channel` and `--user` can be
@@ -123,6 +127,10 @@ slick message edit --channel C1234567890 --timestamp 1746284582.123456 --message
 -f, --file <FILE>        Read message body from file or - for stdin
 -b, --blocks             Treat message source as raw Block Kit JSON
 -n, --dry-run            Preview without mutating
+-z, --no-attribution     Disable attribution for this command
+    --attribution-label <LABEL>      Override attribution label
+    --attribution-emoji <EMOJI>      Override attribution emoji
+    --attribution-message <TEXT>     Override attribution message
 ```
 
 Human (`--dry-run`):

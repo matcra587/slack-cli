@@ -22,7 +22,6 @@ import (
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // InitOptions captures CLI-flag-driven inputs for `slick config init`.
@@ -221,19 +220,6 @@ func newInitCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	cmd.Flags().StringVarP(&opts.AgentLabel, "attribution-label", "l", "", "Attribution label")
 	cmd.Flags().StringVarP(&opts.AgentEmoji, "attribution-emoji", "e", "", "Attribution emoji")
 	cmd.Flags().StringVarP(&opts.AgentMessage, "attribution-message", "m", "", "Attribution message")
-	cmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
-		switch name {
-		case "agent-attribution":
-			return pflag.NormalizedName("attribution-enabled")
-		case "agent-label":
-			return pflag.NormalizedName("attribution-label")
-		case "agent-emoji":
-			return pflag.NormalizedName("attribution-emoji")
-		case "agent-message":
-			return pflag.NormalizedName("attribution-message")
-		}
-		return pflag.NormalizedName(name)
-	})
 	cmd.Flags().BoolVarP(&opts.Force, "force", "F", false, "Overwrite an existing config")
 	extendInitFlags(cmd)
 	return cmd

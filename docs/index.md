@@ -117,9 +117,10 @@ test enforces this on every CI run; see
 [`internal/cli/output/field_order_test.go`](https://github.com/matcra587/slack-cli/blob/main/internal/cli/output/field_order_test.go)
 if you want the full rule.
 
-## Agent attribution
+## Attribution
 
-When slick detects an agent environment, mutating commands attach a Block Kit
+When slick detects an agent or CI environment, the four mutating commands
+(`message send`, `message edit`, `reply`, `file upload`) attach a Block Kit
 context block to the Slack message. The trigger set covers most popular AI
 assistants (Claude Code, Cursor, Codex, Aider, Cline, Windsurf, GitHub
 Copilot, Codeium, Amazon Q, Gemini Code Assist, Cody) and CI systems (GitHub
@@ -127,9 +128,10 @@ Actions, Buildkite, Jenkins, GitLab CI, CircleCI, Travis, Bitbucket
 Pipelines, TeamCity, Azure Pipelines, and the generic `CI` variable). The
 authoritative list lives in
 [`internal/agent/detect.go`](https://github.com/matcra587/slack-cli/blob/main/internal/agent/detect.go).
-You can also force it with `--agent`, override per-call with `--agent-label`,
-`--agent-emoji`, `--agent-message`, or disable entirely with
-`--no-agent-attribution`.
+Override per-call with `--attribution-label`, `--attribution-emoji`,
+`--attribution-message`, or disable entirely with `--no-attribution` (short
+`-z`). To force attribution outside a detected environment, set
+`FORCE_AGENT_MODE=1` in the environment.
 
 The attribution context block reflects the detection state in the rendered
 Slack message:
@@ -139,8 +141,8 @@ Slack message:
 *   `:robot_face: _Sent via slick_` — slick is running interactively (no
     agent triggers) but `attribution.enabled = true` is set in config.
 
-Override either piece with `--agent-message` (text body) or `--agent-emoji`
-(leading emoji).
+Override either piece with `--attribution-message` (text body) or
+`--attribution-emoji` (leading emoji).
 
 Config can pin attribution defaults per workspace:
 

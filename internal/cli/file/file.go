@@ -103,6 +103,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	uploadCmd.Flags().BoolVarP(&blocks, "blocks", "b", false, "Treat upload message as raw Block Kit JSON")
 	uploadCmd.Flags().StringVarP(&thread, "thread", "t", "", "Thread timestamp")
 	uploadCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview without uploading")
+	cliruntime.RegisterAttributionFlags(uploadCmd)
 	fileCmd.AddCommand(uploadCmd)
 
 	return fileCmd

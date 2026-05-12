@@ -196,6 +196,70 @@ func TestThreadReplyCommandDryRunSkipsSlackMutation(t *testing.T) {
 	}
 }
 
+func TestThreadReplyCommandSupportsAttributionOverride(t *testing.T) {
+	t.Setenv("CLAUDE_CODE", "1")
+
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"chat.postMessage": func(req testutil.SlackRequest) testutil.SlackResponse {
+			var blocks []map[string]any
+			if err := json.Unmarshal([]byte(req.Form.Get("blocks")), &blocks); err != nil {
+				t.Fatalf("blocks form value is not JSON: %v", err)
+			}
+			contextBlock := blocks[len(blocks)-1]
+			elements := contextBlock["elements"].([]any)
+			text := elements[0].(map[string]any)["text"]
+			if text != ":speech_balloon: _Replied from script (agent mode)_" {
+				t.Fatalf("attribution text = %#v, want overridden values", text)
+			}
+			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284599.123456","message":{"type":"message","text":"reply","ts":"1746284599.123456","thread_ts":"1746284582.123456"}}`)
+		},
+		"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284599123456"}`)
+		},
+	})
+
+	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
+		[]string{
+			"reply", "--channel", "C123", "--parent", "1746284582.123456",
+			"--message", "reply",
+			"--attribution-emoji", ":speech_balloon:",
+			"--attribution-message", "Replied from script",
+		},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+}
+
+func TestThreadReplyCommandHonorsNoAttribution(t *testing.T) {
+	t.Setenv("CLAUDE_CODE", "1")
+
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"chat.postMessage": func(req testutil.SlackRequest) testutil.SlackResponse {
+			var blocks []map[string]any
+			if err := json.Unmarshal([]byte(req.Form.Get("blocks")), &blocks); err != nil {
+				t.Fatalf("blocks form value is not JSON: %v", err)
+			}
+			for _, block := range blocks {
+				if block["type"] == "context" {
+					t.Fatalf("--no-attribution did not suppress context block: %#v", blocks)
+				}
+			}
+			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284599.123456","message":{"type":"message","text":"reply","ts":"1746284599.123456","thread_ts":"1746284582.123456"}}`)
+		},
+		"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284599123456"}`)
+		},
+	})
+
+	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
+		[]string{"reply", "--channel", "C123", "--parent", "1746284582.123456", "--message", "reply", "--no-attribution"},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+}
+
 func TestThreadCommandIsNotRegistered(t *testing.T) {
 	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"thread", "reply", "--help"})
 	if err == nil {

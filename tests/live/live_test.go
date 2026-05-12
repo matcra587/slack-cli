@@ -37,6 +37,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 // --- message lifecycle ------------------------------------------------------
@@ -325,6 +326,67 @@ The test does not assert on result content because indexing latency is unbounded
 	envelope := decodeEnvelope(t, stdout)
 	if _, ok := envelope["data"].(map[string]any)["matches"]; !ok {
 		t.Fatalf("envelope missing data.matches: %s", stdout)
+	}
+}
+
+// TestLiveSearchMessagesPopulatesText round-trips a real send through
+// search.messages and asserts the match's text field is non-empty and
+// contains the run ID. This guards the searchTextFromBlocks fallback
+// (Slack returns Text="" for Block Kit messages and stashes the body
+// in Blocks; without the fallback, matches arrive textless and this
+// test catches that regression).
+//
+// Indexing latency is unbounded; the test polls up to 60s and skips
+// (rather than fails) when Slack hasn't indexed the message in time.
+func TestLiveSearchMessagesPopulatesText(t *testing.T) {
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
+	runID := newRunID(t)
+
+	body := fmt.Sprintf(`live-search-text-%s Release note: rolled out search-text
+extraction so lookup messages results carry the message body even when Slack
+returns it inside blocks rather than the top-level text field.`, runID)
+	channel, ts := postMessage(t, binary, env, body)
+	cleanupMessage(t, binary, env, runID, channel, ts)
+
+	deadline := time.Now().Add(60 * time.Second)
+	interval := 5 * time.Second
+	var matches []any
+	for time.Now().Before(deadline) {
+		stdout, stderr, err := runSlick(t, binary, "",
+			"lookup", "messages",
+			"--workspace", env.workspace,
+			"--query", runID,
+			"--max-items", "5",
+			"--json",
+		)
+		if err != nil {
+			t.Fatalf("lookup messages failed: %v\nstderr=%s", err, stderr)
+		}
+		envelope := decodeEnvelope(t, stdout)
+		data, _ := envelope["data"].(map[string]any)
+		got, _ := data["matches"].([]any)
+		if len(got) > 0 {
+			matches = got
+			break
+		}
+		time.Sleep(interval)
+	}
+	if len(matches) == 0 {
+		t.Skipf("search did not index run %s within 60s; skipping text assertion", runID)
+		return
+	}
+
+	match, ok := matches[0].(map[string]any)
+	if !ok {
+		t.Fatalf("matches[0] is not an object: %T %+v", matches[0], matches[0])
+	}
+	text, _ := match["text"].(string)
+	if text == "" {
+		t.Fatalf("matches[0].text is empty — text-from-blocks fallback failed.\nmatch=%+v", match)
+	}
+	if !strings.Contains(text, runID) {
+		t.Fatalf("matches[0].text does not contain run ID %q: %q", runID, text)
 	}
 }
 

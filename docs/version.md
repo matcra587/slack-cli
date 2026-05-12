@@ -1,0 +1,63 @@
+# slick version
+
+Print version, commit, branch, build time, and builder identity for the
+installed slick binary.
+
+```text
+slick version  Print version information
+```
+
+## version
+
+```sh
+slick version
+slick version --output=json
+```
+
+### Output
+
+Human mode (values depend on the installed build; `built` renders as a
+relative phrase derived from the RFC3339 build timestamp, e.g. `now`,
+`2 minutes ago`, `3 days ago`):
+
+```text
+slick v0.4.0
+   commit=8f2a6ad
+   branch=main
+   built="2 minutes ago"
+   built by=goreleaser
+```
+
+JSON envelope (`--output=json`):
+
+```json
+{
+  "meta": {"command": "version", "workspace": "version", "timestamp": "…", "request_id": "…"},
+  "data": {
+    "version": "v0.4.0",
+    "commit": "8f2a6ad",
+    "branch": "main",
+    "build_time": "2026-05-10T19:55:00Z",
+    "build_by": "goreleaser"
+  },
+  "errors": []
+}
+```
+
+The version string follows the latest released tag. Local builds via
+`mise run build` embed `-dirty` when the working tree has uncommitted
+changes; `built by` reflects the build environment (`goreleaser` for
+release artifacts, `homebrew` for the brew bottle, the local user for
+dev builds).
+
+### Flags
+
+```text
+-h, --help  help for version
+```
+
+## See also
+
+*   [README](https://github.com/matcra587/slack-cli#readme) for install paths.
+*   [Release tags on GitHub](https://github.com/matcra587/slack-cli/releases)
+    for the canonical version history.

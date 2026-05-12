@@ -5,333 +5,113 @@ name is a short play on `slack-cli`: the project is `slack-cli`, the installed
 binary is `slick`. Runtime commands take flags, stdin, or environment
 variables. They do not prompt.
 
+> [!NOTE]
+> Not to be confused with [`slackapi/slack-cli`](https://github.com/slackapi/slack-cli),
+> the official Slack platform CLI for building and deploying Slack apps. This
+> project is an independent, headless client for sending messages, reading
+> history, and managing Slack identity from agents and CI.
+
+> **Full documentation:** [matcra587.github.io/slack-cli](https://matcra587.github.io/slack-cli)
+> (sources in [`docs/`](docs/)).
+
 ## Install
 
 ```sh
-mise install
-mise run install
-slick version
+brew install matcra587/tap/slick
 ```
 
-From a checkout, `mise run install` runs `go install ./cmd/slick` with version
-metadata. Once the module is published, you can also install it directly:
+Also available via `go install` and pre-built binaries from
+[releases](https://github.com/matcra587/slack-cli/releases). See
+[`docs/installation.md`](docs/installation.md) for details.
+
+The examples below assume `slick` is on `PATH`. Every visible flag has a short
+form; run `slick <command> --help` for the current mapping.
+
+## Quick start
 
 ```sh
-go install github.com/matcra587/slack-cli/cmd/slick@latest
-```
+# 1. Generate a Slack app manifest and import it in Slack
+slick manifest template --preset messaging --type user --name slack-cli > manifest.json
 
-The examples below assume `slick` is on `PATH`.
-Every visible flag has a short form; run `slick <command> --help` for the
-current mapping.
-
-To build a local dist binary instead:
-
-```sh
-mise run build
-```
-
-`mise run build` writes the binary to `./dist/slick-<goos>-<goarch>`.
-
-## Create a Slack App Manifest
-
-The CLI does not create Slack apps. It prints a manifest you can import in
-Slack.
-
-```sh
-slick manifest template \
-  --preset messaging \
-  --type user \
-  --name slack-cli > manifest.json
-```
-
-Import the manifest in Slack, then check the app's OAuth settings. Local OAuth
-uses a loopback redirect URL. Pick a local port once and use it for both the
-manifest and login:
-
-```sh
-PORT=$(python3 - <<'PY'
-import socket
-
-sock = socket.socket()
-sock.bind(("127.0.0.1", 0))
-print(sock.getsockname()[1])
-sock.close()
-PY
-)
-
-slick manifest template \
-  --preset messaging \
-  --type user \
-  --name slack-cli \
-  --callback-port "$PORT" > manifest.json
-
-slick auth login --oauth-callback-port "$PORT"
-```
-
-The default manifest enables PKCE and token rotation. `--type user` is the
-normal choice because the CLI acts as you. Use `--type bot` only when messages
-should come from the app's bot user. Presets are `readonly`, `messaging`,
-`files`, `search`, and `full`.
-
-## Authenticate
-
-Use OAuth for normal setup:
-
-```sh
+# 2. Authenticate (OAuth recommended; token modes also supported)
 slick auth login
-```
-
-Choose Slack OAuth, paste the app's client ID, and use the redirect URL that is
-configured in Slack. If you set `SLACK_CLI_CALLBACK_PORT`, both
-`manifest template` and `auth login` use that port. OAuth derives the workspace
-ID and workspace name after authorization. It does not need a client secret.
-
-Token setup is also supported:
-
-```sh
-printf '%s\n' "$SLACK_TOKEN" |
-  slick auth login \
-    --workspace default \
-    --method token \
-    --token-stdin
-```
-
-You can also use `--token-file ./slack-token.txt` or `--token-env
-SLACK_TOKEN`. `--token-env` takes an environment variable name, not the token
-value, so token auth never requires a raw token in argv.
-
-`auth login` validates the token with Slack, stores a structured credential in
-keychain, and writes only a credential reference to TOML.
-
-Check the result:
-
-```sh
 slick auth status
-slick workspace list
+
+# 3. Send your first message
+slick message send --channel C1234567890 --message "Hello from slack-cli"
 ```
 
-## Configure Preferences
-
-Config uses XDG config home unless `SLICK_CONFIG` is set. By default that is
-`~/.config/slick/config.toml`. Path inputs such as `SLICK_CONFIG`,
-`SLACK_CLI_CONFIG`, `--token-file`, and `--file` expand `~` and environment
-variables. `SLACK_CLI_CONFIG` remains as a legacy config-path override.
-`config` manages preferences, not auth. Use `auth login`, `auth status`,
-`auth switch`, and `auth logout` for credentials.
-If the config file does not exist yet, run `slick config init`.
-
-```sh
-slick config init
-slick config set workspaces.default.default_channel C1234567890
-slick config set workspaces.default.attribution.enabled true
-slick config set workspaces.default.attribution.emoji :robot_face:
-slick config set workspaces.default.attribution.message "Sent via build agent"
-slick config list
-```
-
-Never store plaintext `xox*` tokens in TOML. Auth-owned fields may appear in the
-file as keychain or secret references, but config commands do not edit them.
-
-## Send Messages
-
-```sh
-slick message send \
-  --channel C1234567890 \
-  --message "Deploy **complete**"
-
-echo "Deploy complete" |
-  slick message send --channel C1234567890 --file -
-
-slick message send \
-  --user U1234567890 \
-  --message "Build artifact is ready"
-
-slick message send \
-  --user dev@example.com,ops@example.com \
-  --user U1234567890 \
-  --message "PR is ready for review"
-```
-
-`--user` accepts Slack user IDs, configured aliases, and email addresses. Repeat
-it or comma-separate values to open a group DM. If `default_channel` is set in
-config, `slick message send` can omit both `--channel` and `--user`.
-
-Use `--dry-run` before high-visibility sends.
-
-```sh
-slick message send \
-  --channel C1234567890 \
-  --message "Deploy complete" \
-  --dry-run
-```
-
-Use `--blocks` only when the message body is already a Slack Block Kit JSON
-array:
-
-```sh
-slick message send --channel C1234567890 --blocks --file blocks.json
-```
-
-Raw Block Kit input is validated before any Slack mutation. Malformed JSON,
-unsupported block types, missing required fields, and Slack limits return a
-`validation_error` with no command data on stdout.
-
-Markdown input is converted to Block Kit by default. Paragraphs, headings, and
-tables use semantic blocks where possible. Unsupported block-level constructs,
-such as lists, blockquotes, fenced code, and HTML blocks, preserve the original
-Markdown source text in readable section blocks instead of being dropped.
-
-## Agent Attribution
-
-When agent mode is detected, sent messages include a Block Kit context block.
-Triggers include `CLAUDE_CODE`, `CLAUDECODE`, `CURSOR_TERMINAL`, `CODEX`,
-`GITHUB_ACTIONS`, and `CI`. You can also pass `--agent`.
-
-```sh
-CLAUDE_CODE=1 slick message send \
-  --channel C1234567890 \
-  --message "Deploy complete"
-```
-
-Disable attribution only when you mean it:
-
-```sh
-slick message send \
-  --channel C1234567890 \
-  --message "Manual relay" \
-  --no-agent-attribution
-```
-
-Customize the context block per command or config profile:
-
-```sh
-slick message send \
-  --channel C1234567890 \
-  --message "Build passed" \
-  --agent \
-  --agent-emoji :gear: \
-  --agent-message "Sent by release automation"
-```
-
-## Read and Search
-
-`lookup messages` searches Slack messages with the Web API `search.messages`
-method. It requires a user token with `search:read`; bot-token profiles cannot
-use this command. In generated manifests, `--type both` places `search:read`
-under user scopes only.
-
-```sh
-slick history list --channel C1234567890 --max-items 50
-slick history list --channel C1234567890 --thread 1746284582.123456
-slick lookup messages --query "deploy failed" --max-items 10
-slick lookup channel --max-items 20
-slick lookup channel --types im
-slick lookup user --presence
-slick cache users
-slick cache channels
-```
-
-History returns parent messages by default. Fetch thread replies with `--thread`.
-`lookup user` list mode excludes deleted and deactivated users by default. Add
-`--include-deleted` when you need the full `users.list` result.
-
-`cache users` and `cache channels` store active metadata under
-`${XDG_CACHE_HOME:-~/.cache}/slick/<profile>/`. The default freshness window is
-one day. Use `--refresh` to force a Slack API fetch, `--ttl-minutes 10080` for a
-weekly window, and `cache clear [users|channels]` to remove stale entries. Shell
-completion prefers fresh cached users and channels before live Slack API calls.
-
-Slack scope checks are best-effort when token scope metadata is available. If
-Slack rejects a request during the target API call, common permission outcomes
-map to the fixed error contract: `missing_scope` and `no_permission` are
-`auth_failure`; `not_in_channel`, `channel_not_found`, and `user_not_found` are
-`not_found`.
-
-## Set Status
-
-`status` mutates your Slack profile, so it requires a user token with
-`users.profile:write`.
-
-```sh
-slick status set --text "Heads down" --emoji :headphones: --expires-in 2h
-slick status set "In a meeting" :calendar:
-slick status clear
-```
-
-## Mutate Safely
-
-```sh
-slick reply \
-  --channel C1234567890 \
-  --parent 1746284582.123456 \
-  --message "Investigating"
-
-slick react add \
-  --channel C1234567890 \
-  --timestamp 1746284582.123456 \
-  --emoji :thumbsup:
-
-slick react list \
-  --channel C1234567890 \
-  --timestamp 1746284582.123456
-
-slick message edit \
-  --channel C1234567890 \
-  --timestamp 1746284582.123456 \
-  --message "Corrected text"
-
-slick message delete \
-  --channel C1234567890 \
-  --timestamp 1746284582.123456 \
-  --force
-```
-
-Deletes require `--force` unless you use `--dry-run`.
-
-## Upload Files
-
-`file upload` is probationary. It is implemented and covered by mock tests, but
-the command remains hidden from help and shell completion. Agent schema and
-workflow guidance may mention it only as probationary and not promoted until the
-remaining promotion evidence, including live Slack smoke, is complete.
-
-```sh
-slick file upload --channel C1234567890 --file ./report.txt
-
-tar czf - ./dist |
-  slick file upload \
-    --channel C1234567890 \
-    --file - \
-    --filename dist.tgz
-```
-
-Progress and diagnostics go to stderr. stdout stays reserved for command data.
+See [`docs/auth.md`](docs/auth.md) for token-mode auth, OAuth port pinning,
+and the `--force` rules. See [`docs/manifest.md`](docs/manifest.md) for
+scope presets and bot-vs-user manifest shapes.
 
 ## Output
 
-TTY output uses clog's human-readable mode. Non-TTY and agent contexts output
-JSON. Use flags when you need a specific shape:
+slick emits human-friendly clog output on TTYs and switches to JSON
+automatically for non-TTY callers and detected agent environments. Pick a
+mode explicitly with `--output` (short `-o`); valid values are `auto`,
+`human`, `json`, and `compact`. Command data goes to stdout; diagnostics
+and structured errors go to stderr.
 
 ```sh
-slick auth status --json
-slick lookup channel --plain
-slick agent schema --compact
+slick auth status --output=json
+slick lookup channel --output=human
+slick agent schema -o compact
 ```
 
-`--compact` removes the envelope. `--plain` is for humans. `--raw` is
-output-only for Slack-native payloads; it does not make message input raw Block
-Kit. Use command-local `--blocks` for raw Block Kit input.
+Tokens never appear in argv, TOML, stdout, stderr, docs, or examples.
+Auth-owned fields are stored as keychain or secret-manager references; config
+commands do not edit them.
 
-## Agent Help
+## Commands
 
-Agents can inspect the command tree and workflow notes:
+| Command | Docs |
+|---------|------|
+| `auth` | [auth.md](docs/auth.md) |
+| `message`, `reply` | [message.md](docs/message.md), [reply.md](docs/reply.md) |
+| `history`, `lookup` | [history.md](docs/history.md), [lookup.md](docs/lookup.md) |
+| `react`, `status` | [react.md](docs/react.md), [status.md](docs/status.md) |
+| `file` (probationary) | [file.md](docs/file.md) |
+| `cache` | [cache.md](docs/cache.md) |
+| `config`, `workspace` | [config.md](docs/config.md), [workspace.md](docs/workspace.md) |
+| `manifest` | [manifest.md](docs/manifest.md) |
+| `agent`, `version` | [agent.md](docs/agent.md), [version.md](docs/version.md) |
+
+## Agent attribution
+
+When slick detects an agent environment, mutating commands attach a Block
+Kit context block to the Slack message. The trigger set covers most popular
+AI assistants (Claude Code, Cursor, Codex, Aider, Cline, Windsurf, GitHub
+Copilot, Codeium, Amazon Q, Gemini Code Assist, Cody) and CI systems
+(GitHub Actions, Buildkite, Jenkins, GitLab CI, CircleCI, Travis, Bitbucket
+Pipelines, TeamCity, Azure Pipelines, and the generic `CI` variable). The
+authoritative list lives in
+[`internal/agent/detect.go`](internal/agent/detect.go). Override per-call
+with `--agent-label`, `--agent-emoji`, `--agent-message`; disable with
+`--no-agent-attribution`; force with `--agent`. Pin defaults per workspace
+in config:
 
 ```sh
-slick agent schema
-slick agent schema --compact
-slick agent guide --help
-slick agent guide send_msg
+slick config set workspaces.default.attribution.enabled true
+slick config set workspaces.default.attribution.emoji :robot_face:
+slick config set workspaces.default.attribution.message "Sent via build agent"
 ```
 
-`agent guide --help` lists workflows such as `auth_setup`, `send_msg`,
-`reply`, `react`, `read_history`, `discover_destination`, and `safe_mutation`.
+## Development
+
+```sh
+mise run check        # vet, lint, fmt, test
+mise run test:all     # all uncached tests
+mise run release:check
+mise tasks            # list everything
+```
+
+Project conventions live in [`CLAUDE.md`](CLAUDE.md). Output styling rules
+and field-order policy live at the top of
+[`internal/cli/output/output.go`](internal/cli/output/output.go); an
+AST-walking test enforces field order on every CI run
+([`internal/cli/output/field_order_test.go`](internal/cli/output/field_order_test.go)).
+
+## License
+
+See [`LICENSE`](LICENSE).

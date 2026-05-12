@@ -153,3 +153,19 @@ run = "rm -rf bin dist coverage.out"
 description = "Print build version info"
 quiet = true
 file = ".mise/tasks/version"
+
+# Docs site is built with the official zensical/zensical image (the modern
+# successor to MkDocs Material by the same team). Local serve and CI use the
+# same image tag so what you see is what ships. Bump the tag in one place —
+# search both files for "zensical/zensical".
+#
+# Configuration lives in `zensical.toml` (Zensical's native format, under a
+# `[project]` table). Zensical auto-detects it ahead of any mkdocs.yml.
+
+["docs:serve"]
+description = "Serve the docs site locally via the official Zensical image"
+run = "docker run --rm -v \"$PWD\":/docs -p 4000:8000 -w /docs zensical/zensical:latest serve --dev-addr 0.0.0.0:8000"
+
+["docs:build"]
+description = "Build the docs site to ./site/ via the official Zensical image"
+run = "docker run --rm -v \"$PWD\":/docs -w /docs zensical/zensical:latest build --clean --strict"

@@ -18,3 +18,11 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
+
+# docs/ is the GitHub Pages source. The user's global gitignore excludes
+# docs/ wholesale; re-allow the published site while keeping internal
+# planning artifacts out of git.
+!docs/
+
+# MkDocs build output (docs are built in CI via squidfunk/mkdocs-material image).
+/site/

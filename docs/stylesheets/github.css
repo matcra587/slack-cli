@@ -1,0 +1,138 @@
+/*
+ * GitHub light + dark palette for the slick docs site.
+ *
+ * Values sourced from primer/primitives src/tokens/base/color/{light,dark}.
+ * Layered on top of Material's built-in `default` and `slate` schemes so
+ * Material's own variables stay defined; we only repaint the visible ones.
+ *
+ *   Light:                                Dark:
+ *     bg.default     #ffffff                bg.default     #0d1117
+ *     bg.muted       #f6f8fa                bg.muted       #151b23
+ *     fg.default     #1f2328                fg.default     #f0f6fc
+ *     fg.muted       #59636e                fg.muted       #9198a1
+ *     fg.subtle      #818b98                fg.subtle      #656c76
+ *     border         #d1d9e0                border         #3d444d
+ *     accent (link)  #0969da                accent (link)  #4493f8
+ *     success/warn/err  #1a7f37 / #9a6700 / #cf222e
+ *     success/warn/err  #3fb950 / #d29922 / #f85149   (dark)
+ */
+
+/* ---------- Light ---------- */
+[data-md-color-scheme="default"] {
+  --gh-bg:         #ffffff;
+  --gh-bg-muted:   #f6f8fa;
+  --gh-bg-inset:   #eff2f5;
+  --gh-fg:         #1f2328;
+  --gh-fg-muted:   #59636e;
+  --gh-fg-subtle:  #818b98;
+  --gh-border:     #d1d9e0;
+  --gh-accent:     #0969da;
+  --gh-success:    #1a7f37;
+  --gh-attention:  #9a6700;
+  --gh-danger:     #cf222e;
+  --gh-purple:     #8250df;
+  --gh-pink:       #bf3989;
+  --gh-orange:     #bc4c00;
+
+  /* Body */
+  --md-default-bg-color:           var(--gh-bg);
+  --md-default-fg-color:           var(--gh-fg);
+  --md-default-fg-color--light:    var(--gh-fg-muted);
+  --md-default-fg-color--lighter:  var(--gh-fg-subtle);
+  --md-default-fg-color--lightest: var(--gh-border);
+
+  /* Primary surface (header) — matches github.com's dark nav bar */
+  --md-primary-fg-color:           #1f2328;
+  --md-primary-fg-color--light:    #25292e;
+  --md-primary-fg-color--dark:     #0d1117;
+  --md-primary-bg-color:           #ffffff;
+  --md-primary-bg-color--light:    rgba(255, 255, 255, 0.7);
+
+  /* Accent (link hover, focus rings) — same blue */
+  --md-accent-fg-color:            var(--gh-accent);
+  --md-accent-fg-color--transparent: rgba(9, 105, 218, 0.1);
+  --md-accent-bg-color:            var(--gh-bg);
+  --md-accent-bg-color--light:     var(--gh-bg-muted);
+
+  /* Links */
+  --md-typeset-a-color:            var(--gh-accent);
+
+  /* Code */
+  --md-code-fg-color:              var(--gh-fg);
+  --md-code-bg-color:              var(--gh-bg-muted);
+
+  /* Syntax highlighting (rough match to GitHub's syntax theme) */
+  --md-code-hl-color:              rgba(129, 139, 152, 0.25);
+  --md-code-hl-number-color:       #0550ae;
+  --md-code-hl-special-color:      var(--gh-pink);
+  --md-code-hl-function-color:     var(--gh-purple);
+  --md-code-hl-constant-color:     #0550ae;
+  --md-code-hl-keyword-color:      #cf222e;
+  --md-code-hl-string-color:       #0a3069;
+  --md-code-hl-name-color:         var(--gh-fg);
+  --md-code-hl-operator-color:     #cf222e;
+  --md-code-hl-punctuation-color:  var(--gh-fg);
+  --md-code-hl-comment-color:      var(--gh-fg-muted);
+  --md-code-hl-generic-color:      var(--gh-fg-muted);
+  --md-code-hl-variable-color:     #953800;
+}
+
+/* ---------- Dark ---------- */
+[data-md-color-scheme="slate"] {
+  --gh-bg:         #0d1117;
+  --gh-bg-muted:   #151b23;
+  --gh-bg-inset:   #010409;
+  --gh-fg:         #f0f6fc;
+  --gh-fg-muted:   #9198a1;
+  --gh-fg-subtle:  #656c76;
+  --gh-border:     #3d444d;
+  --gh-accent:     #4493f8;
+  --gh-success:    #3fb950;
+  --gh-attention:  #d29922;
+  --gh-danger:     #f85149;
+  --gh-purple:     #ab7df8;
+  --gh-pink:       #f778ba;
+  --gh-orange:     #f0883e;
+
+  /* Body */
+  --md-default-bg-color:           var(--gh-bg);
+  --md-default-fg-color:           var(--gh-fg);
+  --md-default-fg-color--light:    var(--gh-fg-muted);
+  --md-default-fg-color--lighter:  var(--gh-fg-subtle);
+  --md-default-fg-color--lightest: var(--gh-border);
+
+  /* Primary surface (header) — almost-black, like github.com dark */
+  --md-primary-fg-color:           #010409;
+  --md-primary-fg-color--light:    #0d1117;
+  --md-primary-fg-color--dark:     #010409;
+  --md-primary-bg-color:           var(--gh-fg);
+  --md-primary-bg-color--light:    rgba(240, 246, 252, 0.7);
+
+  /* Accent */
+  --md-accent-fg-color:            #79c0ff;
+  --md-accent-fg-color--transparent: rgba(68, 147, 248, 0.15);
+  --md-accent-bg-color:            var(--gh-bg);
+  --md-accent-bg-color--light:     var(--gh-bg-muted);
+
+  /* Links */
+  --md-typeset-a-color:            var(--gh-accent);
+
+  /* Code */
+  --md-code-fg-color:              var(--gh-fg);
+  --md-code-bg-color:              var(--gh-bg-muted);
+
+  /* Syntax highlighting */
+  --md-code-hl-color:              rgba(145, 152, 161, 0.25);
+  --md-code-hl-number-color:       #79c0ff;
+  --md-code-hl-special-color:      var(--gh-pink);
+  --md-code-hl-function-color:     var(--gh-purple);
+  --md-code-hl-constant-color:     #79c0ff;
+  --md-code-hl-keyword-color:      #ff7b72;
+  --md-code-hl-string-color:       #a5d6ff;
+  --md-code-hl-name-color:         var(--gh-fg);
+  --md-code-hl-operator-color:     #ff7b72;
+  --md-code-hl-punctuation-color:  var(--gh-fg);
+  --md-code-hl-comment-color:      var(--gh-fg-muted);
+  --md-code-hl-generic-color:      var(--gh-fg-muted);
+  --md-code-hl-variable-color:     #ffa657;
+}

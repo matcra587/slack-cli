@@ -1,0 +1,112 @@
+[project]
+site_name = "slick"
+site_description = "A headless Slack CLI for agents, scripts, and CI jobs."
+site_url = "https://matcra587.github.io/slack-cli/"
+repo_url = "https://github.com/matcra587/slack-cli"
+repo_name = "matcra587/slack-cli"
+edit_uri = "edit/main/docs/"
+
+docs_dir = "docs"
+site_dir = "site"
+
+extra_css = ["stylesheets/github.css"]
+
+nav = [
+    { Overview = "index.md" },
+    { Installation = "installation.md" },
+    { Auth = "auth.md" },
+    { Messaging = [
+        { message = "message.md" },
+        { reply = "reply.md" },
+        { react = "react.md" },
+        { history = "history.md" },
+    ] },
+    { Discovery = [
+        { lookup = "lookup.md" },
+        { cache = "cache.md" },
+    ] },
+    { "User profile" = [
+        { status = "status.md" },
+    ] },
+    { Files = [
+        { "file (probationary)" = "file.md" },
+    ] },
+    { Configuration = [
+        { config = "config.md" },
+        { workspace = "workspace.md" },
+        { manifest = "manifest.md" },
+    ] },
+    { "Agent tooling" = [
+        { agent = "agent.md" },
+    ] },
+    { Reference = [
+        { version = "version.md" },
+    ] },
+]
+
+# ----------------------------------------------------------------------------
+# Theme
+# ----------------------------------------------------------------------------
+[project.theme]
+features = [
+    "navigation.tracking",
+    "navigation.tabs",
+    "navigation.sections",
+    "navigation.top",
+    "search.suggest",
+    "search.highlight",
+    "content.code.copy",
+    "content.action.edit",
+    "content.action.view",
+]
+
+[project.theme.icon]
+repo = "fontawesome/brands/github"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "material/brightness-auto"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "material/brightness-7"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "material/brightness-4"
+toggle.name = "Switch to system preference"
+
+# ----------------------------------------------------------------------------
+# Extras
+# ----------------------------------------------------------------------------
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/matcra587/slack-cli"
+
+# ----------------------------------------------------------------------------
+# Markdown extensions
+# ----------------------------------------------------------------------------
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.def_list]
+[project.markdown_extensions.footnotes]
+[project.markdown_extensions.md_in_html]
+[project.markdown_extensions.tables]
+
+[project.markdown_extensions.toc]
+permalink = true
+
+[project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.snippets]
+[project.markdown_extensions.pymdownx.superfences]
+
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true

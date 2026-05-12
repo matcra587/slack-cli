@@ -87,7 +87,7 @@ Closing — incident over. 🫡`, runID)
 		"--channel", channel,
 		"--timestamp", ts,
 		"--message", updated,
-		"--json",
+		"--output=json",
 	)
 	if err != nil {
 		t.Fatalf("message edit failed: %v\nstderr=%s", err, stderr)
@@ -122,7 +122,7 @@ Requested changes
 		"--channel", channel,
 		"--parent", parentTS,
 		"--message", replyBody,
-		"--json",
+		"--output=json",
 	)
 	if err != nil {
 		t.Fatalf("reply failed: %v\nstderr=%s", err, stderr)
@@ -164,7 +164,7 @@ Approve with 🚀 once you've smoked it locally.`, runID)
 		"--channel", channel,
 		"--timestamp", ts,
 		"--emoji", emojis,
-		"--json",
+		"--output=json",
 	); err != nil {
 		t.Fatalf("react add failed: %v\nstderr=%s", err, stderr)
 	}
@@ -175,7 +175,7 @@ Approve with 🚀 once you've smoked it locally.`, runID)
 		"--channel", channel,
 		"--timestamp", ts,
 		"--emoji", emojis,
-		"--json",
+		"--output=json",
 	); err != nil {
 		t.Fatalf("react remove failed: %v\nstderr=%s", err, stderr)
 	}
@@ -217,7 +217,7 @@ Closing line — testing rich_text round-trip through Block Kit.`, runID)
 		"--workspace", env.workspace,
 		"--channel", env.channel,
 		"--max-items", "10",
-		"--json",
+		"--output=json",
 	)
 	if err != nil {
 		t.Fatalf("history list failed: %v\nstderr=%s", err, stderr)
@@ -277,7 +277,7 @@ Closing the deploy thread. 🟢`, runID),
 		"--workspace", env.workspace,
 		"--channel", env.channel,
 		"--max-items", "20",
-		"--json",
+		"--output=json",
 	)
 	if err != nil {
 		t.Fatalf("history list failed: %v\nstderr=%s", err, stderr)
@@ -318,7 +318,7 @@ The test does not assert on result content because indexing latency is unbounded
 		"--workspace", env.workspace,
 		"--query", runID,
 		"--max-items", "5",
-		"--json",
+		"--output=json",
 	)
 	if err != nil {
 		t.Fatalf("lookup messages failed: %v\nstderr=%s", err, stderr)
@@ -358,7 +358,7 @@ returns it inside blocks rather than the top-level text field.`, runID)
 			"--workspace", env.workspace,
 			"--query", runID,
 			"--max-items", "5",
-			"--json",
+			"--output=json",
 		)
 		if err != nil {
 			t.Fatalf("lookup messages failed: %v\nstderr=%s", err, stderr)
@@ -399,7 +399,7 @@ func TestLiveCachePopulate(t *testing.T) {
 			"cache", resource,
 			"--workspace", env.workspace,
 			"--refresh",
-			"--json",
+			"--output=json",
 		)
 		if err != nil {
 			t.Fatalf("cache %s failed: %v\nstderr=%s", resource, err, stderr)
@@ -431,7 +431,7 @@ func TestLiveStatusSetAndClear(t *testing.T) {
 		_, stderr, err := runSlick(t, binary, "",
 			"status", "clear",
 			"--workspace", env.workspace,
-			"--json",
+			"--output=json",
 		)
 		if err != nil && missingScopeFromStderr(stderr) == "" {
 			t.Logf("cleanup status clear failed (run id %s): %v\nstderr=%s", runID, err, stderr)
@@ -444,7 +444,7 @@ func TestLiveStatusSetAndClear(t *testing.T) {
 		"--text", statusText,
 		"--emoji", "test_tube",
 		"--expires-in", "5m",
-		"--json",
+		"--output=json",
 	)
 	if err != nil {
 		if scope := missingScopeFromStderr(stderr); scope != "" {
@@ -460,7 +460,7 @@ func TestLiveStatusSetAndClear(t *testing.T) {
 	if _, stderr, err := runSlick(t, binary, "",
 		"status", "clear",
 		"--workspace", env.workspace,
-		"--json",
+		"--output=json",
 	); err != nil {
 		t.Fatalf("status clear failed: %v\nstderr=%s", err, stderr)
 	}
@@ -480,40 +480,40 @@ func TestLiveOutputModesProduceExpectedShapes(t *testing.T) {
 	}{
 		{
 			name: "json",
-			flag: "--json",
+			flag: "--output=json",
 			assertion: func(t *testing.T, stdout string) {
 				envelope := decodeEnvelope(t, stdout)
 				if _, ok := envelope["meta"].(map[string]any); !ok {
-					t.Fatalf("--json output missing meta envelope: %s", stdout)
+					t.Fatalf("--output=json output missing meta envelope: %s", stdout)
 				}
 			},
 		},
 		{
 			name: "compact",
-			flag: "--compact",
+			flag: "--output=compact",
 			assertion: func(t *testing.T, stdout string) {
 				var data map[string]any
 				if err := json.Unmarshal([]byte(stdout), &data); err != nil {
-					t.Fatalf("--compact output is not JSON: %v\n%s", err, stdout)
+					t.Fatalf("--output=compact output is not JSON: %v\n%s", err, stdout)
 				}
 				if _, hasMeta := data["meta"]; hasMeta {
-					t.Fatalf("--compact output should not include meta envelope: %s", stdout)
+					t.Fatalf("--output=compact output should not include meta envelope: %s", stdout)
 				}
 				if _, hasMessage := data["message"]; !hasMessage {
-					t.Fatalf("--compact output missing message field: %s", stdout)
+					t.Fatalf("--output=compact output missing message field: %s", stdout)
 				}
 			},
 		},
 		{
-			name: "plain",
-			flag: "--plain",
+			name: "human",
+			flag: "--output=human",
 			assertion: func(t *testing.T, stdout string) {
 				trimmed := strings.TrimSpace(stdout)
 				if strings.HasPrefix(trimmed, "{") {
-					t.Fatalf("--plain output looks like JSON: %s", stdout)
+					t.Fatalf("--output=human output looks like JSON: %s", stdout)
 				}
 				if trimmed == "" {
-					t.Fatalf("--plain output empty")
+					t.Fatalf("--output=human output empty")
 				}
 			},
 		},
@@ -585,7 +585,7 @@ func requireLiveEnv(t *testing.T, binary string) liveEnv {
 // Returns ("", "") when the user has no slick config yet.
 func discoverLiveDefaults(t *testing.T, binary string) (workspace, channel string) {
 	t.Helper()
-	stdout, _, err := runSlick(t, binary, "", "config", "list", "--json")
+	stdout, _, err := runSlick(t, binary, "", "config", "list", "--output=json")
 	if err != nil {
 		return "", ""
 	}
@@ -654,7 +654,7 @@ func postMessage(t *testing.T, binary string, env liveEnv, body string) (channel
 		"--workspace", env.workspace,
 		"--channel", env.channel,
 		"--message", body,
-		"--json",
+		"--output=json",
 	)
 	if err != nil {
 		t.Fatalf("postMessage failed: %v\nstderr=%s", err, stderr)
@@ -677,7 +677,7 @@ func cleanupMessage(t *testing.T, binary string, env liveEnv, runID, channel, ts
 			"--channel", channel,
 			"--timestamp", ts,
 			"--force",
-			"--json",
+			"--output=json",
 		)
 		if err != nil {
 			t.Logf("cleanup delete failed (run id %s, channel %s, ts %s): %v\nstderr=%s",
@@ -696,7 +696,7 @@ func lookupRecentByText(t *testing.T, binary string, env liveEnv, text string) (
 		"--workspace", env.workspace,
 		"--channel", env.channel,
 		"--max-items", "20",
-		"--json",
+		"--output=json",
 	)
 	if err != nil {
 		t.Logf("lookupRecentByText history list failed: %v\nstderr=%s", err, stderr)

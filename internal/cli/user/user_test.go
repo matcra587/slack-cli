@@ -62,7 +62,7 @@ func TestLookupUserHidesEmptyPresence(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"--plain", "lookup", "user", "--max-items", "1", "--presence"},
+		[]string{"--output=human", "lookup", "user", "--max-items", "1", "--presence"},
 	)
 	if err != nil {
 		t.Fatalf("lookup user returned error: %v\nstderr=%s", err, stderr)
@@ -92,7 +92,7 @@ func TestLookupUserShowsPresenceColumnWhenAnyUserHasPresence(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"--plain", "lookup", "user", "--max-items", "2", "--presence"},
+		[]string{"--output=human", "lookup", "user", "--max-items", "2", "--presence"},
 	)
 	if err != nil {
 		t.Fatalf("lookup user returned error: %v\nstderr=%s", err, stderr)

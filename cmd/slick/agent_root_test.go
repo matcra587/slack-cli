@@ -83,8 +83,8 @@ func TestAgentSchemaIncludesBlocksAndOutputOnlyRawContract(t *testing.T) {
 			t.Fatalf("schema missing lookup command path %v", path)
 		}
 	}
-	if !schemaGlobalFlag(schema.GlobalFlags, "raw") || !schemaGlobalFlag(schema.GlobalFlags, "json") {
-		t.Fatalf("global flags = %#v, want --raw and --json output flags", schema.GlobalFlags)
+	if !schemaGlobalFlag(schema.GlobalFlags, "output") {
+		t.Fatalf("global flags = %#v, want --output flag", schema.GlobalFlags)
 	}
 	messageShape := strings.Join(schema.InputShapes["message.send"], "\n")
 	if !strings.Contains(messageShape, "--blocks Block Kit JSON array") {
@@ -98,11 +98,11 @@ func TestAgentSchemaIncludesBlocksAndOutputOnlyRawContract(t *testing.T) {
 	if !strings.Contains(messageShape, "--channel and --user are mutually exclusive") {
 		t.Fatalf("message.send input shape = %#v, want mutually-exclusive target contract", schema.InputShapes["message.send"])
 	}
-	if strings.Contains(messageShape, "--raw Block Kit JSON array") {
-		t.Fatalf("message.send input shape = %#v, --raw must not select raw input", schema.InputShapes["message.send"])
+	if strings.Contains(messageShape, "--output Block Kit JSON array") {
+		t.Fatalf("message.send input shape = %#v, --output must not select raw input", schema.InputShapes["message.send"])
 	}
-	if !strings.Contains(strings.Join(schema.Output.Notes, "\n"), "--raw is output-only") {
-		t.Fatalf("output notes = %#v, want output-only --raw note", schema.Output.Notes)
+	if !strings.Contains(strings.Join(schema.Output.Notes, "\n"), "use command-local --blocks for raw Block Kit input") {
+		t.Fatalf("output notes = %#v, want --blocks raw-input note", schema.Output.Notes)
 	}
 	for name, want := range map[string]int{"canceled": 6, "timeout": 7} {
 		if got := schema.ExitCodes[name]; got != want {

@@ -22,10 +22,10 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Short: "Reply to a Slack thread",
 		Args:  cobra.NoArgs,
 		Example: `  # Reply to a thread with a message
-  $ slick reply --channel <channel-id> --parent <parent-message-ts> --message <markdown> --json
+  $ slick reply --channel <channel-id> --parent <parent-message-ts> --message <markdown> --output=json
 
   # Reply to a thread from stdin
-  $ printf '%s\n' "$reply" | slick reply --channel <channel-id> --parent <parent-message-ts> --file - --json`,
+  $ printf '%s\n' "$reply" | slick reply --channel <channel-id> --parent <parent-message-ts> --file - --output=json`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runThreadReply(cmd, runtime, src, dryRun)

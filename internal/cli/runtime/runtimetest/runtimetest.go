@@ -19,6 +19,7 @@ import (
 	"github.com/gechr/clib/theme"
 	"github.com/spf13/cobra"
 
+	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	"github.com/matcra587/slack-cli/internal/config"
 )
@@ -118,10 +119,7 @@ func NewRoot(runtime *cliruntime.RootRuntime, stdout, stderr *bytes.Buffer) *cob
 
 	flags := root.PersistentFlags()
 	flags.StringP("workspace", "w", "", "Workspace profile")
-	flags.BoolP("json", "j", false, "Force JSON output")
-	flags.BoolP("plain", "P", false, "Force plain text output")
-	flags.BoolP("compact", "k", false, "Output command data without envelope")
-	flags.BoolP("raw", "X", false, "Output Slack-native data")
+	flags.StringP("output", "o", clioutput.OutputAuto, "Output format: auto, human, json, compact")
 	flags.BoolP("agent", "a", false, "Force agent mode")
 	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
 	flags.StringP("agent-label", "G", "", "Override agent attribution label")
@@ -129,7 +127,6 @@ func NewRoot(runtime *cliruntime.RootRuntime, stdout, stderr *bytes.Buffer) *cob
 	flags.StringP("agent-message", "O", "", "Override agent attribution message")
 	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
 	flags.BoolP("debug", "D", false, "Enable debug-level output")
-	root.MarkFlagsMutuallyExclusive("json", "plain", "compact", "raw")
 
 	return root
 }

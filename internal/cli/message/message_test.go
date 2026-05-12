@@ -148,7 +148,7 @@ func TestMessageSendCommandPlainDryRunUsesClogFields(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
-		[]string{"--plain", "message", "send", "--channel", "C123", "--message", "Preview", "--dry-run"},
+		[]string{"--output=human", "message", "send", "--channel", "C123", "--message", "Preview", "--dry-run"},
 	)
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
@@ -755,34 +755,6 @@ func TestMessageSendCommandBlockInputCanComeFromFile(t *testing.T) {
 	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
 		[]string{"message", "send", "--channel", "C123", "--blocks", "--file", messageFile},
-	)
-	if err != nil {
-		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
-	}
-}
-
-func TestMessageSendCommandRawOutputFlagDoesNotSelectRawBlockInput(t *testing.T) {
-	rawContent := `[{"type":"section","text":{"type":"mrkdwn","text":"raw block"}}]`
-	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
-		"chat.postMessage": func(req testutil.SlackRequest) testutil.SlackResponse {
-			var blocks []map[string]any
-			if err := json.Unmarshal([]byte(req.Form.Get("blocks")), &blocks); err != nil {
-				t.Fatalf("blocks form value is not JSON: %v", err)
-			}
-			text := blocks[0]["text"].(map[string]any)
-			if text["text"] != rawContent {
-				t.Fatalf("block text = %q, want markdown text from raw JSON source", text["text"])
-			}
-			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","text":"raw block","ts":"1746284582.123456"}}`)
-		},
-		"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
-			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
-		},
-	})
-
-	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
-		"",
-		[]string{"--raw", "message", "send", "--channel", "C123", "--message", rawContent},
 	)
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)

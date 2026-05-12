@@ -120,13 +120,13 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Short: "Send a Slack message",
 		Args:  cobra.NoArgs,
 		Example: `  # Send a message to a channel
-  $ slick message send --channel <channel-id-or-alias> --message <markdown> --json
+  $ slick message send --channel <channel-id-or-alias> --message <markdown> --output=json
 
   # Send a message from stdin
-  $ printf '%s\n' "$body" | slick message send --channel <channel-id-or-alias> --file - --json
+  $ printf '%s\n' "$body" | slick message send --channel <channel-id-or-alias> --file - --output=json
 
   # Send a direct message
-  $ slick message send --user <user-id-or-email> --message <markdown> --json`,
+  $ slick message send --user <user-id-or-email> --message <markdown> --output=json`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			_ = filename

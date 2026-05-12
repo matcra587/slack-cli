@@ -33,11 +33,10 @@ type AuthInfo struct {
 }
 
 type OutputInfo struct {
-	Default     string   `json:"default"`
-	PlainFlag   string   `json:"plain_flag"`
-	CompactFlag string   `json:"compact_flag"`
-	RawFlag     string   `json:"raw_flag"`
-	Notes       []string `json:"notes"`
+	Default    string   `json:"default"`
+	OutputFlag string   `json:"output_flag"`
+	Modes      []string `json:"modes"`
+	Notes      []string `json:"notes"`
 }
 
 type CommandInfo struct {
@@ -85,20 +84,20 @@ func GenerateSchema(root *cobra.Command) Schema {
 			Description: "Slack token via SLACK_CLI_TOKEN_<PROFILE>, SLACK_CLI_TOKEN, or configured secret ref. Never store plaintext tokens in TOML or argv.",
 		},
 		Output: OutputInfo{
-			Default:     "JSON in non-TTY/agent mode, rich text in TTY",
-			PlainFlag:   "--plain",
-			CompactFlag: "--compact",
-			RawFlag:     "--raw",
+			Default:    "JSON envelope in non-TTY/agent mode, human-readable text in TTY",
+			OutputFlag: "--output",
+			Modes:      []string{"auto", "human", "json", "compact"},
 			Notes: []string{
+				"set --output (or -o) to exactly one of auto, human, json, compact",
+				"auto picks human in a TTY and json otherwise",
 				"stdout is command data",
 				"stderr is diagnostics",
 				"mutation commands support --dry-run",
 				"agent-originated messages include attribution unless explicitly disabled",
-				"--raw is output-only; use command-local --blocks for raw Block Kit input",
+				"use command-local --blocks for raw Block Kit input",
 				"Markdown uses source-preserving Markdown fallback sections for unsupported block-level constructs",
 				"--blocks validates Slack Block Kit JSON rules before Slack mutation",
 				"Slack errors such as missing_scope, not_in_channel, and no_permission map to fixed exit codes",
-				"--json, --plain, --compact, and --raw are mutually exclusive",
 			},
 		},
 		GlobalFlags:   extractGlobalFlags(root),
@@ -114,7 +113,7 @@ func GenerateSchema(root *cobra.Command) Schema {
 			"Use --file - for multiline message bodies.",
 			"Use --blocks when message-like input is already Slack Block Kit JSON.",
 			"Use --dry-run before destructive or high-visibility mutations.",
-			"Use --compact when another tool expects command-specific JSON only.",
+			"Use --output=compact when another tool expects command-specific JSON only.",
 			"Follow meta.pagination.next_cursor while meta.pagination.has_more is true.",
 			"Prime users and channels with cache commands before repeated lookup or completion-heavy work.",
 			"Load the workflow runbook with slick agent guide <workflow> before operating.",
@@ -122,7 +121,7 @@ func GenerateSchema(root *cobra.Command) Schema {
 		AntiPatterns: []string{
 			"Do not store Slack tokens in TOML or source files.",
 			"Do not pass raw Slack tokens in argv.",
-			"Do not use --raw to select raw Block Kit input; --raw is an output mode.",
+			"Do not use --output to select raw Block Kit input; use command-local --blocks for that.",
 			"Do not disable agent attribution unless explicitly required.",
 			"Do not parse human-readable output in scripts; use JSON.",
 			"Do not assume one search page means there are no more matches.",
@@ -152,10 +151,10 @@ func inputShapes() map[string][]string {
 
 func outputSchemas() map[string][]string {
 	return map[string][]string{
-		"json_envelope": {"meta.command", "meta.workspace", "meta.timestamp", "meta.request_id", "data", "errors"},
-		"compact":       {"command-specific data only"},
-		"raw":           {"Slack-native Block Kit or API-native structured data"},
-		"plain":         {"human-readable text"},
+		"output_flag": {"--output (or -o) selects one of auto, human, json, compact", "auto picks human in a TTY and json otherwise"},
+		"json":        {"meta.command", "meta.workspace", "meta.timestamp", "meta.request_id", "data", "errors"},
+		"compact":     {"command-specific data only"},
+		"human":       {"human-readable text"},
 	}
 }
 
@@ -183,7 +182,7 @@ func examples() map[string][]string {
 		"file":     {"probationary, not promoted: tar czf - build/ | slick file upload --channel C123 --file - --filename build.tgz"},
 		"manifest": {"slick manifest template --name example --format json > manifest.json", "slick manifest template --name example --format yaml > manifest.yaml"},
 		"auth":     {"slick auth login", "printf '%s\\n' \"$SLACK_TOKEN\" | slick auth login --workspace default --method token --token-stdin", "slick auth login --workspace default --method token --token-file ./slack-token.txt", "slick auth login --workspace default --method token --token-env SLACK_CLI_TOKEN_DEFAULT"},
-		"schema":   {"slick agent schema", "slick agent schema --compact", "slick agent schema --raw"},
+		"schema":   {"slick agent schema", "slick agent schema --output=compact"},
 	}
 }
 

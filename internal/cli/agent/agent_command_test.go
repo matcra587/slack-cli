@@ -138,8 +138,8 @@ func TestAgentGuideOutputsNamedWorkflowInstructions(t *testing.T) {
 		"Agent attribution",
 		"--agent-emoji",
 		"--agent-message",
-		"--raw",
-		"output-only",
+		"--blocks",
+		"output mode only",
 		"attribution.enabled",
 	} {
 		if !strings.Contains(stdout, fragment) {
@@ -224,7 +224,7 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 			"## core_contract",
 			"stdout is command data only",
 			"stderr is diagnostics",
-			"mutually exclusive",
+			"--output",
 			"Exit codes",
 		},
 		"reply": {

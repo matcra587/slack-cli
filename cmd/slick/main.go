@@ -47,7 +47,6 @@ const (
 	RenderModePlain    = clioutput.RenderModePlain
 	RenderModeEnvelope = clioutput.RenderModeEnvelope
 	RenderModeCompact  = clioutput.RenderModeCompact
-	RenderModeRaw      = clioutput.RenderModeRaw
 )
 
 type OutputFlags = clioutput.OutputFlags
@@ -213,10 +212,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	root.SetHelpFunc(cobracli.HelpFunc(renderer, cobracli.Sections))
 	flags := root.PersistentFlags()
 	flags.StringP("workspace", "w", "", "Workspace profile")
-	flags.BoolP("json", "j", false, "Force JSON output")
-	flags.BoolP("plain", "P", false, "Force plain text output")
-	flags.BoolP("compact", "k", false, "Output command data without envelope")
-	flags.BoolP("raw", "X", false, "Output Slack-native data")
+	flags.StringP("output", "o", clioutput.OutputAuto, "Output format: auto, human, json, compact")
 	flags.BoolP("agent", "a", false, "Force agent mode")
 	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
 	flags.StringP("agent-label", "G", "", "Override agent attribution label")
@@ -226,8 +222,12 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	flags.BoolP("debug", "D", false, "Enable debug-level output")
 	flags.DurationP("timeout", "I", 30*time.Second, "Slack API call timeout")
 	flags.TextVarP(&runtime.ColorMode, "color", "V", clog.ColorAuto, "Color mode (auto, always, never)")
-	root.MarkFlagsMutuallyExclusive("json", "plain", "compact", "raw")
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		if output, _ := cmd.Root().PersistentFlags().GetString("output"); output != "" {
+			if err := clioutput.ValidateOutputMode(output); err != nil {
+				return cliruntime.WriteRuntimeError(runtime, validationCLIError(err.Error()))
+			}
+		}
 		if debug, _ := cmd.Root().PersistentFlags().GetBool("debug"); debug {
 			clog.SetVerbose(true)
 		}
@@ -432,9 +432,6 @@ func main() {
 
 func outputFlagsFromCommand(cmd *cobra.Command) OutputFlags {
 	flags := cmd.PersistentFlags()
-	jsonMode, _ := flags.GetBool("json")
-	plain, _ := flags.GetBool("plain")
-	compact, _ := flags.GetBool("compact")
-	raw, _ := flags.GetBool("raw")
-	return OutputFlags{JSON: jsonMode, Plain: plain, Compact: compact, Raw: raw}
+	output, _ := flags.GetString("output")
+	return OutputFlags{Output: output}
 }

@@ -54,30 +54,6 @@ func TestPipeContractForMessageEditFileUploadAndHistory(t *testing.T) {
 	}
 }
 
-func TestPipeContractRejectsIncompatibleOutputFlagsBeforeCommandWork(t *testing.T) {
-	binary := buildSlackBinary(t)
-	server := pipeMockSlackServer(t)
-	configPath := writePipeConfig(t)
-
-	stdout, stderr, err := runSlackBinary(t, binary, configPath, server.URL, "",
-		"--json", "--plain", "message", "send", "--channel", "C123", "--message", "hello")
-	if err == nil {
-		t.Fatal("command returned nil error, want validation failure")
-	}
-	if got := exitCode(err); got != 4 {
-		t.Fatalf("exit code = %d, want 4\nstderr=%s", got, stderr)
-	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
-	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) {
-		t.Fatalf("stderr = %q, want structured validation_error", stderr)
-	}
-	if strings.Contains(stderr, "chat.postMessage") {
-		t.Fatalf("stderr = %q, command appears to have run before flag validation", stderr)
-	}
-}
-
 func TestPipeContractUnknownCommandUsesStructuredValidationError(t *testing.T) {
 	binary := buildSlackBinary(t)
 	server := pipeMockSlackServer(t)

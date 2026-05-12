@@ -13,6 +13,7 @@ import (
 
 	"github.com/matcra587/slack-cli/internal/agent"
 	cliconfig "github.com/matcra587/slack-cli/internal/cli/config"
+	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/spf13/cobra"
@@ -251,7 +252,7 @@ func TestConfigPathListGetSetUnset(t *testing.T) {
 	}
 
 	stdout, stderr, err = executeRoot(t, nil, configPath, config.NewMemoryCredentialStore(), strings.NewReader(""), false,
-		[]string{"config", "list", "--compact"},
+		[]string{"--output=compact", "config", "list"},
 	)
 	if err != nil {
 		t.Fatalf("config list returned error: %v\nstderr=%s", err, stderr)
@@ -272,7 +273,7 @@ func TestConfigPathListGetSetUnset(t *testing.T) {
 	}
 
 	stdout, stderr, err = executeRoot(t, nil, configPath, config.NewMemoryCredentialStore(), strings.NewReader(""), false,
-		[]string{"config", "get", "workspaces.default.default_channel", "--compact"},
+		[]string{"--output=compact", "config", "get", "workspaces.default.default_channel"},
 	)
 	if err != nil {
 		t.Fatalf("config get returned error: %v\nstderr=%s", err, stderr)
@@ -385,10 +386,7 @@ func buildTestRoot(cfg *config.Config, configPath, baseURL string, store config.
 
 	flags := root.PersistentFlags()
 	flags.StringP("workspace", "w", "", "Workspace profile")
-	flags.BoolP("json", "j", false, "Force JSON output")
-	flags.BoolP("plain", "P", false, "Force plain text output")
-	flags.BoolP("compact", "k", false, "Output command data without envelope")
-	flags.BoolP("raw", "X", false, "Output Slack-native data")
+	flags.StringP("output", "o", clioutput.OutputAuto, "Output format: auto, human, json, compact")
 	flags.BoolP("agent", "a", false, "Force agent mode")
 	flags.BoolP("no-agent-attribution", "z", false, "Disable agent attribution for this command")
 	flags.StringP("agent-label", "G", "", "Override agent attribution label")
@@ -396,7 +394,6 @@ func buildTestRoot(cfg *config.Config, configPath, baseURL string, store config.
 	flags.StringP("agent-message", "O", "", "Override agent attribution message")
 	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
 	flags.BoolP("debug", "D", false, "Enable debug-level output")
-	root.MarkFlagsMutuallyExclusive("json", "plain", "compact", "raw")
 
 	root.AddCommand(cliconfig.NewCommand(runtime))
 	return root

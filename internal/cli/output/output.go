@@ -1,6 +1,7 @@
 package output
 
 import (
+	"fmt"
 	"hash/fnv"
 	"io"
 	"maps"
@@ -22,29 +23,58 @@ const (
 	RenderModePlain    RenderMode = iota // human-readable clog fields
 	RenderModeEnvelope                   // JSON with meta envelope (default non-TTY)
 	RenderModeCompact                    // JSON data only, no envelope
-	RenderModeRaw                        // raw Slack JSON pass-through
 )
 
+// Output mode values for --output / -o.
+const (
+	OutputAuto    = "auto"
+	OutputHuman   = "human"
+	OutputJSON    = "json"
+	OutputCompact = "compact"
+)
+
+// OutputFlags captures the user-supplied output-mode preference. A single
+// --output / -o flag with auto|human|json|compact replaces the prior four
+// boolean flags (--plain / --json / --compact / --raw).
 type OutputFlags struct {
-	JSON    bool
-	Plain   bool
-	Compact bool
-	Raw     bool
+	Output string
 }
 
+// Resolve maps the requested output mode (auto/human/json/compact) to the
+// concrete RenderMode the renderer should use. "auto" and the empty value
+// fall through to TTY+agent detection. Unknown values are caller error;
+// validate with [ValidateOutputMode] before constructing OutputFlags so
+// typos surface as a validation error rather than silently picking auto.
 func (f OutputFlags) Resolve(isTTY, agentMode bool) RenderMode {
-	switch {
-	case f.Raw:
-		return RenderModeRaw
-	case f.Compact:
-		return RenderModeCompact
-	case f.Plain:
+	switch f.Output {
+	case OutputHuman:
 		return RenderModePlain
-	case f.JSON || !isTTY || agentMode:
+	case OutputJSON:
 		return RenderModeEnvelope
-	default:
+	case OutputCompact:
+		return RenderModeCompact
+	}
+	if isTTY && !agentMode {
 		return RenderModePlain
 	}
+	return RenderModeEnvelope
+}
+
+// ValidOutputModes lists the accepted values for --output / -o in
+// completion and validation surfaces.
+func ValidOutputModes() []string {
+	return []string{OutputAuto, OutputHuman, OutputJSON, OutputCompact}
+}
+
+// ValidateOutputMode returns nil for empty values (treated as auto) and
+// any of the named modes; otherwise it returns a validation-friendly
+// error string that lists the accepted set.
+func ValidateOutputMode(value string) error {
+	switch value {
+	case "", OutputAuto, OutputHuman, OutputJSON, OutputCompact:
+		return nil
+	}
+	return fmt.Errorf("invalid --output value %q (valid: %s)", value, strings.Join(ValidOutputModes(), ", "))
 }
 
 const (
@@ -197,8 +227,6 @@ func HyperlinkText(text string) string { return underlinedHyperlink.Render(text)
 
 func ApplyRenderMode(sl *clog.Logger, mode RenderMode) {
 	switch mode {
-	case RenderModeRaw:
-		sl.SetJSONPrintMode(clog.JSONPreserve)
 	case RenderModeCompact, RenderModeEnvelope:
 		sl.SetJSONPrintMode(clog.JSONFlat)
 	}

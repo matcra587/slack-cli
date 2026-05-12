@@ -30,22 +30,14 @@ func CommandContext(cmd *cobra.Command, runtime *RootRuntime) (*clioutput.Comman
 	// auth.go's command handlers log via TrimInputName when they take
 	// the same kind of input through their own flags/args.
 	workspace := clioutput.TrimInputName(nil, "workspace", flagWorkspace)
-	jsonMode, _ := flags.GetBool("json")
-	plain, _ := flags.GetBool("plain")
-	compact, _ := flags.GetBool("compact")
-	raw, _ := flags.GetBool("raw")
+	output, _ := flags.GetString("output")
 	forceAgent, _ := flags.GetBool("agent")
 	noAttribution, _ := flags.GetBool("no-agent-attribution")
 	agentLabel, _ := flags.GetString("agent-label")
 	agentEmoji, _ := flags.GetString("agent-emoji")
 	agentMessage, _ := flags.GetString("agent-message")
 
-	outputFlags := clioutput.OutputFlags{
-		JSON:    jsonMode,
-		Plain:   plain,
-		Compact: compact,
-		Raw:     raw,
-	}
+	outputFlags := clioutput.OutputFlags{Output: output}
 	agentFlags := AgentFlags{
 		Agent:              forceAgent,
 		NoAgentAttribution: noAttribution,
@@ -127,27 +119,19 @@ func CommandContext(cmd *cobra.Command, runtime *RootRuntime) (*clioutput.Comman
 // cobra root.
 func ExtractFlags(cmd *cobra.Command) (clioutput.OutputFlags, AgentFlags) {
 	flags := cmd.Root().PersistentFlags()
-	jsonMode, _ := flags.GetBool("json")
-	plain, _ := flags.GetBool("plain")
-	compact, _ := flags.GetBool("compact")
-	raw, _ := flags.GetBool("raw")
+	output, _ := flags.GetString("output")
 	forceAgent, _ := flags.GetBool("agent")
 	noAttribution, _ := flags.GetBool("no-agent-attribution")
 	agentLabel, _ := flags.GetString("agent-label")
 	agentEmoji, _ := flags.GetString("agent-emoji")
 	agentMessage, _ := flags.GetString("agent-message")
-	return clioutput.OutputFlags{
-			JSON:    jsonMode,
-			Plain:   plain,
-			Compact: compact,
-			Raw:     raw,
-		}, AgentFlags{
-			Agent:              forceAgent,
-			NoAgentAttribution: noAttribution,
-			AgentLabel:         agentLabel,
-			AgentEmoji:         agentEmoji,
-			AgentMessage:       agentMessage,
-		}
+	return clioutput.OutputFlags{Output: output}, AgentFlags{
+		Agent:              forceAgent,
+		NoAgentAttribution: noAttribution,
+		AgentLabel:         agentLabel,
+		AgentEmoji:         agentEmoji,
+		AgentMessage:       agentMessage,
+	}
 }
 
 // LocalContext builds a minimal CommandContext for commands that do not

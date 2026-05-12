@@ -17,10 +17,9 @@ func TestOutputModeSelection(t *testing.T) {
 		{name: "tty defaults to plain", tty: true, want: clioutput.RenderModePlain},
 		{name: "non tty defaults to json", want: clioutput.RenderModeEnvelope},
 		{name: "agent defaults to json", tty: true, agent: true, want: clioutput.RenderModeEnvelope},
-		{name: "json flag wins", flags: clioutput.OutputFlags{JSON: true}, tty: true, want: clioutput.RenderModeEnvelope},
-		{name: "plain flag wins", flags: clioutput.OutputFlags{Plain: true}, agent: true, want: clioutput.RenderModePlain},
-		{name: "compact flag wins", flags: clioutput.OutputFlags{Compact: true}, tty: true, want: clioutput.RenderModeCompact},
-		{name: "raw flag wins", flags: clioutput.OutputFlags{Raw: true}, want: clioutput.RenderModeRaw},
+		{name: "json wins", flags: clioutput.OutputFlags{Output: clioutput.OutputJSON}, tty: true, want: clioutput.RenderModeEnvelope},
+		{name: "human wins", flags: clioutput.OutputFlags{Output: clioutput.OutputHuman}, agent: true, want: clioutput.RenderModePlain},
+		{name: "compact wins", flags: clioutput.OutputFlags{Output: clioutput.OutputCompact}, tty: true, want: clioutput.RenderModeCompact},
 	}
 
 	for _, tt := range tests {

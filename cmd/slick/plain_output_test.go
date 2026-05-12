@@ -36,12 +36,12 @@ func TestPlainOutputForHistorySearchListsAndReactions(t *testing.T) {
 		headers []string
 		row     string
 	}{
-		{args: []string{"--plain", "history", "list", "--channel", "C123"}, headers: []string{"TS", "USER", "TEXT"}, row: "hello"},
-		{args: []string{"--plain", "lookup", "messages", "--query", "xxx"}, headers: []string{"TS", "CHANNEL", "USER", "TEXT"}, row: "alerts"},
-		{args: []string{"--plain", "lookup", "channel"}, headers: []string{"CHANNEL", "NAME", "TYPE", "MEMBERS", "TOPIC"}, row: "Ops alerts"},
-		{args: []string{"--plain", "lookup", "channel", "--types", "im"}, headers: []string{"CHANNEL", "TYPE", "USER"}, row: "D123"},
-		{args: []string{"--plain", "lookup", "user"}, headers: []string{"USER", "NAME", "TZ", "STATUS"}, row: "Deploying"},
-		{args: []string{"--plain", "react", "list", "--channel", "C123", "--timestamp", "1746284582.123456"}, headers: []string{"EMOJI", "COUNT", "USERS"}, row: "thumbsup"},
+		{args: []string{"--output=human", "history", "list", "--channel", "C123"}, headers: []string{"TS", "USER", "TEXT"}, row: "hello"},
+		{args: []string{"--output=human", "lookup", "messages", "--query", "xxx"}, headers: []string{"TS", "CHANNEL", "USER", "TEXT"}, row: "alerts"},
+		{args: []string{"--output=human", "lookup", "channel"}, headers: []string{"CHANNEL", "NAME", "TYPE", "MEMBERS", "TOPIC"}, row: "Ops alerts"},
+		{args: []string{"--output=human", "lookup", "channel", "--types", "im"}, headers: []string{"CHANNEL", "TYPE", "USER"}, row: "D123"},
+		{args: []string{"--output=human", "lookup", "user"}, headers: []string{"USER", "NAME", "TZ", "STATUS"}, row: "Deploying"},
+		{args: []string{"--output=human", "react", "list", "--channel", "C123", "--timestamp", "1746284582.123456"}, headers: []string{"EMOJI", "COUNT", "USERS"}, row: "thumbsup"},
 	}
 	for _, tt := range commands {
 		stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(), "", tt.args)
@@ -75,7 +75,7 @@ func TestSearchPlainOutputTruncatesUnlessFull(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(),
 		"",
-		[]string{"--plain", "lookup", "messages", "--query", "xxx"},
+		[]string{"--output=human", "lookup", "messages", "--query", "xxx"},
 	)
 	if err != nil {
 		t.Fatalf("search returned error: %v\nstderr=%s", err, stderr)
@@ -86,7 +86,7 @@ func TestSearchPlainOutputTruncatesUnlessFull(t *testing.T) {
 
 	stdout, stderr, err = executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(),
 		"",
-		[]string{"--plain", "lookup", "messages", "--query", "xxx", "--full"},
+		[]string{"--output=human", "lookup", "messages", "--query", "xxx", "--full"},
 	)
 	if err != nil {
 		t.Fatalf("search --full returned error: %v\nstderr=%s", err, stderr)

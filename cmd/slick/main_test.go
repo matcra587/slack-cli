@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	termansi "github.com/gechr/x/ansi"
 	"github.com/matcra587/slack-cli/internal/agent"
+	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	"github.com/matcra587/slack-cli/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -67,10 +67,7 @@ func TestNewRootCommandDefinesPersistentFlags(t *testing.T) {
 
 	for _, name := range []string{
 		"workspace",
-		"json",
-		"plain",
-		"compact",
-		"raw",
+		"output",
 		"agent",
 		"no-agent-attribution",
 		"agent-label",
@@ -82,7 +79,7 @@ func TestNewRootCommandDefinesPersistentFlags(t *testing.T) {
 			t.Fatalf("persistent flag %q is missing", name)
 		}
 	}
-	for _, name := range []string{"agent-attribution-mode", "agent-color"} {
+	for _, name := range []string{"json", "plain", "compact", "raw", "agent-attribution-mode", "agent-color"} {
 		if cmd.PersistentFlags().Lookup(name) != nil {
 			t.Fatalf("persistent flag %q should not exist", name)
 		}
@@ -229,47 +226,6 @@ func findDirectChild(cmd *cobra.Command, name string) *cobra.Command {
 	return nil
 }
 
-func TestExecuteRejectsMutuallyExclusiveOutputModes(t *testing.T) {
-	tests := []struct {
-		name string
-		args []string
-	}{
-		{name: "json plain", args: []string{"--json", "--plain", "version"}},
-		{name: "json compact", args: []string{"--json", "--compact", "version"}},
-		{name: "json raw", args: []string{"--json", "--raw", "version"}},
-		{name: "plain compact", args: []string{"--plain", "--compact", "version"}},
-		{name: "plain raw", args: []string{"--plain", "--raw", "version"}},
-		{name: "compact raw", args: []string{"--compact", "--raw", "version"}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			stdout := &bytes.Buffer{}
-			stderr := &bytes.Buffer{}
-			cmd := NewRootCommand(WithConfig(nil), WithIO(strings.NewReader(""), stdout, stderr), WithTTY(false))
-			cmd.SetArgs(tt.args)
-
-			err := cmd.Execute()
-			if err == nil {
-				t.Fatal("Execute returned nil error, want output-mode validation error")
-			}
-			var commandErr CommandError
-			if !errors.As(err, &commandErr) {
-				t.Fatalf("Execute error = %T %[1]v, want CommandError", err)
-			}
-			if commandErr.CLIError.Type != ErrorTypeValidation || commandErr.CLIError.ExitCode != ExitCodeValidation {
-				t.Fatalf("CLIError = %#v, want validation exit 4", commandErr.CLIError)
-			}
-			if stdout.Len() != 0 {
-				t.Fatalf("stdout = %q, want empty", stdout.String())
-			}
-			if !strings.Contains(stderr.String(), `"type":"validation_error"`) {
-				t.Fatalf("stderr = %q, want structured validation_error", stderr.String())
-			}
-		})
-	}
-}
-
 func TestNewCommandContextResolvesWorkspaceAndOutputMode(t *testing.T) {
 	cfg := &config.Config{
 		SchemaVersion:    "1",
@@ -289,7 +245,7 @@ func TestNewCommandContextResolvesWorkspaceAndOutputMode(t *testing.T) {
 	ctx, attribution, err := NewCommandContext(RootOptions{
 		Config: cfg,
 		Output: OutputFlags{
-			JSON: true,
+			Output: clioutput.OutputJSON,
 		},
 		Stdout: stdout,
 		Stderr: stderr,

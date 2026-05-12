@@ -46,10 +46,10 @@ func NewLookupMessagesCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Short: "Search Slack messages",
 		Args:  cobra.NoArgs,
 		Example: `  # Search for messages matching a query
-  $ slick lookup messages --query <query> --max-items <n> --json
+  $ slick lookup messages --query <query> --max-items <n> --output=json
 
   # Paginate through results
-  $ slick lookup messages --query <query> --max-items <n> --cursor <meta.pagination.next_cursor> --json`,
+  $ slick lookup messages --query <query> --max-items <n> --cursor <meta.pagination.next_cursor> --output=json`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSearchMessages(cmd, runtime, query, maxItems, cursor, full)

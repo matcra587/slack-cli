@@ -310,10 +310,31 @@ func ExtendSlackMetadata(root *cobra.Command) {
 func extendRootFlags(root *cobra.Command) {
 	pf := root.PersistentFlags()
 	cobracli.Extend(pf.Lookup("workspace"), cobracli.FlagExtra{Complete: "predictor=workspace", Placeholder: "PROFILE", Terse: "workspace"})
-	cobracli.Extend(pf.Lookup("json"), cobracli.FlagExtra{Group: "Output", Terse: "JSON output"})
-	cobracli.Extend(pf.Lookup("plain"), cobracli.FlagExtra{Group: "Output", Terse: "plain output"})
-	cobracli.Extend(pf.Lookup("compact"), cobracli.FlagExtra{Group: "Output", Terse: "compact JSON"})
-	cobracli.Extend(pf.Lookup("raw"), cobracli.FlagExtra{Group: "Output", Terse: "raw output"})
+	cobracli.Extend(pf.Lookup("output"), cobracli.FlagExtra{
+		Group:       "Output",
+		Placeholder: "MODE",
+		Enum:        clioutput.ValidOutputModes(),
+		EnumTerse: []string{
+			"auto-detect (human on TTY, JSON otherwise)",
+			"human-readable clog event",
+			"JSON envelope (meta + data + errors)",
+			"JSON data only (no envelope)",
+		},
+		EnumDefault: clioutput.OutputAuto,
+		Terse:       "output format",
+	})
+	cobracli.Extend(pf.Lookup("color"), cobracli.FlagExtra{
+		Group:       "Output",
+		Placeholder: "MODE",
+		Enum:        []string{"auto", "always", "never"},
+		EnumTerse: []string{
+			"color when stdout is a TTY",
+			"force color on (ANSI escapes always emitted)",
+			"never emit color escapes",
+		},
+		EnumDefault: "auto",
+		Terse:       "color mode",
+	})
 	cobracli.Extend(pf.Lookup("agent"), cobracli.FlagExtra{Group: "Agent", Terse: "agent mode"})
 	cobracli.Extend(pf.Lookup("no-agent-attribution"), cobracli.FlagExtra{Group: "Agent", Terse: "disable attribution"})
 	cobracli.Extend(pf.Lookup("agent-label"), cobracli.FlagExtra{Group: "Agent", Placeholder: "LABEL", Terse: "agent label"})

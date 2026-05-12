@@ -28,7 +28,7 @@ func TestVersionCommandOutputsClogJSON(t *testing.T) {
 }
 
 func TestVersionCommandPlainMatchesPDCShape(t *testing.T) {
-	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"--plain", "version"})
+	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"--output=human", "version"})
 	if err != nil {
 		t.Fatalf("version returned error: %v\nstderr=%s", err, stderr)
 	}

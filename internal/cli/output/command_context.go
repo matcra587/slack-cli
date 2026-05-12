@@ -1,7 +1,6 @@
 package output
 
 import (
-	"encoding/json"
 	"io"
 	"maps"
 	"time"
@@ -70,15 +69,6 @@ func (c *CommandContext) WriteResultWithPagination(command string, data any, pag
 		return c.WritePlainResult(command, data, pagination)
 	case RenderModeCompact:
 		c.StdoutLogger().Print().JSON(data)
-	case RenderModeRaw:
-		switch raw := data.(type) {
-		case []byte:
-			c.StdoutLogger().Print().RawJSON(raw)
-		case json.RawMessage:
-			c.StdoutLogger().Print().RawJSON(raw)
-		default:
-			c.StdoutLogger().Print().JSON(data)
-		}
 	default:
 		c.StdoutLogger().Print().JSON(Envelope{
 			Meta: EnvelopeMeta{

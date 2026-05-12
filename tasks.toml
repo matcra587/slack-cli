@@ -79,7 +79,7 @@ run = "go test -v -tags=integration ./tests/integration -count=1 -timeout 60s"
 ["test:live"]
 description = "Run live tests against a real Slack workspace (uses your authed slick session by default; SLICK_LIVE_WORKSPACE and SLICK_LIVE_CHANNEL override)"
 depends = ["build"]
-run = "go test -v -tags=live ./tests/live -count=1 -timeout 120s"
+run = "go test -v -tags=live ./tests/live -count=1 -timeout 300s"
 
 [fmt]
 description = "Format code with gofmt and gofumpt"

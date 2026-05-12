@@ -342,6 +342,7 @@ func extendAttributionFlags(cmd *cobra.Command) {
 	if cmd == nil {
 		return
 	}
+	cobracli.Extend(flag(cmd, "attribution"), cobracli.FlagExtra{Group: "Attribution", Terse: "force attribution"})
 	cobracli.Extend(flag(cmd, "no-attribution"), cobracli.FlagExtra{Group: "Attribution", Terse: "disable attribution"})
 	cobracli.Extend(flag(cmd, "attribution-label"), cobracli.FlagExtra{Group: "Attribution", Placeholder: "LABEL", Terse: "label"})
 	cobracli.Extend(flag(cmd, "attribution-emoji"), cobracli.FlagExtra{Group: "Attribution", Placeholder: ":robot_face:", Complete: "values=" + strings.Join(cliconfig.CommonEmojis(), " "), Terse: "emoji"})

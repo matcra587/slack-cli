@@ -85,7 +85,7 @@ func guideHelpFunc(renderer *help.Renderer) func(*cobra.Command, []string) {
 // fallthrough.
 func DetectAttribution(flags cliruntime.AttributionFlags) agentpkg.Attribution {
 	detection := agentpkg.Detect(agentpkg.Options{
-		NoAttribution:      flags.NoAttribution,
+		Attribution:        flags.Attribution,
 		ProfileAttribution: flags.ProfileAttribution,
 		Label:              flags.Label,
 		Emoji:              flags.Emoji,

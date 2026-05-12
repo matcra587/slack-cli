@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"fmt"
+
 	"github.com/matcra587/slack-cli/internal/agent"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	"github.com/matcra587/slack-cli/internal/config"
@@ -8,12 +10,49 @@ import (
 	"github.com/spf13/pflag"
 )
 
+// presenceFlag is a pflag.Value used for switches that must be valueless.
+// `--attribution` and `--no-attribution` exist solely to signal direction;
+// any `=value` form would either silently invert the documented direction
+// (`--attribution=false`) or duplicate the bare form (`--attribution=true`).
+// Both are rejected.
+//
+// The trick: pflag substitutes NoOptDefVal when the user passes the flag
+// bare, so RegisterAttributionFlags sets NoOptDefVal to presenceSentinel
+// (a string the user can't type). Set accepts only that sentinel; every
+// real `=value` form fails parsing with a usage error.
+type presenceFlag bool
+
+const presenceSentinel = "\x00slick-presence-flag\x00"
+
+func (p *presenceFlag) String() string {
+	if p != nil && *p {
+		return "true"
+	}
+	return "false"
+}
+
+func (p *presenceFlag) Set(value string) error {
+	if value != presenceSentinel {
+		return fmt.Errorf("presence-only switch: pass the flag bare instead of %q", value)
+	}
+	*p = true
+	return nil
+}
+
+func (p *presenceFlag) Type() string { return "bool" }
+
+// IsBoolFlag signals to pflag that the flag's bare form is valid (no value
+// required after the flag name), so `--attribution --dry-run` parses cleanly
+// rather than consuming `--dry-run` as the value.
+func (p *presenceFlag) IsBoolFlag() bool { return true }
+
 // AttributionFlags carries the per-command attribution overrides parsed from
-// cobra flags. The four message-shape flags are local to mutating commands;
+// cobra flags. Attribution is tri-state: nil defers to env detection and the
+// resolved profile default; a non-nil bool forces the per-command choice.
 // ProfileAttribution comes from the resolved workspace profile and reflects
 // the persistent default.
 type AttributionFlags struct {
-	NoAttribution      bool
+	Attribution        *bool
 	Label              string
 	Emoji              string
 	Message            string
@@ -22,13 +61,25 @@ type AttributionFlags struct {
 
 // RegisterAttributionFlags adds the local attribution flags onto a mutating
 // command. Call this from each command that actually emits an attribution
-// block (message send/edit, reply, file upload).
+// block (message send/edit, reply, file upload). --attribution and
+// --no-attribution are mutually exclusive; passing either is an explicit
+// per-command override that wins over both env detection and profile defaults.
 func RegisterAttributionFlags(cmd *cobra.Command) {
 	flags := cmd.Flags()
-	flags.BoolP("no-attribution", "z", false, "Disable attribution for this command")
+	on := new(presenceFlag)
+	off := new(presenceFlag)
+	onFlag := flags.VarPF(on, "attribution", "", "Force attribution on for this command (overrides config and env)")
+	offFlag := flags.VarPF(off, "no-attribution", "z", "Disable attribution for this command (overrides config and env)")
+	// NoOptDefVal tells pflag the flag is valueless. Set to presenceSentinel
+	// (not "true") so Set() can distinguish the bare form from any explicit
+	// `=value` form: bare → pflag invokes Set(sentinel) → accepted; explicit
+	// → pflag invokes Set(userValue) → rejected by presenceFlag.Set.
+	onFlag.NoOptDefVal = presenceSentinel
+	offFlag.NoOptDefVal = presenceSentinel
 	flags.String("attribution-label", "", "Override attribution label")
 	flags.String("attribution-emoji", "", "Override attribution emoji")
 	flags.String("attribution-message", "", "Override attribution message")
+	cmd.MarkFlagsMutuallyExclusive("attribution", "no-attribution")
 }
 
 // CommandContextFromCmd resolves the rendering context, workspace profile, and
@@ -129,19 +180,29 @@ func ExtractFlags(cmd *cobra.Command) (clioutput.OutputFlags, AttributionFlags) 
 func readAttributionFlags(cmd *cobra.Command) AttributionFlags {
 	flags := cmd.LocalFlags()
 	return AttributionFlags{
-		NoAttribution: localBool(flags, "no-attribution"),
-		Label:         localString(flags, "attribution-label"),
-		Emoji:         localString(flags, "attribution-emoji"),
-		Message:       localString(flags, "attribution-message"),
+		Attribution: readAttributionToggle(flags),
+		Label:       localString(flags, "attribution-label"),
+		Emoji:       localString(flags, "attribution-emoji"),
+		Message:     localString(flags, "attribution-message"),
 	}
 }
 
-func localBool(fs *pflag.FlagSet, name string) bool {
-	if fs.Lookup(name) == nil {
-		return false
+// readAttributionToggle folds --attribution and --no-attribution into a
+// single tri-state. Returns nil when neither flag was set, so the caller
+// defers to env detection and profile defaults. Both flags are presence-only
+// switches (see presenceFlag), so Changed alone is the override signal — the
+// value form `--attribution=false` is rejected at parse time. Cobra's mutex
+// registered in RegisterAttributionFlags prevents both being set at once.
+func readAttributionToggle(fs *pflag.FlagSet) *bool {
+	if f := fs.Lookup("attribution"); f != nil && f.Changed {
+		t := true
+		return &t
 	}
-	v, _ := fs.GetBool(name)
-	return v
+	if f := fs.Lookup("no-attribution"); f != nil && f.Changed {
+		off := false
+		return &off
+	}
+	return nil
 }
 
 func localString(fs *pflag.FlagSet, name string) string {
@@ -223,7 +284,7 @@ func detectAgentOutputMode() bool {
 
 func detectAttribution(flags AttributionFlags) agent.Attribution {
 	detection := agent.Detect(agent.Options{
-		NoAttribution:      flags.NoAttribution,
+		Attribution:        flags.Attribution,
 		ProfileAttribution: flags.ProfileAttribution,
 		Label:              flags.Label,
 		Emoji:              flags.Emoji,

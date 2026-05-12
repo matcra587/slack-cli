@@ -38,6 +38,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/matcra587/slack-cli/internal/agent"
 )
 
 // --- message lifecycle ------------------------------------------------------
@@ -63,17 +65,27 @@ LGTM after the docs note lands. 👀`, runID)
 // emoji and message and intentionally leaves it in the channel so the
 // override can be visually verified in Slack. Cleanup is skipped on purpose;
 // the message stays until manually deleted.
+//
+// The test deliberately does not fake an agent env trigger. Attribution is
+// forced on by `--attribution` so the test runs against whatever Category
+// the surrounding environment actually has: a human shell produces the
+// "Sent via slick" wording (CategoryCLI); an agent shell (Claude Code,
+// Cursor, CI, etc.) lets the env trigger fire and the message gets tagged
+// "(agent mode)". The residue in Slack then becomes a real signal of who
+// ran the suite, not a test fixture mutating reality.
 func TestLiveAttributionOverride(t *testing.T) {
 	binary := slickBinary(t)
 	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
-	t.Setenv("CLAUDE_CODE", "1") // ensure agent detection so attribution fires
 
 	body := fmt.Sprintf(`live-attribution-%s testing --attribution-emoji and --attribution-message overrides.
 
 The context block below this message should show :test_tube: instead of
-:robot_face:, and the text should read "Sent from the v0.5.3 live test
-suite" instead of the default agent-mode wording.
+:robot_face:, and the text should read "Sent from the live test suite".
+
+When run from a human shell the context line ends at "test suite"; when run
+under an agent or CI env trigger, slick appends "(agent mode)" — which is
+how you eyeball whether real detection fired or the human exemption held.
 
 Left in the channel on purpose so the override can be eyeballed in Slack.`, runID)
 
@@ -82,8 +94,9 @@ Left in the channel on purpose so the override can be eyeballed in Slack.`, runI
 		"--workspace", env.workspace,
 		"--channel", env.channel,
 		"--message", body,
+		"--attribution",
 		"--attribution-emoji", ":test_tube:",
-		"--attribution-message", "Sent from the v0.5.3 live test suite",
+		"--attribution-message", "Sent from the live test suite",
 		"--output=json",
 	)
 	if err != nil {
@@ -95,7 +108,7 @@ Left in the channel on purpose so the override can be eyeballed in Slack.`, runI
 		t.Fatalf("envelope missing data: %s", stdout)
 	}
 	if got, _ := data["attribution"].(bool); !got {
-		t.Fatalf("attribution = %v, want true (CLAUDE_CODE was set)", data["attribution"])
+		t.Fatalf("attribution = %v, want true (--attribution was passed)", data["attribution"])
 	}
 	channel := mustString(t, envelope, "data", "message", "channel")
 	ts := mustString(t, envelope, "data", "message", "ts")
@@ -103,6 +116,124 @@ Left in the channel on purpose so the override can be eyeballed in Slack.`, runI
 		t.Fatalf("envelope missing channel/ts: %s", stdout)
 	}
 	t.Logf("attribution override message left in channel=%s ts=%s — verify :test_tube: emoji and custom text in Slack", channel, ts)
+}
+
+// clearAgentEnvTriggers unsets every env var that agent.Detect treats as an
+// active signal, so a test can simulate "no env detection" even when running
+// inside a developer's Claude Code / CI / cron shell.
+func clearAgentEnvTriggers(t *testing.T) {
+	t.Helper()
+	for _, key := range agent.KnownEnvVars() {
+		t.Setenv(key, "")
+	}
+}
+
+// TestLiveAttributionForceOff confirms that --no-attribution suppresses the
+// attribution block on a real send even when env detection would otherwise
+// fire (CLAUDE_CODE=1 set explicitly here). The asserted contract is the
+// envelope's data.attribution=false plus a clean delete on cleanup.
+func TestLiveAttributionForceOff(t *testing.T) {
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
+	runID := newRunID(t)
+	t.Setenv("CLAUDE_CODE", "1")
+
+	body := fmt.Sprintf("live-attribution-off-%s probing --no-attribution under CLAUDE_CODE=1; no context block should follow.", runID)
+	stdout, stderr, err := runSlick(t, binary, "",
+		"message", "send",
+		"--workspace", env.workspace,
+		"--channel", env.channel,
+		"--message", body,
+		"--no-attribution",
+		"--output=json",
+	)
+	if err != nil {
+		t.Fatalf("message send failed: %v\nstderr=%s", err, stderr)
+	}
+	envelope := decodeEnvelope(t, stdout)
+	data, ok := envelope["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("envelope missing data: %s", stdout)
+	}
+	if got, _ := data["attribution"].(bool); got {
+		t.Fatalf("attribution = true; --no-attribution should force off even with CLAUDE_CODE set: %s", stdout)
+	}
+	channel := mustString(t, envelope, "data", "message", "channel")
+	ts := mustString(t, envelope, "data", "message", "ts")
+	if channel == "" || ts == "" {
+		t.Fatalf("envelope missing channel/ts: %s", stdout)
+	}
+	cleanupMessage(t, binary, env, runID, channel, ts)
+}
+
+// TestLiveAttributionForceOn confirms --attribution forces attribution on
+// without an env trigger. Clears the AI/CI env triggers up-front so the only
+// thing flipping detection on is the flag itself.
+func TestLiveAttributionForceOn(t *testing.T) {
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
+	runID := newRunID(t)
+	clearAgentEnvTriggers(t)
+
+	body := fmt.Sprintf("live-attribution-on-%s probing --attribution with no env trigger; context block should still render.", runID)
+	stdout, stderr, err := runSlick(t, binary, "",
+		"message", "send",
+		"--workspace", env.workspace,
+		"--channel", env.channel,
+		"--message", body,
+		"--attribution",
+		"--output=json",
+	)
+	if err != nil {
+		t.Fatalf("message send failed: %v\nstderr=%s", err, stderr)
+	}
+	envelope := decodeEnvelope(t, stdout)
+	data, ok := envelope["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("envelope missing data: %s", stdout)
+	}
+	if got, _ := data["attribution"].(bool); !got {
+		t.Fatalf("attribution = false; --attribution should force on even without env trigger: %s", stdout)
+	}
+	channel := mustString(t, envelope, "data", "message", "channel")
+	ts := mustString(t, envelope, "data", "message", "ts")
+	if channel == "" || ts == "" {
+		t.Fatalf("envelope missing channel/ts: %s", stdout)
+	}
+	cleanupMessage(t, binary, env, runID, channel, ts)
+}
+
+// TestLiveAttributionRejectsValueForm asserts the presence-only switch
+// semantics: `--attribution=false` is a parse error rather than a silent
+// invert. The check is "non-zero exit + stderr surfaces a usage/parse
+// error"; we deliberately avoid asserting on the exact wording so pflag/
+// cobra phrasing tweaks don't break the test.
+func TestLiveAttributionRejectsValueForm(t *testing.T) {
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
+	runID := newRunID(t)
+
+	body := fmt.Sprintf("live-attribution-reject-%s — this message must NOT be sent because the flag form should error before any Slack call.", runID)
+	_, stderr, err := runSlick(t, binary, "",
+		"message", "send",
+		"--workspace", env.workspace,
+		"--channel", env.channel,
+		"--message", body,
+		"--attribution=false",
+		"--output=json",
+	)
+	if err == nil {
+		t.Fatalf("--attribution=false should error at parse time; instead got success.\nstderr=%s", stderr)
+	}
+	if stderr == "" {
+		t.Fatalf("--attribution=false errored but stderr is empty; expected a parse/validation message")
+	}
+	// Belt-and-braces: confirm Slack wasn't actually called by sweeping
+	// recent history for the sentinel body. lookupRecentByText returns
+	// (channel, ts) and the ts is the meaningful "found" signal here.
+	if _, ts := lookupRecentByText(t, binary, env, body); ts != "" {
+		t.Fatalf("rejected --attribution=false invocation still posted the message (ts=%s); presence-only switch is leaking past validation", ts)
+	}
 }
 
 func TestLiveMessageEdit(t *testing.T) {

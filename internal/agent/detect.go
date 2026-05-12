@@ -13,7 +13,11 @@ const (
 )
 
 type Options struct {
-	NoAttribution      bool
+	// Attribution is the per-command override. nil means "defer to env
+	// and profile". A non-nil true forces attribution on (overriding
+	// profile.attribution.enabled = false); a non-nil false forces it
+	// off (overriding env detection and profile opt-in).
+	Attribution        *bool
 	ProfileAttribution *bool
 	Label              string
 	Emoji              string
@@ -76,13 +80,23 @@ func KnownEnvVars() []string {
 }
 
 func Detect(opts Options) Detection {
-	if opts.NoAttribution {
-		return Detection{}
-	}
-	if opts.ProfileAttribution != nil && !*opts.ProfileAttribution {
+	forceOn := opts.Attribution != nil && *opts.Attribution
+	forceOff := opts.Attribution != nil && !*opts.Attribution
+
+	// Per-command opt-out wins absolutely.
+	if forceOff {
 		return Detection{}
 	}
 
+	// Profile opt-out kills attribution unless the caller explicitly
+	// opted back in for this command via --attribution.
+	if !forceOn && opts.ProfileAttribution != nil && !*opts.ProfileAttribution {
+		return Detection{}
+	}
+
+	// Env triggers are the highest-priority category signal: if Claude
+	// Code or a CI system is detected, we want that category even when
+	// --attribution is also passed.
 	for _, trigger := range envTriggers {
 		if TruthyEnv(os.Getenv(trigger.Key)) {
 			return Detection{
@@ -92,6 +106,11 @@ func Detect(opts Options) Detection {
 				Category: trigger.Category,
 			}
 		}
+	}
+
+	// --attribution without any env trigger: treat as a manual CLI run.
+	if forceOn {
+		return Detection{Active: true, Source: "flag", Name: "manual", Category: CategoryCLI}
 	}
 
 	if opts.ProfileAttribution != nil && *opts.ProfileAttribution {

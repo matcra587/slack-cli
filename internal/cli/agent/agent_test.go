@@ -26,8 +26,25 @@ func TestDetectAttributionUsesInternalAgentDetection(t *testing.T) {
 func TestDetectAttributionHonorsCommandOptOut(t *testing.T) {
 	t.Setenv("CLAUDE_CODE", "1")
 
-	got := cliagent.DetectAttribution(cliruntime.AttributionFlags{NoAttribution: true})
+	off := false
+	got := cliagent.DetectAttribution(cliruntime.AttributionFlags{Attribution: &off})
 	if got.Enabled {
 		t.Fatalf("DetectAttribution opt-out = %#v, want disabled", got)
+	}
+}
+
+func TestDetectAttributionHonorsCommandOptIn(t *testing.T) {
+	// No env trigger; profile says off. --attribution should still win.
+	profileOff := false
+	on := true
+	got := cliagent.DetectAttribution(cliruntime.AttributionFlags{
+		Attribution:        &on,
+		ProfileAttribution: &profileOff,
+	})
+	if !got.Enabled {
+		t.Fatalf("DetectAttribution opt-in = %#v, want enabled", got)
+	}
+	if got.Category != agentpkg.CategoryCLI {
+		t.Fatalf("DetectAttribution Category = %q, want CLI", got.Category)
 	}
 }

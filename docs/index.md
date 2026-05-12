@@ -129,9 +129,11 @@ Pipelines, TeamCity, Azure Pipelines, and the generic `CI` variable). The
 authoritative list lives in
 [`internal/agent/detect.go`](https://github.com/matcra587/slack-cli/blob/main/internal/agent/detect.go).
 Override per-call with `--attribution-label`, `--attribution-emoji`,
-`--attribution-message`, or disable entirely with `--no-attribution` (short
-`-z`). To force attribution outside a detected environment, set
-`FORCE_AGENT_MODE=1` in the environment.
+`--attribution-message`. Toggle the block itself with `--attribution` (force
+on) or `--no-attribution` / `-z` (force off); both override config defaults
+and env detection, so you can attribute a single command on a workspace with
+`attribution.enabled = false` or suppress a single one when running inside a
+detected agent.
 
 The attribution context block reflects the detection state in the rendered
 Slack message:

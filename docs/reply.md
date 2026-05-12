@@ -19,7 +19,8 @@ slick reply --channel C1234567890 --parent 1746284582.123456 --blocks --file blo
 -f, --file <FILE>        Read message body from file or - for stdin
 -b, --blocks             Treat message source as raw Block Kit JSON
 -n, --dry-run            Preview without sending
--z, --no-attribution     Disable attribution for this command
+    --attribution            Force attribution on for this command
+-z, --no-attribution         Disable attribution for this command
     --attribution-label <LABEL>      Override attribution label
     --attribution-emoji <EMOJI>      Override attribution emoji
     --attribution-message <TEXT>     Override attribution message

@@ -134,7 +134,9 @@ func TestNewRootCommandDefinesVisibleShortFlags(t *testing.T) {
 			}
 			// Attribution overrides are long-form only; they're niche
 			// per-call overrides and the long names are self-documenting.
-			if strings.HasPrefix(flag.Name, "attribution-") {
+			// --attribution (force-on) is the symmetric partner of -z
+			// --no-attribution and stays long-form for the same reason.
+			if flag.Name == "attribution" || strings.HasPrefix(flag.Name, "attribution-") {
 				return
 			}
 			missing = append(missing, cmd.CommandPath()+" --"+flag.Name)

@@ -148,6 +148,40 @@ func TestMessageSendCommandHonorsNoAttribution(t *testing.T) {
 	}
 }
 
+// --attribution and --no-attribution are presence-only switches: cobra/pflag
+// accepts the value form (e.g. --attribution=false) on conventional bool
+// flags, but that form would silently invert the documented direction for
+// automation that serializes bool defaults. presenceFlag rejects the value
+// form at parse time so the inversion can't reach the Slack call.
+func TestMessageSendCommandRejectsValueFormAttributionFlags(t *testing.T) {
+	t.Setenv("CLAUDE_CODE", "1")
+
+	cases := []string{"--attribution=false", "--no-attribution=false", "--attribution=true", "--no-attribution=true"}
+	for _, flag := range cases {
+		t.Run(flag, func(t *testing.T) {
+			// Stub the Slack endpoints so an accidental success surfaces
+			// loudly: a hit on chat.postMessage means the flag parser
+			// failed to reject the value form.
+			server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+				"chat.postMessage": func(testutil.SlackRequest) testutil.SlackResponse {
+					t.Fatalf("%s leaked past flag parsing to chat.postMessage", flag)
+					return testutil.JSONResponse(`{"ok":false}`)
+				},
+			})
+
+			_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
+				[]string{"message", "send", "--channel", "C123", "--message", "Hi", flag},
+			)
+			if err == nil {
+				t.Fatalf("%s should be a parse error; got success (stderr=%s)", flag, stderr)
+			}
+			if !strings.Contains(err.Error(), "presence-only switch") {
+				t.Fatalf("%s rejected, but error message does not mention presence-only switch: %v", flag, err)
+			}
+		})
+	}
+}
+
 func TestMessageEditCommandSupportsAttributionOverride(t *testing.T) {
 	t.Setenv("CLAUDE_CODE", "1")
 

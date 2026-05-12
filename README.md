@@ -84,9 +84,9 @@ set covers the common AI assistants and CI systems; see
 source.
 
 Override per-call with `--attribution-label`, `--attribution-emoji`,
-`--attribution-message`; disable with `--no-attribution` (short `-z`). To
-force attribution outside a detected environment, set `FORCE_AGENT_MODE=1`.
-Pin defaults per workspace in config:
+`--attribution-message`. Toggle the block per call with `--attribution` (force
+on) or `--no-attribution` / `-z` (force off); both override config defaults
+and env detection. Pin defaults per workspace in config:
 
 ```sh
 slick config set workspaces.default.attribution.enabled true

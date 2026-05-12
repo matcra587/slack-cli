@@ -26,9 +26,10 @@ import (
 
 // UploadData is the result returned by `slick file upload`.
 type UploadData struct {
-	File    Info   `json:"file"`
-	Channel string `json:"channel"`
-	DryRun  bool   `json:"dry_run,omitempty"`
+	File        Info   `json:"file"`
+	Channel     string `json:"channel"`
+	Attribution bool   `json:"attribution"`
+	DryRun      bool   `json:"dry_run,omitempty"`
 }
 
 var _ clioutput.PlainRenderer = UploadData{}
@@ -46,6 +47,7 @@ func (d UploadData) WritePlain(c *clioutput.CommandContext, command string, _ *c
 	event = event.
 		Str("id", d.File.ID).
 		Str("name", d.File.Name).
+		Bool("attribution", d.Attribution).
 		Bool("dry_run", d.DryRun)
 	if d.File.Permalink != nil {
 		event = event.Link("permalink", *d.File.Permalink, clioutput.HyperlinkText(climessage.PermalinkText(*d.File.Permalink)))
@@ -140,9 +142,10 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 	ctx.StderrLogger().Debug().Parts(clog.PartMessage).Msg("uploading file")
 	if opts.DryRun {
 		return ctx.WriteResult("file.upload", UploadData{
-			File:    Info{ID: "dry-run", Name: filename, Size: len(content)},
-			Channel: channel,
-			DryRun:  true,
+			File:        Info{ID: "dry-run", Name: filename, Size: len(content)},
+			Channel:     channel,
+			Attribution: attribution.Enabled,
+			DryRun:      true,
 		})
 	}
 	client, err := slackclient.Client(cmd, profile, runtime)
@@ -175,8 +178,9 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 		filePermalink = cliutil.StringPtr(info.Permalink)
 	}
 	return ctx.WriteResult("file.upload", UploadData{
-		File:    Info{ID: file.ID, Name: fileName, Size: len(content), Permalink: filePermalink},
-		Channel: channel,
+		File:        Info{ID: file.ID, Name: fileName, Size: len(content), Permalink: filePermalink},
+		Channel:     channel,
+		Attribution: attribution.Enabled,
 	})
 }
 

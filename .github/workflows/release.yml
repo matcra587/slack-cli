@@ -97,11 +97,11 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
           tap: matcra587/homebrew-tap
-          name: slack-cli
+          name: slick
           desc: Headless Slack CLI for agents, scripts, and CI jobs
           homepage: https://github.com/matcra587/slack-cli
           version: ${{ github.ref_name }}
           binary-name: slick
           module-path: github.com/matcra587/slack-cli
           build-package: ./cmd/slick
-          commit-message: "slack-cli: v{version}"
+          commit-message: "slick: v{version}"

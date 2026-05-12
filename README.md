@@ -1,31 +1,27 @@
 # slack-cli
 
-`slick` is a headless Slack CLI for agents, scripts, and CI jobs. The command
-name is a short play on `slack-cli`: the project is `slack-cli`, the installed
-binary is `slick`. Runtime commands take flags, stdin, or environment
-variables. They do not prompt.
+`slick` is a headless Slack CLI for agents, scripts, and CI jobs.
+
+I've been transitioning to doing less in apps and more in my terminal.
+I couldn't find a modern Slack CLI that really fit the bill, so I built
+one.
+
+The name is a short play on `slack-cli`: the project is `slack-cli`, the
+installed binary is `slick`.
 
 > [!NOTE]
-> Not to be confused with [`slackapi/slack-cli`](https://github.com/slackapi/slack-cli),
-> the official Slack platform CLI for building and deploying Slack apps. This
-> project is an independent, headless client for sending messages, reading
-> history, and managing Slack identity from agents and CI.
-
-> **Full documentation:** [matcra587.github.io/slack-cli](https://matcra587.github.io/slack-cli)
-> (sources in [`docs/`](docs/)).
+> Not the same project as [`slackapi/slack-cli`](https://github.com/slackapi/slack-cli),
+> the official Slack platform CLI for building and deploying Slack apps.
+> That tool is for app development; this one is for talking to Slack
+> from scripts and agents.
 
 ## Install
 
-```sh
-brew install matcra587/tap/slick
-```
+See [`docs/installation.md`](docs/installation.md) for install methods:
+Homebrew, `go install`, pre-built binaries, and source builds.
 
-Also available via `go install` and pre-built binaries from
-[releases](https://github.com/matcra587/slack-cli/releases). See
-[`docs/installation.md`](docs/installation.md) for details.
-
-The examples below assume `slick` is on `PATH`. Every visible flag has a short
-form; run `slick <command> --help` for the current mapping.
+The examples below assume `slick` is on `PATH`. Run `slick <command> --help`
+for the full flag list and any short forms.
 
 ## Quick start
 
@@ -60,8 +56,8 @@ slick agent schema -o compact
 ```
 
 Tokens never appear in argv, TOML, stdout, stderr, docs, or examples.
-Auth-owned fields are stored as keychain or secret-manager references; config
-commands do not edit them.
+They are stored via your OS keychain or a configured secret manager;
+`slick config` commands can't edit them.
 
 ## Commands
 
@@ -71,7 +67,7 @@ commands do not edit them.
 | `message`, `reply` | [message.md](docs/message.md), [reply.md](docs/reply.md) |
 | `history`, `lookup` | [history.md](docs/history.md), [lookup.md](docs/lookup.md) |
 | `react`, `status` | [react.md](docs/react.md), [status.md](docs/status.md) |
-| `file` (probationary) | [file.md](docs/file.md) |
+| `file` | [file.md](docs/file.md) |
 | `cache` | [cache.md](docs/cache.md) |
 | `config`, `workspace` | [config.md](docs/config.md), [workspace.md](docs/workspace.md) |
 | `manifest` | [manifest.md](docs/manifest.md) |
@@ -81,17 +77,16 @@ commands do not edit them.
 
 When slick detects an agent or CI environment, the four mutating commands
 (`message send`, `message edit`, `reply`, `file upload`) attach a Block Kit
-context block to the Slack message. The trigger set covers most popular AI
-assistants (Claude Code, Cursor, Codex, Aider, Cline, Windsurf, GitHub
-Copilot, Codeium, Amazon Q, Gemini Code Assist, Cody) and CI systems (GitHub
-Actions, Buildkite, Jenkins, GitLab CI, CircleCI, Travis, Bitbucket
-Pipelines, TeamCity, Azure Pipelines, and the generic `CI` variable). The
-authoritative list lives in
-[`internal/agent/detect.go`](internal/agent/detect.go). Override per-call
-with `--attribution-label`, `--attribution-emoji`, `--attribution-message`;
-disable with `--no-attribution` (short `-z`). To force attribution outside a
-detected environment, set `FORCE_AGENT_MODE=1` in the environment. Pin
-defaults per workspace in config:
+context block to the message identifying it as agent-generated. The trigger
+set covers the common AI assistants and CI systems; see
+[`docs/index.md`](docs/index.md#attribution) for the full list and
+[`internal/agent/detect.go`](internal/agent/detect.go) for the authoritative
+source.
+
+Override per-call with `--attribution-label`, `--attribution-emoji`,
+`--attribution-message`; disable with `--no-attribution` (short `-z`). To
+force attribution outside a detected environment, set `FORCE_AGENT_MODE=1`.
+Pin defaults per workspace in config:
 
 ```sh
 slick config set workspaces.default.attribution.enabled true

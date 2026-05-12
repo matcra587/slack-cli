@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 version: 2
 
-project_name: slack-cli
+project_name: slick
 report_sizes: true
 
 metadata:

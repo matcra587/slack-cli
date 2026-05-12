@@ -41,11 +41,11 @@ VERSION=$(curl -fsSL https://api.github.com/repos/matcra587/slack-cli/releases/l
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 
-curl -fsSLO "https://github.com/matcra587/slack-cli/releases/download/${VERSION}/slack-cli_${VERSION#v}_${OS}_${ARCH}.tar.gz"
+curl -fsSLO "https://github.com/matcra587/slack-cli/releases/download/${VERSION}/slick_${VERSION#v}_${OS}_${ARCH}.tar.gz"
 curl -fsSLO "https://github.com/matcra587/slack-cli/releases/download/${VERSION}/checksums.txt"
 grep "_${OS}_${ARCH}.tar.gz$" checksums.txt | sha256sum -c
 
-tar xzf "slack-cli_${VERSION#v}_${OS}_${ARCH}.tar.gz"
+tar xzf "slick_${VERSION#v}_${OS}_${ARCH}.tar.gz"
 sudo install slick /usr/local/bin/
 ```
 

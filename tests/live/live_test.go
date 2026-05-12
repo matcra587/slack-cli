@@ -59,6 +59,52 @@ LGTM after the docs note lands. 👀`, runID)
 	cleanupMessage(t, binary, env, runID, channel, ts)
 }
 
+// TestLiveAttributionOverride sends a message with overridden attribution
+// emoji and message and intentionally leaves it in the channel so the
+// override can be visually verified in Slack. Cleanup is skipped on purpose;
+// the message stays until manually deleted.
+func TestLiveAttributionOverride(t *testing.T) {
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
+	runID := newRunID(t)
+	t.Setenv("CLAUDE_CODE", "1") // ensure agent detection so attribution fires
+
+	body := fmt.Sprintf(`live-attribution-%s testing --attribution-emoji and --attribution-message overrides.
+
+The context block below this message should show :test_tube: instead of
+:robot_face:, and the text should read "Sent from the v0.5.3 live test
+suite" instead of the default agent-mode wording.
+
+Left in the channel on purpose so the override can be eyeballed in Slack.`, runID)
+
+	stdout, stderr, err := runSlick(t, binary, "",
+		"message", "send",
+		"--workspace", env.workspace,
+		"--channel", env.channel,
+		"--message", body,
+		"--attribution-emoji", ":test_tube:",
+		"--attribution-message", "Sent from the v0.5.3 live test suite",
+		"--output=json",
+	)
+	if err != nil {
+		t.Fatalf("message send failed: %v\nstderr=%s", err, stderr)
+	}
+	envelope := decodeEnvelope(t, stdout)
+	data, ok := envelope["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("envelope missing data: %s", stdout)
+	}
+	if got, _ := data["attribution"].(bool); !got {
+		t.Fatalf("attribution = %v, want true (CLAUDE_CODE was set)", data["attribution"])
+	}
+	channel := mustString(t, envelope, "data", "message", "channel")
+	ts := mustString(t, envelope, "data", "message", "ts")
+	if channel == "" || ts == "" {
+		t.Fatalf("envelope missing channel/ts: %s", stdout)
+	}
+	t.Logf("attribution override message left in channel=%s ts=%s — verify :test_tube: emoji and custom text in Slack", channel, ts)
+}
+
 func TestLiveMessageEdit(t *testing.T) {
 	binary := slickBinary(t)
 	env := requireLiveEnv(t, binary)

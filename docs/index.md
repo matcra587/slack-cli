@@ -1,4 +1,4 @@
-# slick
+# Overview
 
 A headless Slack CLI for agents, scripts, and CI jobs. The binary is `slick`;
 the repo and Go module are `slack-cli`.
@@ -11,7 +11,7 @@ auto-switch to JSON when stdout is not a TTY or an agent is detected.
 ## Install
 
 ```sh
-brew install matcra587/tap/slack-cli
+brew install matcra587/tap/slick
 ```
 
 Also available via `go install` and pre-built binaries. See

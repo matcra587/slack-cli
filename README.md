@@ -101,18 +101,8 @@ slick config set workspaces.default.attribution.message "Sent via build agent"
 
 ## Development
 
-```sh
-mise run check        # vet, lint, fmt, test
-mise run test:all     # all uncached tests
-mise run release:check
-mise tasks            # list everything
-```
-
-Project conventions live in [`CLAUDE.md`](CLAUDE.md). Output styling rules
-and field-order policy live at the top of
-[`internal/cli/output/output.go`](internal/cli/output/output.go); an
-AST-walking test enforces field order on every CI run
-([`internal/cli/output/field_order_test.go`](internal/cli/output/field_order_test.go)).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, the local check
+matrix, hooks, repository layout, conventions, and the release flow.
 
 ## License
 

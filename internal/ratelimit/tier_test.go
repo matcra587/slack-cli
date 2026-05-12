@@ -8,6 +8,7 @@ import (
 
 func TestTierForMethodUsesSlackEndpointLookup(t *testing.T) {
 	tests := map[string]ratelimit.Tier{
+		"chat.getPermalink":       ratelimit.Tier4,
 		"chat.postMessage":        ratelimit.TierSpecial,
 		"chat.update":             ratelimit.Tier4,
 		"reactions.add":           ratelimit.Tier4,

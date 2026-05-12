@@ -53,8 +53,8 @@ Human (empty result — table is suppressed, only the summary event renders):
 History retrieved max_items=5
 ```
 
-`ts` and `age` render in `FieldTime` magenta when colour is enabled. The
-USER column hash-colours by user ID.
+`ts` renders in `FieldTime` magenta when colour is enabled. The USER column
+hash-colours by user ID.
 
 JSON envelope. Each message carries Slack's full conversation object —
 expect `permalink`, `bot_id` (present for messages sent via Slack's API

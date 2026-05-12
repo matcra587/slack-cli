@@ -21,8 +21,8 @@ relative phrase derived from the RFC3339 build timestamp, e.g. `now`,
 `2 minutes ago`, `3 days ago`):
 
 ```text
-slick v0.4.0
-   commit=8f2a6ad
+slick v0.5.5
+   commit=87e81b8
    branch=main
    built="2 minutes ago"
    built by=goreleaser
@@ -34,8 +34,8 @@ JSON envelope (`--output=json`):
 {
   "meta": {"command": "version", "workspace": "version", "timestamp": "…", "request_id": "…"},
   "data": {
-    "version": "v0.4.0",
-    "commit": "8f2a6ad",
+    "version": "v0.5.5",
+    "commit": "87e81b8",
     "branch": "main",
     "build_time": "2026-05-10T19:55:00Z",
     "build_by": "goreleaser"

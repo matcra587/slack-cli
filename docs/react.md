@@ -43,26 +43,26 @@ than assuming partial success.
 Human (real, single emoji — no `dry_run` field):
 
 ```text
-Reaction added channel=C7N2Q8L4P ts=1746284582.123456 age=now emoji=thumbsup
+Reaction added channel=C7N2Q8L4P ts=1746284582.123456 emoji=thumbsup
 ```
 
 Human (`--dry-run`, single emoji):
 
 ```text
-Reaction added channel=C7N2Q8L4P ts=1746284582.123456 age=3m dry_run=true emoji=thumbsup
+Reaction added channel=C7N2Q8L4P ts=1746284582.123456 dry_run=true emoji=thumbsup
 ```
 
 Human (real, multiple emoji — one event line per emoji, in argument order):
 
 ```text
-Reaction added channel=C7N2Q8L4P ts=1746284582.123456 age=now emoji=rocket
-Reaction added channel=C7N2Q8L4P ts=1746284582.123456 age=now emoji=white_check_mark
+Reaction added channel=C7N2Q8L4P ts=1746284582.123456 emoji=rocket
+Reaction added channel=C7N2Q8L4P ts=1746284582.123456 emoji=white_check_mark
 ```
 
 Human (`react remove`):
 
 ```text
-Reaction removed channel=C7N2Q8L4P ts=1746284582.123456 age=now emoji=thumbsup
+Reaction removed channel=C7N2Q8L4P ts=1746284582.123456 emoji=thumbsup
 ```
 
 JSON envelope:

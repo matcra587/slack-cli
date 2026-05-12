@@ -132,11 +132,12 @@ func TestNewRootCommandDefinesVisibleShortFlags(t *testing.T) {
 			if flag.Hidden || flag.Shorthand != "" || flag.Name == "help" {
 				return
 			}
-			// Attribution overrides are long-form only; they're niche
-			// per-call overrides and the long names are self-documenting.
-			// --attribution (force-on) is the symmetric partner of -z
-			// --no-attribution and stays long-form for the same reason.
-			if flag.Name == "attribution" || strings.HasPrefix(flag.Name, "attribution-") {
+			// Attribution flags are long-form only; they're niche per-call
+			// overrides and the long names are self-documenting. --attribution
+			// (force-on) and --no-attribution (force-off) are presence-only
+			// toggles; the other --attribution-* flags carry the message shape
+			// overrides.
+			if flag.Name == "attribution" || flag.Name == "no-attribution" || strings.HasPrefix(flag.Name, "attribution-") {
 				return
 			}
 			missing = append(missing, cmd.CommandPath()+" --"+flag.Name)

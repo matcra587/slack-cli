@@ -33,12 +33,31 @@ JSON envelope:
 {
   "data": {
     "workspaces": [
-      {"name": "default", "team_id": "T123ABC456", "team_name": "Example Inc", "token_type": "user"},
-      {"name": "staging", "team_id": "T987XYZ123", "team_name": "Example Staging", "token_type": "bot"}
+      {
+        "name": "default",
+        "team_id": "T123ABC456",
+        "team_name": "Example Inc",
+        "token_type": "user",
+        "token_ref": "keychain:slack-cli/default",
+        "attribution": {"enabled": true}
+      },
+      {
+        "name": "staging",
+        "team_id": "T987XYZ123",
+        "team_name": "Example Staging",
+        "token_type": "bot",
+        "token_ref": "keychain:slack-cli/staging",
+        "attribution": {"enabled": false}
+      }
     ]
   }
 }
 ```
+
+`token_ref` is a credential-store pointer (e.g. `keychain:slack-cli/<profile>`
+or `env:SLACK_TOKEN`) — the raw token never appears in the envelope.
+`attribution.enabled` reflects the persistent default for that workspace; see
+[Config](config.md) to change it.
 
 The `default` workspace is the one selected when no `--workspace` flag is
 passed; change it with [`auth switch`](auth.md#auth-switch) or

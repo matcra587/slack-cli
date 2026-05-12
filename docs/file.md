@@ -40,8 +40,8 @@ slick file upload --channel C1234567890 --file ./report.txt --dry-run
 -b, --blocks             Treat upload message as raw Block Kit JSON
 -t, --thread <TS>        Thread timestamp
 -n, --dry-run            Preview without uploading
-    --attribution            Force attribution on for this command
--z, --no-attribution         Disable attribution for this command
+    --attribution                Force attribution on for this command
+    --no-attribution             Disable attribution for this command
     --attribution-label <LABEL>      Override attribution label
     --attribution-emoji <EMOJI>      Override attribution emoji
     --attribution-message <TEXT>     Override attribution message
@@ -58,14 +58,14 @@ in favour of human-mode-only formatting of the numeric
 `size`):
 
 ```text
-File uploaded channel=C7N2Q8L4P id=F0B2RSKLSJH name=slick-test.txt size="48 B"
+File uploaded channel=C7N2Q8L4P id=F0B2RSKLSJH name=slick-test.txt attribution=false size="48 B"
 ```
 
 Human (`--dry-run`). `id` is the literal `"dry-run"` and the event carries
 `dry_run=true`; no Slack call is made:
 
 ```text
-File uploaded channel=C7N2Q8L4P id=dry-run name=report.txt dry_run=true size="13 B"
+File uploaded channel=C7N2Q8L4P id=dry-run name=report.txt attribution=false dry_run=true size="13 B"
 ```
 
 JSON envelope (real upload):
@@ -74,7 +74,8 @@ JSON envelope (real upload):
 {
   "data": {
     "file": {"id": "F0B2RSKLSJH", "name": "slick-test.txt", "size": 48},
-    "channel": "C7N2Q8L4P"
+    "channel": "C7N2Q8L4P",
+    "attribution": false
   }
 }
 ```
@@ -87,6 +88,7 @@ data record carries `dry_run: true`; no Slack call is made:
   "data": {
     "file": {"id": "dry-run", "name": "report.txt", "size": 13},
     "channel": "C7N2Q8L4P",
+    "attribution": false,
     "dry_run": true
   }
 }

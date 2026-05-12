@@ -190,7 +190,6 @@ func TestWriteResultPlainMessageSendUsesClogFieldsAndDebugDetails(t *testing.T) 
 		"ts=1746284582.123456",
 		"attribution=true",
 		"time=",
-		"age=",
 		"permalink=",
 	} {
 		if !strings.Contains(plain, fragment) {

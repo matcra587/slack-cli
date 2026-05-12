@@ -69,7 +69,7 @@ func RegisterAttributionFlags(cmd *cobra.Command) {
 	on := new(presenceFlag)
 	off := new(presenceFlag)
 	onFlag := flags.VarPF(on, "attribution", "", "Force attribution on for this command (overrides config and env)")
-	offFlag := flags.VarPF(off, "no-attribution", "z", "Disable attribution for this command (overrides config and env)")
+	offFlag := flags.VarPF(off, "no-attribution", "", "Disable attribution for this command (overrides config and env)")
 	// NoOptDefVal tells pflag the flag is valueless. Set to presenceSentinel
 	// (not "true") so Set() can distinguish the bare form from any explicit
 	// `=value` form: bare → pflag invokes Set(sentinel) → accepted; explicit

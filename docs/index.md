@@ -97,7 +97,7 @@ visual conventions:
   the same colour across commands.
 *   **Human labels** (channel name, user name, file name, descriptions) render
   default-styled.
-*   **Time fields** (`ts`, `age`, `fetched_at`, `expiration`) render in clog's
+*   **Time fields** (`ts`, `fetched_at`, `expiration`) render in clog's
   `FieldTime` magenta.
 *   **Bool fields** follow a three-tier polarity:
     *   Alarming on true (e.g. `is_archived`, `deleted`, `truncated`) — red on
@@ -130,7 +130,7 @@ authoritative list lives in
 [`internal/agent/detect.go`](https://github.com/matcra587/slack-cli/blob/main/internal/agent/detect.go).
 Override per-call with `--attribution-label`, `--attribution-emoji`,
 `--attribution-message`. Toggle the block itself with `--attribution` (force
-on) or `--no-attribution` / `-z` (force off); both override config defaults
+on) or `--no-attribution` (force off); both override config defaults
 and env detection, so you can attribute a single command on a workspace with
 `attribution.enabled = false` or suppress a single one when running inside a
 detected agent.

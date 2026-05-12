@@ -41,8 +41,8 @@ slick message send --channel C1234567890 --message "Deploy complete" --dry-run
 -N, --filename <NAME>    Filename metadata for stdin sources
 -b, --blocks             Treat message source as raw Block Kit JSON
 -n, --dry-run            Preview without sending
-    --attribution            Force attribution on for this command
--z, --no-attribution         Disable attribution for this command
+    --attribution                Force attribution on for this command
+    --no-attribution             Disable attribution for this command
     --attribution-label <LABEL>      Override attribution label
     --attribution-emoji <EMOJI>      Override attribution emoji
     --attribution-message <TEXT>     Override attribution message
@@ -67,7 +67,7 @@ dropped.
 Human (real send):
 
 ```text
-Message sent channel=C7N2Q8L4P ts=1746284582.123456 age=now permalink=p1746284582123456
+Message sent channel=C7N2Q8L4P ts=1746284582.123456 permalink=p1746284582123456
 ```
 
 Human (`--dry-run`). `ts` is the literal `"dry-run"`, no `permalink` is
@@ -128,8 +128,8 @@ slick message edit --channel C1234567890 --timestamp 1746284582.123456 --message
 -f, --file <FILE>        Read message body from file or - for stdin
 -b, --blocks             Treat message source as raw Block Kit JSON
 -n, --dry-run            Preview without mutating
-    --attribution            Force attribution on for this command
--z, --no-attribution         Disable attribution for this command
+    --attribution                Force attribution on for this command
+    --no-attribution             Disable attribution for this command
     --attribution-label <LABEL>      Override attribution label
     --attribution-emoji <EMOJI>      Override attribution emoji
     --attribution-message <TEXT>     Override attribution message
@@ -138,7 +138,7 @@ slick message edit --channel C1234567890 --timestamp 1746284582.123456 --message
 Human (`--dry-run`):
 
 ```text
-Message edited channel=C7N2Q8L4P ts=1746284582.123456 age=2m dry_run=true
+Message edited channel=C7N2Q8L4P ts=1746284582.123456 dry_run=true
 ```
 
 JSON envelope (real edit). Slack's `chat.update` does not return a
@@ -184,7 +184,7 @@ slick message delete --channel C1234567890 --timestamp 1746284582.123456 --force
 Human:
 
 ```text
-Message deleted channel=C7N2Q8L4P ts=1746284582.123456 age=2m dry_run=true
+Message deleted channel=C7N2Q8L4P ts=1746284582.123456 dry_run=true
 ```
 
 JSON envelope keeps `ts` (formerly `timestamp` before v0.4.0):

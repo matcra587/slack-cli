@@ -14,7 +14,6 @@ import (
 	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
 	clogstyle "github.com/gechr/clog/style"
-	"github.com/gechr/x/human"
 )
 
 type RenderMode int
@@ -206,7 +205,7 @@ func BuildBaseLoggers(stdout, stderr io.Writer, colorMode clog.ColorMode) (*clog
 	// Slack-native form like "1778441603.561129" is required for piping
 	// back into --timestamp). Style those keys with FieldTime so they
 	// match the color clog uses for genuine time.Time values.
-	timeKeys := []string{"ts", "age", "fetched_at", "expiration"}
+	timeKeys := []string{"ts", "fetched_at", "expiration"}
 	ApplyTimeKeyStyle(sl, timeKeys...)
 	ApplyTimeKeyStyle(el, timeKeys...)
 
@@ -430,13 +429,13 @@ func AddPaginationFields(event *clog.Event, pagination *Pagination) *clog.Event 
 
 func AddSlackTimestampFields(event *clog.Event, ts string, now time.Time) *clog.Event {
 	event = event.Str("ts", ts)
-	parsed, ok := parseSlackTimestamp(ts)
-	if !ok {
-		return event
-	}
-	event = event.Str("age", human.FormatTimeAgoCompactFrom(parsed, now))
+	// Verbose mode surfaces the human-readable time; the default output
+	// drops it because `ts` already carries the absolute timestamp and an
+	// extra "age" or "time" column is noise for most plain-output use.
 	if clog.IsVerbose() {
-		event = event.Time("time", parsed)
+		if parsed, ok := parseSlackTimestamp(ts); ok {
+			event = event.Time("time", parsed)
+		}
 	}
 	return event
 }

@@ -343,7 +343,8 @@ func chainEmissions(expr ast.Expr, fset *token.FileSet, tracker map[string][]emi
 //
 //   - <event>.Str("x", v) and friends — emit "x".
 //   - clioutput.AddBoolField(event, "x", v) / AddIntField — emit "x".
-//   - clioutput.AddSlackTimestampFields(event, ts, now) — emit "ts" then "age".
+//   - clioutput.AddSlackTimestampFields(event, ts, now) — emit "ts" (verbose
+//     mode also emits "time", but that's not enforced for ordering here).
 //   - clioutput.AddPaginationFields(event, pag) — emit cursor, next_cursor,
 //     has_more, max_items, items_returned (always last in canonical order).
 //   - <event>.When(cond, func(e *clog.Event) { ... }) — descend into the
@@ -440,10 +441,9 @@ func helperEmissions(_, name string, call *ast.CallExpr, fset *token.FileSet) []
 		}
 		return nil
 	case "AddSlackTimestampFields":
-		// emits ts (cat 2), age (cat 3); time is verbose-only and skipped here.
+		// emits ts (cat 2). time is verbose-only and skipped here.
 		return []emission{
 			{key: "ts", pos: pos},
-			{key: "age", pos: pos},
 		}
 	case "AddPaginationFields":
 		// always-last canonical pagination footer

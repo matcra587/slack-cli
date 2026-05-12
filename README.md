@@ -85,7 +85,7 @@ source.
 
 Override per-call with `--attribution-label`, `--attribution-emoji`,
 `--attribution-message`. Toggle the block per call with `--attribution` (force
-on) or `--no-attribution` / `-z` (force off); both override config defaults
+on) or `--no-attribution` (force off); both override config defaults
 and env detection. Pin defaults per workspace in config:
 
 ```sh

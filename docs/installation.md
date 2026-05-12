@@ -11,9 +11,7 @@ brew install matcra587/tap/slick
 
 The formula lives in [`matcra587/homebrew-tap`](https://github.com/matcra587/homebrew-tap)
 and tracks the latest GitHub release. Upgrades come through `brew upgrade
-slick`. Older install commands using the previous formula name
-(`matcra587/tap/slack-cli`) continue to resolve via the tap's
-`formula_renames.json`.
+slick`.
 
 ## go install
 
@@ -36,7 +34,9 @@ macOS on arm64 (Apple Silicon). Intel macOS (`darwin_amd64`) is not built —
 the Homebrew formula and pre-built archives both omit it; use `go install`
 on those machines.
 
-```sh
+**bash / zsh:**
+
+```bash
 VERSION=$(curl -fsSL https://api.github.com/repos/matcra587/slack-cli/releases/latest | jq -r .tag_name)
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
@@ -49,13 +49,43 @@ tar xzf "slick_${VERSION#v}_${OS}_${ARCH}.tar.gz"
 sudo install slick /usr/local/bin/
 ```
 
+**fish:**
+
+```fish
+set VERSION (curl -fsSL https://api.github.com/repos/matcra587/slack-cli/releases/latest | jq -r .tag_name)
+set OS (uname -s | string lower)
+set ARCH (uname -m | string replace x86_64 amd64 | string replace aarch64 arm64)
+set NUM (string replace -r '^v' '' $VERSION)
+set TARBALL (printf 'slick_%s_%s_%s.tar.gz' $NUM $OS $ARCH)
+
+curl -fsSLO "https://github.com/matcra587/slack-cli/releases/download/$VERSION/$TARBALL"
+curl -fsSLO "https://github.com/matcra587/slack-cli/releases/download/$VERSION/checksums.txt"
+grep (printf '_%s_%s.tar.gz$' $OS $ARCH) checksums.txt | sha256sum -c
+
+tar xzf $TARBALL
+sudo install slick /usr/local/bin/
+```
+
 The `checksums.txt` file itself is signed with
 [cosign](https://github.com/sigstore/cosign) keyless signing — a
 `checksums.txt.sigstore.json` bundle is uploaded next to the release
 artifacts. To verify the chain end to end:
 
-```sh
+**bash / zsh:**
+
+```bash
 curl -fsSLO "https://github.com/matcra587/slack-cli/releases/download/${VERSION}/checksums.txt.sigstore.json"
+cosign verify-blob \
+    --bundle checksums.txt.sigstore.json \
+    --certificate-identity-regexp "https://github.com/matcra587/slack-cli/" \
+    --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+    checksums.txt
+```
+
+**fish:**
+
+```fish
+curl -fsSLO "https://github.com/matcra587/slack-cli/releases/download/$VERSION/checksums.txt.sigstore.json"
 cosign verify-blob \
     --bundle checksums.txt.sigstore.json \
     --certificate-identity-regexp "https://github.com/matcra587/slack-cli/" \

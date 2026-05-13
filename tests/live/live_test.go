@@ -15,6 +15,7 @@
 //
 //	SLICK_LIVE_WORKSPACE=<name>    (override the config-derived workspace)
 //	SLICK_LIVE_CHANNEL=Cxxxxxxx    (override the config-derived channel)
+//	SLICK_LIVE_USER=Uxxxxxxx       (optional user ID/alias/email for DM tests)
 //
 // Tests skip with a helpful message when no workspace + channel can be
 // resolved (e.g. fresh environment without `slick config init`).
@@ -70,60 +71,140 @@ func TestLiveScheduledMessageRoundTrip(t *testing.T) {
 	body := fmt.Sprintf(`live-scheduled-%s Release note queued for later
 
 This scheduled message should be listed and deleted before it posts.`, runID)
+	ref := scheduleLiveMessage(t, binary, env, []string{"--channel", env.channel}, body, "90m")
+	deleted := cleanupScheduledMessage(t, binary, env, runID, ref)
+
+	if !waitForScheduledMessage(t, binary, env, ref.Channel, runID, true) {
+		t.Fatalf("scheduled list did not return run id %s", runID)
+	}
+	row := requireScheduledMessage(t, binary, env, ref.Channel, runID)
+	if got, _ := row["id"].(string); got != ref.ID {
+		t.Fatalf("scheduled row id = %q, want %q; row=%+v", got, ref.ID, row)
+	}
+	if got, _ := row["channel"].(string); got != ref.Channel {
+		t.Fatalf("scheduled row channel = %q, want %q; row=%+v", got, ref.Channel, row)
+	}
+	if got, _ := row["post_at_iso"].(string); got == "" {
+		t.Fatalf("scheduled row missing post_at_iso: %+v", row)
+	}
+	if got, _ := row["text_preview"].(string); !strings.Contains(got, runID) {
+		t.Fatalf("scheduled row text_preview = %q, want run id %s", got, runID)
+	}
+
+	assertScheduledHumanList(t, binary, env, ref.Channel, ref.ID, runID, "")
+
 	stdout, stderr, err := runSlick(t, binary, "",
-		"message", "send",
 		"--workspace", env.workspace,
-		"--channel", env.channel,
-		"--message", body,
-		"--schedule", "90m",
+		"--dry-run",
+		"message", "scheduled", "delete",
+		"--channel", ref.Channel,
+		"--scheduled-id", ref.ID,
 		"--output=json",
 	)
 	if err != nil {
-		if scope := missingScopeFromStderr(stderr); scope != "" {
-			t.Skipf("workspace token missing required scope %q; scheduled messages need chat:write", scope)
-		}
-		t.Fatalf("scheduled send failed: %v\nstderr=%s", err, stderr)
+		t.Fatalf("scheduled delete dry-run against real id failed: %v\nstderr=%s", err, stderr)
 	}
 	envelope := decodeEnvelope(t, stdout)
-	scheduledID := mustString(t, envelope, "data", "scheduled_message_id")
-	channel := mustString(t, envelope, "data", "channel")
-	if scheduledID == "" || channel == "" {
-		t.Fatalf("scheduled send envelope missing channel/id: %s", stdout)
+	data, ok := envelope["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("delete dry-run envelope missing data: %s", stdout)
 	}
-	deleted := false
-	t.Cleanup(func() {
-		if deleted {
-			return
-		}
-		_, cleanupStderr, cleanupErr := runSlick(t, binary, "",
-			"message", "scheduled", "delete",
-			"--workspace", env.workspace,
-			"--channel", channel,
-			"--scheduled-id", scheduledID,
-			"--output=json",
-		)
-		if cleanupErr != nil {
-			t.Logf("scheduled cleanup failed (run id %s, channel %s, id %s): %v\nstderr=%s",
-				runID, channel, scheduledID, cleanupErr, cleanupStderr)
-		}
-	})
-
-	if !waitForScheduledMessage(t, binary, env, channel, runID, true) {
-		t.Fatalf("scheduled list did not return run id %s", runID)
+	if got, _ := data["dry_run"].(bool); !got {
+		t.Fatalf("delete dry_run = %v, want true", data["dry_run"])
+	}
+	if !waitForScheduledMessage(t, binary, env, ref.Channel, runID, true) {
+		t.Fatalf("scheduled delete dry-run removed real message id %s", ref.ID)
 	}
 
 	if _, stderr, err := runSlick(t, binary, "",
 		"message", "scheduled", "delete",
 		"--workspace", env.workspace,
-		"--channel", channel,
-		"--scheduled-id", scheduledID,
+		"--channel", ref.Channel,
+		"--scheduled-id", ref.ID,
 		"--output=json",
 	); err != nil {
 		t.Fatalf("scheduled delete failed: %v\nstderr=%s", err, stderr)
 	}
-	deleted = true
-	if !waitForScheduledMessage(t, binary, env, channel, runID, false) {
+	*deleted = true
+	if !waitForScheduledMessage(t, binary, env, ref.Channel, runID, false) {
 		t.Fatalf("scheduled list still returned run id %s after delete", runID)
+	}
+}
+
+func TestLiveScheduledDirectMessageRoundTrip(t *testing.T) {
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
+	user := requireLiveUser(t, env)
+	runID := newRunID(t)
+
+	body := fmt.Sprintf(`live-scheduled-dm-%s Follow-up DM queued by live tests
+
+This scheduled DM should appear in message scheduled list as a DM and then be deleted.`, runID)
+	ref := scheduleLiveMessage(t, binary, env, []string{"--user", user}, body, "90m")
+	deleted := cleanupScheduledMessage(t, binary, env, runID, ref)
+
+	if ref.Channel == "" || !strings.HasPrefix(ref.Channel, "D") {
+		t.Fatalf("scheduled DM returned channel %q, want D-prefixed IM channel", ref.Channel)
+	}
+	row := requireScheduledMessage(t, binary, env, ref.Channel, runID)
+	if got, _ := row["is_dm"].(bool); !got {
+		t.Fatalf("scheduled DM row is_dm = %v, want true; row=%+v", row["is_dm"], row)
+	}
+	if got, _ := row["channel_type"].(string); got != "im" {
+		t.Fatalf("scheduled DM row channel_type = %q, want im; row=%+v", got, row)
+	}
+	assertScheduledHumanList(t, binary, env, ref.Channel, ref.ID, runID, "@")
+
+	if _, stderr, err := runSlick(t, binary, "",
+		"message", "scheduled", "delete",
+		"--workspace", env.workspace,
+		"--channel", ref.Channel,
+		"--scheduled-id", ref.ID,
+		"--output=json",
+	); err != nil {
+		t.Fatalf("scheduled DM delete failed: %v\nstderr=%s", err, stderr)
+	}
+	*deleted = true
+	if !waitForScheduledMessage(t, binary, env, ref.Channel, runID, false) {
+		t.Fatalf("scheduled DM list still returned run id %s after delete", runID)
+	}
+}
+
+func TestLiveScheduledAcceptsAllSupportedTimeInputs(t *testing.T) {
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
+	runID := newRunID(t)
+
+	tests := []struct {
+		name     string
+		schedule string
+	}{
+		{name: "rfc3339", schedule: time.Now().Add(95 * time.Minute).UTC().Format(time.RFC3339)},
+		{name: "unix seconds", schedule: fmt.Sprintf("%d", time.Now().Add(100*time.Minute).Unix())},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := fmt.Sprintf("live-scheduled-format-%s %s accepted and cleaned up before posting.", runID, tt.name)
+			ref := scheduleLiveMessage(t, binary, env, []string{"--channel", env.channel}, body, tt.schedule)
+			deleted := cleanupScheduledMessage(t, binary, env, runID, ref)
+			row := requireScheduledMessage(t, binary, env, ref.Channel, runID)
+			if got, _ := row["id"].(string); got != ref.ID {
+				t.Fatalf("scheduled row id = %q, want %q; row=%+v", got, ref.ID, row)
+			}
+			if _, stderr, err := runSlick(t, binary, "",
+				"message", "scheduled", "delete",
+				"--workspace", env.workspace,
+				"--channel", ref.Channel,
+				"--scheduled-id", ref.ID,
+				"--output=json",
+			); err != nil {
+				t.Fatalf("scheduled delete failed: %v\nstderr=%s", err, stderr)
+			}
+			*deleted = true
+			if !waitForScheduledMessage(t, binary, env, ref.Channel, runID, false) {
+				t.Fatalf("scheduled list still returned run id %s after delete", runID)
+			}
+		})
 	}
 }
 
@@ -197,6 +278,38 @@ func TestLiveScheduledDryRunPreviewsDoNotMutate(t *testing.T) {
 	_ = decodeEnvelope(t, stdout)
 	if scheduledMessageExists(t, binary, env, env.channel, runID) {
 		t.Fatalf("scheduled send dry-run created pending message for run id %s", runID)
+	}
+}
+
+func TestLiveScheduledUserDryRunPreviewsDoNotMutate(t *testing.T) {
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
+	user := requireLiveUser(t, env)
+	runID := newRunID(t)
+
+	body := fmt.Sprintf("live-scheduled-dm-dry-run-%s DM preview; this should never be queued.", runID)
+	stdout, stderr, err := runSlick(t, binary, "",
+		"--workspace", env.workspace,
+		"--dry-run",
+		"message", "send",
+		"--user", user,
+		"--message", body,
+		"--schedule", "90m",
+		"--output=json",
+	)
+	if err != nil {
+		t.Fatalf("scheduled DM dry-run failed: %v\nstderr=%s", err, stderr)
+	}
+	envelope := decodeEnvelope(t, stdout)
+	if got := mustString(t, envelope, "data", "scheduled_message_id"); got != "Q-dry-run" {
+		t.Fatalf("scheduled_message_id = %q, want Q-dry-run", got)
+	}
+	data, ok := envelope["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("envelope missing data: %s", stdout)
+	}
+	if got, _ := data["dry_run"].(bool); !got {
+		t.Fatalf("dry_run = %v, want true", data["dry_run"])
 	}
 }
 
@@ -907,12 +1020,19 @@ This message is short on purpose so the assertion path is the focus.`, runID, tc
 type liveEnv struct {
 	workspace string
 	channel   string
+	user      string
+}
+
+type scheduledRef struct {
+	Channel string
+	ID      string
 }
 
 func requireLiveEnv(t *testing.T, binary string) liveEnv {
 	t.Helper()
 	workspace := os.Getenv("SLICK_LIVE_WORKSPACE")
 	channel := os.Getenv("SLICK_LIVE_CHANNEL")
+	user := os.Getenv("SLICK_LIVE_USER")
 	if workspace == "" || channel == "" {
 		ws, ch := discoverLiveDefaults(t, binary)
 		if workspace == "" {
@@ -931,7 +1051,15 @@ func requireLiveEnv(t *testing.T, binary string) liveEnv {
 	if !strings.HasPrefix(channel, "C") && !strings.HasPrefix(channel, "G") && !strings.HasPrefix(channel, "D") {
 		t.Fatalf("resolved channel %q does not look like a Slack channel ID", channel)
 	}
-	return liveEnv{workspace: workspace, channel: channel}
+	return liveEnv{workspace: workspace, channel: channel, user: user}
+}
+
+func requireLiveUser(t *testing.T, env liveEnv) string {
+	t.Helper()
+	if env.user == "" {
+		t.Skip("no DM target resolved; set SLICK_LIVE_USER to a Slack user ID, alias, or Slack-profile email to run scheduled DM live tests")
+	}
+	return env.user
 }
 
 // discoverLiveDefaults shells out to `slick config list --json` and returns
@@ -1136,6 +1264,93 @@ func sweepRecentByPrefix(t *testing.T, binary string, env liveEnv, prefix string
 	}
 }
 
+func scheduleLiveMessage(t *testing.T, binary string, env liveEnv, targetArgs []string, body, schedule string) scheduledRef {
+	t.Helper()
+	args := []string{
+		"message", "send",
+		"--workspace", env.workspace,
+	}
+	args = append(args, targetArgs...)
+	args = append(args,
+		"--message", body,
+		"--schedule", schedule,
+		"--output=json",
+	)
+	stdout, stderr, err := runSlick(t, binary, "", args...)
+	if err != nil {
+		if scope := missingScopeFromStderr(stderr); scope != "" {
+			t.Skipf("workspace token missing required scope %q; scheduled messages need chat:write plus DM scopes for --user targets", scope)
+		}
+		t.Fatalf("scheduled send failed: %v\nstderr=%s", err, stderr)
+	}
+	envelope := decodeEnvelope(t, stdout)
+	ref := scheduledRef{
+		Channel: mustString(t, envelope, "data", "channel"),
+		ID:      mustString(t, envelope, "data", "scheduled_message_id"),
+	}
+	if ref.Channel == "" || ref.ID == "" {
+		t.Fatalf("scheduled send envelope missing channel/id: %s", stdout)
+	}
+	return ref
+}
+
+func cleanupScheduledMessage(t *testing.T, binary string, env liveEnv, runID string, ref scheduledRef) *bool {
+	t.Helper()
+	deleted := false
+	t.Cleanup(func() {
+		if deleted {
+			return
+		}
+		_, cleanupStderr, cleanupErr := runSlick(t, binary, "",
+			"message", "scheduled", "delete",
+			"--workspace", env.workspace,
+			"--channel", ref.Channel,
+			"--scheduled-id", ref.ID,
+			"--output=json",
+		)
+		if cleanupErr != nil {
+			t.Logf("scheduled cleanup failed (run id %s, channel %s, id %s): %v\nstderr=%s",
+				runID, ref.Channel, ref.ID, cleanupErr, cleanupStderr)
+		}
+	})
+	return &deleted
+}
+
+func requireScheduledMessage(t *testing.T, binary string, env liveEnv, channel, runID string) map[string]any {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		if row, ok := findScheduledMessage(t, binary, env, channel, runID); ok {
+			return row
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("scheduled list did not return run id %s in channel %s", runID, channel)
+		}
+		time.Sleep(2 * time.Second)
+	}
+}
+
+func assertScheduledHumanList(t *testing.T, binary string, env liveEnv, channel, scheduledID, runID, requiredChannelPrefix string) {
+	t.Helper()
+	stdout, stderr, err := runSlick(t, binary, "",
+		"message", "scheduled", "list",
+		"--workspace", env.workspace,
+		"--channel", channel,
+		"--output=human",
+	)
+	if err != nil {
+		t.Fatalf("scheduled human list failed: %v\nstderr=%s", err, stderr)
+	}
+	for _, want := range []string{"ID", "CHANNEL", "DM", "POST_AT", "TEXT", scheduledID, runID} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("scheduled human list missing %q\nstdout=%s", want, stdout)
+		}
+	}
+	if requiredChannelPrefix != "" && !strings.Contains(stdout, requiredChannelPrefix) {
+		t.Fatalf("scheduled human list missing channel prefix %q\nstdout=%s", requiredChannelPrefix, stdout)
+	}
+}
+
 func waitForScheduledMessage(t *testing.T, binary string, env liveEnv, channel, runID string, want bool) bool {
 	t.Helper()
 	deadline := time.Now().Add(30 * time.Second)
@@ -1153,6 +1368,12 @@ func waitForScheduledMessage(t *testing.T, binary string, env liveEnv, channel, 
 
 func scheduledMessageExists(t *testing.T, binary string, env liveEnv, channel, runID string) bool {
 	t.Helper()
+	_, ok := findScheduledMessage(t, binary, env, channel, runID)
+	return ok
+}
+
+func findScheduledMessage(t *testing.T, binary string, env liveEnv, channel, runID string) (map[string]any, bool) {
+	t.Helper()
 	cursor := ""
 	for page := 0; page < 5; page++ {
 		args := []string{
@@ -1168,16 +1389,16 @@ func scheduledMessageExists(t *testing.T, binary string, env liveEnv, channel, r
 		stdout, stderr, err := runSlick(t, binary, "", args...)
 		if err != nil {
 			t.Logf("scheduled list failed while looking for run id %s: %v\nstderr=%s", runID, err, stderr)
-			return false
+			return nil, false
 		}
 		envelope := decodeEnvelope(t, stdout)
 		data, ok := envelope["data"].(map[string]any)
 		if !ok {
-			return false
+			return nil, false
 		}
 		rows, ok := data["scheduled_messages"].([]any)
 		if !ok {
-			return false
+			return nil, false
 		}
 		for _, raw := range rows {
 			row, ok := raw.(map[string]any)
@@ -1186,7 +1407,7 @@ func scheduledMessageExists(t *testing.T, binary string, env liveEnv, channel, r
 			}
 			preview, _ := row["text_preview"].(string)
 			if strings.Contains(preview, runID) {
-				return true
+				return row, true
 			}
 		}
 		meta, _ := envelope["meta"].(map[string]any)
@@ -1194,11 +1415,11 @@ func scheduledMessageExists(t *testing.T, binary string, env liveEnv, channel, r
 		hasMore, _ := pagination["has_more"].(bool)
 		nextCursor, _ := pagination["next_cursor"].(string)
 		if !hasMore || nextCursor == "" {
-			return false
+			return nil, false
 		}
 		cursor = nextCursor
 	}
-	return false
+	return nil, false
 }
 
 // missingScopeFromStderr extracts the scope name from a structured error

@@ -65,6 +65,28 @@ func TestCompletionGeneratorAnnotatesCommonSlackFlags(t *testing.T) {
 	assertCompletionSpec(t, messageSend.Specs, "file", func(spec complete.Spec) bool {
 		return spec.ValueHint == complete.HintFile
 	})
+	assertCompletionSpec(t, messageSend.Specs, "schedule", func(spec complete.Spec) bool {
+		return spec.HasArg && spec.ShortFlag == "s" && spec.Terse == "schedule"
+	})
+
+	scheduledList := completionSub(t, gen.Subs, "message", "scheduled", "list")
+	assertCompletionSpec(t, scheduledList.Specs, "channel", func(spec complete.Spec) bool {
+		return spec.Dynamic == "channel"
+	})
+	assertCompletionSpec(t, scheduledList.Specs, "cursor", func(spec complete.Spec) bool {
+		return spec.HasArg && spec.ShortFlag == "C" && spec.Terse == "cursor"
+	})
+	assertCompletionSpec(t, scheduledList.Specs, "limit", func(spec complete.Spec) bool {
+		return spec.HasArg && spec.ShortFlag == "L" && spec.Terse == "limit"
+	})
+
+	scheduledDelete := completionSub(t, gen.Subs, "message", "scheduled", "delete")
+	assertCompletionSpec(t, scheduledDelete.Specs, "channel", func(spec complete.Spec) bool {
+		return spec.Dynamic == "channel"
+	})
+	assertCompletionSpec(t, scheduledDelete.Specs, "scheduled-id", func(spec complete.Spec) bool {
+		return spec.HasArg && spec.Terse == "scheduled id"
+	})
 
 	historyList := completionSub(t, gen.Subs, "history", "list")
 	assertCompletionSpec(t, historyList.Specs, "channel", func(spec complete.Spec) bool {
@@ -111,6 +133,20 @@ func TestCompletionGeneratorAnnotatesCommonSlackFlags(t *testing.T) {
 	cacheClear := completionSub(t, gen.Subs, "cache", "clear")
 	if got := cacheClear.DynamicArgs; !slices.Equal(got, []string{"cache_resource"}) {
 		t.Fatalf("cache clear dynamic args = %#v, want cache_resource", got)
+	}
+}
+
+func TestCompletionGeneratorLimitsScheduledSubcommands(t *testing.T) {
+	gen := clicompletion.Generator(NewRootCommand())
+	scheduled := completionSub(t, gen.Subs, "message", "scheduled")
+
+	var got []string
+	for _, sub := range scheduled.Subs {
+		got = append(got, sub.Name)
+	}
+	slices.Sort(got)
+	if !slices.Equal(got, []string{"delete", "list"}) {
+		t.Fatalf("message scheduled completion subcommands = %#v, want delete/list only", got)
 	}
 }
 

@@ -28,6 +28,8 @@ type CommandContext struct {
 	StderrLog     *clog.Logger
 }
 
+type ListPlainWriter[T any] func(c *CommandContext, command string, items []T, pagination *Pagination) error
+
 func (c *CommandContext) StdoutLogger() *clog.Logger { return c.StdoutLog }
 func (c *CommandContext) StderrLogger() *clog.Logger { return c.StderrLog }
 
@@ -83,6 +85,18 @@ func (c *CommandContext) WriteResultWithPagination(command string, data any, pag
 		})
 	}
 	return nil
+}
+
+func WriteList[T any](c *CommandContext, command string, data any, items []T, pagination *Pagination, plain ListPlainWriter[T]) error {
+	if c.Mode == RenderModePlain {
+		if plain != nil {
+			return plain(c, command, items, pagination)
+		}
+		event := c.ResultEvent(command)
+		c.FinishResult(event, command, pagination)
+		return nil
+	}
+	return c.WriteResultWithPagination(command, data, pagination)
 }
 
 func (c *CommandContext) WritePlainResult(command string, data any, pagination *Pagination) error {
@@ -177,39 +191,41 @@ func (c *CommandContext) FinishResult(event *clog.Event, command string, paginat
 // the test to grow a parallel exception list, which is more disruptive
 // than the comment.
 var commandActionLabel = map[string]string{
-	"message.send":      "Message sent",
-	"message.edit":      "Message edited",
-	"message.delete":    "Message deleted",
-	"reply":             "Reply posted",
-	"react.add":         "Reaction added",
-	"react.remove":      "Reaction removed",
-	"react.list":        "Reactions retrieved",
-	"history.list":      "History retrieved",
-	"lookup.channel":    "Channel resolved",
-	"lookup.user":       "User resolved",
-	"lookup.messages":   "Messages searched", // cobra-path form (test asserts this)
-	"search.messages":   "Messages searched", // runtime form emitted by search.go
-	"file.upload":       "File uploaded",
-	"status.set":        "Status set",
-	"status.clear":      "Status cleared",
-	"auth.login":        "Login complete",
-	"auth.logout":       "Logout complete",
-	"auth.switch":       "Workspace switched",
-	"auth.status":       "Auth status retrieved",
-	"workspace.list":    "Workspaces listed",
-	"config.init":       "Config initialized",
-	"config.path":       "Config path resolved",
-	"config.list":       "Config listed",
-	"config.get":        "Config value retrieved",
-	"config.set":        "Config value set",
-	"config.unset":      "Config value unset",
-	"manifest.template": "Manifest generated",
-	"cache.users":       "User cache primed",
-	"cache.channels":    "Channel cache primed",
-	"cache.clear":       "Cache cleared",
-	"agent.guide":       "Guide retrieved",
-	"agent.schema":      "Schema retrieved",
-	"version":           "Version printed",
+	"message.send":             "Message sent",
+	"message.edit":             "Message edited",
+	"message.delete":           "Message deleted",
+	"message.scheduled.list":   "Scheduled messages retrieved",
+	"message.scheduled.delete": "Scheduled message deleted",
+	"reply":                    "Reply posted",
+	"react.add":                "Reaction added",
+	"react.remove":             "Reaction removed",
+	"react.list":               "Reactions retrieved",
+	"history.list":             "History retrieved",
+	"lookup.channel":           "Channel resolved",
+	"lookup.user":              "User resolved",
+	"lookup.messages":          "Messages searched", // cobra-path form (test asserts this)
+	"search.messages":          "Messages searched", // runtime form emitted by search.go
+	"file.upload":              "File uploaded",
+	"status.set":               "Status set",
+	"status.clear":             "Status cleared",
+	"auth.login":               "Login complete",
+	"auth.logout":              "Logout complete",
+	"auth.switch":              "Workspace switched",
+	"auth.status":              "Auth status retrieved",
+	"workspace.list":           "Workspaces listed",
+	"config.init":              "Config initialized",
+	"config.path":              "Config path resolved",
+	"config.list":              "Config listed",
+	"config.get":               "Config value retrieved",
+	"config.set":               "Config value set",
+	"config.unset":             "Config value unset",
+	"manifest.template":        "Manifest generated",
+	"cache.users":              "User cache primed",
+	"cache.channels":           "Channel cache primed",
+	"cache.clear":              "Cache cleared",
+	"agent.guide":              "Guide retrieved",
+	"agent.schema":             "Schema retrieved",
+	"version":                  "Version printed",
 }
 
 func (c *CommandContext) WriteMessages(command string, messages []Message, pagination *Pagination) error {
@@ -244,6 +260,17 @@ func (c *CommandContext) WriteUsers(command string, users []User, pagination *Pa
 		return c.WriteUserTable(users)
 	}
 	event := c.ResultEvent(command)
+	c.FinishResult(event, command, pagination)
+	return nil
+}
+
+func (c *CommandContext) WriteScheduledMessages(command string, messages []ScheduledMessage, pagination *Pagination) error {
+	if len(messages) > 0 {
+		return c.WriteScheduledMessageTable(messages)
+	}
+	ApplyNumberKeyStyle(c.StdoutLogger(), "count")
+	event := c.ResultEvent(command)
+	event = event.Str("count", "0")
 	c.FinishResult(event, command, pagination)
 	return nil
 }
@@ -286,4 +313,24 @@ func WriteCommandError(ctx *CommandContext, err CLIError) error {
 
 func TruncateText(value string, limit int) string {
 	return termansi.Truncate(value, limit, "...")
+}
+
+func TextPreview(value string, limit int) string {
+	if limit <= 0 {
+		return ""
+	}
+	if len([]rune(value)) <= limit {
+		return value
+	}
+	if limit == 1 {
+		return "…"
+	}
+	out := make([]rune, 0, limit)
+	for _, r := range value {
+		if len(out) == limit-1 {
+			break
+		}
+		out = append(out, r)
+	}
+	return string(out) + "…"
 }

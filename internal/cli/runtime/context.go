@@ -177,6 +177,15 @@ func ExtractFlags(cmd *cobra.Command) (clioutput.OutputFlags, AttributionFlags) 
 	return clioutput.OutputFlags{Output: output}, readAttributionFlags(cmd)
 }
 
+// DryRun reports whether the root persistent --dry-run flag was set.
+func DryRun(cmd *cobra.Command) bool {
+	if cmd == nil || cmd.Root() == nil {
+		return false
+	}
+	dryRun, _ := cmd.Root().PersistentFlags().GetBool("dry-run")
+	return dryRun
+}
+
 func readAttributionFlags(cmd *cobra.Command) AttributionFlags {
 	flags := cmd.LocalFlags()
 	return AttributionFlags{

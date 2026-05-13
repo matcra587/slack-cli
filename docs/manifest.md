@@ -28,7 +28,7 @@ slick manifest template --preset readonly --type user \
 ### Flags
 
 ```text
--n, --name <NAME>                 App display name
+-N, --name <NAME>                 App display name
 -d, --description <TEXT>          Short app description
 -L, --long-description <TEXT>     Long app description
 -p, --preset <PRESET>             Scope preset: readonly, messaging, files, search, or full

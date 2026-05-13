@@ -68,6 +68,7 @@ preconditions / commands / parse / quirks sequence.
 ```sh
 slick agent guide --help          # list available workflows
 slick agent guide send_msg        # one specific workflow
+slick agent guide schedule_msg    # scheduled send/list/delete workflow
 slick agent guide                 # the full guide (every workflow)
 ```
 
@@ -89,6 +90,7 @@ react                 Add, remove, and list emoji reactions by channel and times
 read_history          Read channel history or thread replies with bounded pagination
 reply                 Reply to a message thread by parent timestamp
 safe_mutation         Preview high-impact changes and parse JSON results
+schedule_msg          Schedule, list, and delete future messages
 search_msgs           Workspace message search workflow
 send_dm               Send direct messages while handling token limits
 send_msg              Send a markdown message and read ts/permalink from JSON
@@ -107,7 +109,6 @@ per-command pages of this site, including post-v0.4.0 renames (`ts`,
 ## See also
 
 *   [`README`](https://github.com/matcra587/slack-cli#readme) — onboarding.
-*   The in-repo skill at `.claude/skills/slack-cli/SKILL.md` (also mirrored
-    under `.agents/skills/slack-cli/`) wraps these outputs into a
-    Claude Code / agent skill.
+*   The in-repo skill at `.claude/skills/slack-cli/SKILL.md` wraps these
+    outputs into a Claude Code / agent skill.
 *   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).

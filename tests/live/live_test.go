@@ -61,6 +61,183 @@ LGTM after the docs note lands. 👀`, runID)
 	cleanupMessage(t, binary, env, runID, channel, ts)
 }
 
+func TestLiveScheduledMessageRoundTrip(t *testing.T) {
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
+	runID := newRunID(t)
+	sweepRecentByPrefix(t, binary, env, "live-scheduled-")
+
+	body := fmt.Sprintf(`live-scheduled-%s Release note queued for later
+
+This scheduled message should be listed and deleted before it posts.`, runID)
+	stdout, stderr, err := runSlick(t, binary, "",
+		"message", "send",
+		"--workspace", env.workspace,
+		"--channel", env.channel,
+		"--message", body,
+		"--schedule", "90m",
+		"--output=json",
+	)
+	if err != nil {
+		if scope := missingScopeFromStderr(stderr); scope != "" {
+			t.Skipf("workspace token missing required scope %q; scheduled messages need chat:write", scope)
+		}
+		t.Fatalf("scheduled send failed: %v\nstderr=%s", err, stderr)
+	}
+	envelope := decodeEnvelope(t, stdout)
+	scheduledID := mustString(t, envelope, "data", "scheduled_message_id")
+	channel := mustString(t, envelope, "data", "channel")
+	if scheduledID == "" || channel == "" {
+		t.Fatalf("scheduled send envelope missing channel/id: %s", stdout)
+	}
+	deleted := false
+	t.Cleanup(func() {
+		if deleted {
+			return
+		}
+		_, cleanupStderr, cleanupErr := runSlick(t, binary, "",
+			"message", "scheduled", "delete",
+			"--workspace", env.workspace,
+			"--channel", channel,
+			"--scheduled-id", scheduledID,
+			"--output=json",
+		)
+		if cleanupErr != nil {
+			t.Logf("scheduled cleanup failed (run id %s, channel %s, id %s): %v\nstderr=%s",
+				runID, channel, scheduledID, cleanupErr, cleanupStderr)
+		}
+	})
+
+	if !waitForScheduledMessage(t, binary, env, channel, runID, true) {
+		t.Fatalf("scheduled list did not return run id %s", runID)
+	}
+
+	if _, stderr, err := runSlick(t, binary, "",
+		"message", "scheduled", "delete",
+		"--workspace", env.workspace,
+		"--channel", channel,
+		"--scheduled-id", scheduledID,
+		"--output=json",
+	); err != nil {
+		t.Fatalf("scheduled delete failed: %v\nstderr=%s", err, stderr)
+	}
+	deleted = true
+	if !waitForScheduledMessage(t, binary, env, channel, runID, false) {
+		t.Fatalf("scheduled list still returned run id %s after delete", runID)
+	}
+}
+
+func TestLiveScheduledDryRunPreviewsDoNotMutate(t *testing.T) {
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
+	runID := newRunID(t)
+
+	body := fmt.Sprintf("live-scheduled-dry-run-%s release note preview; this should never be queued.", runID)
+	stdout, stderr, err := runSlick(t, binary, "",
+		"--workspace", env.workspace,
+		"--dry-run",
+		"message", "send",
+		"--channel", env.channel,
+		"--message", body,
+		"--schedule", "90m",
+		"--output=json",
+	)
+	if err != nil {
+		t.Fatalf("scheduled send dry-run failed: %v\nstderr=%s", err, stderr)
+	}
+	envelope := decodeEnvelope(t, stdout)
+	if got := mustString(t, envelope, "data", "scheduled_message_id"); got != "Q-dry-run" {
+		t.Fatalf("scheduled_message_id = %q, want Q-dry-run", got)
+	}
+	data, ok := envelope["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("envelope missing data: %s", stdout)
+	}
+	if got, _ := data["dry_run"].(bool); !got {
+		t.Fatalf("dry_run = %v, want true", data["dry_run"])
+	}
+
+	stdout, stderr, err = runSlick(t, binary, "",
+		"--workspace", env.workspace,
+		"--dry-run",
+		"message", "scheduled", "delete",
+		"--channel", env.channel,
+		"--scheduled-id", "Q-dry-run",
+		"--output=json",
+	)
+	if err != nil {
+		t.Fatalf("scheduled delete dry-run failed: %v\nstderr=%s", err, stderr)
+	}
+	envelope = decodeEnvelope(t, stdout)
+	data, ok = envelope["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("delete dry-run envelope missing data: %s", stdout)
+	}
+	if got, _ := data["dry_run"].(bool); !got {
+		t.Fatalf("delete dry_run = %v, want true", data["dry_run"])
+	}
+	if got, _ := data["deleted"].(bool); !got {
+		t.Fatalf("delete deleted = %v, want true", data["deleted"])
+	}
+
+	stdout, stderr, err = runSlick(t, binary, "",
+		"--workspace", env.workspace,
+		"--dry-run",
+		"message", "scheduled", "list",
+		"--channel", env.channel,
+		"--limit", "1",
+		"--output=json",
+	)
+	if err != nil {
+		if scope := missingScopeFromStderr(stderr); scope != "" {
+			t.Skipf("workspace token missing required scope %q; scheduled list needs chat:write", scope)
+		}
+		t.Fatalf("scheduled list with dry-run flag failed: %v\nstderr=%s", err, stderr)
+	}
+	_ = decodeEnvelope(t, stdout)
+	if scheduledMessageExists(t, binary, env, env.channel, runID) {
+		t.Fatalf("scheduled send dry-run created pending message for run id %s", runID)
+	}
+}
+
+func TestLiveScheduledRejectsInvalidLocalTimes(t *testing.T) {
+	binary := slickBinary(t)
+	env := requireLiveEnv(t, binary)
+	runID := newRunID(t)
+
+	tests := []struct {
+		name     string
+		schedule string
+		want     string
+	}{
+		{name: "past", schedule: "-1m", want: "schedule time must be in the future"},
+		{name: "beyond 120 days", schedule: "2881h", want: "schedule time must be within 120 days"},
+		{name: "natural language", schedule: "tomorrow at 9am", want: "schedule time must be RFC3339, Go duration, or Unix seconds"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := fmt.Sprintf("live-scheduled-invalid-%s %s", runID, tt.name)
+			_, stderr, err := runSlick(t, binary, "",
+				"message", "send",
+				"--workspace", env.workspace,
+				"--channel", env.channel,
+				"--message", body,
+				"--schedule", tt.schedule,
+				"--output=json",
+			)
+			if err == nil {
+				t.Fatalf("schedule %q returned success, want validation failure", tt.schedule)
+			}
+			if !strings.Contains(stderr, tt.want) {
+				t.Fatalf("stderr = %s, want %q", stderr, tt.want)
+			}
+			if _, ts := lookupRecentByText(t, binary, env, body); ts != "" {
+				t.Fatalf("invalid scheduled send posted message ts=%s", ts)
+			}
+		})
+	}
+}
+
 // TestLiveAttributionOverride sends a message with overridden attribution
 // emoji and message and intentionally leaves it in the channel so the
 // override can be visually verified in Slack. Cleanup is skipped on purpose;
@@ -905,6 +1082,125 @@ func lookupRecentByText(t *testing.T, binary string, env liveEnv, text string) (
 	return "", ""
 }
 
+// sweepRecentByPrefix removes residue from scheduled-message live tests after
+// an interrupted run lets a scheduled message post before cleanup can delete it.
+func sweepRecentByPrefix(t *testing.T, binary string, env liveEnv, prefix string) {
+	t.Helper()
+	stdout, stderr, err := runSlick(t, binary, "",
+		"history", "list",
+		"--workspace", env.workspace,
+		"--channel", env.channel,
+		"--max-items", "100",
+		"--output=json",
+	)
+	if err != nil {
+		t.Logf("sweepRecentByPrefix history list failed: %v\nstderr=%s", err, stderr)
+		return
+	}
+	envelope := decodeEnvelope(t, stdout)
+	data, ok := envelope["data"].(map[string]any)
+	if !ok {
+		return
+	}
+	messages, ok := data["messages"].([]any)
+	if !ok {
+		return
+	}
+	for _, raw := range messages {
+		msg, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		msgText, _ := msg["text"].(string)
+		if !strings.HasPrefix(msgText, prefix) {
+			continue
+		}
+		ts, _ := msg["ts"].(string)
+		channel, _ := msg["channel"].(string)
+		if channel == "" {
+			channel = env.channel
+		}
+		if ts == "" {
+			continue
+		}
+		if _, deleteStderr, deleteErr := runSlick(t, binary, "",
+			"message", "delete",
+			"--workspace", env.workspace,
+			"--channel", channel,
+			"--timestamp", ts,
+			"--force",
+			"--output=json",
+		); deleteErr != nil {
+			t.Logf("sweep delete failed (channel %s, ts %s): %v\nstderr=%s", channel, ts, deleteErr, deleteStderr)
+		}
+	}
+}
+
+func waitForScheduledMessage(t *testing.T, binary string, env liveEnv, channel, runID string, want bool) bool {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		got := scheduledMessageExists(t, binary, env, channel, runID)
+		if got == want {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(2 * time.Second)
+	}
+}
+
+func scheduledMessageExists(t *testing.T, binary string, env liveEnv, channel, runID string) bool {
+	t.Helper()
+	cursor := ""
+	for page := 0; page < 5; page++ {
+		args := []string{
+			"message", "scheduled", "list",
+			"--workspace", env.workspace,
+			"--channel", channel,
+			"--limit", "100",
+			"--output=json",
+		}
+		if cursor != "" {
+			args = append(args, "--cursor", cursor)
+		}
+		stdout, stderr, err := runSlick(t, binary, "", args...)
+		if err != nil {
+			t.Logf("scheduled list failed while looking for run id %s: %v\nstderr=%s", runID, err, stderr)
+			return false
+		}
+		envelope := decodeEnvelope(t, stdout)
+		data, ok := envelope["data"].(map[string]any)
+		if !ok {
+			return false
+		}
+		rows, ok := data["scheduled_messages"].([]any)
+		if !ok {
+			return false
+		}
+		for _, raw := range rows {
+			row, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			preview, _ := row["text_preview"].(string)
+			if strings.Contains(preview, runID) {
+				return true
+			}
+		}
+		meta, _ := envelope["meta"].(map[string]any)
+		pagination, _ := meta["pagination"].(map[string]any)
+		hasMore, _ := pagination["has_more"].(bool)
+		nextCursor, _ := pagination["next_cursor"].(string)
+		if !hasMore || nextCursor == "" {
+			return false
+		}
+		cursor = nextCursor
+	}
+	return false
+}
+
 // missingScopeFromStderr extracts the scope name from a structured error
 // envelope (e.g. {"errors":[{"type":"auth_failure","message":"missing required
 // Slack scope: users.profile:write"...}]}). Returns "" if stderr isn't
@@ -925,11 +1221,15 @@ func missingScopeFromStderr(stderr string) string {
 		return ""
 	}
 	const prefix = "missing required Slack scope: "
+	const slackPrefix = "missing_scope: missing required Slack scope: "
 	for _, e := range envelope.Errors {
 		if e.Type != "auth_failure" {
 			continue
 		}
 		if rest, ok := strings.CutPrefix(e.Message, prefix); ok {
+			return strings.TrimSpace(rest)
+		}
+		if rest, ok := strings.CutPrefix(e.Message, slackPrefix); ok {
 			return strings.TrimSpace(rest)
 		}
 	}

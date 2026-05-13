@@ -29,6 +29,12 @@ func TestPlainOutputForHistorySearchListsAndReactions(t *testing.T) {
 		"reactions.get": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":true,"type":"message","message":{"reactions":[{"name":"thumbsup","count":1,"users":["U1"]}]}}`)
 		},
+		"chat.scheduledMessages.list": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"scheduled_messages":[{"id":"Q123","channel_id":"C123","post_at":1770000000,"text":"Deploy later"}]}`)
+		},
+		"conversations.info": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"channel":{"id":"C123","name":"alerts","is_channel":true}}`)
+		},
 	})
 
 	commands := []struct {
@@ -42,6 +48,7 @@ func TestPlainOutputForHistorySearchListsAndReactions(t *testing.T) {
 		{args: []string{"--output=human", "lookup", "channel", "--types", "im"}, headers: []string{"CHANNEL", "TYPE", "USER"}, row: "D123"},
 		{args: []string{"--output=human", "lookup", "user"}, headers: []string{"USER", "NAME", "TZ", "STATUS"}, row: "Deploying"},
 		{args: []string{"--output=human", "react", "list", "--channel", "C123", "--timestamp", "1746284582.123456"}, headers: []string{"EMOJI", "COUNT", "USERS"}, row: "thumbsup"},
+		{args: []string{"--output=human", "message", "scheduled", "list", "--channel", "C123"}, headers: []string{"ID", "CHANNEL", "DM", "POST_AT", "TEXT"}, row: "#alerts"},
 	}
 	for _, tt := range commands {
 		stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(), "", tt.args)
@@ -93,5 +100,23 @@ func TestSearchPlainOutputTruncatesUnlessFull(t *testing.T) {
 	}
 	if !strings.Contains(stdout, longText) {
 		t.Fatalf("plain search --full missing full text: %s", stdout)
+	}
+}
+
+func TestScheduledListPlainEmptyShowsCount(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"chat.scheduledMessages.list": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"scheduled_messages":[]}`)
+		},
+	})
+
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
+		[]string{"--output=human", "message", "scheduled", "list", "--channel", "C123"},
+	)
+	if err != nil {
+		t.Fatalf("scheduled list returned error: %v\nstderr=%s", err, stderr)
+	}
+	if !strings.Contains(stdout, "Scheduled messages retrieved") || !strings.Contains(stdout, "count=0") {
+		t.Fatalf("stdout = %q, want scheduled-list summary with count=0", stdout)
 	}
 }

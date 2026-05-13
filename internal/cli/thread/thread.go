@@ -16,7 +16,6 @@ import (
 // NewCommand returns the "reply" cobra command.
 func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	var src climessage.Source
-	var dryRun bool
 	replyCmd := &cobra.Command{
 		Use:   "reply",
 		Short: "Reply to a Slack thread",
@@ -28,7 +27,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
   $ printf '%s\n' "$reply" | slick reply --channel <channel-id> --parent <parent-message-ts> --file - --output=json`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runThreadReply(cmd, runtime, src, dryRun)
+			return runThreadReply(cmd, runtime, src, cliruntime.DryRun(cmd))
 		},
 	}
 	replyCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
@@ -36,7 +35,6 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	replyCmd.Flags().StringVarP(&src.Message, "message", "m", "", "Message body")
 	replyCmd.Flags().StringVarP(&src.File, "file", "f", "", "Read message body from file or - for stdin")
 	replyCmd.Flags().BoolVarP(&src.Blocks, "blocks", "b", false, "Treat message source as raw Block Kit JSON")
-	replyCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview without sending")
 	cliruntime.RegisterAttributionFlags(replyCmd)
 	return replyCmd
 }

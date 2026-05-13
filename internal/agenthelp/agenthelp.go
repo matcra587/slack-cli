@@ -132,29 +132,32 @@ func GenerateSchema(root *cobra.Command) Schema {
 
 func inputShapes() map[string][]string {
 	return map[string][]string{
-		"message.send":   {"--channel <id|alias>", "--user <id|alias>", "--channel and --user are mutually exclusive", "--message <markdown>", "--file <path|->", "stdin markdown when --file -", "source-preserving Markdown fallback for unsupported block-level constructs", "--blocks Block Kit JSON array", "--blocks validates Slack Block Kit JSON rules"},
-		"reply":          {"--channel <id|alias>", "--parent <slack-ts>", "--message <markdown>", "--file <path|->", "--blocks Block Kit JSON array", "--dry-run"},
-		"react.add":      {"--channel <id|alias>", "--timestamp <slack-ts>", "--emoji <name|:name:>", "--dry-run"},
-		"react.remove":   {"--channel <id|alias>", "--timestamp <slack-ts>", "--emoji <name|:name:>", "--dry-run"},
-		"react.list":     {"--channel <id|alias>", "--timestamp <slack-ts>"},
-		"lookup.channel": {"--channel <id|alias> for one conversation", "--types <public_channel,private_channel,im,mpim>", "--max-items <n>", "--filter <text>"},
-		"lookup.user":    {"--user <id|alias> for one user", "--max-items <n>", "--filter <text>", "--presence", "--include-deleted"},
-		"cache.users":    {"--refresh", "--ttl-minutes <n>", "--page-size <n>", "--max-pages <n>", "active users only"},
-		"cache.channels": {"--refresh", "--ttl-minutes <n>", "--page-size <n>", "--max-pages <n>", "active public/private/DM/MPIM conversations"},
-		"cache.clear":    {"optional resource: users or channels", "no resource clears all cache files for the profile"},
-		"history.list":   {"--channel <id|alias>", "--max-items <n>", "--since <slack-ts>", "--until <slack-ts>", "--user <id>", "--thread <ts>"},
-		"file.upload":    {"--channel <id|alias>", "--file <path|->", "--filename <name> required for stdin", "--message <markdown>", "--blocks Block Kit JSON array for --message comment"},
-		"manifest":       {"template --name <name>", "template --format <json|yaml>", "local manifest generation only"},
-		"auth.login":     {"--workspace <name>", "--method <oauth|token>", "--token-stdin", "--token-file <path>", "--token-env <env-var-name>", "--oauth-client-id <id>", "--oauth-redirect-url <local-url>", "--force"},
+		"message.send":             {"--channel <id|alias>", "--user <id|alias|slack-profile-email>", "--channel and --user are mutually exclusive", "--message <markdown>", "--file <path|->", "stdin markdown when --file -", "source-preserving Markdown fallback for unsupported block-level constructs", "--blocks Block Kit JSON array", "--blocks validates Slack Block Kit JSON rules", "--schedule <RFC3339|duration|unix-seconds> for channel or user scheduled sends", "scheduled --user sends resolve/open the DM before chat.scheduleMessage; real output data.channel is the raw DM/MPIM channel ID"},
+		"message.scheduled.list":   {"optional --channel <id|alias>", "--cursor <cursor>", "--limit <n>", "data.scheduled_messages[] rows include id/channel/post_at/text_preview plus best-effort channel_name/channel_type/channel_user/is_dm metadata"},
+		"message.scheduled.delete": {"--channel <id|alias>", "--scheduled-id <QID>", "--dry-run"},
+		"reply":                    {"--channel <id|alias>", "--parent <slack-ts>", "--message <markdown>", "--file <path|->", "--blocks Block Kit JSON array", "--dry-run"},
+		"react.add":                {"--channel <id|alias>", "--timestamp <slack-ts>", "--emoji <name|:name:>", "--dry-run"},
+		"react.remove":             {"--channel <id|alias>", "--timestamp <slack-ts>", "--emoji <name|:name:>", "--dry-run"},
+		"react.list":               {"--channel <id|alias>", "--timestamp <slack-ts>"},
+		"lookup.channel":           {"--channel <id|alias> for one conversation", "--types <public_channel,private_channel,im,mpim>", "--max-items <n>", "--filter <text>"},
+		"lookup.user":              {"--user <id|alias> for one user", "--max-items <n>", "--filter <text>", "--presence", "--include-deleted"},
+		"cache.users":              {"--refresh", "--ttl-minutes <n>", "--page-size <n>", "--max-pages <n>", "active users only"},
+		"cache.channels":           {"--refresh", "--ttl-minutes <n>", "--page-size <n>", "--max-pages <n>", "active public/private/DM/MPIM conversations"},
+		"cache.clear":              {"optional resource: users or channels", "no resource clears all cache files for the profile"},
+		"history.list":             {"--channel <id|alias>", "--max-items <n>", "--since <slack-ts>", "--until <slack-ts>", "--user <id>", "--thread <ts>"},
+		"file.upload":              {"--channel <id|alias>", "--file <path|->", "--filename <name> required for stdin", "--message <markdown>", "--blocks Block Kit JSON array for --message comment"},
+		"manifest":                 {"template --name <name>", "template --format <json|yaml>", "local manifest generation only"},
+		"auth.login":               {"--workspace <name>", "--method <oauth|token>", "--token-stdin", "--token-file <path>", "--token-env <env-var-name>", "--oauth-client-id <id>", "--oauth-redirect-url <local-url>", "--force"},
 	}
 }
 
 func outputSchemas() map[string][]string {
 	return map[string][]string{
-		"output_flag": {"--output (or -o) selects one of auto, human, json, compact", "auto picks human in a TTY and json otherwise"},
-		"json":        {"meta.command", "meta.workspace", "meta.timestamp", "meta.request_id", "data", "errors"},
-		"compact":     {"command-specific data only"},
-		"human":       {"human-readable text"},
+		"output_flag":            {"--output (or -o) selects one of auto, human, json, compact", "auto picks human in a TTY and json otherwise"},
+		"json":                   {"meta.command", "meta.workspace", "meta.timestamp", "meta.request_id", "data", "errors"},
+		"compact":                {"command-specific data only"},
+		"human":                  {"human-readable text"},
+		"message.scheduled.list": {"data.scheduled_messages[].id", "data.scheduled_messages[].channel raw ID for delete targets", "data.scheduled_messages[].channel_name/channel_type/channel_user/is_dm best-effort metadata", "human table columns ID/CHANNEL/DM/POST_AT/TEXT; human CHANNEL may be a friendly #channel or @user label"},
 	}
 }
 
@@ -172,7 +175,7 @@ func exitCodes() map[string]int {
 
 func examples() map[string][]string {
 	return map[string][]string{
-		"message":  {"echo 'Deploy complete' | slick message send --channel '#alerts' --file -", "slick message send --user U123 --message 'Need review'", "slick message send --user dev@example.com,ops@example.com --message 'PR is ready'", "slick message send --channel C123 --blocks --file blocks.json"},
+		"message":  {"echo 'Deploy complete' | slick message send --channel '#alerts' --file -", "slick message send --user U123 --message 'Need review'", "slick message send --user dev@example.com,ops@example.com --message 'PR is ready'", "slick message send --channel C123 --blocks --file blocks.json", "slick message send --channel C123 --message 'Deploy later' --schedule 90m", "slick message send --user dev@example.com --message 'DM follow-up' --schedule 90m", "slick message scheduled list --channel C123", "slick message scheduled delete --channel C123 --scheduled-id Q123 --dry-run"},
 		"reply":    {"slick reply --channel C123 --parent 1746284582.123456 --message 'Investigating'", "echo 'details' | slick reply --channel C123 --parent 1746284582.123456 --file -"},
 		"react":    {"slick react add --channel C123 --timestamp 1746284582.123456 --emoji eyes", "slick react remove --channel C123 --timestamp 1746284582.123456 --emoji eyes", "slick react list --channel C123 --timestamp 1746284582.123456"},
 		"status":   {"slick status set --text 'Heads down' --emoji :headphones: --expires-in 2h", "slick status clear"},

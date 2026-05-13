@@ -306,6 +306,48 @@ func (c *CommandContext) WriteUserTable(users []User) error {
 	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(users).String())
 }
 
+func (c *CommandContext) WriteScheduledMessageTable(messages []ScheduledMessage) error {
+	columns := []table.Column[ScheduledMessage]{
+		{Name: "id", Header: "ID", Render: func(row ScheduledMessage, _ *table.RenderContext) table.Cell {
+			return c.hashCell("scheduled:"+row.ID, row.ID)
+		}},
+		{Name: "channel", Header: "CHANNEL", Render: func(row ScheduledMessage, _ *table.RenderContext) table.Cell {
+			return c.hashCell("channel:"+row.Channel, scheduledChannelDisplay(row))
+		}},
+		{Name: "dm", Header: "DM", Render: func(row ScheduledMessage, _ *table.RenderContext) table.Cell {
+			return table.TextCell(ptrBool(row.IsDM))
+		}},
+		{Name: "post_at", Header: "POST_AT", Render: func(row ScheduledMessage, _ *table.RenderContext) table.Cell {
+			return c.timestampCell(row.PostAtISO)
+		}},
+		{Name: "text", Header: "TEXT", Flex: true, Render: func(row ScheduledMessage, _ *table.RenderContext) table.Cell {
+			return table.TextCell(row.TextPreview)
+		}},
+	}
+	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(messages).String())
+}
+
+func scheduledChannelDisplay(row ScheduledMessage) string {
+	if row.ChannelName == "" {
+		return row.Channel
+	}
+	if row.IsDM != nil && *row.IsDM {
+		if strings.HasPrefix(row.ChannelName, "@") {
+			return row.ChannelName
+		}
+		return "@" + row.ChannelName
+	}
+	switch row.ChannelType {
+	case "channel", "private_channel":
+		if strings.HasPrefix(row.ChannelName, "#") {
+			return row.ChannelName
+		}
+		return "#" + row.ChannelName
+	default:
+		return row.ChannelName
+	}
+}
+
 func usersHavePresence(users []User) bool {
 	for _, user := range users {
 		if strings.TrimSpace(ptrString(user.Presence)) != "" {

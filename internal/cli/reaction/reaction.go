@@ -84,20 +84,18 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 }
 
 func newReactionMutationCommand(runtime *cliruntime.RootRuntime, action string) *cobra.Command {
-	var dryRun bool
 	cmd := &cobra.Command{
 		Use:          action,
 		Short:        action + " a Slack reaction",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runReactionMutation(cmd, runtime, action, dryRun)
+			return runReactionMutation(cmd, runtime, action, cliruntime.DryRun(cmd))
 		},
 	}
 	cmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
 	cmd.Flags().StringP("timestamp", "t", "", "Message timestamp")
 	cmd.Flags().StringSliceP("emoji", "e", nil, "Emoji name; repeat or comma-separate to apply multiple in order")
-	cmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview without mutating")
 	return cmd
 }
 

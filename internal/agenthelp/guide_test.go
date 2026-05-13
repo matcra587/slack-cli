@@ -95,6 +95,45 @@ func TestGuideDocumentsCoreContract(t *testing.T) {
 	}
 }
 
+func TestGuideDocumentsScheduledHumanAndJSONTargets(t *testing.T) {
+	guide := agenthelp.GetGuideSection("schedule_msg")
+	for _, fragment := range []string{
+		"`ID / CHANNEL / DM / POST_AT / TEXT`",
+		"display-only",
+		"raw `data.scheduled_messages[].channel`",
+		"Do not parse human `CHANNEL`",
+		"slick message send --user <user-id-or-slack-profile-email>",
+		"real scheduled `--user` sends open the DM or MPIM before scheduling",
+		"`--dry-run --user --schedule`",
+	} {
+		if !strings.Contains(guide, fragment) {
+			t.Fatalf("schedule_msg guide missing %q:\n%s", fragment, guide)
+		}
+	}
+}
+
+func TestGuideDocumentsScheduledUserTargetsInSendRunbook(t *testing.T) {
+	guide := agenthelp.GetGuideSection("send_msg")
+	for _, fragment := range []string{
+		"Scheduled DM command",
+		"slick message send --user <user-id-or-slack-profile-email>",
+		"pass exactly one explicit target: `--channel` or `--user`",
+	} {
+		if !strings.Contains(guide, fragment) {
+			t.Fatalf("send_msg guide missing %q:\n%s", fragment, guide)
+		}
+	}
+	for _, stale := range []string{
+		"scheduled sends require `--channel`; `--user` is not supported with `--schedule`",
+		"`--user` is not supported with `--schedule`",
+		"channel-only scheduled sends",
+	} {
+		if strings.Contains(guide, stale) {
+			t.Fatalf("send_msg guide contains stale scheduled-target guidance %q:\n%s", stale, guide)
+		}
+	}
+}
+
 func TestGuideDocumentsConfigRunbook(t *testing.T) {
 	config := agenthelp.GetGuideSection("config_prefs")
 	for _, fragment := range []string{
@@ -167,7 +206,16 @@ func TestGuideDocumentsMessageEditOutputShape(t *testing.T) {
 
 func TestGuideDocumentsSlackDecidedBotDMBehavior(t *testing.T) {
 	guide := agenthelp.GetGuideSection("send_dm")
-	for _, fragment := range []string{"slick message send --user", "Slack decides", "bot-token", "structured error"} {
+	for _, fragment := range []string{
+		"slick message send --user",
+		"Slack decides",
+		"bot-token",
+		"structured error",
+		"Slack profile email",
+		"users_not_found",
+		"data.message.channel",
+		"add `--schedule <when>`",
+	} {
 		if !strings.Contains(guide, fragment) {
 			t.Fatalf("send_dm guide missing %q:\n%s", fragment, guide)
 		}

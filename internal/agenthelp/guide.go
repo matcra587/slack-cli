@@ -32,7 +32,12 @@ var guideWorkflows = []GuideWorkflow{
 	{
 		Name:        "send_msg",
 		Description: "Send a markdown message and read ts/permalink from JSON",
-		Steps:       []string{"Choose workspace/profile", "Pass message body with --message or --file -", "Use --channel or --user, never both", "Use --blocks only for raw Block Kit input", "Dry-run first for high-visibility sends", "Read JSON response for ts and permalink"},
+		Steps:       []string{"Choose workspace/profile", "Pass message body with --message or --file -", "Use --channel or --user, never both", "Use Slack-profile email for DM --user targeting", "Use --schedule with --channel or --user and RFC3339/duration/Unix seconds", "Use --blocks only for raw Block Kit input", "Dry-run first for high-visibility sends", "Read JSON response for ts/permalink or scheduled_message_id"},
+	},
+	{
+		Name:        "schedule_msg",
+		Description: "Schedule, list, and delete future messages",
+		Steps:       []string{"Use message send --schedule with --channel or --user", "For scheduled DMs, pass user IDs, aliases, or Slack-profile email with --user", "Use RFC3339, Go duration, or Unix seconds; natural language is rejected", "Parse scheduled_message_id because scheduled sends have no ts until they fire", "For real scheduled --user sends, parse data.channel as the raw DM/MPIM channel ID", "List with message scheduled list and pagination", "Use JSON list output for delete targets; human CHANNEL is display-only", "Delete with exact channel and scheduled-id"},
 	},
 	{
 		Name:        "react",
@@ -92,7 +97,7 @@ var guideWorkflows = []GuideWorkflow{
 	{
 		Name:        "send_dm",
 		Description: "Send direct messages while handling token limits",
-		Steps:       []string{"Use message send --user with user IDs, aliases, or email addresses", "Repeat --user or comma-separate values for group DMs", "Slack decides whether the active bot-token or user-token profile may open the DM", "Handle structured errors where Slack rejects the target", "Use a user-token profile for DM-anyone workflows when bot-token limits get in the way"},
+		Steps:       []string{"Use message send --user with user IDs, aliases, or Slack-profile email addresses", "Repeat --user or comma-separate values for group DMs", "Add --schedule to schedule the DM instead of sending now", "Email lookup uses Slack profile email; users_not_found means the address did not match", "Slack decides whether the active bot-token or user-token profile may open the DM", "Use returned data.message.channel or scheduled data.channel for follow-up operations", "Handle structured errors where Slack rejects the target", "Use a user-token profile for DM-anyone workflows when bot-token limits get in the way"},
 	},
 	{
 		Name:        "set_status",
@@ -167,23 +172,47 @@ perform the task, what to parse, and which quirks matter.
 
 ## send_msg
 - Runbook: use this to send a channel message or DM and capture the Slack timestamp/permalink.
-- Inputs: target channel ID, user ID, user email, or configured alias; markdown body or Block Kit JSON; workspace/profile; and whether attribution should be enabled.
+- Inputs: target channel ID, user ID, Slack-profile email, or configured alias; markdown body or Block Kit JSON; workspace/profile; and whether attribution should be enabled.
 - Channel command: ` + "`slick message send --channel <channel-id-or-alias> --message <markdown> --output=json`" + `.
 - Stdin command: ` + "`printf '%s\n' \"$body\" | slick message send --channel <channel-id-or-alias> --file - --output=json`" + `.
 - Multiline command: use real stdin, such as a heredoc piped to ` + "`slick message send --channel <id> --file - --output=json`" + `; do not type literal ` + "`\\n`" + ` when you need a visible newline.
-- DM command: ` + "`slick message send --user <user-id-or-email> --message <markdown> --output=json`" + `. There is no ` + "`slick dm`" + ` command.
+- DM command: ` + "`slick message send --user <user-id-or-slack-profile-email> --message <markdown> --output=json`" + `. There is no ` + "`slick dm`" + ` command.
 - Group DM command: repeat ` + "`--user`" + ` or comma-separate values, such as ` + "`slick message send --user alice@example.com,bob@example.com --user U123 --message <markdown> --output=json`" + `.
+- Scheduled channel command: ` + "`slick message send --channel <channel-id-or-alias> --message <markdown> --schedule 90m --output=json`" + `. ` + "`--schedule`" + ` only accepts RFC3339 timestamps, Go durations, or Unix seconds.
+- Scheduled DM command: ` + "`slick message send --user <user-id-or-slack-profile-email> --message <markdown> --schedule 90m --output=json`" + `. Real scheduled DM sends return the raw DM or MPIM ID in ` + "`data.channel`" + `.
 - Raw Block Kit command: pass ` + "`--blocks`" + ` only when the body is a raw Block Kit JSON array. ` + "`--blocks`" + ` validates Slack Block Kit JSON rules before any Slack mutation.
 - Parse: keep ` + "`data.message.channel`" + `, ` + "`data.message.ts`" + `, ` + "`data.message.thread_ts`" + ` for replies, and ` + "`data.permalink`" + ` when present.
+- Parse scheduled sends: keep ` + "`data.channel`" + ` and ` + "`data.scheduled_message_id`" + `. Scheduled messages do not have ` + "`ts`" + ` until Slack posts them.
 - Attribution: an attribution context block is auto-attached when an agent/CI env var is detected. Configure persistent defaults with ` + "`attribution.enabled`" + `, ` + "`attribution.message`" + `, ` + "`attribution.emoji`" + `; override per call with ` + "`--attribution-label`" + `, ` + "`--attribution-emoji`" + `, ` + "`--attribution-message`" + `. Toggle the block per call with ` + "`--attribution`" + ` (force on) or ` + "`--no-attribution`" + ` (force off); both override config and env detection.
 - Quirks: ` + "`--channel`" + ` and ` + "`--user`" + ` are mutually exclusive. Passing neither uses configured ` + "`default_channel`" + ` when present; otherwise it is a validation error.
-- Quirks: email DM targeting calls Slack ` + "`users.lookupByEmail`" + ` and requires ` + "`users:read.email`" + `.
+- Quirks: for scheduled sends, pass exactly one explicit target: ` + "`--channel`" + ` or ` + "`--user`" + `. Scheduled sends do not use configured ` + "`default_channel`" + ` when no target is passed.
+- Quirks: ` + "`message send --schedule`" + ` intentionally rejects natural-language strings such as ` + "`tomorrow at 9am`" + `; use RFC3339, a Go duration, or Unix seconds.
+- Quirks: email DM targeting calls Slack ` + "`users.lookupByEmail`" + `, uses the user's Slack profile email, and requires ` + "`users:read.email`" + `. ` + "`users_not_found`" + ` means the address did not match a Slack user in the active workspace.
 - Quirks: Markdown is converted to Block Kit by default. ` + "`--output`" + ` selects an output mode only and does not select raw Block Kit input; use command-local ` + "`--blocks`" + ` for that.
 - Quirks: Unsupported block-level Markdown preserves original source text in readable Block Kit sections.
 - Quirks: Do not repeat attribution text in the message body. If attribution is enabled, Slack shows it in the context block below the message.
 - Quirks: for live workflow tests, send realistic content such as a PR review, incident update, or release note; synthetic marker text can hide UI issues.
 - Quirks: Slack timestamps are strings such as ` + "`1746284582.123456`" + `. Keep them as strings.
 - Error handling: ` + "`missing_scope`" + ` and ` + "`no_permission`" + ` map to structured auth failures. ` + "`not_in_channel`" + ` maps to ` + "`not_found`" + `; change destination, membership, or app access before retrying.
+
+## schedule_msg
+- Runbook: use this to schedule a future channel or DM message, inspect pending scheduled messages, or cancel one before it fires.
+- Inputs: channel ID, channel alias, user ID, user alias, Slack-profile email, message body, schedule time, optional cursor, and scheduled-message ID for delete.
+- Schedule command: ` + "`slick message send --channel <channel-id-or-alias> --message <markdown> --schedule 90m --output=json`" + `.
+- Absolute schedule command: ` + "`slick message send --channel <channel-id-or-alias> --message <markdown> --schedule 2026-06-01T15:00:00-04:00 --output=json`" + `.
+- Scheduled DM command: use ` + "`slick message send --user <user-id-or-slack-profile-email> --message <markdown> --schedule 90m --output=json`" + `.
+- List command: ` + "`slick message scheduled list --channel <channel-id-or-alias> --limit <n> --output=json`" + `.
+- Human list output: TTY output or ` + "`--output=human`" + ` renders ` + "`ID / CHANNEL / DM / POST_AT / TEXT`" + `. ` + "`CHANNEL`" + ` may be a friendly ` + "`#channel`" + ` or ` + "`@user`" + ` label and is display-only.
+- Pagination command: if ` + "`meta.pagination.has_more`" + ` is true, run ` + "`slick message scheduled list --cursor <meta.pagination.next_cursor> --limit <n> --output=json`" + `.
+- Delete command: ` + "`slick message scheduled delete --channel <channel-id> --scheduled-id <QID> --output=json`" + `.
+- Parse schedule result: keep ` + "`data.channel`" + `, ` + "`data.scheduled_message_id`" + `, ` + "`data.post_at`" + `, and ` + "`data.post_at_iso`" + `.
+- Parse list result: use ` + "`data.scheduled_messages[].id`" + ` and raw ` + "`data.scheduled_messages[].channel`" + ` for delete targets. Do not parse human ` + "`CHANNEL`" + `. ` + "`channel_name`" + `, ` + "`channel_type`" + `, ` + "`channel_user`" + `, and ` + "`is_dm`" + ` are best-effort friendly metadata. ` + "`text_preview`" + ` is capped at 200 Unicode characters.
+- Quirks: scheduled messages have no ` + "`ts`" + ` until Slack posts them. Use ` + "`scheduled_message_id`" + ` for pending operations.
+- Quirks: real scheduled ` + "`--user`" + ` sends open the DM or MPIM before scheduling. Parse returned ` + "`data.channel`" + ` as the raw Slack conversation ID for list/delete or later follow-up operations.
+- Quirks: ` + "`--dry-run --user --schedule`" + ` does not call Slack to resolve/open the DM; its preview ` + "`data.channel`" + ` echoes the requested user target.
+- Quirks: ` + "`--schedule`" + ` rejects past times, times beyond 120 days, and every format outside RFC3339, Go duration, or Unix seconds.
+- Quirks: delete does not require ` + "`--force`" + `, but ` + "`--dry-run`" + ` is available for preview.
+- Error handling: Slack ` + "`missing_scope`" + ` errors include the needed scope in the structured error details when Slack returns it.
 
 ## react
 - Runbook: use this to add, remove, or inspect emoji reactions on a known message.
@@ -353,15 +382,16 @@ perform the task, what to parse, and which quirks matter.
 
 ## send_dm
 - Runbook: use this to send a direct message to a Slack user.
-- Inputs: stable user ID, email address, configured alias, message body, workspace/profile, and token type expectations.
+- Inputs: stable user ID, Slack-profile email address, configured alias, message body, workspace/profile, and token type expectations.
 - Preflight: use ` + "`slick lookup user --user <user-id> --output=json`" + ` if the ID is uncertain.
-- Command: ` + "`slick message send --user <user-id-or-email> --message <markdown> --output=json`" + `.
+- Command: ` + "`slick message send --user <user-id-or-slack-profile-email> --message <markdown> --output=json`" + `.
 - Group DM command: repeat ` + "`--user`" + ` or comma-separate values.
-- Stdin command: ` + "`printf '%s\n' \"$body\" | slick message send --user <user-id-or-email> --file - --output=json`" + `.
-- Parse: keep ` + "`data.message.channel`" + ` and ` + "`data.message.ts`" + ` from JSON output.
+- Stdin command: ` + "`printf '%s\n' \"$body\" | slick message send --user <user-id-or-slack-profile-email> --file - --output=json`" + `.
+- Parse: keep ` + "`data.message.channel`" + ` and ` + "`data.message.ts`" + ` from JSON output. The returned channel is the DM conversation ID to reuse for follow-up operations.
 - Raw Block Kit: use ` + "`--blocks`" + ` only when the DM body is raw Block Kit JSON.
 - Quirks: ` + "`message send --user`" + ` opens the DM through Slack before posting. Slack decides whether the active bot-token or user-token profile may open the DM.
-- Quirks: email recipients are resolved with Slack ` + "`users.lookupByEmail`" + ` before opening the DM.
+- Quirks: email recipients are resolved with Slack ` + "`users.lookupByEmail`" + ` before opening the DM. The email must match the user's Slack profile email; ` + "`users_not_found`" + ` means Slack did not match that address in the active workspace.
+- Quirks: add ` + "`--schedule <when>`" + ` to schedule a DM to ` + "`--user`" + ` instead of sending immediately. Real scheduled DM sends return the raw DM or MPIM ID in ` + "`data.channel`" + `.
 - Quirks: user-token profiles are the normal choice for "DM anyone as me" workflows; bot-token profiles depend on app install and conversation access.
 - Quirks: ` + "`--dry-run`" + ` verifies message composition but cannot prove Slack will open the DM.
 - Error handling: Scope validation is best-effort when token metadata is available. ` + "`missing_scope`" + ` and ` + "`no_permission`" + ` use ` + "`auth_failure`" + `; destination or membership errors such as ` + "`not_in_channel`" + ` still use the fixed structured error contract.

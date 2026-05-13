@@ -120,6 +120,7 @@ func NewRoot(runtime *cliruntime.RootRuntime, stdout, stderr *bytes.Buffer) *cob
 	flags := root.PersistentFlags()
 	flags.StringP("workspace", "w", "", "Workspace profile")
 	flags.StringP("output", "o", clioutput.OutputAuto, "Output format: auto, human, json, compact")
+	flags.BoolP("dry-run", "n", false, "Preview mutating commands without changing Slack")
 	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
 	flags.BoolP("debug", "D", false, "Enable debug-level output")
 

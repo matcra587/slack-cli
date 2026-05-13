@@ -43,7 +43,6 @@ type statusSetOptions struct {
 	Emoji     string
 	ExpiresIn time.Duration
 	Until     string
-	DryRun    bool
 }
 
 // NewCommand returns the `slick status` parent command.
@@ -70,33 +69,30 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			if setOpts.Emoji == "" && len(args) > 1 {
 				setOpts.Emoji = args[1]
 			}
-			return runStatusSet(cmd, runtime, setOpts)
+			return runStatusSet(cmd, runtime, setOpts, cliruntime.DryRun(cmd))
 		},
 	}
 	setCmd.Flags().StringVarP(&setOpts.Text, "text", "t", "", "Status text")
 	setCmd.Flags().StringVarP(&setOpts.Emoji, "emoji", "e", "", "Status emoji")
 	setCmd.Flags().DurationVarP(&setOpts.ExpiresIn, "expires-in", "x", 0, "Status expiration duration")
 	setCmd.Flags().StringVarP(&setOpts.Until, "until", "U", "", "Status expiration time")
-	setCmd.Flags().BoolVarP(&setOpts.DryRun, "dry-run", "n", false, "Preview without mutating")
 
-	var clearDryRun bool
 	clearCmd := &cobra.Command{
 		Use:          "clear",
 		Short:        "Clear Slack status",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runStatusClear(cmd, runtime, clearDryRun)
+			return runStatusClear(cmd, runtime, cliruntime.DryRun(cmd))
 		},
 	}
-	clearCmd.Flags().BoolVarP(&clearDryRun, "dry-run", "n", false, "Preview without mutating")
 
 	statusCmd.AddCommand(setCmd)
 	statusCmd.AddCommand(clearCmd)
 	return statusCmd
 }
 
-func runStatusSet(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts statusSetOptions) error {
+func runStatusSet(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts statusSetOptions, dryRun bool) error {
 	ctx, profile, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
@@ -110,7 +106,7 @@ func runStatusSet(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts stat
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
-	return mutateSlackStatus(cmd, runtime, ctx, profile, text, emoji, expiration, opts.DryRun, "status.set")
+	return mutateSlackStatus(cmd, runtime, ctx, profile, text, emoji, expiration, dryRun, "status.set")
 }
 
 func runStatusClear(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRun bool) error {

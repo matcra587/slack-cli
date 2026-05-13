@@ -114,7 +114,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 
 	var src Source
 	var filename string
-	var dryRun bool
+	var scheduleWhen string
 	sendCmd := &cobra.Command{
 		Use:   "send",
 		Short: "Send a Slack message",
@@ -126,20 +126,23 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
   $ printf '%s\n' "$body" | slick message send --channel <channel-id-or-alias> --file - --output=json
 
   # Send a direct message
-  $ slick message send --user <user-id-or-email> --message <markdown> --output=json`,
+  $ slick message send --user <user-id-or-slack-profile-email> --message <markdown> --output=json
+
+  # Schedule a direct message
+  $ slick message send --user <user-id-or-slack-profile-email> --message <markdown> --schedule 90m --output=json`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			_ = filename
-			return runMessageSend(cmd, runtime, src, dryRun)
+			return runMessageSend(cmd, runtime, src, cliruntime.DryRun(cmd), scheduleWhen)
 		},
 	}
 	sendCmd.Flags().StringVarP(&src.Message, "message", "m", "", "Message body")
 	sendCmd.Flags().StringVarP(&src.File, "file", "f", "", "Read message body from file or - for stdin")
 	sendCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
-	sendCmd.Flags().StringArrayP("user", "u", nil, "User ID or alias for DM target; repeat or comma-separate for group DMs")
+	sendCmd.Flags().StringArrayP("user", "u", nil, "User ID, alias, or Slack-profile email for DM target; repeat or comma-separate for group DMs")
 	sendCmd.Flags().StringVarP(&filename, "filename", "N", "", "Filename metadata for stdin sources")
 	sendCmd.Flags().BoolVarP(&src.Blocks, "blocks", "b", false, "Treat message source as raw Block Kit JSON")
-	sendCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview without sending")
+	sendCmd.Flags().StringVarP(&scheduleWhen, "schedule", "s", "", "Schedule for future send: RFC3339, Go duration, or Unix seconds")
 	cliruntime.RegisterAttributionFlags(sendCmd)
 	sendCmd.MarkFlagsMutuallyExclusive("channel", "user")
 	sendCmd.PreRunE = func(cmd *cobra.Command, _ []string) error {
@@ -151,14 +154,13 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	messageCmd.AddCommand(sendCmd)
 
 	var editSrc Source
-	var editDryRun bool
 	editCmd := &cobra.Command{
 		Use:          "edit",
 		Short:        "Edit an owned Slack message",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runMessageEdit(cmd, runtime, editSrc, editDryRun)
+			return runMessageEdit(cmd, runtime, editSrc, cliruntime.DryRun(cmd))
 		},
 	}
 	editCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
@@ -166,11 +168,9 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	editCmd.Flags().StringVarP(&editSrc.Message, "message", "m", "", "Message body")
 	editCmd.Flags().StringVarP(&editSrc.File, "file", "f", "", "Read message body from file or - for stdin")
 	editCmd.Flags().BoolVarP(&editSrc.Blocks, "blocks", "b", false, "Treat message source as raw Block Kit JSON")
-	editCmd.Flags().BoolVarP(&editDryRun, "dry-run", "n", false, "Preview without mutating")
 	cliruntime.RegisterAttributionFlags(editCmd)
 	messageCmd.AddCommand(editCmd)
 
-	var deleteDryRun bool
 	var force bool
 	deleteCmd := &cobra.Command{
 		Use:          "delete",
@@ -178,19 +178,23 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runMessageDelete(cmd, runtime, deleteDryRun, force)
+			return runMessageDelete(cmd, runtime, cliruntime.DryRun(cmd), force)
 		},
 	}
 	deleteCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
 	deleteCmd.Flags().StringP("timestamp", "t", "", "Message timestamp")
-	deleteCmd.Flags().BoolVarP(&deleteDryRun, "dry-run", "n", false, "Preview without mutating")
 	deleteCmd.Flags().BoolVarP(&force, "force", "F", false, "Confirm deletion")
 	messageCmd.AddCommand(deleteCmd)
+	messageCmd.AddCommand(newScheduledCommand(runtime))
 
 	return messageCmd
 }
 
-func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Source, dryRun bool) error {
+func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Source, dryRun bool, scheduleWhen string) error {
+	if strings.TrimSpace(scheduleWhen) != "" {
+		return runScheduledMessageSend(cmd, runtime, src, dryRun, scheduleWhen)
+	}
+
 	ctx, profile, attribution, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return writeRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
@@ -225,21 +229,10 @@ func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 			return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
 		}
 		if len(target.Users) > 0 {
-			if err := cliscope.Require(cmd.Context(), client, messageUserTargetScopes(target.Users)); err != nil {
-				return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
-			}
-			target.Users, err = resolveMessageUserIDs(cmd.Context(), client, target.Users)
+			target.Channel, err = openMessageUserChannel(cmd.Context(), client, target.Users)
 			if err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 			}
-			opened, _, _, err := client.OpenConversationContext(cmd.Context(), &slackgo.OpenConversationParameters{
-				Users:    target.Users,
-				ReturnIM: true,
-			})
-			if err != nil {
-				return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
-			}
-			target.Channel = opened.ID
 		} else if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("chat:write")); err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 		}
@@ -359,6 +352,20 @@ func resolveMessageSendTarget(profile config.WorkspaceProfile, channel string, u
 	return sendTarget{Channel: strings.Join(resolvedUsers, ","), Users: resolvedUsers}, nil
 }
 
+func resolveExplicitMessageSendTarget(profile config.WorkspaceProfile, channel string, users []string) (sendTarget, error) {
+	channel = resolveAlias(profile, strings.TrimSpace(channel))
+	resolvedUsers := resolveUserTargets(profile, users)
+	switch {
+	case channel == "" && len(resolvedUsers) == 0:
+		return sendTarget{}, errors.New("channel or user is required")
+	case channel != "" && len(resolvedUsers) > 0:
+		return sendTarget{}, errors.New("channel and user are mutually exclusive")
+	case channel != "":
+		return sendTarget{Channel: channel}, nil
+	}
+	return sendTarget{Channel: strings.Join(resolvedUsers, ","), Users: resolvedUsers}, nil
+}
+
 func resolveUserTargets(profile config.WorkspaceProfile, values []string) []string {
 	out := make([]string, 0, len(values))
 	for _, value := range values {
@@ -405,6 +412,24 @@ func resolveMessageUserIDs(ctx context.Context, client *slackgo.Client, users []
 		out = append(out, resolved.ID)
 	}
 	return out, nil
+}
+
+func openMessageUserChannel(ctx context.Context, client *slackgo.Client, users []string) (string, error) {
+	if err := cliscope.Require(ctx, client, messageUserTargetScopes(users)); err != nil {
+		return "", err
+	}
+	resolvedUsers, err := resolveMessageUserIDs(ctx, client, users)
+	if err != nil {
+		return "", err
+	}
+	opened, _, _, err := client.OpenConversationContext(ctx, &slackgo.OpenConversationParameters{
+		Users:    resolvedUsers,
+		ReturnIM: true,
+	})
+	if err != nil {
+		return "", err
+	}
+	return opened.ID, nil
 }
 
 // ResolveAlias resolves a channel/user alias from the workspace profile.

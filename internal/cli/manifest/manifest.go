@@ -97,12 +97,13 @@ func newTemplateCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Use:          "template",
 		Aliases:      []string{"generate"},
 		Short:        "Output the Slack app manifest to import",
+		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runTemplate(cmd, runtime, opts)
 		},
 	}
-	cmd.Flags().StringVarP(&opts.Name, "name", "n", opts.Name, "App display name")
+	cmd.Flags().StringVarP(&opts.Name, "name", "N", opts.Name, "App display name")
 	cmd.Flags().StringVarP(&opts.Description, "description", "d", opts.Description, "Short app description")
 	cmd.Flags().StringVarP(&opts.LongDescription, "long-description", "L", "", "Long app description")
 	cmd.Flags().StringVarP(&opts.Preset, "preset", "p", opts.Preset, "Scope preset: readonly, messaging, files, search, or full")

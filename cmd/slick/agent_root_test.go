@@ -98,6 +98,14 @@ func TestAgentSchemaIncludesBlocksAndOutputOnlyRawContract(t *testing.T) {
 	if !strings.Contains(messageShape, "--channel and --user are mutually exclusive") {
 		t.Fatalf("message.send input shape = %#v, want mutually-exclusive target contract", schema.InputShapes["message.send"])
 	}
+	for _, fragment := range []string{
+		"--schedule <RFC3339|duration|unix-seconds> for channel or user scheduled sends",
+		"scheduled --user sends resolve/open the DM before chat.scheduleMessage",
+	} {
+		if !strings.Contains(messageShape, fragment) {
+			t.Fatalf("message.send input shape = %#v, want scheduled DM target contract %q", schema.InputShapes["message.send"], fragment)
+		}
+	}
 	if strings.Contains(messageShape, "--output Block Kit JSON array") {
 		t.Fatalf("message.send input shape = %#v, --output must not select raw input", schema.InputShapes["message.send"])
 	}

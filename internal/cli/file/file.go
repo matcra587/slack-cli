@@ -79,7 +79,6 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	var message string
 	var blocks bool
 	var thread string
-	var dryRun bool
 	uploadCmd := &cobra.Command{
 		Use:          "upload",
 		Short:        "Upload a file to Slack",
@@ -93,7 +92,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 				Message:  message,
 				Blocks:   blocks,
 				Thread:   thread,
-				DryRun:   dryRun,
+				DryRun:   cliruntime.DryRun(cmd),
 			})
 		},
 	}
@@ -104,7 +103,6 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	uploadCmd.Flags().StringVarP(&message, "message", "m", "", "Initial comment")
 	uploadCmd.Flags().BoolVarP(&blocks, "blocks", "b", false, "Treat upload message as raw Block Kit JSON")
 	uploadCmd.Flags().StringVarP(&thread, "thread", "t", "", "Thread timestamp")
-	uploadCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview without uploading")
 	cliruntime.RegisterAttributionFlags(uploadCmd)
 	fileCmd.AddCommand(uploadCmd)
 

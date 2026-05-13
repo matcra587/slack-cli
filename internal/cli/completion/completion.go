@@ -336,6 +336,7 @@ func extendRootFlags(root *cobra.Command) {
 		Terse:       "color mode",
 	})
 	cobracli.Extend(pf.Lookup("no-throttle"), cobracli.FlagExtra{Group: "Network", Terse: "disable throttle"})
+	cobracli.Extend(pf.Lookup("dry-run"), cobracli.FlagExtra{Group: "Safety", Terse: "dry run"})
 }
 
 func extendAttributionFlags(cmd *cobra.Command) {
@@ -371,6 +372,17 @@ func extendMessageFlags(root *cobra.Command) {
 	extendTimestampFlag(deleteCmd, "timestamp")
 	extendDryRunFlag(deleteCmd)
 	extendForceFlag(deleteCmd)
+
+	cobracli.Extend(flag(send, "schedule"), cobracli.FlagExtra{Placeholder: "WHEN", Terse: "schedule"})
+
+	scheduledList := commandPath(root, "message", "scheduled", "list")
+	extendChannelFlag(scheduledList, "channel")
+	extendCursorFlag(scheduledList)
+	cobracli.Extend(flag(scheduledList, "limit"), cobracli.FlagExtra{Placeholder: "N", Terse: "limit"})
+
+	scheduledDelete := commandPath(root, "message", "scheduled", "delete")
+	extendChannelFlag(scheduledDelete, "channel")
+	cobracli.Extend(flag(scheduledDelete, "scheduled-id"), cobracli.FlagExtra{Placeholder: "QID", Terse: "scheduled id"})
 }
 
 func extendHistoryFlags(root *cobra.Command) {
@@ -568,7 +580,9 @@ func extendFileNameHint(cmd *cobra.Command) {
 }
 
 func extendDryRunFlag(cmd *cobra.Command) {
-	cobracli.Extend(flag(cmd, "dry-run"), cobracli.FlagExtra{Group: "Safety", Terse: "dry run"})
+	if f := flag(cmd, "dry-run"); f != nil {
+		cobracli.Extend(f, cobracli.FlagExtra{Group: "Safety", Terse: "dry run"})
+	}
 }
 
 func extendForceFlag(cmd *cobra.Command) {

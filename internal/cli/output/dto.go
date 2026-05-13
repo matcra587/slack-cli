@@ -1,9 +1,6 @@
 package output
 
 import (
-	"context"
-	"errors"
-	"math"
 	"strings"
 
 	"github.com/matcra587/slack-cli/internal/cli/cliutil"
@@ -65,6 +62,18 @@ type SearchMessage struct {
 type SearchChannel struct {
 	ID   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
+}
+
+type ScheduledMessage struct {
+	ID          string  `json:"id"`
+	Channel     string  `json:"channel"`
+	ChannelName string  `json:"channel_name,omitempty"`
+	ChannelType string  `json:"channel_type,omitempty"`
+	ChannelUser *string `json:"channel_user,omitempty"`
+	IsDM        *bool   `json:"is_dm,omitempty"`
+	PostAt      int64   `json:"post_at"`
+	PostAtISO   string  `json:"post_at_iso"`
+	TextPreview string  `json:"text_preview,omitempty"`
 }
 
 func MessageFromSlack(message slackgo.Message, fallbackChannel string) Message {
@@ -285,70 +294,6 @@ func richTextSectionElementsToString(elems []slackgo.RichTextSectionElement) str
 	return b.String()
 }
 
-// CliErrorFromSlack maps a slack-go error to a structured CLIError.
-// The kind hint refines messages for codes whose meaning depends on
-// what was being named — e.g. invalid_name could be an emoji, a
-// channel, or a username. Callers pass the noun they think Slack
-// rejected (e.g. "emoji"); pass "" when no contextual refinement is
-// needed and the raw Slack code is descriptive enough.
-//
-// kind must be a stable internal noun chosen by the call site; never
-// pass user-controlled input here since the value flows into the
-// rendered error message.
-func CliErrorFromSlack(ctx context.Context, err error, kind string) CLIError {
-	subject := kind
-	var scopeErr MissingScopeError
-	if errors.As(err, &scopeErr) {
-		return CLIError{Type: ErrorTypeAuth, Message: scopeErr.Error(), ExitCode: ExitCodeAuthFailure}
-	}
-	var rateErr *slackgo.RateLimitedError
-	if errors.As(err, &rateErr) {
-		seconds := max(int(math.Ceil(rateErr.RetryAfter.Seconds())), 0)
-		return CLIError{
-			Type:              ErrorTypeRateLimit,
-			Message:           "ratelimited",
-			RetryAfterSeconds: &seconds,
-			ExitCode:          ExitCodeRateLimit,
-		}
-	}
-	var slackErr slackgo.SlackErrorResponse
-	if errors.As(err, &slackErr) {
-		switch slackErr.Err {
-		case "channel_not_found", "user_not_found", "message_not_found", "not_in_channel":
-			return CLIError{Type: ErrorTypeNotFound, Message: slackErr.Err, ExitCode: ExitCodeNotFound}
-		case "not_allowed_token_type", "invalid_arguments", "cant_update_message", "cant_delete_message":
-			return CLIError{Type: ErrorTypeValidation, Message: slackErr.Err, ExitCode: ExitCodeValidation}
-		case "invalid_name":
-			return CLIError{
-				Type:     ErrorTypeValidation,
-				Message:  invalidNameMessage(subject),
-				ExitCode: ExitCodeValidation,
-			}
-		case "already_reacted":
-			return CLIError{Type: ErrorTypeValidation, Message: "already_reacted: this emoji is already on the message", ExitCode: ExitCodeValidation}
-		case "no_reaction":
-			return CLIError{Type: ErrorTypeNotFound, Message: "no_reaction: no such reaction on this message to remove", ExitCode: ExitCodeNotFound}
-		case "too_many_reactions":
-			return CLIError{Type: ErrorTypeValidation, Message: "too_many_reactions: Slack message reaction limit reached", ExitCode: ExitCodeValidation}
-		case "invalid_auth", "not_authed", "account_inactive", "token_revoked", "missing_scope", "no_permission":
-			return CLIError{Type: ErrorTypeAuth, Message: slackErr.Err, ExitCode: ExitCodeAuthFailure}
-		case "ratelimited":
-			return CLIError{Type: ErrorTypeRateLimit, Message: slackErr.Err, ExitCode: ExitCodeRateLimit}
-		default:
-			return CLIError{Type: ErrorTypeServer, Message: slackErr.Err, ExitCode: ExitCodeServer}
-		}
-	}
-	if errors.Is(err, context.DeadlineExceeded) || ctx.Err() == context.DeadlineExceeded {
-		return CLIError{Type: ErrorTypeTimeout, Message: "timeout", ExitCode: ExitCodeTimeout}
-	}
-	// context.Canceled covers both explicit cancel and signal cancellation;
-	// errors.Is against context.Cause catches signal.signalError wrapped by url.Error.
-	if ctx.Err() == context.Canceled || errors.Is(err, context.Cause(ctx)) {
-		return CLIError{Type: ErrorTypeCanceled, Message: "canceled", ExitCode: ExitCodeCanceled}
-	}
-	return CLIError{Type: ErrorTypeServer, Message: err.Error(), ExitCode: ExitCodeServer}
-}
-
 // invalidNameMessage returns a context-tailored message for Slack's
 // invalid_name code. The caller hint (e.g. "emoji", "channel", "user")
 // drives the wording so the user knows which field Slack rejected.
@@ -367,22 +312,4 @@ func invalidNameMessage(subject string) string {
 	default:
 		return "invalid_name: Slack rejected the " + subject + " as not recognized"
 	}
-}
-
-// MissingScopeError is returned by scope-checking helpers when required Slack
-// OAuth scopes are absent. Defined here so CliErrorFromSlack can match it via
-// errors.As across packages.
-type MissingScopeError struct {
-	All []string
-	Any []string
-}
-
-func (e MissingScopeError) Error() string {
-	if len(e.All) == 1 {
-		return "missing required Slack scope: " + e.All[0]
-	}
-	if len(e.All) > 1 {
-		return "missing required Slack scopes: " + strings.Join(e.All, ",")
-	}
-	return "missing one of required Slack scopes: " + strings.Join(e.Any, ",")
 }

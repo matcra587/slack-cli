@@ -8,18 +8,21 @@ import (
 
 func TestTierForMethodUsesSlackEndpointLookup(t *testing.T) {
 	tests := map[string]ratelimit.Tier{
-		"chat.getPermalink":       ratelimit.Tier4,
-		"chat.postMessage":        ratelimit.TierSpecial,
-		"chat.update":             ratelimit.Tier4,
-		"reactions.add":           ratelimit.Tier4,
-		"search.messages":         ratelimit.Tier2,
-		"conversations.list":      ratelimit.Tier3,
-		"conversations.history":   ratelimit.Tier3,
-		"conversations.replies":   ratelimit.Tier3,
-		"users.list":              ratelimit.Tier3,
-		"auth.test":               ratelimit.Tier2,
-		"admin.conversations.foo": ratelimit.Tier1,
-		"unknown.method":          ratelimit.TierUnknown,
+		"chat.getPermalink":           ratelimit.Tier4,
+		"chat.postMessage":            ratelimit.TierSpecial,
+		"chat.scheduleMessage":        ratelimit.TierSpecial,
+		"chat.scheduledMessages.list": ratelimit.Tier3,
+		"chat.deleteScheduledMessage": ratelimit.Tier3,
+		"chat.update":                 ratelimit.Tier4,
+		"reactions.add":               ratelimit.Tier4,
+		"search.messages":             ratelimit.Tier2,
+		"conversations.list":          ratelimit.Tier3,
+		"conversations.history":       ratelimit.Tier3,
+		"conversations.replies":       ratelimit.Tier3,
+		"users.list":                  ratelimit.Tier3,
+		"auth.test":                   ratelimit.Tier2,
+		"admin.conversations.foo":     ratelimit.Tier1,
+		"unknown.method":              ratelimit.TierUnknown,
 	}
 
 	for method, want := range tests {

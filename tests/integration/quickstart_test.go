@@ -21,6 +21,8 @@ func TestQuickstartSmokeBuildSchemaAndDryRuns(t *testing.T) {
 
 	for _, args := range [][]string{
 		{"message", "send", "--channel", "C123", "--message", "hello", "--dry-run"},
+		{"message", "send", "--channel", "C123", "--message", "scheduled hello", "--schedule", "90m", "--dry-run"},
+		{"message", "scheduled", "delete", "--channel", "C123", "--scheduled-id", "Q123", "--dry-run"},
 		{"file", "upload", "--channel", "C123", "--file", "-", "--filename", "dry.txt", "--dry-run"},
 	} {
 		stdout, stderr, err := runSlackBinary(t, binary, configPath, "http://example.invalid", "hello", args...)

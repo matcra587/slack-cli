@@ -472,6 +472,26 @@ func TestMessageSendCommandDeclaresCobraTargetFlagGroup(t *testing.T) {
 	}
 }
 
+func TestMessageSendHelpDocumentsScheduledDMEmailTargets(t *testing.T) {
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), "", "",
+		[]string{"message", "send", "--help"},
+	)
+	if err != nil {
+		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
+	}
+	for _, want := range []string{
+		"User ID, alias, or Slack-profile email for DM target",
+		"slick message send --user <user-id-or-slack-profile-email> --message <markdown> --schedule 90m --output=json",
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("help output missing %q\nstdout=%s", want, stdout)
+		}
+	}
+}
+
 func TestMessageSendCommandRejectsBothChannelAndUserBeforeSlackRequest(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
 

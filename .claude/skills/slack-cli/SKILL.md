@@ -1,7 +1,7 @@
 ---
 name: slack-cli
-description: Use when the user asks an agent to operate Slack through the matcra587/slack-cli binary, including messages, DMs, threads, reactions, history, search, cleanup, users, channels, status, cache, auth, config, or app manifests.
-allowed-tools: Bash(slick agent:*) Bash(slick auth login:*) Bash(slick auth status:*) Bash(slick auth switch:*) Bash(slick cache:*) Bash(slick config get:*) Bash(slick config init:*) Bash(slick config list:*) Bash(slick config path:*) Bash(slick config set:*) Bash(slick file upload:*) Bash(slick history list:*) Bash(slick lookup:*) Bash(slick manifest template:*) Bash(slick message edit:*) Bash(slick message send:*) Bash(slick react:*) Bash(slick reply:*) Bash(slick status:*) Bash(slick workspace list:*)
+description: Use when the user asks an agent to operate Slack through the matcra587/slack-cli binary, including messages, scheduled messages, DMs, threads, reactions, history, search, cleanup, users, channels, status, cache, auth, config, or app manifests.
+allowed-tools: Bash(slick agent:*) Bash(slick auth login:*) Bash(slick auth status:*) Bash(slick auth switch:*) Bash(slick cache:*) Bash(slick config get:*) Bash(slick config init:*) Bash(slick config list:*) Bash(slick config path:*) Bash(slick config set:*) Bash(slick file upload:*) Bash(slick history list:*) Bash(slick lookup:*) Bash(slick manifest template:*) Bash(slick message edit:*) Bash(slick message scheduled list:*) Bash(slick message scheduled delete:*) Bash(slick message send:*) Bash(slick react:*) Bash(slick reply:*) Bash(slick status:*) Bash(slick workspace list:*)
 ---
 
 # slack-cli
@@ -31,6 +31,7 @@ slick agent schema --compact
 | User task | Load this runbook |
 | --- | --- |
 | Send a channel message or DM | `slick agent guide send_msg` |
+| Schedule, list, or cancel future messages | `slick agent guide schedule_msg` |
 | Post a realistic PR review, incident update, release note, reactions, and thread | `slick agent guide developer_review` |
 | Reply in a thread | `slick agent guide reply` |
 | Add, remove, or list reactions (single or ordered multi-emoji) | `slick agent guide react` |
@@ -53,41 +54,46 @@ slick agent schema --compact
 
 ## Non-Negotiables
 
-- Run `slick agent guide <workflow>` before taking action. The guide is the
+*   Run `slick agent guide <workflow>` before taking action. The guide is the
   runbook; the schema is only command inventory.
-- Keep automation on JSON output. Do not parse `--plain`.
-- Treat stdout as command data and stderr as diagnostics or structured errors.
-- Parse failures from stderr JSON: `errors[0].type`, `errors[0].message`, and
+*   Keep automation on JSON output. Do not parse `--plain`.
+*   Treat stdout as command data and stderr as diagnostics or structured errors.
+*   Parse failures from stderr JSON: `errors[0].type`, `errors[0].message`, and
   `errors[0].exit_code`.
-- Keep Slack timestamps as strings. They are scoped to a channel.
-- Use exact `channel` + `ts` for replies, reactions, edits, and deletes.
-- Never pass Slack tokens in argv. Use stdin, file, env-name, keychain, or a
+*   Keep Slack timestamps as strings. They are scoped to a channel.
+*   Use exact `channel` + `ts` for replies, reactions, edits, and deletes.
+*   Never pass Slack tokens in argv. Use stdin, file, env-name, keychain, or a
   configured secret reference.
-- Use real multiline stdin for multiline Slack messages. Do not type literal
+*   Use real multiline stdin for multiline Slack messages. Do not type literal
   `\n` into `--message` when the UI should show a new line.
-- Use `--dry-run` before high-visibility or destructive mutations.
-- This skill does not preapprove deletes. Treat `slick message delete` as an
+*   Use `--dry-run` before high-visibility or destructive mutations.
+*   `--schedule` accepts `--channel` or `--user`. For scheduled DMs, pass the
+  user ID, alias, or Slack-profile email with `--user`; real sends return the
+  raw DM/MPIM channel ID in `data.channel`.
+*   This skill does not preapprove deletes. Treat `slick message delete` as an
   explicit-user-approval operation outside `allowed-tools`.
-- Status set/clear mutates the authenticated user's Slack profile and requires
+*   Status set/clear mutates the authenticated user's Slack profile and requires
   a user token with `users.profile:write`. Bot-token profiles cannot use it.
-- Do not duplicate attribution text in the message body. Attribution renders as
+*   Do not duplicate attribution text in the message body. Attribution renders as
   a context block when enabled.
-- For live tests, use realistic content and unique run IDs. Clean up with the
+*   For live tests, use realistic content and unique run IDs. Clean up with the
   paginated `cleanup_msgs` runbook.
-- For search cleanup, follow `meta.pagination.next_cursor` until
+*   For search cleanup, follow `meta.pagination.next_cursor` until
   `meta.pagination.has_more` is false, then repeat the search after deletes
   until there are no matches.
 
 ## Command Name Guardrails
 
-- There is no `slick dm` command. Use `slick message send --user`.
-- There is no `slick thread` command. Use `slick reply`.
-- There is no `slick reaction` command. Use `slick react`.
-- `--raw` is an output mode. Use `--blocks` only when the input is raw Block Kit
+*   There is no `slick dm` command. Use `slick message send --user`.
+*   Immediate DM email targeting uses the user's Slack profile email. If Slack
+  returns `users_not_found`, resolve the Slack-side address or use the user ID.
+*   There is no `slick thread` command. Use `slick reply`.
+*   There is no `slick reaction` command. Use `slick react`.
+*   `--raw` is an output mode. Use `--blocks` only when the input is raw Block Kit
   JSON.
-- `slick react add` accepts one or more emoji: comma-separate (`--emoji a,b,c`)
+*   `slick react add` accepts one or more emoji: comma-separate (`--emoji a,b,c`)
   or repeat the flag to apply multiple in input order. Halts on first failure.
-- File upload remains probationary. Use `slick agent guide upload_file` before
+*   File upload remains probationary. Use `slick agent guide upload_file` before
   testing it and prefer dry-run first.
 
 ## Rate-Limit Guardrail

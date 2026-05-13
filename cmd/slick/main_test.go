@@ -140,6 +140,12 @@ func TestNewRootCommandDefinesVisibleShortFlags(t *testing.T) {
 			if flag.Name == "attribution" || flag.Name == "no-attribution" || strings.HasPrefix(flag.Name, "attribution-") {
 				return
 			}
+			// Slack scheduled-message IDs are opaque Q-prefixed values. The
+			// plan intentionally keeps --scheduled-id long-form only so future
+			// short-ID conventions remain available.
+			if flag.Name == "scheduled-id" {
+				return
+			}
 			missing = append(missing, cmd.CommandPath()+" --"+flag.Name)
 		})
 		if cmd == root {
@@ -170,6 +176,34 @@ func TestNewRootCommandUsesLookupForDiscovery(t *testing.T) {
 		case "channel", "dm", "user":
 			t.Fatalf("root command exposes %q; use slick lookup channel/user and slick message send --user", child.CommandPath())
 		}
+	}
+}
+
+func TestMessageScheduledCommandOnlyExposesScheduledChildren(t *testing.T) {
+	cmd := NewRootCommand()
+	scheduled, _, err := cmd.Find([]string{"message", "scheduled"})
+	if err != nil || scheduled.Name() != "scheduled" {
+		t.Fatalf("message scheduled command missing: cmd=%v err=%v", scheduled, err)
+	}
+
+	visible := map[string]bool{}
+	for _, child := range scheduled.Commands() {
+		if !child.Hidden {
+			visible[child.Name()] = true
+		}
+	}
+	for _, want := range []string{"delete", "list"} {
+		if !visible[want] {
+			t.Fatalf("message scheduled missing visible child %q; got %#v", want, visible)
+		}
+	}
+	for _, forbidden := range []string{"send", "edit"} {
+		if visible[forbidden] {
+			t.Fatalf("message scheduled exposes %q; scheduled should only expose delete/list", forbidden)
+		}
+	}
+	if len(visible) != 2 {
+		t.Fatalf("message scheduled visible children = %#v, want exactly delete/list", visible)
 	}
 }
 

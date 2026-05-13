@@ -14,24 +14,30 @@ const (
 )
 
 var methodTiers = map[string]Tier{
-	"auth.test":             Tier2,
-	"chat.delete":           Tier4,
-	"chat.getPermalink":     Tier4,
-	"chat.postMessage":      TierSpecial,
-	"chat.update":           Tier4,
-	"conversations.history": Tier3,
-	"conversations.info":    Tier3,
-	"conversations.list":    Tier3,
-	"conversations.open":    Tier3,
-	"conversations.replies": Tier3,
-	"files.upload":          Tier4,
-	"reactions.add":         Tier4,
-	"reactions.get":         Tier4,
-	"reactions.remove":      Tier4,
-	"search.messages":       Tier2,
-	"users.getPresence":     Tier3,
-	"users.info":            Tier3,
-	"users.list":            Tier3,
+	"auth.test":   Tier2,
+	"chat.delete": Tier4,
+	// https://api.slack.com/methods/chat.deleteScheduledMessage
+	"chat.deleteScheduledMessage": Tier3,
+	"chat.getPermalink":           Tier4,
+	"chat.postMessage":            TierSpecial,
+	// https://api.slack.com/methods/chat.scheduleMessage
+	"chat.scheduleMessage": TierSpecial,
+	// https://api.slack.com/methods/chat.scheduledMessages.list
+	"chat.scheduledMessages.list": Tier3,
+	"chat.update":                 Tier4,
+	"conversations.history":       Tier3,
+	"conversations.info":          Tier3,
+	"conversations.list":          Tier3,
+	"conversations.open":          Tier3,
+	"conversations.replies":       Tier3,
+	"files.upload":                Tier4,
+	"reactions.add":               Tier4,
+	"reactions.get":               Tier4,
+	"reactions.remove":            Tier4,
+	"search.messages":             Tier2,
+	"users.getPresence":           Tier3,
+	"users.info":                  Tier3,
+	"users.list":                  Tier3,
 }
 
 func TierForMethod(method string) Tier {

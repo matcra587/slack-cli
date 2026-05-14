@@ -33,6 +33,21 @@ slick health check --output=json
 -s, --service <SERVICE>  Filter active incidents by Slack service
 ```
 
+`--service` supports shell completion for common Slack Status services:
+
+```text
+Apps/Integrations/APIs
+Canvases
+Connectivity
+Files
+Login/SSO
+Messaging
+Notifications
+Search
+Workflows
+Workspace/Org Administration
+```
+
 Human output:
 
 ```text

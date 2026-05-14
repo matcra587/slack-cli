@@ -475,11 +475,50 @@ func extendStatusFlags(root *cobra.Command) {
 func extendHealthFlags(root *cobra.Command) {
 	for _, path := range [][]string{{"health", "current"}, {"health", "check"}} {
 		cmd := commandPath(root, path...)
-		cobracli.Extend(flag(cmd, "service"), cobracli.FlagExtra{Placeholder: "SERVICE", Terse: "service"})
+		extendHealthServiceFlag(cmd)
 	}
 	history := commandPath(root, "health", "history")
-	cobracli.Extend(flag(history, "service"), cobracli.FlagExtra{Placeholder: "SERVICE", Terse: "service"})
+	extendHealthServiceFlag(history)
 	cobracli.Extend(flag(history, "limit"), cobracli.FlagExtra{Placeholder: "N", Terse: "limit"})
+}
+
+func extendHealthServiceFlag(cmd *cobra.Command) {
+	cobracli.Extend(flag(cmd, "service"), cobracli.FlagExtra{
+		Enum:        slackStatusServices(),
+		EnumTerse:   slackStatusServiceDescriptions(),
+		Placeholder: "SERVICE",
+		Terse:       "service",
+	})
+}
+
+func slackStatusServices() []string {
+	return []string{
+		"Apps/Integrations/APIs",
+		"Canvases",
+		"Connectivity",
+		"Files",
+		"Login/SSO",
+		"Messaging",
+		"Notifications",
+		"Search",
+		"Workflows",
+		"Workspace/Org Administration",
+	}
+}
+
+func slackStatusServiceDescriptions() []string {
+	return []string{
+		"apps, integrations, and APIs",
+		"canvases",
+		"connectivity",
+		"files",
+		"login and SSO",
+		"messaging",
+		"notifications",
+		"search",
+		"workflows",
+		"workspace and org administration",
+	}
 }
 
 func extendManifestFlags(root *cobra.Command) {

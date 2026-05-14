@@ -125,6 +125,16 @@ func TestCompletionGeneratorAnnotatesCommonSlackFlags(t *testing.T) {
 		return spec.CommaList && slices.Contains(spec.Values, "public_channel") && slices.Contains(spec.Values, "dm")
 	})
 
+	healthCheck := completionSub(t, gen.Subs, "health", "check")
+	assertCompletionSpec(t, healthCheck.Specs, "service", func(spec complete.Spec) bool {
+		return completionSpecContainsValueDesc(spec, "Messaging") &&
+			completionSpecContainsValueDesc(spec, "Workspace/Org Administration")
+	})
+	healthHistory := completionSub(t, gen.Subs, "health", "history")
+	assertCompletionSpec(t, healthHistory.Specs, "service", func(spec complete.Spec) bool {
+		return completionSpecContainsValueDesc(spec, "Apps/Integrations/APIs")
+	})
+
 	configSet := completionSub(t, gen.Subs, "config", "set")
 	if got := configSet.DynamicArgs; !slices.Equal(got, []string{"config_key", "config_value"}) {
 		t.Fatalf("config set dynamic args = %#v, want config_key/config_value", got)
@@ -204,6 +214,12 @@ func assertCompletionSpec(t *testing.T, specs []complete.Spec, name string, ok f
 		}
 	}
 	t.Fatalf("completion spec for --%s not found in %#v", name, specs)
+}
+
+func completionSpecContainsValueDesc(spec complete.Spec, value string) bool {
+	return slices.ContainsFunc(spec.ValueDescs, func(candidate complete.ValueDesc) bool {
+		return candidate.Value == value
+	})
 }
 
 func captureRootStdout(t *testing.T, args []string) []string {

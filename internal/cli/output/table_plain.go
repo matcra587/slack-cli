@@ -204,6 +204,16 @@ func (c *CommandContext) dimWhenCell(value *bool) table.Cell {
 	return table.StyledCell(c.Theme.Dim.Render(text), text)
 }
 
+func (c *CommandContext) dimCell(text string) table.Cell {
+	if text == "" {
+		return table.TextCell("")
+	}
+	if !c.tableStyled() || c.Theme == nil || c.Theme.Dim == nil {
+		return table.TextCell(text)
+	}
+	return table.StyledCell(c.Theme.Dim.Render(text), text)
+}
+
 func (c *CommandContext) tableWidth() int {
 	if f, ok := c.OutWriter().(*os.File); ok {
 		return terminal.Width(f)
@@ -353,7 +363,7 @@ func (c *CommandContext) WriteReactionTable(reactions []ReactionSummary) error {
 func (c *CommandContext) WriteHealthIncidentTable(incidents []HealthIncident) error {
 	columns := []table.Column[HealthIncident]{
 		{Name: "id", Header: "ID", Render: func(row HealthIncident, _ *table.RenderContext) table.Cell {
-			return c.hashCell("incident:"+row.ID, row.ID)
+			return c.dimCell(row.ID)
 		}},
 		{Name: "status", Header: "STATUS", Render: func(row HealthIncident, _ *table.RenderContext) table.Cell {
 			return c.hashCell("incident_status:"+row.Status, row.Status)

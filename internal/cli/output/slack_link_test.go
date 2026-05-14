@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
 	"github.com/gechr/x/ansi"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
@@ -142,5 +143,46 @@ func TestWriteScheduledMessageTableLinksChannel(t *testing.T) {
 	}
 	if !strings.Contains(got, "\x1b[4") {
 		t.Fatalf("stdout = %q, want underlined hyperlink text", got)
+	}
+}
+
+func TestWriteHealthIncidentTableDimsID(t *testing.T) {
+	t.Parallel()
+
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	th := theme.Default()
+	sl, el := clioutput.BuildBaseLoggers(stdout, stderr, clog.ColorAlways)
+	ctx := &clioutput.CommandContext{
+		Workspace: "default",
+		Stdout:    stdout,
+		Stderr:    io.Discard,
+		ColorMode: clog.ColorAlways,
+		IsTTY:     true,
+		Theme:     th,
+		StdoutLog: sl,
+		StderrLog: el,
+	}
+
+	err := ctx.WriteHealthIncidentTable([]clioutput.HealthIncident{{
+		ID:          "1551",
+		Status:      "resolved",
+		Type:        "incident",
+		DateUpdated: "2026-05-11T14:48:12-07:00",
+		Services:    []string{"Messaging"},
+		NoteCount:   15,
+		Title:       "Messaging recovered",
+	}})
+	if err != nil {
+		t.Fatalf("WriteHealthIncidentTable returned error: %v", err)
+	}
+
+	got := stdout.String()
+	plain := ansi.Strip(got)
+	if !strings.Contains(plain, "1551") {
+		t.Fatalf("stdout = %q, want incident ID in plain text", got)
+	}
+	if !strings.Contains(got, th.Dim.Render("1551")) {
+		t.Fatalf("stdout = %q, want dimmed incident ID", got)
 	}
 }

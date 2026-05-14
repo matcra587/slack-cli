@@ -45,6 +45,7 @@ OAuth redirect URL handling and the token-based auth path.
 | [`lookup`](lookup.md) | Look up channels, users, or search messages. |
 | [`cache`](cache.md) | Prime and inspect local Slack metadata caches. |
 | [`status`](status.md) | Set or clear the authenticated user's Slack status. |
+| [`health`](health.md) | Check Slack service health and Web API reachability. |
 | [`file`](file.md) | Upload a file to Slack (probationary; hidden in help). |
 | [`config`](config.md) | Manage local preferences (not auth). |
 | [`workspace`](workspace.md) | List configured workspace profiles. |

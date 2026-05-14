@@ -206,6 +206,10 @@ var commandActionLabel = map[string]string{
 	"lookup.messages":          "Messages searched", // cobra-path form (test asserts this)
 	"search.messages":          "Messages searched", // runtime form emitted by search.go
 	"file.upload":              "File uploaded",
+	"health.current":           "Slack status retrieved",
+	"health.history":           "Slack incidents retrieved",
+	"health.api-test":          "Slack API tested",
+	"health.check":             "Slack health checked",
 	"status.set":               "Status set",
 	"status.clear":             "Status cleared",
 	"auth.login":               "Login complete",
@@ -267,6 +271,17 @@ func (c *CommandContext) WriteUsers(command string, users []User, pagination *Pa
 func (c *CommandContext) WriteScheduledMessages(command string, messages []ScheduledMessage, pagination *Pagination) error {
 	if len(messages) > 0 {
 		return c.WriteScheduledMessageTable(messages)
+	}
+	ApplyNumberKeyStyle(c.StdoutLogger(), "count")
+	event := c.ResultEvent(command)
+	event = event.Str("count", "0")
+	c.FinishResult(event, command, pagination)
+	return nil
+}
+
+func (c *CommandContext) WriteHealthIncidents(command string, incidents []HealthIncident, pagination *Pagination) error {
+	if len(incidents) > 0 {
+		return c.WriteHealthIncidentTable(incidents)
 	}
 	ApplyNumberKeyStyle(c.StdoutLogger(), "count")
 	event := c.ResultEvent(command)

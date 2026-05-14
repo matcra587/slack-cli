@@ -338,6 +338,20 @@ func TestGuideDocumentsOperationalRunbooks(t *testing.T) {
 			t.Fatalf("cache_metadata guide missing %q:\n%s", fragment, cacheMetadata)
 		}
 	}
+
+	health := agenthelp.GetGuideSection("check_health")
+	for _, fragment := range []string{
+		"slick health check --output=json",
+		"slick health current --output=json",
+		"slick health history --limit 20 --output=json",
+		"slick health api-test --output=json",
+		"data.healthy",
+		"No Slack token or scopes",
+	} {
+		if !strings.Contains(health, fragment) {
+			t.Fatalf("check_health guide missing %q:\n%s", fragment, health)
+		}
+	}
 }
 
 func TestWorkflowCatalogIncludesOperationalRunbooks(t *testing.T) {
@@ -345,7 +359,7 @@ func TestWorkflowCatalogIncludesOperationalRunbooks(t *testing.T) {
 	for _, name := range agenthelp.WorkflowNames() {
 		names[name] = true
 	}
-	for _, name := range []string{"cache_metadata", "cleanup_msgs", "developer_review"} {
+	for _, name := range []string{"cache_metadata", "check_health", "cleanup_msgs", "developer_review"} {
 		if !names[name] {
 			t.Fatalf("workflow names = %#v, want %s", names, name)
 		}

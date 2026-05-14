@@ -30,6 +30,11 @@ var guideWorkflows = []GuideWorkflow{
 		Steps:       []string{"Use JSON for automation and human output for humans", "Treat stdout as command data only", "Treat stderr as diagnostics and structured errors", "Set --output to one of auto, human, json, compact (auto-detected by default)", "Parse fixed exit codes and error types on failure"},
 	},
 	{
+		Name:        "check_health",
+		Description: "Check Slack service health and Web API reachability",
+		Steps:       []string{"Use health check for a combined Slack Status plus api.test probe", "Use health current for active incidents", "Use health history for recent Slack incidents", "No Slack token or scopes are required", "Parse data.healthy, data.api_ok, data.status, and data.active_incidents[] from JSON"},
+	},
+	{
 		Name:        "send_msg",
 		Description: "Send a markdown message and read ts/permalink from JSON",
 		Steps:       []string{"Choose workspace/profile", "Pass message body with --message or --file -", "Use --channel or --user, never both", "Use Slack-profile email for DM --user targeting", "Use --schedule with --channel or --user and RFC3339/duration/Unix seconds", "Use --blocks only for raw Block Kit input", "Dry-run first for high-visibility sends", "Read JSON response for ts/permalink or scheduled_message_id"},
@@ -137,6 +142,20 @@ perform the task, what to parse, and which quirks matter.
 - Exit codes: auth ` + "`1`" + `, not found ` + "`2`" + `, rate limit ` + "`3`" + `, validation ` + "`4`" + `, server ` + "`5`" + `, canceled ` + "`6`" + `, timeout ` + "`7`" + `.
 - Quirks: ` + "`--output=compact`" + ` strips the envelope on success; use it only when the caller wants command-specific JSON.
 - Quirks: ` + "`--output`" + ` selects an output mode only. It does not select raw Block Kit input; use command-local ` + "`--blocks`" + ` for that.
+
+## check_health
+- Runbook: use this before blaming auth, config, scopes, or local networking when Slack calls start failing.
+- Inputs: optional Slack service filter such as ` + "`Messaging`" + `, ` + "`Search`" + `, ` + "`Files`" + `, or ` + "`Apps/Integrations/APIs`" + `.
+- Combined command: ` + "`slick health check --output=json`" + ` calls Slack Web API ` + "`api.test`" + ` and the Slack Status ` + "`current`" + ` endpoint.
+- Service-filtered command: ` + "`slick health check --service Messaging --output=json`" + ` reports health for matching active incidents only.
+- Current incidents command: ` + "`slick health current --output=json`" + `.
+- History command: ` + "`slick health history --limit 20 --output=json`" + `.
+- API probe command: ` + "`slick health api-test --output=json`" + `.
+- Parse: use ` + "`data.healthy`" + ` for the combined check, ` + "`data.api_ok`" + ` for Web API reachability, ` + "`data.status`" + ` for Slack Status, and ` + "`data.active_incidents[]`" + ` for incident details.
+- Parse: incident rows include ` + "`id`" + `, ` + "`title`" + `, ` + "`type`" + `, ` + "`status`" + `, ` + "`url`" + `, ` + "`date_created`" + `, ` + "`date_updated`" + `, ` + "`services[]`" + `, and ` + "`note_count`" + `.
+- Auth: No Slack token or scopes are required.
+- Quirks: these commands do not use the configured Slack workspace, token, or scopes. A failing health command points at Slack-side service availability, network, timeout, or malformed response issues rather than profile auth.
+- Quirks: Slack Status ` + "`current`" + ` can report ` + "`status=active`" + ` for services unrelated to your workflow. Use ` + "`--service`" + ` when you only care about one Slack service.
 
 ## auth_setup
 - Runbook: use this before first Slack API use, after token/profile errors, or when preparing a manifest for install.

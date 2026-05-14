@@ -3,6 +3,9 @@
 Set or clear the authenticated user's Slack status. Requires a user token
 with `users.profile:write`; bot-token profiles cannot set a user's status.
 
+This command is for your Slack profile status. Use [`health`](health.md) for
+Slack service health and Slack Web API reachability.
+
 ```text
 slick status set    Set Slack status
 slick status clear  Clear Slack status
@@ -108,6 +111,7 @@ JSON envelope. All fields use `omitempty`, so `status clear` carries only
 ## See also
 
 *   [`auth`](auth.md) — switch between user-token and bot-token profiles.
+*   [`health`](health.md) — check Slack service and Web API health.
 *   [`manifest`](manifest.md) — generate a manifest that includes
   `users.profile:write`.
 *   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).

@@ -77,6 +77,7 @@ slick agent guide                 # the full guide (every workflow)
 ```text
 auth_setup            Generate a manifest and authenticate a profile
 cache_metadata        Prime users and channels for repeated lookup and shell completion
+check_health          Check Slack service health and Web API reachability
 cleanup_msgs          Runbook for cleaning test messages found through paginated search
 config_prefs          Set profile preferences without touching auth
 core_contract         Understand output modes, stderr/stdout, and fixed exit codes

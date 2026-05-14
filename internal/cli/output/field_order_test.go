@@ -62,18 +62,19 @@ import (
 var canonicalCategory = map[string]int{
 	// 1. where
 	"workspace": 1, "team_id": 1, "team_name": 1, "profile": 1,
-	"channel": 1, "user": 1, "path": 1,
+	"channel": 1, "user": 1, "path": 1, "service": 1,
 	// 2. what
 	"ts": 2, "id": 2, "scheduled_message_id": 2, "name": 2, "type": 2,
 	"token_type": 2, "resource": 2, "key": 2, "query": 2,
 	// 3. when
 	"age": 3, "time": 3, "fetched_at": 3, "post_at": 3, "post_at_iso": 3,
-	"expiration": 3,
+	"expiration": 3, "updated": 3,
 	// 4. state
 	"authenticated": 4, "valid": 4, "is_member": 4, "is_archived": 4,
 	"is_im": 4, "deleted": 4, "removed": 4, "cleared": 4, "written": 4,
 	"exists": 4, "dry_run": 4, "from_cache": 4, "truncated": 4,
-	"attribution": 4, "command": 4,
+	"attribution": 4, "command": 4, "healthy": 4, "status": 4, "api_ok": 4,
+	"ok": 4,
 	// 5. detail
 	"text": 5, "topic": 5, "emoji": 5, "presence": 5, "status_text": 5,
 	"timezone": 5, "permalink": 5, "description": 5, "value": 5,
@@ -81,6 +82,7 @@ var canonicalCategory = map[string]int{
 	// 6. numbers
 	"count": 6, "members": 6, "num_members": 6, "size": 6, "replies": 6,
 	"removed_count": 6, "settings": 6, "expires_in": 6, "resources": 6,
+	"active_incidents": 6, "total_active_incidents": 6,
 	// 7. diagnostics
 	"validation_error": 7, "exit_code": 7,
 	// 8. pagination

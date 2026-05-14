@@ -28,6 +28,9 @@ nav = [
     { "User profile" = [
         { status = "status.md" },
     ] },
+    { Health = [
+        { health = "health.md" },
+    ] },
     { Files = [
         { "file (probationary)" = "file.md" },
     ] },

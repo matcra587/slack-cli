@@ -372,6 +372,33 @@ func (c *CommandContext) WriteReactionTable(reactions []ReactionSummary) error {
 	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(reactions).String())
 }
 
+func (c *CommandContext) WriteHealthIncidentTable(incidents []HealthIncident) error {
+	columns := []table.Column[HealthIncident]{
+		{Name: "id", Header: "ID", Render: func(row HealthIncident, _ *table.RenderContext) table.Cell {
+			return c.hashCell("incident:"+row.ID, row.ID)
+		}},
+		{Name: "status", Header: "STATUS", Render: func(row HealthIncident, _ *table.RenderContext) table.Cell {
+			return c.hashCell("incident_status:"+row.Status, row.Status)
+		}},
+		{Name: "type", Header: "TYPE", Render: func(row HealthIncident, _ *table.RenderContext) table.Cell {
+			return c.hashCell("incident_type:"+row.Type, row.Type)
+		}},
+		{Name: "updated", Header: "UPDATED", Render: func(row HealthIncident, _ *table.RenderContext) table.Cell {
+			return c.timestampCell(row.DateUpdated)
+		}},
+		{Name: "services", Header: "SERVICES", Render: func(row HealthIncident, _ *table.RenderContext) table.Cell {
+			return table.TextCell(strings.Join(row.Services, ","))
+		}},
+		{Name: "notes", Header: "NOTES", Render: func(row HealthIncident, _ *table.RenderContext) table.Cell {
+			return c.numberCellInt(row.NoteCount)
+		}},
+		{Name: "title", Header: "TITLE", Flex: true, Render: func(row HealthIncident, _ *table.RenderContext) table.Cell {
+			return table.TextCell(row.Title)
+		}},
+	}
+	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(incidents).String())
+}
+
 // reactionUsersCell hash-colors each comma-separated user ID using the
 // shared "user:<id>" seed so the same user is the same color across all
 // rows and across the message/search tables. Falls back to plain joined

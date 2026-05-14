@@ -76,6 +76,18 @@ type ScheduledMessage struct {
 	TextPreview string  `json:"text_preview,omitempty"`
 }
 
+type HealthIncident struct {
+	ID          string   `json:"id,omitempty"`
+	Title       string   `json:"title,omitempty"`
+	Type        string   `json:"type,omitempty"`
+	Status      string   `json:"status,omitempty"`
+	URL         string   `json:"url,omitempty"`
+	DateCreated string   `json:"date_created,omitempty"`
+	DateUpdated string   `json:"date_updated,omitempty"`
+	Services    []string `json:"services,omitempty"`
+	NoteCount   int      `json:"note_count,omitempty"`
+}
+
 func MessageFromSlack(message slackgo.Message, fallbackChannel string) Message {
 	out := Message{
 		Type: message.Type,

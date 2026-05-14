@@ -72,7 +72,7 @@ type CompactCommand struct {
 	Subcommands []CompactCommand `json:"subcommands,omitempty"`
 }
 
-var readOnlyVerbs = []string{"list", "info", "history", "search", "schema", "guide", "status"}
+var readOnlyVerbs = []string{"list", "info", "history", "search", "schema", "guide", "status", "current", "check", "api-test"}
 
 func GenerateSchema(root *cobra.Command) Schema {
 	return Schema{
@@ -145,6 +145,10 @@ func inputShapes() map[string][]string {
 		"cache.channels":           {"--refresh", "--ttl-minutes <n>", "--page-size <n>", "--max-pages <n>", "active public/private/DM/MPIM conversations"},
 		"cache.clear":              {"optional resource: users or channels", "no resource clears all cache files for the profile"},
 		"history.list":             {"--channel <id|alias>", "--max-items <n>", "--since <slack-ts>", "--until <slack-ts>", "--user <id>", "--thread <ts>"},
+		"health.current":           {"optional --service <Slack service>", "calls unauthenticated slack-status.com v2 current endpoint"},
+		"health.history":           {"--limit <n> defaults to 20; 0 returns all fetched incidents", "optional --service <Slack service>", "calls unauthenticated slack-status.com v2 history endpoint"},
+		"health.api-test":          {"calls unauthenticated Slack Web API api.test", "no Slack scopes required"},
+		"health.check":             {"runs api.test plus Slack Status current", "optional --service <Slack service>", "data.healthy is true when api_ok is true and there are no active incidents for the requested scope"},
 		"file.upload":              {"--channel <id|alias>", "--file <path|->", "--filename <name> required for stdin", "--message <markdown>", "--blocks Block Kit JSON array for --message comment"},
 		"manifest":                 {"template --name <name>", "template --format <json|yaml>", "local manifest generation only"},
 		"auth.login":               {"--workspace <name>", "--method <oauth|token>", "--token-stdin", "--token-file <path>", "--token-env <env-var-name>", "--oauth-client-id <id>", "--oauth-redirect-url <local-url>", "--force"},
@@ -158,6 +162,10 @@ func outputSchemas() map[string][]string {
 		"compact":                {"command-specific data only"},
 		"human":                  {"human-readable text"},
 		"message.scheduled.list": {"data.scheduled_messages[].id", "data.scheduled_messages[].channel raw ID for delete targets", "data.scheduled_messages[].channel_name/channel_type/channel_user/is_dm best-effort metadata", "human table columns ID/CHANNEL/DM/POST_AT/TEXT; human CHANNEL may be a friendly #channel or @user label"},
+		"health.current":         {"data.status", "data.date_updated", "data.active_incidents[]", "data.active_incident_count", "data.total_active_incident_count"},
+		"health.history":         {"data.incidents[]", "data.incident_count", "data.limit", "data.service when filtered"},
+		"health.api-test":        {"data.ok", "data.args when Slack echoes request arguments"},
+		"health.check":           {"data.healthy", "data.status", "data.api_ok", "data.active_incidents[]", "data.active_incident_count"},
 	}
 }
 
@@ -179,6 +187,7 @@ func examples() map[string][]string {
 		"reply":    {"slick reply --channel C123 --parent 1746284582.123456 --message 'Investigating'", "echo 'details' | slick reply --channel C123 --parent 1746284582.123456 --file -"},
 		"react":    {"slick react add --channel C123 --timestamp 1746284582.123456 --emoji eyes", "slick react remove --channel C123 --timestamp 1746284582.123456 --emoji eyes", "slick react list --channel C123 --timestamp 1746284582.123456"},
 		"status":   {"slick status set --text 'Heads down' --emoji :headphones: --expires-in 2h", "slick status clear"},
+		"health":   {"slick health check", "slick health current --service Messaging", "slick health history --limit 10", "slick health api-test --output=json"},
 		"history":  {"slick history list --channel C123 --max-items 50"},
 		"lookup":   {"slick lookup channel --max-items 20", "slick lookup channel --types im", "slick lookup user --presence", "slick lookup user --user U123", "slick lookup messages --query 'deploy failed' --max-items 10"},
 		"cache":    {"slick cache users", "slick cache channels", "slick cache users --refresh", "slick cache clear users"},

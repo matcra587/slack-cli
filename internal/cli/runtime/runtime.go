@@ -17,27 +17,28 @@ import (
 )
 
 type RootRuntime struct {
-	Config          *config.Config
-	ConfigLoadError error
-	ConfigExplicit  bool
-	ConfigPath      string
-	CredentialStore config.CredentialStore
-	TokenResolver   TokenResolver
-	SlackBaseURL    string
-	HTTPClient      *http.Client
-	OpenURL         func(string) error
-	OAuthTimeout    time.Duration
-	Timeout         time.Duration
-	CancelTimeout   context.CancelFunc
-	Stdin           io.Reader
-	Stdout          io.Writer
-	Stderr          io.Writer
-	IsTTY           bool
-	ColorMode       clog.ColorMode
-	Now             func() time.Time
-	RequestID       func() string
-	Theme           *theme.Theme
-	HelpRenderer    *help.Renderer
+	Config             *config.Config
+	ConfigLoadError    error
+	ConfigExplicit     bool
+	ConfigPath         string
+	CredentialStore    config.CredentialStore
+	TokenResolver      TokenResolver
+	SlackBaseURL       string
+	SlackStatusBaseURL string
+	HTTPClient         *http.Client
+	OpenURL            func(string) error
+	OAuthTimeout       time.Duration
+	Timeout            time.Duration
+	CancelTimeout      context.CancelFunc
+	Stdin              io.Reader
+	Stdout             io.Writer
+	Stderr             io.Writer
+	IsTTY              bool
+	ColorMode          clog.ColorMode
+	Now                func() time.Time
+	RequestID          func() string
+	Theme              *theme.Theme
+	HelpRenderer       *help.Renderer
 }
 
 type RootOption func(*RootRuntime)
@@ -77,6 +78,12 @@ func WithTokenResolver(resolver TokenResolver) RootOption {
 func WithSlackBaseURL(baseURL string) RootOption {
 	return func(runtime *RootRuntime) {
 		runtime.SlackBaseURL = baseURL
+	}
+}
+
+func WithSlackStatusBaseURL(baseURL string) RootOption {
+	return func(runtime *RootRuntime) {
+		runtime.SlackStatusBaseURL = baseURL
 	}
 }
 

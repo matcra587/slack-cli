@@ -26,6 +26,7 @@ import (
 	clicompletion "github.com/matcra587/slack-cli/internal/cli/completion"
 	cliconfig "github.com/matcra587/slack-cli/internal/cli/config"
 	clifile "github.com/matcra587/slack-cli/internal/cli/file"
+	clihealth "github.com/matcra587/slack-cli/internal/cli/health"
 	clihistory "github.com/matcra587/slack-cli/internal/cli/history"
 	climanifest "github.com/matcra587/slack-cli/internal/cli/manifest"
 	climessage "github.com/matcra587/slack-cli/internal/cli/message"
@@ -136,17 +137,18 @@ type RootRuntime = cliruntime.RootRuntime
 type RootOption = cliruntime.RootOption
 
 var (
-	WithConfig          = cliruntime.WithConfig
-	WithConfigPath      = cliruntime.WithConfigPath
-	WithCredentialStore = cliruntime.WithCredentialStore
-	WithTokenResolver   = cliruntime.WithTokenResolver
-	WithSlackBaseURL    = cliruntime.WithSlackBaseURL
-	WithIO              = cliruntime.WithIO
-	WithTTY             = cliruntime.WithTTY
-	WithNow             = cliruntime.WithNow
-	WithRequestID       = cliruntime.WithRequestID
-	WithURLOpener       = cliruntime.WithURLOpener
-	WithOAuthTimeout    = cliruntime.WithOAuthTimeout
+	WithConfig             = cliruntime.WithConfig
+	WithConfigPath         = cliruntime.WithConfigPath
+	WithCredentialStore    = cliruntime.WithCredentialStore
+	WithTokenResolver      = cliruntime.WithTokenResolver
+	WithSlackBaseURL       = cliruntime.WithSlackBaseURL
+	WithSlackStatusBaseURL = cliruntime.WithSlackStatusBaseURL
+	WithIO                 = cliruntime.WithIO
+	WithTTY                = cliruntime.WithTTY
+	WithNow                = cliruntime.WithNow
+	WithRequestID          = cliruntime.WithRequestID
+	WithURLOpener          = cliruntime.WithURLOpener
+	WithOAuthTimeout       = cliruntime.WithOAuthTimeout
 )
 
 type TokenResolver = cliruntime.TokenResolver
@@ -265,6 +267,10 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	statusCmd := clistatus.NewCommand(runtime)
 	statusCmd.GroupID = "messaging"
 	root.AddCommand(statusCmd)
+
+	healthCmd := clihealth.NewCommand(runtime)
+	healthCmd.GroupID = "meta"
+	root.AddCommand(healthCmd)
 
 	lookupCmd := clichannel.NewCommand(runtime)
 	lookupCmd.GroupID = "discovery"

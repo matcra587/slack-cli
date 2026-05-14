@@ -299,6 +299,7 @@ func ExtendSlackMetadata(root *cobra.Command) {
 	extendReactFlags(root)
 	extendLookupFlags(root)
 	extendFileFlags(root)
+	extendHealthFlags(root)
 	extendStatusFlags(root)
 	extendCacheMetadata(root)
 	extendManifestFlags(root)
@@ -469,6 +470,16 @@ func extendStatusFlags(root *cobra.Command) {
 
 	clear := commandPath(root, "status", "clear")
 	extendDryRunFlag(clear)
+}
+
+func extendHealthFlags(root *cobra.Command) {
+	for _, path := range [][]string{{"health", "current"}, {"health", "check"}} {
+		cmd := commandPath(root, path...)
+		cobracli.Extend(flag(cmd, "service"), cobracli.FlagExtra{Placeholder: "SERVICE", Terse: "service"})
+	}
+	history := commandPath(root, "health", "history")
+	cobracli.Extend(flag(history, "service"), cobracli.FlagExtra{Placeholder: "SERVICE", Terse: "service"})
+	cobracli.Extend(flag(history, "limit"), cobracli.FlagExtra{Placeholder: "N", Terse: "limit"})
 }
 
 func extendManifestFlags(root *cobra.Command) {

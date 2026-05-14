@@ -95,8 +95,8 @@ data record carries `dry_run: true`; no Slack call is made:
 ```
 
 Slack's `files.completeUploadExternal` does not populate `permalink` in the
-upload response; the field is absent unless slick later resolves it via
-`files.info` (not currently done).
+upload response; slick attempts to resolve it with `files.info` after upload.
+If that lookup fails, `permalink` stays absent.
 
 ## Common errors
 
@@ -111,4 +111,7 @@ upload response; the field is absent unless slick later resolves it via
 
 *   [`message`](message.md) — send a message without uploading a file.
 *   [`manifest`](manifest.md) — `files` preset enables `files:write`.
-*   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).
+*   Slack API methods:
+  [`files.getUploadURLExternal`](https://docs.slack.dev/reference/methods/files.getUploadURLExternal/),
+  [`files.completeUploadExternal`](https://docs.slack.dev/reference/methods/files.completeUploadExternal/),
+  [`files.info`](https://docs.slack.dev/reference/methods/files.info/).

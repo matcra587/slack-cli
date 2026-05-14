@@ -143,4 +143,3 @@ managed by [`auth login`](auth.md#auth-login); `config set` does not edit them.
 
 *   [`auth`](auth.md) — credentials, not preferences.
 *   [`workspace`](workspace.md) — list configured profiles.
-*   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).

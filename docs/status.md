@@ -114,4 +114,4 @@ JSON envelope. All fields use `omitempty`, so `status clear` carries only
 *   [`health`](health.md) — check Slack service and Web API health.
 *   [`manifest`](manifest.md) — generate a manifest that includes
   `users.profile:write`.
-*   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).
+*   Slack API method: [`users.profile.set`](https://docs.slack.dev/reference/methods/users.profile.set/).

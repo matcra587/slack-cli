@@ -293,4 +293,6 @@ JSON envelope (`auth.logout`). `authenticated` is forced to `false`:
   scopes you want.
 *   [Config](config.md) — workspace preferences (default channel, attribution).
 *   [Workspace](workspace.md) — list configured profiles.
-*   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).
+*   Slack API methods: [`auth.test`](https://docs.slack.dev/reference/methods/auth.test/),
+  [`oauth.v2.access`](https://docs.slack.dev/reference/methods/oauth.v2.access/),
+  [`auth.revoke`](https://docs.slack.dev/reference/methods/auth.revoke/).

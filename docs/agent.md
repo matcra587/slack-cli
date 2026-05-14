@@ -112,4 +112,3 @@ per-command pages of this site, including post-v0.4.0 renames (`ts`,
 *   [`README`](https://github.com/matcra587/slack-cli#readme) — onboarding.
 *   The in-repo skill at `.claude/skills/slack-cli/SKILL.md` wraps these
     outputs into a Claude Code / agent skill.
-*   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).

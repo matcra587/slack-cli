@@ -347,4 +347,10 @@ JSON output:
 *   [`react`](react.md) — reactions on messages.
 *   [`history`](history.md) — verify rendered output after edits.
 *   [`status`](status.md), [`auth`](auth.md), [`config`](config.md).
-*   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).
+*   Slack API methods:
+  [`chat.postMessage`](https://docs.slack.dev/reference/methods/chat.postMessage/),
+  [`chat.update`](https://docs.slack.dev/reference/methods/chat.update/),
+  [`chat.delete`](https://docs.slack.dev/reference/methods/chat.delete/),
+  [`chat.scheduleMessage`](https://docs.slack.dev/reference/methods/chat.scheduleMessage/),
+  [`chat.scheduledMessages.list`](https://docs.slack.dev/reference/methods/chat.scheduledMessages.list/),
+  [`chat.deleteScheduledMessage`](https://docs.slack.dev/reference/methods/chat.deleteScheduledMessage/).

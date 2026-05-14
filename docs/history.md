@@ -114,4 +114,6 @@ ends the walk.
 *   [`message`](message.md) — verify rendered output after edits.
 *   [`lookup messages`](lookup.md#lookup-messages) — workspace-wide message search.
 *   [`react list`](react.md#react-list) — read reactions on a known message.
-*   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).
+*   Slack API methods:
+  [`conversations.history`](https://docs.slack.dev/reference/methods/conversations.history/),
+  [`conversations.replies`](https://docs.slack.dev/reference/methods/conversations.replies/).

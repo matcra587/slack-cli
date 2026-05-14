@@ -68,4 +68,3 @@ passed; change it with [`auth switch`](auth.md#auth-switch) or
 *   [`auth status`](auth.md#auth-status) — see auth state of each workspace.
 *   [`auth switch`](auth.md#auth-switch) — change the default workspace.
 *   [`config`](config.md) — workspace-scoped preferences.
-*   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).

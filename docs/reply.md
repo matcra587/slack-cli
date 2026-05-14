@@ -82,4 +82,4 @@ is absent, and `dry_run: true` is present:
 
 *   [`message`](message.md) — top-level send/edit/delete.
 *   [`history list --thread`](history.md#history-list) — read replies before posting.
-*   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).
+*   Slack API method: [`chat.postMessage`](https://docs.slack.dev/reference/methods/chat.postMessage/).

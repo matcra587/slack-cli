@@ -220,4 +220,9 @@ on its own line after the body:
 *   [`cache`](cache.md) — prime users/channels for faster repeated lookups.
 *   [`history`](history.md) — read messages by channel/thread rather than
   search.
-*   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).
+*   Slack API methods:
+  [`conversations.list`](https://docs.slack.dev/reference/methods/conversations.list/),
+  [`conversations.info`](https://docs.slack.dev/reference/methods/conversations.info/),
+  [`users.list`](https://docs.slack.dev/reference/methods/users.list/),
+  [`users.info`](https://docs.slack.dev/reference/methods/users.info/),
+  [`search.messages`](https://docs.slack.dev/reference/methods/search.messages/).

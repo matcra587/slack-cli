@@ -160,4 +160,5 @@ response).
 *   [`lookup`](lookup.md) — direct Slack lookups (uses cache when fresh).
 *   [`config`](config.md) — `slick config path` shows where the cache root is
   derived from.
-*   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).
+*   Slack API methods: [`users.list`](https://docs.slack.dev/reference/methods/users.list/),
+  [`conversations.list`](https://docs.slack.dev/reference/methods/conversations.list/).

@@ -136,4 +136,6 @@ you passed to `react add`:
 
 *   [`message`](message.md) — send the message before reacting to it.
 *   [`history`](history.md) — look up the timestamp.
-*   [README](https://github.com/matcra587/slack-cli#readme) and [index](index.md).
+*   Slack API methods: [`reactions.add`](https://docs.slack.dev/reference/methods/reactions.add/),
+  [`reactions.remove`](https://docs.slack.dev/reference/methods/reactions.remove/),
+  [`reactions.get`](https://docs.slack.dev/reference/methods/reactions.get/).

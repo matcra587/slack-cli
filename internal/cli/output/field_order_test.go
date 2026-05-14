@@ -443,6 +443,14 @@ func helperEmissions(_, name string, call *ast.CallExpr, fset *token.FileSet) []
 			}
 		}
 		return nil
+	case "AddSlackConversationField":
+		// signature: (event, context, key, ref)
+		if len(call.Args) >= 3 {
+			if key, ok := stringLit(call.Args[2]); ok {
+				return []emission{{key: key, pos: pos}}
+			}
+		}
+		return nil
 	case "AddSlackTimestampFields":
 		// emits ts (cat 2). time is verbose-only and skipped here.
 		return []emission{

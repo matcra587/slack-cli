@@ -311,6 +311,18 @@ func TestMessageSendCommandSupportsUnifiedUserTargetWithAlias(t *testing.T) {
 		"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
 			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/D123/p1746284582123456"}`)
 		},
+		"conversations.info": func(req testutil.SlackRequest) testutil.SlackResponse {
+			if got := req.Form.Get("channel"); got != "D123" {
+				t.Fatalf("conversations.info channel = %q, want D123", got)
+			}
+			return testutil.JSONResponse(`{"ok":true,"channel":{"id":"D123","is_im":true,"user":"U123"}}`)
+		},
+		"users.info": func(req testutil.SlackRequest) testutil.SlackResponse {
+			if got := req.Form.Get("user"); got != "U123" {
+				t.Fatalf("users.info user = %q, want U123", got)
+			}
+			return testutil.JSONResponse(`{"ok":true,"user":{"id":"U123","name":"matcra587","profile":{"display_name":"matcra587"}}}`)
+		},
 	})
 
 	stdout, stderr, err := executeTestRoot(t, cfg, server.BaseURL(), "",
@@ -321,6 +333,12 @@ func TestMessageSendCommandSupportsUnifiedUserTargetWithAlias(t *testing.T) {
 	}
 	if !strings.Contains(stdout, `"channel":"D123"`) {
 		t.Fatalf("stdout = %s, want DM channel", stdout)
+	}
+	if !strings.Contains(stdout, `"channel_name":"matcra587"`) || !strings.Contains(stdout, `"channel_hr":"@matcra587"`) {
+		t.Fatalf("stdout = %s, want JSON channel display metadata", stdout)
+	}
+	if !strings.Contains(stdout, `"channel_url":`) {
+		t.Fatalf("stdout = %s, want JSON channel URL", stdout)
 	}
 }
 

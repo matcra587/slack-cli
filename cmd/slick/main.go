@@ -329,6 +329,7 @@ func defaultConfigPath() string {
 
 func NewCommandContext(opts RootOptions) (*CommandContext, Attribution, error) {
 	workspace := "default"
+	teamID := ""
 	attrFlags := opts.Attribution
 	if opts.Config != nil {
 		profile, err := opts.Config.ResolveWorkspace(opts.Workspace)
@@ -336,6 +337,7 @@ func NewCommandContext(opts RootOptions) (*CommandContext, Attribution, error) {
 			return nil, Attribution{}, err
 		}
 		workspace = profile.Name
+		teamID = profile.TeamID
 		attrFlags.ProfileAttribution = profileAttributionSetting(profile)
 		settings := profile.AgentSettings()
 		if attrFlags.Label == "" {
@@ -357,6 +359,7 @@ func NewCommandContext(opts RootOptions) (*CommandContext, Attribution, error) {
 	applyRenderMode(stdoutLog, mode)
 	return &CommandContext{
 		Workspace:     workspace,
+		TeamID:        teamID,
 		Mode:          mode,
 		Stdout:        opts.Stdout,
 		Stderr:        opts.Stderr,

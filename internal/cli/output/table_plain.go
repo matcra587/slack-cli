@@ -12,7 +12,6 @@ import (
 	"github.com/gechr/primer/table"
 	termansi "github.com/gechr/x/ansi"
 	"github.com/gechr/x/terminal"
-	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	"github.com/matcra587/slack-cli/internal/config"
 )
 
@@ -229,7 +228,7 @@ func (c *CommandContext) WriteSearchTable(matches []SearchMessage, full bool) er
 	columns := []table.Column[SearchMessage]{
 		{Name: "ts", Header: "TS", Render: func(row SearchMessage, _ *table.RenderContext) table.Cell { return c.timestampCell(row.TS) }},
 		{Name: "channel", Header: "CHANNEL", Render: func(row SearchMessage, _ *table.RenderContext) table.Cell {
-			return c.hashCell("channel:"+row.Channel.ID, cliutil.FirstNonEmpty(row.Channel.Name, row.Channel.ID))
+			return c.slackConversationCell(SlackConversationRefFromSearch(row.Channel))
 		}},
 		{Name: "user", Header: "USER", Render: func(row SearchMessage, _ *table.RenderContext) table.Cell {
 			return c.hashCell("user:"+row.User, row.User)
@@ -248,7 +247,7 @@ func (c *CommandContext) WriteSearchTable(matches []SearchMessage, full bool) er
 func (c *CommandContext) WriteChannelTable(command string, channels []Channel) error {
 	columns := []table.Column[Channel]{
 		{Name: "channel", Header: "CHANNEL", Render: func(row Channel, _ *table.RenderContext) table.Cell {
-			return c.hashCell("channel:"+row.ID, row.ID)
+			return c.slackConversationCellText(SlackConversationRefFromChannel(row), row.ID)
 		}},
 		{Name: "name", Header: "NAME", Render: func(row Channel, _ *table.RenderContext) table.Cell {
 			return table.TextCell(row.Name)
@@ -312,7 +311,7 @@ func (c *CommandContext) WriteScheduledMessageTable(messages []ScheduledMessage)
 			return c.hashCell("scheduled:"+row.ID, row.ID)
 		}},
 		{Name: "channel", Header: "CHANNEL", Render: func(row ScheduledMessage, _ *table.RenderContext) table.Cell {
-			return c.hashCell("channel:"+row.Channel, scheduledChannelDisplay(row))
+			return c.slackConversationCell(SlackConversationRefFromScheduled(row))
 		}},
 		{Name: "dm", Header: "DM", Render: func(row ScheduledMessage, _ *table.RenderContext) table.Cell {
 			return table.TextCell(ptrBool(row.IsDM))
@@ -325,27 +324,6 @@ func (c *CommandContext) WriteScheduledMessageTable(messages []ScheduledMessage)
 		}},
 	}
 	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(messages).String())
-}
-
-func scheduledChannelDisplay(row ScheduledMessage) string {
-	if row.ChannelName == "" {
-		return row.Channel
-	}
-	if row.IsDM != nil && *row.IsDM {
-		if strings.HasPrefix(row.ChannelName, "@") {
-			return row.ChannelName
-		}
-		return "@" + row.ChannelName
-	}
-	switch row.ChannelType {
-	case "channel", "private_channel":
-		if strings.HasPrefix(row.ChannelName, "#") {
-			return row.ChannelName
-		}
-		return "#" + row.ChannelName
-	default:
-		return row.ChannelName
-	}
 }
 
 func usersHavePresence(users []User) bool {

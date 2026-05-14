@@ -133,7 +133,7 @@ func GenerateSchema(root *cobra.Command) Schema {
 func inputShapes() map[string][]string {
 	return map[string][]string{
 		"message.send":             {"--channel <id|alias>", "--user <id|alias|slack-profile-email>", "--channel and --user are mutually exclusive", "--message <markdown>", "--file <path|->", "stdin markdown when --file -", "source-preserving Markdown fallback for unsupported block-level constructs", "--blocks Block Kit JSON array", "--blocks validates Slack Block Kit JSON rules", "--schedule <RFC3339|duration|unix-seconds> for channel or user scheduled sends", "scheduled --user sends resolve/open the DM before chat.scheduleMessage; real output data.channel is the raw DM/MPIM channel ID"},
-		"message.scheduled.list":   {"optional --channel <id|alias>", "--cursor <cursor>", "--limit <n>", "data.scheduled_messages[] rows include id/channel/post_at/text_preview plus best-effort channel_name/channel_type/channel_user/is_dm metadata"},
+		"message.scheduled.list":   {"optional --channel <id|alias>", "--cursor <cursor>", "--limit <n>", "data.scheduled_messages[] rows include id/channel/post_at/text_preview plus best-effort channel_name/channel_hr/channel_url/channel_type/channel_user/is_dm metadata"},
 		"message.scheduled.delete": {"--channel <id|alias>", "--scheduled-id <QID>", "--dry-run"},
 		"reply":                    {"--channel <id|alias>", "--parent <slack-ts>", "--message <markdown>", "--file <path|->", "--blocks Block Kit JSON array", "--dry-run"},
 		"react.add":                {"--channel <id|alias>", "--timestamp <slack-ts>", "--emoji <name|:name:>", "--dry-run"},
@@ -160,8 +160,8 @@ func outputSchemas() map[string][]string {
 		"output_flag":            {"--output (or -o) selects one of auto, human, json, compact", "auto picks human in a TTY and json otherwise"},
 		"json":                   {"meta.command", "meta.workspace", "meta.timestamp", "meta.request_id", "data", "errors"},
 		"compact":                {"command-specific data only"},
-		"human":                  {"human-readable text"},
-		"message.scheduled.list": {"data.scheduled_messages[].id", "data.scheduled_messages[].channel raw ID for delete targets", "data.scheduled_messages[].channel_name/channel_type/channel_user/is_dm best-effort metadata", "human table columns ID/CHANNEL/DM/POST_AT/TEXT; human CHANNEL may be a friendly #channel or @user label"},
+		"human":                  {"human-readable text", "Slack channels, DMs, and permalinks may be OSC 8 terminal hyperlinks; do not parse human output"},
+		"message.scheduled.list": {"data.scheduled_messages[].id", "data.scheduled_messages[].channel raw ID for delete targets", "data.scheduled_messages[].channel_name/channel_hr/channel_url/channel_type/channel_user/is_dm best-effort metadata", "human table columns ID/CHANNEL/DM/POST_AT/TEXT; human CHANNEL may be a friendly #channel or @user label"},
 		"health.current":         {"data.status", "data.date_updated", "data.active_incidents[]", "data.active_incident_count", "data.total_active_incident_count"},
 		"health.history":         {"data.incidents[]", "data.incident_count", "data.limit", "data.service when filtered"},
 		"health.api-test":        {"data.ok", "data.args when Slack echoes request arguments"},

@@ -46,9 +46,10 @@ C0228L1B726  direct          im               U123…  true    false     1
 Columns: `CHANNEL`, `NAME`, `TYPE`, `USER`, `MEMBER`, `ARCHIVED`, `MEMBERS`,
 `TOPIC`. `TYPE` is Slack's conversation kind — `channel` for public,
 `private_channel` for private, `im`/`mpim` for DMs. `USER` is populated only
-for `im` rows (the DM counterparty). Channel IDs hash-colour; `TYPE` colours
-by hash. `MEMBER` uses dim-on-true (being a member is the routine state);
-`ARCHIVED` uses red-on-true.
+for `im` rows (the DM counterparty). `CHANNEL` stays the raw conversation ID
+for copy/paste and may be an OSC 8 terminal hyperlink in human mode. Channel IDs
+hash-colour; `TYPE` colours by hash. `MEMBER` uses dim-on-true (being a member
+is the routine state); `ARCHIVED` uses red-on-true.
 
 Human (single channel via `--channel`):
 
@@ -60,13 +61,24 @@ A `topic` field appears at the end when the channel has one set.
 
 JSON envelope (list). Slack's conversation type is `channel` for public
 channels and `private_channel` for private; `is_im` distinguishes DM
-conversations even when other types coexist in the list:
+conversations even when other types coexist in the list. `hr` and `url` are
+best-effort display metadata; `id` remains the raw Slack conversation ID:
 
 ```json
 {
   "data": {
     "channels": [
-      {"id": "C7N2Q8L4P", "name": "deploy-bots", "type": "channel", "is_member": true, "is_im": false, "num_members": 42, "is_archived": false}
+      {
+        "id": "C7N2Q8L4P",
+        "name": "deploy-bots",
+        "hr": "#deploy-bots",
+        "url": "https://app.slack.com/client/T8KQ42P9D/C7N2Q8L4P",
+        "type": "channel",
+        "is_member": true,
+        "is_im": false,
+        "num_members": 42,
+        "is_archived": false
+      }
     ]
   }
 }
@@ -172,8 +184,8 @@ clog's `OmitZero`).
 With matches, human mode renders a `TS / CHANNEL / USER / TEXT` table:
 
 ```text
-TS                 CHANNEL     USER       TEXT
-1746284582.123456  deploy-bot  U123ABC    Deploy v0.4.0 complete — rollback window closes 18:00 UTC.
+TS                 CHANNEL      USER       TEXT
+1746284582.123456  #deploy-bot  U123ABC    Deploy v0.4.0 complete — rollback window closes 18:00 UTC.
 :robot_face: _Sent via slick (agent mode)_
 ```
 
@@ -195,7 +207,12 @@ on its own line after the body:
   "data": {
     "matches": [
       {
-        "channel": {"id": "C1234567890", "name": "deploy"},
+        "channel": {
+          "id": "C1234567890",
+          "name": "deploy",
+          "hr": "#deploy",
+          "url": "https://app.slack.com/client/T8KQ42P9D/C1234567890"
+        },
         "user": "U123ABC",
         "text": "Deploy v0.4.0 complete — rollback window closes 18:00 UTC.\n:robot_face: _Sent via slick (agent mode)_",
         "ts": "1746284582.123456",

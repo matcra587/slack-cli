@@ -224,6 +224,13 @@ var underlinedHyperlink = lipgloss.NewStyle().Underline(true)
 // style each escape byte individually).
 func HyperlinkText(text string) string { return underlinedHyperlink.Render(text) }
 
+func (c *CommandContext) HyperlinkText(text string) string {
+	if c == nil || c.ColorMode == clog.ColorNever || c.ColorMode == clog.ColorAuto && !c.IsTTY {
+		return text
+	}
+	return HyperlinkText(text)
+}
+
 func ApplyRenderMode(sl *clog.Logger, mode RenderMode) {
 	switch mode {
 	case RenderModeCompact, RenderModeEnvelope:

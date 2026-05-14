@@ -17,6 +17,7 @@ import (
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
 	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
+	"github.com/matcra587/slack-cli/internal/cli/slackmeta"
 	cliuser "github.com/matcra587/slack-cli/internal/cli/user"
 	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
@@ -48,29 +49,13 @@ type channelsPayload struct {
 // LoadCachedUsers returns the cached user list for the profile, or
 // (nil, false) if the cache is missing, stale, or fails to decode.
 func LoadCachedUsers(profile string) ([]clioutput.User, bool) {
-	var payload usersPayload
-	if !readCache(profile, "users", &payload) {
-		return nil, false
-	}
-	return payload.Users, true
+	return slackmeta.LoadCachedUsers(profile)
 }
 
 // LoadCachedChannels returns the cached channel list for the profile, or
 // (nil, false) if the cache is missing, stale, or fails to decode.
 func LoadCachedChannels(profile string) ([]clioutput.Channel, bool) {
-	var payload channelsPayload
-	if !readCache(profile, "channels", &payload) {
-		return nil, false
-	}
-	return payload.Channels, true
-}
-
-func readCache(profile, resource string, target any) bool {
-	entry, ok, stale, err := slackcache.Read(profile, resource, time.Duration(metadataTTLMinutes)*time.Minute)
-	if err != nil || !ok || stale {
-		return false
-	}
-	return json.Unmarshal(entry.Data, target) == nil
+	return slackmeta.LoadCachedChannels(profile)
 }
 
 // UsersData is the result returned by `slick cache users`.
@@ -119,7 +104,17 @@ func (d UsersData) WritePlain(c *clioutput.CommandContext, command string, _ *cl
 	return nil
 }
 
-var _ clioutput.PlainRenderer = ChannelsData{}
+var (
+	_ clioutput.PlainRenderer  = ChannelsData{}
+	_ clioutput.ResultEnricher = ChannelsData{}
+)
+
+func (d ChannelsData) EnrichResult(c *clioutput.CommandContext) any {
+	for i := range d.Channels {
+		c.EnrichChannelConversation(&d.Channels[i])
+	}
+	return d
+}
 
 func (d ChannelsData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	writeCacheSummary(c, command, d.Profile, "channels", d.Count, d.FromCache, d.Truncated, d.FetchedAt)

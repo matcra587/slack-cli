@@ -9,16 +9,31 @@ import (
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
 	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
+	"github.com/matcra587/slack-cli/internal/cli/slackmeta"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
 
 // Data is the result type for history list operations.
 type Data struct {
-	Messages []clioutput.Message `json:"messages"`
+	Messages   []clioutput.Message            `json:"messages"`
+	ChannelRef clioutput.SlackConversationRef `json:"-"`
 }
 
-var _ clioutput.PlainRenderer = Data{}
+var (
+	_ clioutput.PlainRenderer  = Data{}
+	_ clioutput.ResultEnricher = Data{}
+)
+
+func (d Data) EnrichResult(c *clioutput.CommandContext) any {
+	for i := range d.Messages {
+		c.EnrichMessageConversation(&d.Messages[i], d.ChannelRef)
+		for j := range d.Messages[i].Replies {
+			c.EnrichMessageConversation(&d.Messages[i].Replies[j], d.ChannelRef)
+		}
+	}
+	return d
+}
 
 func (d Data) WritePlain(c *clioutput.CommandContext, command string, pagination *clioutput.Pagination) error {
 	return c.WriteMessages(command, d.Messages, pagination)
@@ -118,7 +133,8 @@ func runHistoryList(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Li
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 
-	return ctx.WriteResultWithPagination("history.list", Data{Messages: res.Messages}, &clioutput.Pagination{
+	channelRef := slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, channel)
+	return ctx.WriteResultWithPagination("history.list", Data{Messages: res.Messages, ChannelRef: channelRef}, &clioutput.Pagination{
 		Cursor:        cliutil.StringPtr(opts.Cursor),
 		NextCursor:    res.NextCursor,
 		HasMore:       res.NextCursor != nil,

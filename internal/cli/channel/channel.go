@@ -21,7 +21,17 @@ type ListData struct {
 	Channels []clioutput.Channel `json:"channels"`
 }
 
-var _ clioutput.PlainRenderer = ListData{}
+var (
+	_ clioutput.PlainRenderer  = ListData{}
+	_ clioutput.ResultEnricher = ListData{}
+)
+
+func (d ListData) EnrichResult(c *clioutput.CommandContext) any {
+	for i := range d.Channels {
+		c.EnrichChannelConversation(&d.Channels[i])
+	}
+	return d
+}
 
 func (d ListData) WritePlain(c *clioutput.CommandContext, command string, pagination *clioutput.Pagination) error {
 	return c.WriteChannels(command, d.Channels, pagination)
@@ -32,7 +42,15 @@ type InfoData struct {
 	Channel clioutput.Channel `json:"channel"`
 }
 
-var _ clioutput.PlainRenderer = InfoData{}
+var (
+	_ clioutput.PlainRenderer  = InfoData{}
+	_ clioutput.ResultEnricher = InfoData{}
+)
+
+func (d InfoData) EnrichResult(c *clioutput.CommandContext) any {
+	c.EnrichChannelConversation(&d.Channel)
+	return d
+}
 
 func (d InfoData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	ch := d.Channel
@@ -43,8 +61,13 @@ func (d InfoData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 	if ch.User != nil {
 		styles = append(styles, clioutput.EntityFieldStyle("user", *ch.User))
 	}
-	event := c.ResultEventWithStyles(command, styles...).
-		Str("channel", ch.ID)
+	event := c.ResultEventWithStyles(command, styles...)
+	ref := clioutput.SlackConversationRefFromChannel(ch)
+	if link := c.SlackConversationURL(ref); link != "" {
+		event = event.Link("channel", link, c.HyperlinkText(ch.ID))
+	} else {
+		event = event.Str("channel", ch.ID)
+	}
 	if ch.User != nil {
 		event = event.Str("user", *ch.User)
 	}

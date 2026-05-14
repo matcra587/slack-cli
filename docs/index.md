@@ -98,6 +98,13 @@ visual conventions:
   the same colour across commands.
 *   **Human labels** (channel name, user name, file name, descriptions) render
   default-styled.
+*   **Slack entity and permalink fields** may render as OSC 8 terminal
+  hyperlinks in human mode when slick has enough workspace metadata. Parse JSON
+  for raw channel IDs, `channel_name`, `channel_hr`, `channel_url`, timestamps,
+  and full permalink URLs.
+  `channel_url` uses Slack's native `slack://` scheme on macOS and
+  `https://app.slack.com/client/<team>/<conversation>` elsewhere; it is omitted
+  when slick lacks a team ID or real conversation ID.
 *   **Time fields** (`ts`, `fetched_at`, `expiration`) render in clog's
   `FieldTime` magenta.
 *   **Bool fields** follow a three-tier polarity:

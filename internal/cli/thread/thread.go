@@ -9,6 +9,7 @@ import (
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
 	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
+	"github.com/matcra587/slack-cli/internal/cli/slackmeta"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
@@ -73,6 +74,7 @@ func runThreadReply(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src cli
 			ThreadTS: cliutil.StringPtr(parent),
 		}
 		result.DryRun = true
+		result.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), nil, profile.Name, channel)
 	} else {
 		client, err := slackclient.Client(cmd, profile, runtime)
 		if err != nil {
@@ -94,6 +96,7 @@ func runThreadReply(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src cli
 			ThreadTS: cliutil.StringPtr(parent),
 		}
 		result.Permalink = climessage.Permalink(cmd.Context(), client, respChannel, ts)
+		result.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, respChannel)
 	}
 
 	return ctx.WriteResult("reply", result)

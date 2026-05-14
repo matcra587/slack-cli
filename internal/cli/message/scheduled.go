@@ -12,6 +12,7 @@ import (
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
 	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
+	"github.com/matcra587/slack-cli/internal/cli/slackmeta"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
@@ -22,20 +23,38 @@ type AttributionData struct {
 }
 
 type ScheduledSendData struct {
-	Channel            string          `json:"channel"`
-	ScheduledMessageID string          `json:"scheduled_message_id"`
-	PostAt             int64           `json:"post_at"`
-	PostAtISO          string          `json:"post_at_iso"`
-	Text               string          `json:"text"`
-	Attribution        AttributionData `json:"attribution"`
-	DryRun             bool            `json:"dry_run,omitempty"`
+	Channel                           string                         `json:"channel"`
+	clioutput.SlackConversationFields                                // channel_name, channel_hr, channel_url
+	ScheduledMessageID                string                         `json:"scheduled_message_id"`
+	PostAt                            int64                          `json:"post_at"`
+	PostAtISO                         string                         `json:"post_at_iso"`
+	Text                              string                         `json:"text"`
+	Attribution                       AttributionData                `json:"attribution"`
+	DryRun                            bool                           `json:"dry_run,omitempty"`
+	ChannelRef                        clioutput.SlackConversationRef `json:"-"`
 }
 
-var _ clioutput.PlainRenderer = ScheduledSendData{}
+var (
+	_ clioutput.PlainRenderer  = ScheduledSendData{}
+	_ clioutput.ResultEnricher = ScheduledSendData{}
+)
+
+func (d ScheduledSendData) EnrichResult(c *clioutput.CommandContext) any {
+	ref := d.ChannelRef
+	if ref.ID == "" {
+		ref.ID = d.Channel
+	}
+	d.SlackConversationFields = c.SlackConversationFields(ref)
+	return d
+}
 
 func (d ScheduledSendData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
-	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Channel)).
-		Str("channel", d.Channel).
+	ref := d.ChannelRef
+	if ref.ID == "" {
+		ref.ID = d.Channel
+	}
+	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", ref.ID))
+	event = clioutput.AddSlackConversationField(event, c, "channel", ref).
 		Str("scheduled_message_id", d.ScheduledMessageID).
 		Int64("post_at", d.PostAt).
 		Str("post_at_iso", d.PostAtISO).
@@ -51,18 +70,46 @@ type ScheduledListData struct {
 	ScheduledMessages []clioutput.ScheduledMessage `json:"scheduled_messages"`
 }
 
-type ScheduledDeleteData struct {
-	Channel            string `json:"channel"`
-	ScheduledMessageID string `json:"scheduled_message_id"`
-	Deleted            bool   `json:"deleted"`
-	DryRun             bool   `json:"dry_run,omitempty"`
+var _ clioutput.ResultEnricher = ScheduledListData{}
+
+func (d ScheduledListData) EnrichResult(c *clioutput.CommandContext) any {
+	for i := range d.ScheduledMessages {
+		c.EnrichScheduledConversation(&d.ScheduledMessages[i], clioutput.SlackConversationRefFromScheduled(d.ScheduledMessages[i]))
+	}
+	return d
 }
 
-var _ clioutput.PlainRenderer = ScheduledDeleteData{}
+type ScheduledDeleteData struct {
+	Channel                           string                         `json:"channel"`
+	clioutput.SlackConversationFields                                // channel_name, channel_hr, channel_url
+	ScheduledMessageID                string                         `json:"scheduled_message_id"`
+	Deleted                           bool                           `json:"deleted"`
+	DryRun                            bool                           `json:"dry_run,omitempty"`
+	ChannelRef                        clioutput.SlackConversationRef `json:"-"`
+}
+
+var (
+	_ clioutput.PlainRenderer  = ScheduledDeleteData{}
+	_ clioutput.ResultEnricher = ScheduledDeleteData{}
+)
+
+func (d ScheduledDeleteData) EnrichResult(c *clioutput.CommandContext) any {
+	ref := d.ChannelRef
+	if ref.ID == "" {
+		ref.ID = d.Channel
+	}
+	d.SlackConversationFields = c.SlackConversationFields(ref)
+	return d
+}
 
 func (d ScheduledDeleteData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
-	c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Channel)).
-		Str("channel", d.Channel).
+	ref := d.ChannelRef
+	if ref.ID == "" {
+		ref.ID = d.Channel
+	}
+	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", ref.ID))
+	event = clioutput.AddSlackConversationField(event, c, "channel", ref)
+	event.
 		Str("scheduled_message_id", d.ScheduledMessageID).
 		Bool("deleted", d.Deleted).
 		Bool("dry_run", d.DryRun).
@@ -158,6 +205,7 @@ func runScheduledMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime
 		Attribution:        AttributionData{Enabled: attribution.Enabled, Label: attribution.Label},
 		DryRun:             dryRun,
 	}
+	data.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), nil, profile.Name, data.Channel)
 	if dryRun {
 		return ctx.WriteResult("message.send", data)
 	}
@@ -180,6 +228,7 @@ func runScheduledMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime
 	}
 	data.Channel = cliutil.FirstNonEmpty(respChannel, target.Channel)
 	data.ScheduledMessageID = scheduledID
+	data.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, data.Channel)
 	return ctx.WriteResult("message.send", data)
 }
 
@@ -206,7 +255,7 @@ func runScheduledList(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts 
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), fmt.Errorf("list scheduled messages: %w", err), ""))
 	}
 
-	rows := enrichScheduledRows(cmd, client, scheduledRowsFromSlack(messages))
+	rows := enrichScheduledRows(cmd, client, profile.Name, scheduledRowsFromSlack(messages))
 	pagination := &clioutput.Pagination{
 		Cursor:        cliutil.StringPtr(opts.Cursor),
 		NextCursor:    cliutil.StringPtr(nextCursor),
@@ -238,6 +287,7 @@ func runScheduledDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, cha
 		Deleted:            true,
 		DryRun:             dryRun,
 	}
+	data.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), nil, profile.Name, data.Channel)
 	if dryRun {
 		return ctx.WriteResult("message.scheduled.delete", data)
 	}
@@ -258,6 +308,7 @@ func runScheduledDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, cha
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), fmt.Errorf("delete scheduled message: %w", err), ""))
 	}
 	data.Deleted = ok
+	data.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, data.Channel)
 	return ctx.WriteResult("message.scheduled.delete", data)
 }
 
@@ -275,81 +326,29 @@ func scheduledRowsFromSlack(messages []slackgo.ScheduledMessage) []clioutput.Sch
 	return rows
 }
 
-type scheduledChannelMeta struct {
-	name string
-	typ  string
-	user string
-	isDM *bool
-}
-
-func enrichScheduledRows(cmd *cobra.Command, client *slackgo.Client, rows []clioutput.ScheduledMessage) []clioutput.ScheduledMessage {
+func enrichScheduledRows(cmd *cobra.Command, client *slackgo.Client, profile string, rows []clioutput.ScheduledMessage) []clioutput.ScheduledMessage {
 	if len(rows) == 0 {
 		return rows
 	}
-	cache := make(map[string]scheduledChannelMeta)
+	cache := make(map[string]clioutput.SlackConversationRef)
 	for i := range rows {
 		channelID := rows[i].Channel
 		if channelID == "" {
 			continue
 		}
-		meta, ok := cache[channelID]
+		ref, ok := cache[channelID]
 		if !ok {
-			meta = resolveScheduledChannelMeta(cmd, client, channelID)
-			cache[channelID] = meta
+			ref = slackmeta.ResolveConversation(cmd.Context(), client, profile, channelID)
+			cache[channelID] = ref
 		}
-		rows[i].ChannelName = meta.name
-		rows[i].ChannelType = meta.typ
-		rows[i].ChannelUser = cliutil.StringPtr(meta.user)
-		rows[i].IsDM = meta.isDM
+		rows[i].ChannelName = ref.Name
+		rows[i].ChannelType = ref.Type
+		if ref.User != "" {
+			rows[i].ChannelUser = cliutil.StringPtr(ref.User)
+		}
+		rows[i].IsDM = ref.IsDM
 	}
 	return rows
-}
-
-func resolveScheduledChannelMeta(cmd *cobra.Command, client *slackgo.Client, channelID string) scheduledChannelMeta {
-	meta := scheduledChannelMeta{}
-	if strings.HasPrefix(channelID, "D") {
-		meta.typ = "im"
-		isDM := true
-		meta.isDM = &isDM
-	}
-
-	info, err := client.GetConversationInfoContext(cmd.Context(), &slackgo.GetConversationInfoInput{
-		ChannelID: channelID,
-	})
-	if err != nil {
-		return meta
-	}
-
-	meta.name = info.Name
-	meta.typ = scheduledChannelType(*info)
-	meta.user = info.User
-	isDM := info.IsIM || info.IsMpIM
-	meta.isDM = &isDM
-	if info.IsIM && info.User != "" {
-		meta.name = cliutil.FirstNonEmpty(resolveScheduledUserName(cmd, client, info.User), info.User)
-	}
-	return meta
-}
-
-func resolveScheduledUserName(cmd *cobra.Command, client *slackgo.Client, userID string) string {
-	user, err := client.GetUserInfoContext(cmd.Context(), userID)
-	if err != nil {
-		return ""
-	}
-	return cliutil.FirstNonEmpty(user.Profile.DisplayName, user.Profile.RealName, user.RealName, user.Name)
-}
-
-func scheduledChannelType(channel slackgo.Channel) string {
-	if channel.IsIM {
-		return "im"
-	}
-	if channel.IsMpIM {
-		return "mpim"
-	}
-	if channel.IsPrivate {
-		return "private_channel"
-	}
-	return "channel"
 }
 
 func writeScheduledListPlain(c *clioutput.CommandContext, command string, rows []clioutput.ScheduledMessage, pagination *clioutput.Pagination) error {

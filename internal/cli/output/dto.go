@@ -8,19 +8,20 @@ import (
 )
 
 type Message struct {
-	Type       string            `json:"type,omitempty"`
-	Subtype    *string           `json:"subtype,omitempty"`
-	User       *string           `json:"user,omitempty"`
-	BotID      *string           `json:"bot_id,omitempty"`
-	Text       *string           `json:"text,omitempty"`
-	TS         string            `json:"ts,omitempty"`
-	ThreadTS   *string           `json:"thread_ts,omitempty"`
-	Channel    *string           `json:"channel,omitempty"`
-	Permalink  *string           `json:"permalink,omitempty"`
-	ReplyCount *int              `json:"reply_count,omitempty"`
-	Replies    []Message         `json:"replies,omitempty"`
-	Reactions  []ReactionSummary `json:"reactions,omitempty"`
-	Blocks     *slackgo.Blocks   `json:"blocks,omitempty"`
+	Type                    string            `json:"type,omitempty"`
+	Subtype                 *string           `json:"subtype,omitempty"`
+	User                    *string           `json:"user,omitempty"`
+	BotID                   *string           `json:"bot_id,omitempty"`
+	Text                    *string           `json:"text,omitempty"`
+	TS                      string            `json:"ts,omitempty"`
+	ThreadTS                *string           `json:"thread_ts,omitempty"`
+	Channel                 *string           `json:"channel,omitempty"`
+	SlackConversationFields                   // channel_name, channel_hr, channel_url
+	Permalink               *string           `json:"permalink,omitempty"`
+	ReplyCount              *int              `json:"reply_count,omitempty"`
+	Replies                 []Message         `json:"replies,omitempty"`
+	Reactions               []ReactionSummary `json:"reactions,omitempty"`
+	Blocks                  *slackgo.Blocks   `json:"blocks,omitempty"`
 }
 
 type ReactionSummary struct {
@@ -32,6 +33,8 @@ type ReactionSummary struct {
 type Channel struct {
 	ID         string  `json:"id,omitempty"`
 	Name       string  `json:"name,omitempty"`
+	HR         string  `json:"hr,omitempty"`
+	URL        string  `json:"url,omitempty"`
 	Type       string  `json:"type,omitempty"`
 	IsMember   *bool   `json:"is_member,omitempty"`
 	IsIM       *bool   `json:"is_im,omitempty"`
@@ -62,12 +65,16 @@ type SearchMessage struct {
 type SearchChannel struct {
 	ID   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
+	HR   string `json:"hr,omitempty"`
+	URL  string `json:"url,omitempty"`
 }
 
 type ScheduledMessage struct {
 	ID          string  `json:"id"`
 	Channel     string  `json:"channel"`
 	ChannelName string  `json:"channel_name,omitempty"`
+	ChannelHR   string  `json:"channel_hr,omitempty"`
+	ChannelURL  string  `json:"channel_url,omitempty"`
 	ChannelType string  `json:"channel_type,omitempty"`
 	ChannelUser *string `json:"channel_user,omitempty"`
 	IsDM        *bool   `json:"is_dm,omitempty"`
@@ -159,6 +166,9 @@ func ChannelFromSlack(channel slackgo.Channel) Channel {
 func conversationType(channel slackgo.Channel) string {
 	if channel.IsIM {
 		return "im"
+	}
+	if channel.IsMpIM {
+		return "mpim"
 	}
 	if channel.IsPrivate {
 		return "private_channel"

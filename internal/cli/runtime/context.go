@@ -150,6 +150,7 @@ func CommandContext(cmd *cobra.Command, runtime *RootRuntime) (*clioutput.Comman
 	clioutput.ApplyRenderMode(sl, mode)
 	ctx := &clioutput.CommandContext{
 		Workspace:     resolvedWorkspace,
+		TeamID:        resolvedProfile.TeamID,
 		Mode:          mode,
 		Stdout:        runtime.Stdout,
 		Stderr:        runtime.Stderr,

@@ -20,6 +20,7 @@ import (
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
 	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
+	"github.com/matcra587/slack-cli/internal/cli/slackmeta"
 	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
@@ -27,24 +28,39 @@ import (
 
 // SendData is the result type for message send and edit operations.
 type SendData struct {
-	Message     clioutput.Message `json:"message"`
-	Permalink   *string           `json:"permalink,omitempty"`
-	DryRun      bool              `json:"dry_run,omitempty"`
-	Attribution bool              `json:"attribution"`
+	Message     clioutput.Message              `json:"message"`
+	Permalink   *string                        `json:"permalink,omitempty"`
+	DryRun      bool                           `json:"dry_run,omitempty"`
+	Attribution bool                           `json:"attribution"`
+	ChannelRef  clioutput.SlackConversationRef `json:"-"`
 }
 
-var _ clioutput.PlainRenderer = SendData{}
+var (
+	_ clioutput.PlainRenderer  = SendData{}
+	_ clioutput.ResultEnricher = SendData{}
+)
+
+func (d SendData) EnrichResult(c *clioutput.CommandContext) any {
+	ref := d.ChannelRef
+	if ref.ID == "" && d.Message.Channel != nil {
+		ref.ID = *d.Message.Channel
+	}
+	c.EnrichMessageConversation(&d.Message, ref)
+	return d
+}
 
 func (d SendData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	channel := ""
 	if d.Message.Channel != nil {
 		channel = *d.Message.Channel
 	}
-	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", channel))
-	// Channel ID is opaque noise for DMs (the user typed --user); show it
-	// only for non-DM channels or under --debug.
-	if d.Message.Channel != nil && (clog.IsVerbose() || !strings.HasPrefix(channel, "D")) {
-		event = event.Str("channel", *d.Message.Channel)
+	ref := d.ChannelRef
+	if ref.ID == "" {
+		ref.ID = channel
+	}
+	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", ref.ID))
+	if d.Message.Channel != nil && showConversationField(ref) {
+		event = clioutput.AddSlackConversationField(event, c, "channel", ref)
 	}
 	event = clioutput.AddSlackTimestampFields(event, d.Message.TS, c.Now()).
 		Bool("dry_run", d.DryRun).
@@ -55,7 +71,7 @@ func (d SendData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 			}
 		})
 	if d.Permalink != nil {
-		event = event.Link("permalink", *d.Permalink, clioutput.HyperlinkText(PermalinkText(*d.Permalink)))
+		event = event.Link("permalink", *d.Permalink, c.HyperlinkText(PermalinkText(*d.Permalink)))
 	}
 	event.Msg(clioutput.ActionLabel(command))
 	return nil
@@ -63,22 +79,44 @@ func (d SendData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 
 // DeleteData is the result type for message delete operations.
 type DeleteData struct {
-	Channel string `json:"channel"`
-	TS      string `json:"ts"`
-	DryRun  bool   `json:"dry_run,omitempty"`
+	Channel                           string                         `json:"channel"`
+	clioutput.SlackConversationFields                                // channel_name, channel_hr, channel_url
+	TS                                string                         `json:"ts"`
+	DryRun                            bool                           `json:"dry_run,omitempty"`
+	ChannelRef                        clioutput.SlackConversationRef `json:"-"`
 }
 
-var _ clioutput.PlainRenderer = DeleteData{}
+var (
+	_ clioutput.PlainRenderer  = DeleteData{}
+	_ clioutput.ResultEnricher = DeleteData{}
+)
+
+func (d DeleteData) EnrichResult(c *clioutput.CommandContext) any {
+	ref := d.ChannelRef
+	if ref.ID == "" {
+		ref.ID = d.Channel
+	}
+	d.SlackConversationFields = c.SlackConversationFields(ref)
+	return d
+}
 
 func (d DeleteData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
-	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Channel))
-	if clog.IsVerbose() || !strings.HasPrefix(d.Channel, "D") {
-		event = event.Str("channel", d.Channel)
+	ref := d.ChannelRef
+	if ref.ID == "" {
+		ref.ID = d.Channel
+	}
+	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", ref.ID))
+	if showConversationField(ref) {
+		event = clioutput.AddSlackConversationField(event, c, "channel", ref)
 	}
 	event = clioutput.AddSlackTimestampFields(event, d.TS, c.Now()).
 		Bool("dry_run", d.DryRun)
 	event.Msg(clioutput.ActionLabel(command))
 	return nil
+}
+
+func showConversationField(ref clioutput.SlackConversationRef) bool {
+	return clioutput.ShouldShowSlackConversationField(ref, clog.IsVerbose())
 }
 
 // Source describes where the message body comes from.
@@ -223,6 +261,7 @@ func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 	if dryRun {
 		result.Message = clioutput.Message{Type: "message", TS: "dry-run", Channel: cliutil.StringPtr(target.previewChannel()), Text: cliutil.StringPtr(strings.TrimSpace(content))}
 		result.DryRun = true
+		result.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), nil, profile.Name, target.previewChannel())
 	} else {
 		client, err := slackclient.Client(cmd, profile, runtime)
 		if err != nil {
@@ -242,6 +281,7 @@ func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 		}
 		result.Message = clioutput.Message{Type: "message", TS: ts, Channel: cliutil.StringPtr(channel), Text: cliutil.StringPtr(strings.TrimSpace(content))}
 		result.Permalink = Permalink(cmd.Context(), client, channel, ts)
+		result.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, channel)
 	}
 
 	return ctx.WriteResult("message.send", result)
@@ -272,6 +312,7 @@ func runMessageEdit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 	if dryRun {
 		result.Message = clioutput.Message{Type: "message", TS: timestamp, Channel: cliutil.StringPtr(channel), Text: cliutil.StringPtr(strings.TrimSpace(content))}
 		result.DryRun = true
+		result.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), nil, profile.Name, channel)
 	} else {
 		client, err := slackclient.Client(cmd, profile, runtime)
 		if err != nil {
@@ -290,12 +331,9 @@ func runMessageEdit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 			Channel: cliutil.StringPtr(cliutil.FirstNonEmpty(respChannel, channel)),
 			Text:    cliutil.StringPtr(cliutil.FirstNonEmpty(respText, strings.TrimSpace(content))),
 		}
+		result.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, *result.Message.Channel)
 	}
-	return ctx.WriteResult("message.edit", SendData{
-		Message:     result.Message,
-		DryRun:      result.DryRun,
-		Attribution: attribution.Enabled,
-	})
+	return ctx.WriteResult("message.edit", result)
 }
 
 func runMessageDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRun, force bool) error {
@@ -315,7 +353,9 @@ func runMessageDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRu
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("message delete requires --force unless --dry-run is used"))
 	}
 	if dryRun {
-		return ctx.WriteResult("message.delete", DeleteData{Channel: channel, TS: timestamp, DryRun: true})
+		data := DeleteData{Channel: channel, TS: timestamp, DryRun: true}
+		data.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), nil, profile.Name, channel)
+		return ctx.WriteResult("message.delete", data)
 	}
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
@@ -328,10 +368,12 @@ func runMessageDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRu
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
-	return ctx.WriteResult("message.delete", DeleteData{
+	data := DeleteData{
 		Channel: cliutil.FirstNonEmpty(respChannel, channel),
 		TS:      cliutil.FirstNonEmpty(respTS, timestamp),
-	})
+	}
+	data.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, data.Channel)
+	return ctx.WriteResult("message.delete", data)
 }
 
 func resolveMessageSendTarget(profile config.WorkspaceProfile, channel string, users []string) (sendTarget, error) {

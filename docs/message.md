@@ -89,6 +89,11 @@ Human (real send):
 Message sent channel=C7N2Q8L4P ts=1746284582.123456 permalink=p1746284582123456
 ```
 
+When Slack metadata is available in human mode, `channel` may render as a
+friendly clickable label such as `#deployments` or `@johndoe`. Use JSON output
+for the raw conversation ID plus `channel_name`, `channel_hr`, and
+`channel_url` metadata.
+
 Human (`--dry-run`). `ts` is the literal `"dry-run"`, no `permalink` is
 emitted, and `dry_run=true` joins the event:
 
@@ -102,7 +107,15 @@ JSON envelope (real send):
 {
   "meta": {"command": "message.send", "workspace": "default", "timestamp": "…", "request_id": "…"},
   "data": {
-    "message": {"type": "message", "text": "Deploy complete", "ts": "1746284582.123456", "channel": "C7N2Q8L4P"},
+    "message": {
+      "type": "message",
+      "text": "Deploy complete",
+      "ts": "1746284582.123456",
+      "channel": "C7N2Q8L4P",
+      "channel_name": "deployments",
+      "channel_hr": "#deployments",
+      "channel_url": "https://app.slack.com/client/T8KQ42P9D/C7N2Q8L4P"
+    },
     "permalink": "https://example.slack.com/archives/C7N2Q8L4P/p1746284582123456",
     "attribution": true
   },
@@ -117,16 +130,22 @@ data record:
 ```json
 {
   "data": {
-    "message": {"type": "message", "text": "Deploy complete", "ts": "dry-run", "channel": "C7N2Q8L4P"},
+    "message": {
+      "type": "message",
+      "text": "Deploy complete",
+      "ts": "dry-run",
+      "channel": "C7N2Q8L4P",
+      "channel_url": "https://app.slack.com/client/T8KQ42P9D/C7N2Q8L4P"
+    },
     "dry_run": true,
     "attribution": true
   }
 }
 ```
 
-`permalink` is rendered with an OSC 8 hyperlink wrapper on supporting
-terminals; the underlined short form (`p1746284582123456`) opens the full
-URL.
+`permalink` is Slack's `chat.getPermalink` HTTP URL in JSON. Human mode renders
+the short form (`p1746284582123456`) as an OSC 8 terminal hyperlink on
+supporting terminals.
 
 JSON envelope (`--schedule`). Scheduled messages have no `ts` until Slack
 posts them, so `scheduled_message_id` is the reference for list/delete:
@@ -135,6 +154,9 @@ posts them, so `scheduled_message_id` is the reference for list/delete:
 {
   "data": {
     "channel": "C1234567890",
+    "channel_name": "deployments",
+    "channel_hr": "#deployments",
+    "channel_url": "https://app.slack.com/client/T8KQ42P9D/C1234567890",
     "scheduled_message_id": "Q123",
     "post_at": 1780335600,
     "post_at_iso": "2026-06-01T19:00:00Z",
@@ -283,6 +305,8 @@ JSON output uses `data.scheduled_messages[]` and cursor metadata:
         "id": "Q123",
         "channel": "C1234567890",
         "channel_name": "deployments",
+        "channel_hr": "#deployments",
+        "channel_url": "https://app.slack.com/client/T8KQ42P9D/C1234567890",
         "channel_type": "channel",
         "is_dm": false,
         "post_at": 1780335600,
@@ -297,8 +321,8 @@ JSON output uses `data.scheduled_messages[]` and cursor metadata:
 For automation, use JSON. The human `CHANNEL` value is display-only; pass the
 raw `data.scheduled_messages[].channel` value back to
 `message scheduled delete` or to future scheduled sends. JSON also adds
-optional `channel_name`, `channel_type`, `channel_user`, and `is_dm` fields when
-metadata can be resolved.
+optional `channel_name`, `channel_hr`, `channel_url`, `channel_type`,
+`channel_user`, and `is_dm` fields when metadata can be resolved.
 
 `text_preview` is capped at 200 Unicode characters and ends with `…` when
 truncated.

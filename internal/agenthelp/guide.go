@@ -137,6 +137,7 @@ perform the task, what to parse, and which quirks matter.
 - Inputs: caller intent, whether output is for a human or automation, and the active command.
 - Command sequence: use JSON for automation; use rich or plain output only for human inspection.
 - Output modes: set ` + "`--output`" + ` (or ` + "`-o`" + `) to exactly one of ` + "`auto`" + `, ` + "`human`" + `, ` + "`json`" + `, ` + "`compact`" + `. ` + "`auto`" + ` picks ` + "`human`" + ` in a TTY and ` + "`json`" + ` otherwise.
+- Human hyperlinks: Slack channels, DMs, and permalinks may be OSC 8 terminal hyperlinks for humans. Do not scrape them; parse JSON for raw IDs, channel_name/channel_hr/channel_url metadata, timestamps, and full URLs.
 - Parse: stdout is command data only. stderr is diagnostics, progress, warnings, and structured errors.
 - Parse: failures in JSON mode put ` + "`errors[0].type`" + `, ` + "`errors[0].message`" + `, and ` + "`errors[0].exit_code`" + ` on stderr.
 - Exit codes: auth ` + "`1`" + `, not found ` + "`2`" + `, rate limit ` + "`3`" + `, validation ` + "`4`" + `, server ` + "`5`" + `, canceled ` + "`6`" + `, timeout ` + "`7`" + `.
@@ -225,7 +226,7 @@ perform the task, what to parse, and which quirks matter.
 - Pagination command: if ` + "`meta.pagination.has_more`" + ` is true, run ` + "`slick message scheduled list --cursor <meta.pagination.next_cursor> --limit <n> --output=json`" + `.
 - Delete command: ` + "`slick message scheduled delete --channel <channel-id> --scheduled-id <QID> --output=json`" + `.
 - Parse schedule result: keep ` + "`data.channel`" + `, ` + "`data.scheduled_message_id`" + `, ` + "`data.post_at`" + `, and ` + "`data.post_at_iso`" + `.
-- Parse list result: use ` + "`data.scheduled_messages[].id`" + ` and raw ` + "`data.scheduled_messages[].channel`" + ` for delete targets. Do not parse human ` + "`CHANNEL`" + `. ` + "`channel_name`" + `, ` + "`channel_type`" + `, ` + "`channel_user`" + `, and ` + "`is_dm`" + ` are best-effort friendly metadata. ` + "`text_preview`" + ` is capped at 200 Unicode characters.
+- Parse list result: use ` + "`data.scheduled_messages[].id`" + ` and raw ` + "`data.scheduled_messages[].channel`" + ` for delete targets. Do not parse human ` + "`CHANNEL`" + `. ` + "`channel_name`" + `, ` + "`channel_hr`" + `, ` + "`channel_url`" + `, ` + "`channel_type`" + `, ` + "`channel_user`" + `, and ` + "`is_dm`" + ` are best-effort friendly metadata. ` + "`text_preview`" + ` is capped at 200 Unicode characters.
 - Quirks: scheduled messages have no ` + "`ts`" + ` until Slack posts them. Use ` + "`scheduled_message_id`" + ` for pending operations.
 - Quirks: real scheduled ` + "`--user`" + ` sends open the DM or MPIM before scheduling. Parse returned ` + "`data.channel`" + ` as the raw Slack conversation ID for list/delete or later follow-up operations.
 - Quirks: ` + "`--dry-run --user --schedule`" + ` does not call Slack to resolve/open the DM; its preview ` + "`data.channel`" + ` echoes the requested user target.

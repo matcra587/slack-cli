@@ -16,6 +16,8 @@ import (
 // the names callers expect.
 type CommandContext struct {
 	Workspace     string
+	TeamID        string
+	GOOS          string
 	Mode          RenderMode
 	Stdout        io.Writer
 	Stderr        io.Writer
@@ -29,6 +31,10 @@ type CommandContext struct {
 }
 
 type ListPlainWriter[T any] func(c *CommandContext, command string, items []T, pagination *Pagination) error
+
+type ResultEnricher interface {
+	EnrichResult(c *CommandContext) any
+}
 
 func (c *CommandContext) StdoutLogger() *clog.Logger { return c.StdoutLog }
 func (c *CommandContext) StderrLogger() *clog.Logger { return c.StderrLog }
@@ -66,6 +72,7 @@ func (c *CommandContext) WriteResult(command string, data any) error {
 }
 
 func (c *CommandContext) WriteResultWithPagination(command string, data any, pagination *Pagination) error {
+	data = c.EnrichResult(data)
 	switch c.Mode {
 	case RenderModePlain:
 		return c.WritePlainResult(command, data, pagination)
@@ -87,7 +94,15 @@ func (c *CommandContext) WriteResultWithPagination(command string, data any, pag
 	return nil
 }
 
+func (c *CommandContext) EnrichResult(data any) any {
+	if e, ok := data.(ResultEnricher); ok {
+		return e.EnrichResult(c)
+	}
+	return data
+}
+
 func WriteList[T any](c *CommandContext, command string, data any, items []T, pagination *Pagination, plain ListPlainWriter[T]) error {
+	data = c.EnrichResult(data)
 	if c.Mode == RenderModePlain {
 		if plain != nil {
 			return plain(c, command, items, pagination)

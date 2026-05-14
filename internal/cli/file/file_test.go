@@ -143,6 +143,9 @@ func TestFileUploadCommandAppliesAgentAttributionBlocksToUploadMessage(t *testin
 		case "/api/files.info":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ok":true,"file":{"id":"F123","name":"stdin.txt","title":"stdin.txt","size":11,"permalink":"https://example.slack.com/files/F123"}}`))
+		case "/api/conversations.info":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ok":true,"channel":{"id":"C123","name":"alerts","is_channel":true}}`))
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
@@ -189,6 +192,9 @@ func TestFileUploadCommandHonorsNoAttribution(t *testing.T) {
 		case "/api/files.info":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ok":true,"file":{"id":"F123","name":"stdin.txt","title":"stdin.txt","size":11,"permalink":"https://example.slack.com/files/F123"}}`))
+		case "/api/conversations.info":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ok":true,"channel":{"id":"C123","name":"alerts","is_channel":true}}`))
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
@@ -230,6 +236,9 @@ func TestFileUploadCommandSupportsBlockInputForUploadMessage(t *testing.T) {
 		case "/api/files.info":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ok":true,"file":{"id":"F123","name":"stdin.txt","title":"stdin.txt","size":11,"permalink":"https://example.slack.com/files/F123"}}`))
+		case "/api/conversations.info":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ok":true,"channel":{"id":"C123","name":"alerts","is_channel":true}}`))
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
@@ -285,6 +294,9 @@ func TestFileUploadCommandPreservesUnsupportedMarkdownSourceFallbackInComment(t 
 		case "/api/files.info":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ok":true,"file":{"id":"F123","name":"stdin.txt","title":"stdin.txt","size":11,"permalink":"https://example.slack.com/files/F123"}}`))
+		case "/api/conversations.info":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ok":true,"channel":{"id":"C123","name":"alerts","is_channel":true}}`))
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
@@ -348,6 +360,9 @@ func fileUploadServer(t *testing.T) *httptest.Server {
 		case "/api/files.info":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ok":true,"file":{"id":"F123","name":"` + uploadedName + `","title":"` + uploadedName + `","size":11,"permalink":"https://example.slack.com/files/F123"}}`))
+		case "/api/conversations.info":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ok":true,"channel":{"id":"C123","name":"alerts","is_channel":true}}`))
 		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}

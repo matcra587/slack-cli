@@ -8,27 +8,27 @@ import (
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
 	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
+	"github.com/matcra587/slack-cli/internal/cli/slackmeta"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
 
-// isDMChannel reports whether the channel id refers to a direct message
-// (D-prefix). DM channel ids are opaque to humans, so we hide them in
-// plain-mode output unless --debug is set.
-func isDMChannel(id string) bool { return strings.HasPrefix(id, "D") }
-
 // Target identifies the message a reaction operates on.
 type Target struct {
-	Channel string `json:"channel"`
-	TS      string `json:"ts"`
+	Channel                           string                         `json:"channel"`
+	clioutput.SlackConversationFields                                // channel_name, channel_hr, channel_url
+	TS                                string                         `json:"ts"`
+	ChannelRef                        clioutput.SlackConversationRef `json:"-"`
 }
 
 // Result is the outcome of a single reaction add/remove operation.
 type Result struct {
-	Channel string `json:"channel"`
-	TS      string `json:"ts"`
-	Emoji   string `json:"emoji,omitempty"`
-	DryRun  bool   `json:"dry_run,omitempty"`
+	Channel                           string                         `json:"channel"`
+	clioutput.SlackConversationFields                                // channel_name, channel_hr, channel_url
+	TS                                string                         `json:"ts"`
+	Emoji                             string                         `json:"emoji,omitempty"`
+	DryRun                            bool                           `json:"dry_run,omitempty"`
+	ChannelRef                        clioutput.SlackConversationRef `json:"-"`
 }
 
 // Data is the result type for all react subcommands. Mutations holds the
@@ -41,16 +41,44 @@ type Data struct {
 	Target    Target                      `json:"target"`
 }
 
-var _ clioutput.PlainRenderer = Data{}
+var (
+	_ clioutput.PlainRenderer  = Data{}
+	_ clioutput.ResultEnricher = Data{}
+)
+
+func (d Data) EnrichResult(c *clioutput.CommandContext) any {
+	enrichTarget := func(target *Target) {
+		ref := target.ChannelRef
+		if ref.ID == "" {
+			ref.ID = target.Channel
+		}
+		target.SlackConversationFields = c.SlackConversationFields(ref)
+	}
+	enrichResult := func(result *Result) {
+		ref := result.ChannelRef
+		if ref.ID == "" {
+			ref.ID = result.Channel
+		}
+		result.SlackConversationFields = c.SlackConversationFields(ref)
+	}
+	enrichTarget(&d.Target)
+	for i := range d.Mutations {
+		enrichResult(&d.Mutations[i])
+	}
+	return d
+}
 
 func (d Data) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	label := clioutput.ActionLabel(command)
-	showChannel := func(id string) bool { return clog.IsVerbose() || !isDMChannel(id) }
 	if len(d.Mutations) > 0 {
 		for _, mutation := range d.Mutations {
-			event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", mutation.Channel))
-			if showChannel(mutation.Channel) {
-				event = event.Str("channel", mutation.Channel)
+			ref := mutation.ChannelRef
+			if ref.ID == "" {
+				ref.ID = mutation.Channel
+			}
+			event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", ref.ID))
+			if clioutput.ShouldShowSlackConversationField(ref, clog.IsVerbose()) {
+				event = clioutput.AddSlackConversationField(event, c, "channel", ref)
 			}
 			clioutput.AddSlackTimestampFields(event, mutation.TS, c.Now()).
 				Bool("dry_run", mutation.DryRun).
@@ -62,9 +90,13 @@ func (d Data) WritePlain(c *clioutput.CommandContext, command string, _ *clioutp
 	if len(d.Reactions) > 0 {
 		return c.WriteReactionTable(d.Reactions)
 	}
-	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", d.Target.Channel))
-	if showChannel(d.Target.Channel) {
-		event = event.Str("channel", d.Target.Channel)
+	ref := d.Target.ChannelRef
+	if ref.ID == "" {
+		ref.ID = d.Target.Channel
+	}
+	event := c.ResultEventWithStyles(command, clioutput.EntityFieldStyle("channel", ref.ID))
+	if clioutput.ShouldShowSlackConversationField(ref, clog.IsVerbose()) {
+		event = clioutput.AddSlackConversationField(event, c, "channel", ref)
 	}
 	clioutput.AddSlackTimestampFields(event, d.Target.TS, c.Now()).
 		Msg(label)
@@ -130,13 +162,16 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 	}
 
 	if dryRun {
+		channelRef := slackmeta.ResolveConversation(cmd.Context(), nil, profile.Name, target.Channel)
+		target.ChannelRef = channelRef
 		mutations := make([]Result, 0, len(emojis))
 		for _, emoji := range emojis {
 			mutations = append(mutations, Result{
-				Channel: target.Channel,
-				TS:      target.TS,
-				Emoji:   emoji,
-				DryRun:  true,
+				Channel:    target.Channel,
+				TS:         target.TS,
+				Emoji:      emoji,
+				DryRun:     true,
+				ChannelRef: channelRef,
 			})
 		}
 		return ctx.WriteResult("react."+action, Data{Mutations: mutations, Target: target})
@@ -149,6 +184,8 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("reactions:write")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
+	channelRef := slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, target.Channel)
+	target.ChannelRef = channelRef
 	mutations := make([]Result, 0, len(emojis))
 	for _, emoji := range emojis {
 		ref := slackgo.NewRefToMessage(target.Channel, target.TS)
@@ -162,9 +199,10 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), apiErr, "emoji"))
 		}
 		mutations = append(mutations, Result{
-			Channel: target.Channel,
-			TS:      target.TS,
-			Emoji:   emoji,
+			Channel:    target.Channel,
+			TS:         target.TS,
+			Emoji:      emoji,
+			ChannelRef: channelRef,
 		})
 	}
 	return ctx.WriteResult("react."+action, Data{Mutations: mutations, Target: target})
@@ -187,6 +225,7 @@ func runReactionList(cmd *cobra.Command, runtime *cliruntime.RootRuntime) error 
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("reactions:read")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
+	target.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, target.Channel)
 	item, err := client.GetReactionsContext(cmd.Context(), slackgo.NewRefToMessage(target.Channel, target.TS), slackgo.GetReactionsParameters{})
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))

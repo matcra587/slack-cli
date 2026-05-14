@@ -20,29 +20,48 @@ import (
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
 	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
+	"github.com/matcra587/slack-cli/internal/cli/slackmeta"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
 
 // UploadData is the result returned by `slick file upload`.
 type UploadData struct {
-	File        Info   `json:"file"`
-	Channel     string `json:"channel"`
-	Attribution bool   `json:"attribution"`
-	DryRun      bool   `json:"dry_run,omitempty"`
+	File                              Info                           `json:"file"`
+	Channel                           string                         `json:"channel"`
+	clioutput.SlackConversationFields                                // channel_name, channel_hr, channel_url
+	Attribution                       bool                           `json:"attribution"`
+	DryRun                            bool                           `json:"dry_run,omitempty"`
+	ChannelRef                        clioutput.SlackConversationRef `json:"-"`
 }
 
-var _ clioutput.PlainRenderer = UploadData{}
+var (
+	_ clioutput.PlainRenderer  = UploadData{}
+	_ clioutput.ResultEnricher = UploadData{}
+)
+
+func (d UploadData) EnrichResult(c *clioutput.CommandContext) any {
+	ref := d.ChannelRef
+	if ref.ID == "" {
+		ref.ID = d.Channel
+	}
+	d.SlackConversationFields = c.SlackConversationFields(ref)
+	return d
+}
 
 func (d UploadData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	ref := d.ChannelRef
+	if ref.ID == "" {
+		ref.ID = d.Channel
+	}
 	event := c.ResultEventWithStyles(command,
-		clioutput.EntityFieldStyle("channel", d.Channel),
+		clioutput.EntityFieldStyle("channel", ref.ID),
 		// Seed stays "file:<id>" so file IDs hash-color into a distinct
 		// family from channel/user/etc.; the rendered field key is "id".
 		clioutput.HashedFieldStyle("id", "file:"+d.File.ID),
 	)
-	if clog.IsVerbose() || !strings.HasPrefix(d.Channel, "D") {
-		event = event.Str("channel", d.Channel)
+	if clioutput.ShouldShowSlackConversationField(ref, clog.IsVerbose()) {
+		event = clioutput.AddSlackConversationField(event, c, "channel", ref)
 	}
 	event = event.
 		Str("id", d.File.ID).
@@ -50,7 +69,7 @@ func (d UploadData) WritePlain(c *clioutput.CommandContext, command string, _ *c
 		Bool("attribution", d.Attribution).
 		Bool("dry_run", d.DryRun)
 	if d.File.Permalink != nil {
-		event = event.Link("permalink", *d.File.Permalink, clioutput.HyperlinkText(climessage.PermalinkText(*d.File.Permalink)))
+		event = event.Link("permalink", *d.File.Permalink, c.HyperlinkText(climessage.PermalinkText(*d.File.Permalink)))
 	}
 	event = event.Str("size", human.FormatIECBytes(float64(d.File.Size)))
 	event.Msg(clioutput.ActionLabel(command))
@@ -139,12 +158,14 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 
 	ctx.StderrLogger().Debug().Parts(clog.PartMessage).Msg("uploading file")
 	if opts.DryRun {
-		return ctx.WriteResult("file.upload", UploadData{
+		data := UploadData{
 			File:        Info{ID: "dry-run", Name: filename, Size: len(content)},
 			Channel:     channel,
 			Attribution: attribution.Enabled,
 			DryRun:      true,
-		})
+		}
+		data.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), nil, profile.Name, channel)
+		return ctx.WriteResult("file.upload", data)
 	}
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
@@ -175,11 +196,13 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 	if info, _, _, infoErr := client.GetFileInfoContext(cmd.Context(), file.ID, 0, 0); infoErr == nil && info != nil {
 		filePermalink = cliutil.StringPtr(info.Permalink)
 	}
-	return ctx.WriteResult("file.upload", UploadData{
+	data := UploadData{
 		File:        Info{ID: file.ID, Name: fileName, Size: len(content), Permalink: filePermalink},
 		Channel:     channel,
 		Attribution: attribution.Enabled,
-	})
+	}
+	data.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, channel)
+	return ctx.WriteResult("file.upload", data)
 }
 
 func uploadMessageBlocks(message string, raw bool, attribution agent.Attribution) ([]slackgo.Block, error) {

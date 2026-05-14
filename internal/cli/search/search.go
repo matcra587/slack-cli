@@ -21,7 +21,17 @@ type Data struct {
 	Full    bool                      `json:"-"`
 }
 
-var _ clioutput.PlainRenderer = Data{}
+var (
+	_ clioutput.PlainRenderer  = Data{}
+	_ clioutput.ResultEnricher = Data{}
+)
+
+func (d Data) EnrichResult(c *clioutput.CommandContext) any {
+	for i := range d.Matches {
+		c.EnrichSearchChannel(&d.Matches[i].Channel)
+	}
+	return d
+}
 
 func (d Data) WritePlain(c *clioutput.CommandContext, command string, pagination *clioutput.Pagination) error {
 	if len(d.Matches) == 0 {

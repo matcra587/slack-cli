@@ -3,6 +3,7 @@ package channel
 import (
 	"strings"
 
+	xslices "github.com/gechr/x/slices"
 	xstrings "github.com/gechr/x/strings"
 	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	climessage "github.com/matcra587/slack-cli/internal/cli/message"
@@ -212,9 +213,9 @@ func parseConversationTypes(value string) []string {
 	if strings.TrimSpace(value) == "" {
 		return []string{"public_channel", "private_channel"}
 	}
-	seen := map[string]bool{}
-	var out []string
-	for _, part := range xstrings.SplitCSV(value) {
+	parts := xstrings.SplitCSV(value)
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
 		normalized := normalizeConversationType(part)
 		if normalized == "" {
 			continue
@@ -222,15 +223,12 @@ func parseConversationTypes(value string) []string {
 		if normalized == "all" {
 			return []string{"public_channel", "private_channel", "im", "mpim"}
 		}
-		if !seen[normalized] {
-			seen[normalized] = true
-			out = append(out, normalized)
-		}
+		out = append(out, normalized)
 	}
 	if len(out) == 0 {
 		return []string{"public_channel", "private_channel"}
 	}
-	return out
+	return xslices.Unique(out)
 }
 
 func normalizeConversationType(value string) string {

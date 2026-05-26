@@ -1,0 +1,101 @@
+/* ----------------------------------------------------------------------------
+ * Catppuccin palette for slick docs.
+ *
+ * Variable naming follows Catppuccin's convention:
+ *   https://github.com/catppuccin/palette/blob/main/docs/css.md
+ *
+ * Mapping:
+ *   - Light scheme (default) -> Catppuccin Latte
+ *   - Dark scheme  (slate)   -> Catppuccin Mocha
+ *
+ * We only declare Latte and Mocha because those are the two schemes Material
+ * exposes. Swap a flavor by renaming the var lookups in the scheme blocks.
+ * -------------------------------------------------------------------------- */
+
+:root {
+    /* Catppuccin Latte */
+    --ctp-latte-base:     #eff1f5;
+    --ctp-latte-mantle:   #e6e9ef;
+    --ctp-latte-crust:    #dce0e8;
+    --ctp-latte-text:     #4c4f69;
+    --ctp-latte-subtext1: #5c5f77;
+    --ctp-latte-subtext0: #6c6f85;
+    --ctp-latte-overlay0: #9ca0b0;
+    --ctp-latte-surface0: #ccd0da;
+    --ctp-latte-blue:     #1e66f5;
+    --ctp-latte-sapphire: #209fb5;
+    --ctp-latte-sky:      #04a5e5;
+    --ctp-latte-lavender: #7287fd;
+    --ctp-latte-mauve:    #8839ef;
+    --ctp-latte-red:      #d20f39;
+    --ctp-latte-green:    #40a02b;
+    --ctp-latte-yellow:   #df8e1d;
+
+    /* Catppuccin Mocha */
+    --ctp-mocha-base:     #1e1e2e;
+    --ctp-mocha-mantle:   #181825;
+    --ctp-mocha-crust:    #11111b;
+    --ctp-mocha-text:     #cdd6f4;
+    --ctp-mocha-subtext1: #bac2de;
+    --ctp-mocha-subtext0: #a6adc8;
+    --ctp-mocha-overlay0: #6c7086;
+    --ctp-mocha-surface0: #313244;
+    --ctp-mocha-blue:     #89b4fa;
+    --ctp-mocha-sapphire: #74c7ec;
+    --ctp-mocha-sky:      #89dceb;
+    --ctp-mocha-lavender: #b4befe;
+    --ctp-mocha-mauve:    #cba6f7;
+    --ctp-mocha-red:      #f38ba8;
+    --ctp-mocha-green:    #a6e3a1;
+    --ctp-mocha-yellow:   #f9e2af;
+}
+
+/* Light scheme (Material default) -> Catppuccin Latte */
+[data-md-color-scheme="default"] {
+    --md-default-bg-color:             var(--ctp-latte-base);
+    --md-default-fg-color:             var(--ctp-latte-text);
+    --md-default-fg-color--light:      var(--ctp-latte-subtext0);
+    --md-default-fg-color--lighter:    var(--ctp-latte-overlay0);
+    --md-default-fg-color--lightest:   var(--ctp-latte-surface0);
+
+    --md-primary-fg-color:             var(--ctp-latte-blue);
+    --md-primary-fg-color--light:      var(--ctp-latte-sky);
+    --md-primary-fg-color--dark:       var(--ctp-latte-sapphire);
+    --md-primary-bg-color:             #ffffff;
+    --md-primary-bg-color--light:      rgba(255, 255, 255, 0.7);
+
+    --md-accent-fg-color:              var(--ctp-latte-sapphire);
+    --md-accent-fg-color--transparent: rgba(32, 159, 181, 0.10);
+    --md-accent-bg-color:              #ffffff;
+    --md-accent-bg-color--light:       rgba(255, 255, 255, 0.7);
+
+    --md-typeset-a-color:              var(--ctp-latte-blue);
+
+    --md-code-bg-color:                var(--ctp-latte-mantle);
+    --md-code-fg-color:                var(--ctp-latte-text);
+}
+
+/* Dark scheme (Material slate) -> Catppuccin Mocha */
+[data-md-color-scheme="slate"] {
+    --md-default-bg-color:             var(--ctp-mocha-base);
+    --md-default-fg-color:             var(--ctp-mocha-text);
+    --md-default-fg-color--light:      var(--ctp-mocha-subtext0);
+    --md-default-fg-color--lighter:    var(--ctp-mocha-overlay0);
+    --md-default-fg-color--lightest:   var(--ctp-mocha-surface0);
+
+    --md-primary-fg-color:             var(--ctp-mocha-blue);
+    --md-primary-fg-color--light:      var(--ctp-mocha-sky);
+    --md-primary-fg-color--dark:       var(--ctp-mocha-sapphire);
+    --md-primary-bg-color:             var(--ctp-mocha-crust);
+    --md-primary-bg-color--light:      var(--ctp-mocha-mantle);
+
+    --md-accent-fg-color:              var(--ctp-mocha-sapphire);
+    --md-accent-fg-color--transparent: rgba(116, 199, 236, 0.15);
+    --md-accent-bg-color:              var(--ctp-mocha-base);
+    --md-accent-bg-color--light:       var(--ctp-mocha-mantle);
+
+    --md-typeset-a-color:              var(--ctp-mocha-blue);
+
+    --md-code-bg-color:                var(--ctp-mocha-mantle);
+    --md-code-fg-color:                var(--ctp-mocha-text);
+}

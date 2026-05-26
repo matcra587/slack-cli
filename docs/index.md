@@ -1,12 +1,16 @@
 # Overview
 
-A headless Slack CLI for agents, scripts, and CI jobs. The binary is `slick`;
-the repo and Go module are `slack-cli`.
+`slick` is a headless Slack CLI for agents, scripts, and CI jobs — anywhere
+you need to talk to the Slack API without a human at the keyboard.
 
-Runtime commands take flags, stdin, or environment variables. They never
-prompt. Command data goes to stdout; diagnostics and errors go to stderr.
-Successful events render as human-friendly clog output by default and
-auto-switch to JSON when stdout is not a TTY or an agent is detected.
+**Send** messages and DMs, **reply** in threads, **react** to messages, **read**
+channel and thread history, **search** the workspace, **set** your Slack
+status, **upload** files, and **check** Slack service health — all from a
+single binary that runs each of these non-interactively. Drive it with flags, stdin, or environment
+variables, and the output adapts to where it runs: friendly colored text in a
+terminal, structured JSON when piped or under an agent.
+
+The binary is `slick`; the repo and Go module are `slack-cli`.
 
 ## Install
 
@@ -23,35 +27,32 @@ form; run `slick <command> --help` for the current mapping.
 
 ## First-time setup
 
+??? info "Prerequisite — Slack app with a user OAuth token"
+    slick acts as you, so it needs a Slack app installed in your workspace
+    with a **user token** (not a bot token). At minimum, that app needs
+    these three user-scope permissions:
+
+    | Scope | Enables |
+    |---|---|
+    | `chat:write` | Send messages |
+    | `channels:read` | Resolve public channels |
+    | `users:read` | `auth.test`, user lookup, identity |
+
+    Create the app at [api.slack.com/apps](https://api.slack.com/apps). See
+    [manifest](manifest.md) for an optional `slick manifest template`
+    shortcut that emits a ready-to-import manifest — and for broader scope
+    sets (history, DMs, reactions, file uploads, search, status updates).
+
+With the app installed and a user token available:
+
 ```sh
-slick manifest template --preset messaging --type user --name slack-cli > manifest.json
-# Import manifest.json in Slack, then:
 slick auth login
 slick auth status
 ```
 
-See [auth](auth.md) and [manifest](manifest.md) for full setup, including
-OAuth redirect URL handling and the token-based auth path.
-
-## Commands
-
-| Command | Summary |
-|---------|---------|
-| [`auth`](auth.md) | Manage Slack authentication: OAuth or token login, status, switch, logout. |
-| [`message`](message.md) | Send, edit, and delete Slack messages (channels and DMs). |
-| [`reply`](reply.md) | Reply to a Slack thread by parent timestamp. |
-| [`react`](react.md) | Add, remove, or list emoji reactions. |
-| [`history`](history.md) | Read channel or thread history. |
-| [`lookup`](lookup.md) | Look up channels, users, or search messages. |
-| [`cache`](cache.md) | Prime and inspect local Slack metadata caches. |
-| [`status`](status.md) | Set or clear the authenticated user's Slack status. |
-| [`health`](health.md) | Check Slack service health and Web API reachability. |
-| [`file`](file.md) | Upload a file to Slack (probationary; hidden in help). |
-| [`config`](config.md) | Manage local preferences (not auth). |
-| [`workspace`](workspace.md) | List configured workspace profiles. |
-| [`manifest`](manifest.md) | Generate Slack app manifests for import. |
-| [`agent`](agent.md) | Emit command schema and workflow runbooks for agents. |
-| [`version`](version.md) | Print version information. |
+`auth login` opens a browser for OAuth (a token via stdin / env / file is also
+supported); `auth status` confirms the workspace is wired up. See
+[auth](auth.md) for the full flow.
 
 ## Output modes
 
@@ -66,6 +67,22 @@ slick has a single output flag, `--output` (short `-o`), with four values:
 Under `auto`, JSON is selected when stdout is not a TTY or when slick detects
 an agent environment (e.g. `CLAUDE_CODE`, `CURSOR_TERMINAL`, `CODEX`,
 `GITHUB_ACTIONS`, `CI`).
+
+```mermaid
+flowchart LR
+    Input(["--output=auto"]) --> TTY{"stdout a TTY?"}
+    TTY -- No --> JSON(["JSON envelope"])
+    TTY -- Yes --> Agent{"agent or CI<br>detected?"}
+    Agent -- Yes --> JSON
+    Agent -- No --> Human(["human clog output"])
+
+    classDef decision stroke:#d97706,stroke-width:2px
+    classDef jsonOut  stroke:#2563eb,stroke-width:2px
+    classDef humanOut stroke:#16a34a,stroke-width:2px
+    class TTY,Agent decision
+    class JSON jsonOut
+    class Human humanOut
+```
 
 Use command-local `--blocks` when the message body is already a Slack Block
 Kit JSON array.
@@ -90,66 +107,62 @@ to stdout only on success.
 ## Output styling
 
 slick uses [`gechr/clog`](https://github.com/gechr/clog) for human-mode output
-and [`gechr/primer/table`](https://github.com/gechr/primer) for tables. The
-visual conventions:
+and [`gechr/primer/table`](https://github.com/gechr/primer) for tables.
 
-*   **Identity fields** (`channel`, `user`, `team_id`, `workspace`, `file_id`,
-  …) are hash-coloured from the theme's entity palette so the same ID renders
-  the same colour across commands.
-*   **Human labels** (channel name, user name, file name, descriptions) render
-  default-styled.
-*   **Slack entity and permalink fields** may render as OSC 8 terminal
-  hyperlinks in human mode when slick has enough workspace metadata. Parse JSON
-  for raw channel IDs, `channel_name`, `channel_hr`, `channel_url`, timestamps,
-  and full permalink URLs.
-  `channel_url` uses Slack's native `slack://` scheme on macOS and
-  `https://app.slack.com/client/<team>/<conversation>` elsewhere; it is omitted
-  when slick lacks a team ID or real conversation ID.
-*   **Time fields** (`ts`, `fetched_at`, `expiration`) render in clog's
-  `FieldTime` magenta.
-*   **Bool fields** follow a three-tier polarity:
-    *   Alarming on true (e.g. `is_archived`, `deleted`, `truncated`) — red on
-    true, dim on false.
-    *   Both states matter (e.g. `authenticated`, `exists`) — green on true, red
-    on false.
-    *   Routine on true (e.g. `is_member`) — dim on true, default on false.
-*   **Action-result bools** (`dry_run`) are kept where they convey whether a
-  real Slack call happened. `cache clear` retains `cleared` because the
-  operation has no other status field; the other action-result bools
-  (`deleted`, `removed`, `written`) were dropped in v0.4.0 in favour of the
-  action label plus `errors[]`.
+| Field kind | Rendering |
+|---|---|
+| **Identity** — `channel`, `user`, `team_id`, `workspace`, `file_id`, … | Hash-coloured from the entity palette; the same ID always renders the same colour. |
+| **Human labels** — channel name, user name, file name | Plain terminal text — no colour, no hyperlink, no weight. |
+| **Slack entity / permalink** | OSC 8 terminal hyperlinks when slick has enough workspace metadata. `channel_url` uses `slack://` on macOS, `https://app.slack.com/client/<team>/<conversation>` elsewhere; absent without a team ID. Parse JSON for raw IDs. |
+| **Time** — `ts`, `fetched_at`, `expiration` | clog's `FieldTime` magenta. |
+| **Bool** | Coloured by polarity — see below. |
 
-Field order across commands follows a canonical taxonomy: *where → what →
-when → state → detail → numbers → diagnostics → pagination*. An AST-walking
-test enforces this on every CI run; see
-[`internal/cli/output/field_order_test.go`](https://github.com/matcra587/slack-cli/blob/main/internal/cli/output/field_order_test.go)
-if you want the full rule.
+Bool polarity:
+
+| Tier | Examples | True | False |
+|---|---|:-:|:-:|
+| Alarming-on-true | `is_archived`, `deleted`, `truncated` | red | dim |
+| Both states matter | `authenticated`, `exists` | green | red |
+| Routine-on-true | `is_member` | dim | default |
+
+`dry_run` and [`cache clear`](cache.md#cache-clear)'s `cleared` are retained
+where they're the only signal of what happened; otherwise the action label
+plus `errors[]` carries success/failure.
+
+Field order follows a canonical taxonomy:
+*where → what → when → state → detail → numbers → diagnostics → pagination*.
+An AST-walking test enforces it on every CI run — see
+[`internal/cli/output/field_order_test.go`](https://github.com/matcra587/slack-cli/blob/main/internal/cli/output/field_order_test.go).
 
 ## Attribution
 
-When slick detects an agent or CI environment, the four mutating commands
-(`message send`, `message edit`, `reply`, `file upload`) attach a Block Kit
-context block to the Slack message. The trigger set covers most popular AI
-assistants (Claude Code, Cursor, Codex, Aider, Cline, Windsurf, GitHub
-Copilot, Codeium, Amazon Q, Gemini Code Assist, Cody) and CI systems (GitHub
-Actions, Buildkite, Jenkins, GitLab CI, CircleCI, Travis, Bitbucket
-Pipelines, TeamCity, Azure Pipelines, and the generic `CI` variable). The
-authoritative list lives in
-[`internal/agent/detect.go`](https://github.com/matcra587/slack-cli/blob/main/internal/agent/detect.go).
-Override per-call with `--attribution-label`, `--attribution-emoji`,
-`--attribution-message`. Toggle the block itself with `--attribution` (force
-on) or `--no-attribution` (force off); both override config defaults
-and env detection, so you can attribute a single command on a workspace with
-`attribution.enabled = false` or suppress a single one when running inside a
-detected agent.
+In an agent or CI environment, the four mutating commands (`message send`,
+`message edit`, `reply`, `file upload`) attach a Block Kit context block
+marking the message as automated. Override per call with
+`--attribution-label`, `--attribution-emoji`, `--attribution-message`, or
+gate the block itself with `--attribution` / `--no-attribution` — both
+flags trump config defaults *and* env detection, so a single command can
+attribute on a workspace where it's off (or suppress where it's on).
+
+??? note "Detection triggers"
+
+    The authoritative list lives in [`internal/agent/detect.go`](https://github.com/matcra587/slack-cli/blob/main/internal/agent/detect.go).
+
+    *   **AI assistants** — Claude Code, Cursor, Codex, Aider, Cline, Windsurf,
+        GitHub Copilot, Codeium, Amazon Q, Gemini Code Assist, Cody.
+    *   **CI** — GitHub Actions, Buildkite, Jenkins, GitLab CI, CircleCI,
+        Travis CI, Bitbucket Pipelines, TeamCity, Azure Pipelines, plus the
+        generic `CI` variable.
+    *   **Cron / automation** — `CRON`, `CRON_JOB`, `SLACK_CLI_AGENT`.
 
 The attribution context block reflects the detection state in the rendered
 Slack message:
 
-*   `:robot_face: _Sent via slick (agent mode)_` — slick auto-detected an
+*   :robot_face: *Sent via slick (agent mode)* — slick auto-detected an
     agent or CI environment.
-*   `:robot_face: _Sent via slick_` — slick is running interactively (no
-    agent triggers) but `attribution.enabled = true` is set in config.
+*   :robot_face: *Sent via slick* — slick is running interactively (no
+    agent triggers) but `attribution.enabled = true` is set in config, or
+    `--attribution` is passed on the command line.
 
 Override either piece with `--attribution-message` (text body) or
 `--attribution-emoji` (leading emoji).

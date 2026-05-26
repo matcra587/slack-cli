@@ -1,15 +1,8 @@
 # slick auth
 
-Manage Slack authentication. Login validates a token with Slack and stores a
-structured credential reference in the local keychain. Config holds the
-keychain reference; it never holds a raw token.
-
-```text
-slick auth login    Create a workspace profile (OAuth or token)
-slick auth status   Show auth status for every configured workspace
-slick auth switch   Switch the default workspace
-slick auth logout   Remove workspace credentials
-```
+**Manage** Slack authentication. Login validates a token with the Slack API
+and stores a structured credential reference in the local keychain. Config
+holds the keychain reference; it never holds a raw token.
 
 ## auth login
 
@@ -26,80 +19,103 @@ token and fills in `team_id` / `team_name` from the response. Pass
 `--team-id` / `--team-name` only if you need to override what Slack
 returns (rare).
 
-```sh
-# Interactive — TTY only. Prompts for workspace name, method, and
-# whatever else is missing.
-slick auth login
+=== "Interactive"
 
-# OAuth, fully scripted. --workspace-name and --oauth-client-id are
-# required; --oauth-callback-port must match the redirect URL in your
-# manifest.
-slick auth login --workspace-name default --method oauth \
-    --oauth-client-id 1234567890.0987654321 \
-    --oauth-callback-port 53221
+    TTY only; prompts for workspace name, method, and whatever else is missing:
 
-# Token via stdin (token never appears in argv). slick derives the
-# workspace identity from auth.test.
-printf '%s\n' "$SLACK_TOKEN" | slick auth login \
-    --workspace-name default --method token --token-stdin
+    ```sh
+    slick auth login
+    ```
 
-# Token from a file (path expansion supported):
-slick auth login --workspace-name default --method token \
-    --token-file ~/.slack-token
+=== "OAuth"
 
-# Token from a named environment variable (the name, not the value):
-slick auth login --workspace-name default --method token \
-    --token-env SLACK_TOKEN
-```
+    Fully scripted. `--workspace-name` and `--oauth-client-id` are required, and `--oauth-callback-port` must match the redirect URL in your manifest:
+
+    ```sh
+    slick auth login --workspace-name default --method oauth \
+        --oauth-client-id 1234567890.0987654321 \
+        --oauth-callback-port 53221
+    ```
+
+=== "Token · stdin"
+
+    The token never appears in argv, and slick derives the workspace identity from `auth.test`:
+
+    ```sh
+    printf '%s\n' "$SLACK_TOKEN" | slick auth login \
+        --workspace-name default --method token --token-stdin
+    ```
+
+=== "Token · file"
+
+    Read the token from a file; path expansion is supported:
+
+    ```sh
+    slick auth login --workspace-name default --method token \
+        --token-file ~/.slack-token
+    ```
+
+=== "Token · env"
+
+    Pass the name of an environment variable, not its value:
+
+    ```sh
+    slick auth login --workspace-name default --method token \
+        --token-env SLACK_TOKEN
+    ```
 
 ### Output
 
-Human (success — same shape for OAuth and token-mode logins; both end with a
-single `Login complete` event on stdout):
+=== "Human"
 
-```text
-Login complete workspace=default team_id=T123ABC456 team_name="Example Inc" token_type=user authenticated=true
-```
+    Human (success — same shape for OAuth and token-mode logins; both end with a
+    single `Login complete` event on stdout):
 
-Human (token env var unset or empty — validation error):
+    ```text
+    Login complete workspace=default team_id=T123ABC456 team_name="Example Inc" token_type=user authenticated=true
+    ```
 
-```text
-ERR token environment variable SLACK_TOKEN is empty type=validation_error exit_code=4
-```
+    Human (token env var unset or empty — validation error):
 
-JSON envelope on a successful login (`auth.login`):
+    ```text
+    ERR token environment variable SLACK_TOKEN is empty type=validation_error exit_code=4
+    ```
 
-```json
-{
-  "meta": {"command": "auth.login", "workspace": "default", "timestamp": "…", "request_id": "…"},
-  "data": {
-    "workspace": "default",
-    "authenticated": true,
-    "token_type": "user",
-    "team_id": "T123ABC456",
-    "team_name": "Example Inc"
-  },
-  "errors": []
-}
-```
+=== "JSON"
+
+    JSON envelope on a successful login (`auth.login`):
+
+    ```json
+    {
+      "meta": {"command": "auth.login", "workspace": "default", "timestamp": "2026-05-26T03:00:56Z", "request_id": "337f5bd1-a5f2-4bb8-8da5-510cb801f62d"},
+      "data": {
+        "workspace": "default",
+        "authenticated": true,
+        "token_type": "user",
+        "team_id": "T123ABC456",
+        "team_name": "Example Inc"
+      },
+      "errors": []
+    }
+    ```
 
 ### Flags
 
-```text
-    --workspace-name <NAME>        Local profile name. Hidden in --help.
-                                   Falls back to the global --workspace
-                                   value when omitted.
--s, --token-stdin                  Read Slack token from stdin
--f, --token-file <FILE>            Read Slack token from file
--e, --token-env <VAR>              Read Slack token from named environment variable
--T, --team-id <ID>                 Slack workspace ID (overrides auth.test)
--N, --team-name <NAME>             Slack workspace display name (overrides auth.test)
--m, --method <METHOD>              Auth mechanism: oauth or token (default: token)
--C, --oauth-client-id <ID>         Slack OAuth client ID
--r, --oauth-redirect-url <URL>     Slack OAuth redirect URL configured on the app
--p, --oauth-callback-port <PORT>   Local OAuth callback port; 0 for OS-assigned
--F, --force                        Overwrite an existing authenticated profile
-```
+??? note "Flags"
+
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `--workspace-name` | `<NAME>` | Local profile name. Hidden in --help. Falls back to the global --workspace value when omitted. |
+    | `-s`, `--token-stdin` | | Read Slack token from stdin |
+    | `-f`, `--token-file` | `<FILE>` | Read Slack token from file |
+    | `-e`, `--token-env` | `<VAR>` | Read Slack token from named environment variable |
+    | `-T`, `--team-id` | `<ID>` | Slack workspace ID (overrides auth.test) |
+    | `-N`, `--team-name` | `<NAME>` | Slack workspace display name (overrides auth.test) |
+    | `-m`, `--method` | `<METHOD>` | Auth mechanism: oauth or token (default: token) |
+    | `-C`, `--oauth-client-id` | `<ID>` | Slack OAuth client ID |
+    | `-r`, `--oauth-redirect-url` | `<URL>` | Slack OAuth redirect URL configured on the app |
+    | `-p`, `--oauth-callback-port` | `<PORT>` | Local OAuth callback port; 0 for OS-assigned |
+    | `-F`, `--force` | | Overwrite an existing authenticated profile |
 
 The profile-name resolution order is: `--workspace-name` flag, then the
 global `--workspace` flag value, then the TTY interactive form. After
@@ -118,8 +134,29 @@ fills `team_id` / `team_name` from the response. Pass `--team-id` /
 3.  slick exchanges the code for a token, stores it in the keychain, and
    writes a `token_ref` to the config TOML.
 
+```mermaid
+sequenceDiagram
+    actor User
+    participant S as slick
+    participant B as Browser
+    participant Slack
+    participant K as Keychain
+
+    User->>S: slick auth login --method oauth
+    S->>B: Open Slack authorize URL
+    Note right of S: Listening on<br>localhost callback port
+    User->>B: Approve consent
+    B->>Slack: Authorize
+    Slack-->>S: Redirect to /callback<br>with code
+    S->>Slack: Exchange code for token
+    Slack-->>S: Access token
+    S->>K: Store credential
+    Note right of S: Write token_ref<br>to config TOML
+    S-->>User: Login complete
+```
+
 During the wait, a spinner displays the authorize URL on stderr so you can
-copy it if the browser launch fails. Ctrl-C cancels the wait. The default
+copy it if the browser launch fails. ++ctrl+c++ cancels the wait. The default
 OAuth-wait budget is two minutes (`OAuthTimeout`); the token-exchange POST
 gets its own fresh per-request budget.
 
@@ -145,51 +182,55 @@ state at a glance:
 slick auth status
 ```
 
-Human output:
+=== "Human"
 
-```text
-Authenticated workspace=default team_id=T123ABC456 team_name="Example Inc" token_type=user authenticated=true
-```
+    Human output:
 
-JSON envelope (authenticated profile):
+    ```text
+    Authenticated workspace=default team_id=T123ABC456 team_name="Example Inc" token_type=user authenticated=true
+    ```
 
-```json
-{
-  "data": {
-    "workspaces": [
-      {
-        "workspace": "default",
-        "authenticated": true,
-        "token_type": "user",
-        "team_id": "T123ABC456",
-        "team_name": "Example Inc",
-        "validation_state": "valid"
+=== "JSON"
+
+    JSON envelope (authenticated profile):
+
+    ```json
+    {
+      "data": {
+        "workspaces": [
+          {
+            "workspace": "default",
+            "authenticated": true,
+            "token_type": "user",
+            "team_id": "T123ABC456",
+            "team_name": "Example Inc",
+            "validation_state": "valid"
+          }
+        ]
       }
-    ]
-  }
-}
-```
+    }
+    ```
 
-JSON envelope (workspace metadata intact but no credential — the state
-after a destructive `auth logout`). `validation_state` flips from `valid`
-to `missing` and `authenticated` becomes `false`:
+    JSON envelope (workspace metadata intact but no credential — the state
+    after a destructive `auth logout`). `validation_state` flips from `valid`
+    to `missing` and `authenticated` becomes `false`:
 
-```json
-{
-  "data": {
-    "workspaces": [
-      {
-        "workspace": "default",
-        "authenticated": false,
-        "token_type": "user",
-        "team_id": "T123ABC456",
-        "team_name": "Example Inc",
-        "validation_state": "missing"
+    ```json
+    {
+      "data": {
+        "workspaces": [
+          {
+            "workspace": "default",
+            "authenticated": false,
+            "token_type": "user",
+            "team_id": "T123ABC456",
+            "team_name": "Example Inc",
+            "validation_state": "missing"
+          }
+        ]
       }
-    ]
-  }
-}
-```
+    }
+    ```
 
 ## auth switch
 
@@ -204,32 +245,37 @@ the argument is trimmed; `--debug` logs the trim.
 
 ### Output
 
-Human:
+=== "Human"
 
-```text
-Workspace switched workspace=default authenticated=false
-```
+    Human:
 
-The trailing `authenticated=false` is a code-side quirk: `switch` only sets
-the workspace name on its result record, and `authenticated` is the only
-field on the shared `WorkspaceData` struct without `omitempty`, so its
-zero value leaks into the event. It is **not** an assertion that the
-profile is unauthenticated.
+    ```text
+    Workspace switched workspace=default authenticated=false
+    ```
 
-JSON envelope (`auth.switch`). `switch` only populates `workspace`; the
-other identity fields are `omitempty` and absent here. `authenticated` is
-the lone non-`omitempty` field on the struct, so it always emits — its
-`false` value is a leakage of the zero state, not an assertion about the
-profile's auth status:
+=== "JSON"
 
-```json
-{
-  "data": {
-    "workspace": "default",
-    "authenticated": false
-  }
-}
-```
+    JSON envelope (`auth.switch`). `switch` only populates `workspace`; the
+    other identity fields are `omitempty` and absent here. `authenticated` is
+    the lone non-`omitempty` field on the struct, so it always emits — its
+    `false` value is a leakage of the zero state, not an assertion about the
+    profile's auth status:
+
+    ```json
+    {
+      "data": {
+        "workspace": "default",
+        "authenticated": false
+      }
+    }
+    ```
+
+!!! note "Why authenticated=false appears"
+    The trailing `authenticated=false` is a code-side quirk: `switch` only sets
+    the workspace name on its result record, and `authenticated` is the only
+    field on the shared `WorkspaceData` struct without `omitempty`, so its
+    zero value leaks into the event. It is **not** an assertion that the
+    profile is unauthenticated.
 
 ## auth logout
 
@@ -244,29 +290,45 @@ slick auth logout default --keep-token
 
 ### Flags
 
-```text
--K, --keep-token  Skip token revocation and local credential deletion; only
-                  removes the workspace auth fields from config
-```
+??? note "Flags"
+
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-K`, `--keep-token` | | Skip token revocation and local credential deletion; only removes the workspace auth fields from config |
 
 `--keep-token` emits an Info-level notice on stderr explaining that the token
-remains valid on Slack until manually revoked or it expires.
+remains active in the workspace until manually revoked or it expires.
 
 ### Output
 
-Human (destructive logout — revokes on Slack, deletes the keychain entry):
+=== "Human"
 
-```text
-Logout complete workspace=default authenticated=false
-```
+    Human (destructive logout — revokes via the Slack API, deletes the keychain entry):
 
-Human (`--keep-token`). The first line is the Info-level notice on stderr;
-the second is the result event on stdout:
+    ```text
+    Logout complete workspace=default authenticated=false
+    ```
 
-```text
-INF --keep-token preserves the credential in keychain; the token is still valid on Slack's side until manually revoked or it naturally expires workspace=default
-Logout complete workspace=default authenticated=false
-```
+    Human (`--keep-token`). The first line is the Info-level notice on stderr;
+    the second is the result event on stdout:
+
+    ```text
+    INF --keep-token preserves the credential in keychain; the token is still valid on Slack's side until manually revoked or it naturally expires workspace=default
+    Logout complete workspace=default authenticated=false
+    ```
+
+=== "JSON"
+
+    JSON envelope (`auth.logout`). `authenticated` is forced to `false`:
+
+    ```json
+    {
+      "data": {
+        "workspace": "default",
+        "authenticated": false
+      }
+    }
+    ```
 
 !!! note "Behaviour caveat"
     `--keep-token` documents itself as "removes the workspace auth fields
@@ -275,17 +337,6 @@ Logout complete workspace=default authenticated=false
     keychain and status falls back to validating via `auth.test`. If you
     want `auth status` to actually report the profile as missing, use the
     destructive logout (without `--keep-token`).
-
-JSON envelope (`auth.logout`). `authenticated` is forced to `false`:
-
-```json
-{
-  "data": {
-    "workspace": "default",
-    "authenticated": false
-  }
-}
-```
 
 ## See also
 

@@ -1,82 +1,98 @@
 # slick react
 
-Add, remove, or list emoji reactions on a known message. Requires
+**Add**, **remove**, or **list** emoji reactions on a known message. Requires
 `reactions:write` for mutating commands and `reactions:read` for `list`.
-
-```text
-slick react add     add a Slack reaction
-slick react remove  remove a Slack reaction
-slick react list    List Slack reactions
-```
 
 ## react add / react remove
 
-```sh
-slick react add    --channel C1234567890 --timestamp 1746284582.123456 --emoji :thumbsup:
-slick react remove --channel C1234567890 --timestamp 1746284582.123456 --emoji :thumbsup:
+=== "Single emoji"
 
-# Multiple emoji in order (applied or removed left-to-right)
-slick react add --channel C1234567890 --timestamp 1746284582.123456 \
-  --emoji thumbsup,white_check_mark,rocket
+    Add or remove one reaction:
 
-# Preview without mutating
-slick react add --channel C1234567890 --timestamp 1746284582.123456 \
-  --emoji :thumbsup: --dry-run
-```
+    ```sh
+    slick react add    --channel C1234567890 --timestamp 1746284582.123456 --emoji :thumbsup:
+    slick react remove --channel C1234567890 --timestamp 1746284582.123456 --emoji :thumbsup:
+    ```
+
+=== "Multiple emoji"
+
+    Apply or remove several emoji in order, left-to-right:
+
+    ```sh
+    slick react add --channel C1234567890 --timestamp 1746284582.123456 \
+      --emoji thumbsup,white_check_mark,rocket
+    ```
+
+=== "Dry run"
+
+    Preview without mutating:
+
+    ```sh
+    slick react add --channel C1234567890 --timestamp 1746284582.123456 \
+      --emoji :thumbsup: --dry-run
+    ```
 
 ### Flags
 
-```text
--c, --channel <CHANNEL>      Channel ID, name, or alias
--t, --timestamp <TS>         Message timestamp
--e, --emoji <NAME>…          Emoji name; repeat or comma-separate to apply multiple in order
--n, --dry-run                Preview without mutating
-```
+??? note "Flags"
 
-Emoji names accept both `thumbsup` and `:thumbsup:` forms. Ordered
-multi-emoji halts on the first failure; `data.mutations[]` is absent on the
-error envelope, so retry the remaining emojis from a known-good state rather
-than assuming partial success.
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-c`, `--channel` | `<CHANNEL>` | Channel ID, name, or alias |
+    | `-t`, `--timestamp` | `<TS>` | Message timestamp |
+    | `-e`, `--emoji` | `<NAME>…` | Emoji name; repeat or comma-separate to apply multiple in order |
+    | `-n`, `--dry-run` | | Preview without mutating |
+
+Emoji names accept both `thumbsup` and `:thumbsup:` forms.
+
+!!! warning "Ordered multi-emoji"
+    Ordered multi-emoji halts on the first failure; `data.mutations[]` is
+    absent on the error envelope, so retry the remaining emojis from a
+    known-good state rather than assuming partial success.
 
 ### Output
 
-Human (real, single emoji — no `dry_run` field):
+=== "Human"
 
-```text
-Reaction added channel=C7N2Q8L4P ts=1746284582.123456 emoji=thumbsup
-```
+    Human (real, single emoji — no `dry_run` field):
 
-Human (`--dry-run`, single emoji):
+    ```text
+    Reaction added channel=C7N2Q8L4P ts=1746284582.123456 emoji=thumbsup
+    ```
 
-```text
-Reaction added channel=C7N2Q8L4P ts=1746284582.123456 dry_run=true emoji=thumbsup
-```
+    Human (`--dry-run`, single emoji):
 
-Human (real, multiple emoji — one event line per emoji, in argument order):
+    ```text
+    Reaction added channel=C7N2Q8L4P ts=1746284582.123456 dry_run=true emoji=thumbsup
+    ```
 
-```text
-Reaction added channel=C7N2Q8L4P ts=1746284582.123456 emoji=rocket
-Reaction added channel=C7N2Q8L4P ts=1746284582.123456 emoji=white_check_mark
-```
+    Human (real, multiple emoji — one event line per emoji, in argument order):
 
-Human (`react remove`):
+    ```text
+    Reaction added channel=C7N2Q8L4P ts=1746284582.123456 emoji=rocket
+    Reaction added channel=C7N2Q8L4P ts=1746284582.123456 emoji=white_check_mark
+    ```
 
-```text
-Reaction removed channel=C7N2Q8L4P ts=1746284582.123456 emoji=thumbsup
-```
+    Human (`react remove`):
 
-JSON envelope:
+    ```text
+    Reaction removed channel=C7N2Q8L4P ts=1746284582.123456 emoji=thumbsup
+    ```
 
-```json
-{
-  "data": {
-    "mutations": [
-      {"channel": "C7N2Q8L4P", "ts": "1746284582.123456", "emoji": "thumbsup", "dry_run": true}
-    ],
-    "target": {"channel": "C7N2Q8L4P", "ts": "1746284582.123456"}
-  }
-}
-```
+=== "JSON"
+
+    JSON envelope:
+
+    ```json
+    {
+      "data": {
+        "mutations": [
+          {"channel": "C7N2Q8L4P", "ts": "1746284582.123456", "emoji": "thumbsup", "dry_run": true}
+        ],
+        "target": {"channel": "C7N2Q8L4P", "ts": "1746284582.123456"}
+      }
+    }
+    ```
 
 `meta.command` (`react.add` vs `react.remove`) distinguishes the two paths.
 The `removed` action-result bool was dropped in v0.4.0; the action label and
@@ -90,37 +106,43 @@ slick react list --channel C1234567890 --timestamp 1746284582.123456
 
 ### Flags
 
-```text
--c, --channel <CHANNEL>  Channel ID, name, or alias
--t, --timestamp <TS>     Message timestamp
-```
+??? note "Flags"
+
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-c`, `--channel` | `<CHANNEL>` | Channel ID, name, or alias |
+    | `-t`, `--timestamp` | `<TS>` | Message timestamp |
 
 ### Output
 
-Human mode renders a primer table:
+=== "Human"
 
-```text
-EMOJI             COUNT  USERS
-thumbsup          3      U123,U456,U789
-white_check_mark  1      U123
-```
+    Human mode renders a primer table:
 
-JSON envelope. Slack normalises some emoji aliases to their canonical
-names in the response (e.g. `thumbsup` → `+1`, `thumbsdown` → `-1`); the
-`name` field reflects Slack's canonical form, not necessarily the alias
-you passed to `react add`:
+    ```text
+    EMOJI             COUNT  USERS
+    thumbsup          3      U123,U456,U789
+    white_check_mark  1      U123
+    ```
 
-```json
-{
-  "data": {
-    "reactions": [
-      {"name": "+1", "count": 3, "users": ["U123", "U456", "U789"]},
-      {"name": "white_check_mark", "count": 1, "users": ["U123"]}
-    ],
-    "target": {"channel": "C1234567890", "ts": "1746284582.123456"}
-  }
-}
-```
+=== "JSON"
+
+    JSON envelope. The Slack API normalises some emoji aliases to their
+    canonical names in the response (e.g. `thumbsup` → `+1`, `thumbsdown` → `-1`);
+    the `name` field reflects the canonical Slack form, not necessarily the alias
+    you passed to `react add`:
+
+    ```json
+    {
+      "data": {
+        "reactions": [
+          {"name": "+1", "count": 3, "users": ["U123", "U456", "U789"]},
+          {"name": "white_check_mark", "count": 1, "users": ["U123"]}
+        ],
+        "target": {"channel": "C1234567890", "ts": "1746284582.123456"}
+      }
+    }
+    ```
 
 ## Common errors
 

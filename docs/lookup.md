@@ -1,149 +1,213 @@
 # slick lookup
 
-Look up channels and users, and search messages. `lookup messages` requires a
-user token with `search:read`; bot-token profiles cannot use it.
+**Look up** channels and users, and **search** messages.
 
-```text
-slick lookup channel   Look up Slack channels and conversations
-slick lookup user      Look up Slack users
-slick lookup messages  Search Slack messages
-```
+!!! note "lookup messages needs a user token"
+    `lookup messages` requires a user token with `search:read`; bot-token
+    profiles cannot use it.
 
 ## lookup channel
 
 Find channel and conversation metadata. With `--channel`, fetch one
 conversation; without, list conversations of the requested types.
 
-```sh
-slick lookup channel --max-items 20
-slick lookup channel --types im,mpim                  # only DMs / group DMs
-slick lookup channel --types all                      # all types
-slick lookup channel --channel C1234567890            # single channel info
-slick lookup channel --filter deploy                  # client-side ID/name filter
-```
+=== "List"
+
+    List conversations, capped by `--max-items`:
+
+    ```sh
+    slick lookup channel --max-items 20
+    ```
+
+=== "By type"
+
+    Narrow to DMs and group DMs, or ask for every conversation type:
+
+    ```sh
+    slick lookup channel --types im,mpim
+    slick lookup channel --types all
+    ```
+
+=== "Single channel"
+
+    Fetch metadata for one conversation by ID, name, or alias:
+
+    ```sh
+    slick lookup channel --channel C1234567890
+    ```
+
+=== "Filter"
+
+    Apply a client-side ID or name filter to the list:
+
+    ```sh
+    slick lookup channel --filter deploy
+    ```
 
 ### Flags
 
-```text
--c, --channel <CHANNEL>  Channel or conversation ID, name, or alias
--M, --max-items <N>      Maximum conversations to return
--C, --cursor <CURSOR>    Pagination cursor
--f, --filter <TEXT>      Filter by ID or name
--t, --types <TYPE>       Conversation types: public_channel, private_channel, im, mpim, dm, or all
-```
+??? note "Flags"
+
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-c`, `--channel` | `<CHANNEL>` | Channel or conversation ID, name, or alias |
+    | `-M`, `--max-items` | `<N>` | Maximum conversations to return |
+    | `-C`, `--cursor` | `<CURSOR>` | Pagination cursor |
+    | `-f`, `--filter` | `<TEXT>` | Filter by ID or name |
+    | `-t`, `--types` | `<TYPE>` | Conversation types: public_channel, private_channel, im, mpim, dm, or all |
 
 ### Output
 
-Human (list) renders a primer table:
+=== "Human"
 
-```text
-CHANNEL      NAME            TYPE             USER  MEMBER  ARCHIVED  MEMBERS  TOPIC
-C1234567890  deploy-bots     channel                true    false     42       Deploy automation
-C7N2Q8L4P    incidents       private_channel        true    false     8        Incident response
-C0228L1B726  direct          im               U123…  true    false     1
-```
+    Human (list) renders a primer table:
 
-Columns: `CHANNEL`, `NAME`, `TYPE`, `USER`, `MEMBER`, `ARCHIVED`, `MEMBERS`,
-`TOPIC`. `TYPE` is Slack's conversation kind — `channel` for public,
-`private_channel` for private, `im`/`mpim` for DMs. `USER` is populated only
-for `im` rows (the DM counterparty). `CHANNEL` stays the raw conversation ID
-for copy/paste and may be an OSC 8 terminal hyperlink in human mode. Channel IDs
-hash-colour; `TYPE` colours by hash. `MEMBER` uses dim-on-true (being a member
-is the routine state); `ARCHIVED` uses red-on-true.
+    ```text
+    CHANNEL      NAME            TYPE             USER  MEMBER  ARCHIVED  MEMBERS  TOPIC
+    C1234567890  deploy-bots     channel                true    false     42       Deploy automation
+    C7N2Q8L4P    incidents       private_channel        true    false     8        Incident response
+    C0228L1B726  direct          im               U123…  true    false     1
+    ```
 
-Human (single channel via `--channel`):
+    Columns: `CHANNEL`, `NAME`, `TYPE`, `USER`, `MEMBER`, `ARCHIVED`, `MEMBERS`,
+    `TOPIC`. `TYPE` is Slack's conversation kind — `channel` for public,
+    `private_channel` for private, `im`/`mpim` for DMs. `USER` is populated only
+    for `im` rows (the DM counterparty). `CHANNEL` stays the raw conversation ID
+    for copy/paste and may be an OSC 8 terminal hyperlink in human mode. Channel IDs
+    hash-colour; `TYPE` colours by hash. `MEMBER` uses dim-on-true (being a member
+    is the routine state); `ARCHIVED` uses red-on-true.
 
-```text
-Channel resolved channel=C1234567890 name=deploy-bots type=channel is_member=true num_members=42
-```
+    Human (single channel via `--channel`):
 
-A `topic` field appears at the end when the channel has one set.
+    ```text
+    Channel resolved channel=C1234567890 name=deploy-bots type=channel is_member=true num_members=42
+    ```
 
-JSON envelope (list). Slack's conversation type is `channel` for public
-channels and `private_channel` for private; `is_im` distinguishes DM
-conversations even when other types coexist in the list. `hr` and `url` are
-best-effort display metadata; `id` remains the raw Slack conversation ID:
+    A `topic` field appears at the end when the channel has one set.
 
-```json
-{
-  "data": {
-    "channels": [
-      {
-        "id": "C7N2Q8L4P",
-        "name": "deploy-bots",
-        "hr": "#deploy-bots",
-        "url": "https://app.slack.com/client/T8KQ42P9D/C7N2Q8L4P",
-        "type": "channel",
-        "is_member": true,
-        "is_im": false,
-        "num_members": 42,
-        "is_archived": false
+=== "JSON"
+
+    JSON envelope (list). Slack's conversation type is `channel` for public
+    channels and `private_channel` for private; `is_im` distinguishes DM
+    conversations even when other types coexist in the list. `hr` and `url` are
+    best-effort display metadata; `id` remains the raw Slack conversation ID:
+
+    ```json
+    {
+      "data": {
+        "channels": [
+          {
+            "id": "C7N2Q8L4P",
+            "name": "deploy-bots",
+            "hr": "#deploy-bots",
+            "url": "https://app.slack.com/client/T8KQ42P9D/C7N2Q8L4P",
+            "type": "channel",
+            "is_member": true,
+            "is_im": false,
+            "num_members": 42,
+            "is_archived": false
+          }
+        ]
       }
-    ]
-  }
-}
-```
+    }
+    ```
 
 ## lookup user
 
 Find user metadata. With `--user`, fetch one; without, list active users.
 
-```sh
-slick lookup user --max-items 50
-slick lookup user --include-deleted          # full users.list
-slick lookup user --user U1234567890         # single user info
-slick lookup user --presence                 # fetch presence flag too
-slick lookup user --filter mcraven           # client-side filter
-```
+=== "List"
+
+    List active users, capped by `--max-items`:
+
+    ```sh
+    slick lookup user --max-items 50
+    ```
+
+=== "Include deleted"
+
+    Return the full `users.list`, including deleted and deactivated users:
+
+    ```sh
+    slick lookup user --include-deleted
+    ```
+
+=== "Single user"
+
+    Fetch metadata for one user by ID:
+
+    ```sh
+    slick lookup user --user U1234567890
+    ```
+
+=== "Presence"
+
+    Fetch the presence flag alongside user metadata:
+
+    ```sh
+    slick lookup user --presence
+    ```
+
+=== "Filter"
+
+    Apply a client-side filter to the list:
+
+    ```sh
+    slick lookup user --filter mcraven
+    ```
 
 ### Flags
 
-```text
--u, --user <USER>      Slack user ID
--M, --max-items <N>    Maximum users to return
--C, --cursor <CURSOR>  Pagination cursor
--f, --filter <TEXT>    Filter by ID or name
--p, --presence         Fetch presence
--d, --include-deleted  Include deleted or deactivated users
-```
+??? note "Flags"
+
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-u`, `--user` | `<USER>` | Slack user ID |
+    | `-M`, `--max-items` | `<N>` | Maximum users to return |
+    | `-C`, `--cursor` | `<CURSOR>` | Pagination cursor |
+    | `-f`, `--filter` | `<TEXT>` | Filter by ID or name |
+    | `-p`, `--presence` | | Fetch presence |
+    | `-d`, `--include-deleted` | | Include deleted or deactivated users |
 
 List mode excludes deleted and deactivated users by default. Add
 `--include-deleted` when you need the full `users.list` result.
 
 ### Output
 
-Human (list) renders a primer table:
+=== "Human"
 
-```text
-USER       NAME      TZ                   STATUS
-USLACKBOT  slackbot  America/Los_Angeles
-U123ABC    mcraven   America/Toronto      Working remotely
-U2A8B0DCA  ansible   America/Los_Angeles
-```
+    Human (list) renders a primer table:
 
-Human (single user):
+    ```text
+    USER       NAME      TZ                   STATUS
+    USLACKBOT  slackbot  America/Los_Angeles
+    U123ABC    mcraven   America/Toronto      Working remotely
+    U2A8B0DCA  ansible   America/Los_Angeles
+    ```
 
-```text
-User resolved user=U123ABC name=mcraven timezone=America/Toronto status_text="Working remotely"
-```
+    Human (single user):
 
-With `--presence`, a `presence=active|away` field joins the event:
+    ```text
+    User resolved user=U123ABC name=mcraven timezone=America/Toronto status_text="Working remotely"
+    ```
 
-```text
-User resolved user=U123ABC name=mcraven timezone=America/Toronto presence=active status_text="Working remotely"
-```
+    With `--presence`, a `presence=active|away` field joins the event:
 
-`timezone` renders Region/City with the region dim and the city bold.
+    ```text
+    User resolved user=U123ABC name=mcraven timezone=America/Toronto presence=active status_text="Working remotely"
+    ```
 
-JSON:
+    `timezone` renders Region/City with the region dim and the city bold.
 
-```json
-{
-  "data": {
-    "user": {"id": "U123ABC", "name": "mcraven", "deleted": false, "tz": "America/Toronto", "status_text": "Working remotely", "presence": "active"}
-  }
-}
-```
+=== "JSON"
+
+    ```json
+    {
+      "data": {
+        "user": {"id": "U123ABC", "name": "mcraven", "deleted": false, "tz": "America/Toronto", "status_text": "Working remotely", "presence": "active"}
+      }
+    }
+    ```
 
 `status_text` is present when the user has a status set. `presence` is
 populated only when `--presence` is passed (otherwise the field is absent).
@@ -153,76 +217,108 @@ populated only when `--presence` is passed (otherwise the field is absent).
 Search Slack workspace messages with the Web API `search.messages` method.
 Requires a user token with `search:read`.
 
-```sh
-slick lookup messages --query "deploy failed" --max-items 10
-slick lookup messages --query "in:#alerts after:2026-05-01" --max-items 50
-slick lookup messages --query "deploy" --cursor <meta.pagination.next_cursor>
+=== "Search"
 
-# Full text in human mode (default truncates long matches)
-slick lookup messages --query "release" --full
-```
+    Search for matching messages, capped by `--max-items`:
+
+    ```sh
+    slick lookup messages --query "deploy failed" --max-items 10
+    ```
+
+=== "Modifiers"
+
+    Use the Slack search modifiers inside the query:
+
+    ```sh
+    slick lookup messages --query "in:#alerts after:2026-05-01" --max-items 50
+    ```
+
+=== "Paginate"
+
+    Page through results with a cursor from the previous response:
+
+    ```sh
+    slick lookup messages --query "deploy" --cursor <meta.pagination.next_cursor>
+    ```
+
+=== "Full text"
+
+    Show full match text in human mode, which otherwise truncates long matches:
+
+    ```sh
+    slick lookup messages --query "release" --full
+    ```
 
 ### Flags
 
-```text
--q, --query <QUERY>    Search query
--M, --max-items <N>    Maximum matches to return
--C, --cursor <CURSOR>  Pagination cursor
--F, --full             Show full text in human mode
-```
+??? note "Flags"
+
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-q`, `--query` | `<QUERY>` | Search query |
+    | `-M`, `--max-items` | `<N>` | Maximum matches to return |
+    | `-C`, `--cursor` | `<CURSOR>` | Pagination cursor |
+    | `-F`, `--full` | | Show full text in human mode |
 
 Query syntax follows Slack's search modifiers (`from:`, `in:`, `before:`,
-`after:`, etc.). When there are no matches:
+`after:`, etc.).
 
-```text
-Messages searched query="deploy failed" count=0
-```
+=== "Human"
 
-`count` is forced to render even at zero (it would otherwise be stripped by
-clog's `OmitZero`).
+    When there are no matches:
 
-With matches, human mode renders a `TS / CHANNEL / USER / TEXT` table:
+    ```text
+    Messages searched query="deploy failed" count=0
+    ```
 
-```text
-TS                 CHANNEL      USER       TEXT
-1746284582.123456  #deploy-bot  U123ABC    Deploy v0.4.0 complete — rollback window closes 18:00 UTC.
-:robot_face: _Sent via slick (agent mode)_
-```
+    `count` is forced to render even at zero (it would otherwise be stripped by
+    clog's `OmitZero`).
 
-The attribution context block (when present) renders on its own line below
-the body, joined by a newline. That's how Slack's `search.messages`
-returns Block Kit messages — the body lives in `blocks[]`, not in the
-top-level `text` field, and slick reconstructs the readable text by
-flattening section / header / context / rich_text blocks.
+    With matches, human mode renders a `TS / CHANNEL / USER / TEXT` table:
 
-JSON envelope. For Block Kit messages (which is every message slick
-sends — attribution adds a context block), Slack returns `text=""` in
-the raw response and the body lives inside `blocks[]`. slick flattens
-section / context / rich_text blocks back into the `text` field so
-consumers get something readable; the attribution context line appears
-on its own line after the body:
+    ```text
+    TS                 CHANNEL      USER       TEXT
+    1746284582.123456  #deploy-bot  U123ABC    Deploy v0.4.0 complete — rollback window closes 18:00 UTC.
+    :robot_face: _Sent via slick (agent mode)_
+    ```
 
-```json
-{
-  "data": {
-    "matches": [
-      {
-        "channel": {
-          "id": "C1234567890",
-          "name": "deploy",
-          "hr": "#deploy",
-          "url": "https://app.slack.com/client/T8KQ42P9D/C1234567890"
-        },
-        "user": "U123ABC",
-        "text": "Deploy v0.4.0 complete — rollback window closes 18:00 UTC.\n:robot_face: _Sent via slick (agent mode)_",
-        "ts": "1746284582.123456",
-        "permalink": "https://example.slack.com/archives/C1234567890/p1746284582123456"
+    The attribution context block (when present) renders on its own line below
+    the body, joined by a newline. That's how Slack's `search.messages`
+    returns [Block Kit](https://docs.slack.dev/block-kit/) messages — the body
+    lives in `blocks[]`, not in the
+    top-level `text` field, and slick reconstructs the readable text by
+    flattening section / header / context / rich_text blocks.
+
+=== "JSON"
+
+    JSON envelope. For Block Kit messages (which is every message slick
+    sends — attribution adds a context block), Slack returns `text=""` in
+    the raw response and the body lives inside `blocks[]`. slick flattens
+    section / context / rich_text blocks back into the `text` field so
+    consumers get something readable; the attribution context line appears
+    on its own line after the body:
+
+    ```json
+    {
+      "data": {
+        "matches": [
+          {
+            "channel": {
+              "id": "C1234567890",
+              "name": "deploy",
+              "hr": "#deploy",
+              "url": "https://app.slack.com/client/T8KQ42P9D/C1234567890"
+            },
+            "user": "U123ABC",
+            "text": "Deploy v0.4.0 complete — rollback window closes 18:00 UTC.\n:robot_face: _Sent via slick (agent mode)_",
+            "ts": "1746284582.123456",
+            "permalink": "https://example.slack.com/archives/C1234567890/p1746284582123456"
+          }
+        ],
+        "query": "deploy"
       }
-    ],
-    "query": "deploy"
-  }
-}
-```
+    }
+    ```
 
 ## Common errors
 

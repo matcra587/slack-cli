@@ -36,6 +36,7 @@ disable = [
     "MD041",  # First line must be heading - breaks frontmatter
     "MD043",  # Required heading structure - too prescriptive
     "MD044",  # Proper name capitalisation - not worth maintaining a list
+    "MD046",  # Code block style - content-tab fences are 4-space indented and read as indented blocks
     "MD054",  # Link style consistency - mixed inline/reference is legitimate
     "MD059",  # Descriptive link text - too many false positives
     "MD060",  # Table column alignment - creates diff noise
@@ -71,7 +72,3 @@ ul_single = 3
 ul_multi = 3
 ol_single = 2
 ol_multi = 2
-
-# Code blocks
-[MD046]
-style = "fenced"

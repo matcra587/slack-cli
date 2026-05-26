@@ -1,15 +1,13 @@
 # slick status
 
-Set or clear the authenticated user's Slack status. Requires a user token
-with `users.profile:write`; bot-token profiles cannot set a user's status.
+**Set** or **clear** the authenticated user's Slack status.
+
+!!! note "Requires a user token"
+    Requires a user token with `users.profile:write`; bot-token profiles
+    cannot set a user's status.
 
 This command is for your Slack profile status. Use [`health`](health.md) for
 Slack service health and Slack Web API reachability.
-
-```text
-slick status set    Set Slack status
-slick status clear  Clear Slack status
-```
 
 `meta.command` (`status.set` vs `status.clear`) distinguishes which path
 ran. The pre-v0.4.0 `cleared` action-result bool was removed; the action
@@ -20,57 +18,88 @@ label conveys the outcome.
 Set the user's Slack status. Text and emoji may be passed as flags or as
 positional arguments.
 
-```sh
-slick status set --text "Heads down" --emoji :headphones: --expires-in 2h
-slick status set "In a meeting" :calendar:
-slick status set --text "Vacation" --until 2026-06-01T00:00:00Z
-slick status set "PR review" :eyes: --dry-run
-```
+=== "Flags"
+
+    Set status with flags and a relative expiry:
+
+    ```sh
+    slick status set --text "Heads down" --emoji :headphones: --expires-in 2h
+    ```
+
+=== "Positional"
+
+    Pass text and emoji as positional arguments:
+
+    ```sh
+    slick status set "In a meeting" :calendar:
+    ```
+
+=== "Until"
+
+    Expire at an absolute RFC3339 time:
+
+    ```sh
+    slick status set --text "Vacation" --until 2026-06-01T00:00:00Z
+    ```
+
+=== "Dry run"
+
+    Preview without mutating:
+
+    ```sh
+    slick status set "PR review" :eyes: --dry-run
+    ```
 
 ### Flags
 
-```text
--t, --text <TEXT>            Status text
--e, --emoji <EMOJI>          Status emoji
--x, --expires-in <DURATION>  Status expiration duration
--U, --until <TIME>           Status expiration time
--n, --dry-run                Preview without mutating
-```
+??? note "Flags"
+
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-t`, `--text` | `<TEXT>` | Status text |
+    | `-e`, `--emoji` | `<EMOJI>` | Status emoji |
+    | `-x`, `--expires-in` | `<DURATION>` | Status expiration duration |
+    | `-U`, `--until` | `<TIME>` | Status expiration time |
+    | `-n`, `--dry-run` | | Preview without mutating |
 
 `--expires-in` accepts Go duration strings (`30m`, `2h`, `8h30m`).
 `--until` accepts an RFC3339 timestamp.
 
 ### Output
 
-Human (no expiration set):
+=== "Human"
 
-```text
-Status set dry_run=true text="In a meeting" emoji=:calendar:
-```
+    Human (no expiration set):
 
-Human (with `--expires-in 2h`):
+    ```text
+    Status set dry_run=true text="In a meeting" emoji=:calendar:
+    ```
 
-```text
-Status set expiration=1747152000 dry_run=true text="Heads down" emoji=:headphones:
-```
+    Human (with `--expires-in 2h`):
 
-JSON envelope (no expiration). `expiration` uses `omitempty`, so it is
-absent in the envelope when unset:
+    ```text
+    Status set expiration=1747152000 dry_run=true text="Heads down" emoji=:headphones:
+    ```
 
-```json
-{
-  "data": {"text": "In a meeting", "emoji": ":calendar:", "dry_run": true}
-}
-```
+=== "JSON"
 
-JSON envelope with expiration. The value is a Unix timestamp (seconds since
-epoch) at which Slack will clear the status:
+    JSON envelope (no expiration). `expiration` uses `omitempty`, so it is
+    absent in the envelope when unset:
 
-```json
-{
-  "data": {"text": "Heads down", "emoji": ":headphones:", "expiration": 1747152000}
-}
-```
+    ```json
+    {
+      "data": {"text": "In a meeting", "emoji": ":calendar:", "dry_run": true}
+    }
+    ```
+
+    JSON envelope with expiration. The value is a Unix timestamp (seconds since
+    epoch) at which the Slack API will clear the status:
+
+    ```json
+    {
+      "data": {"text": "Heads down", "emoji": ":headphones:", "expiration": 1747152000}
+    }
+    ```
 
 ## status clear
 
@@ -83,22 +112,28 @@ slick status clear --dry-run
 
 ### Flags
 
-```text
--n, --dry-run  Preview without mutating
-```
+??? note "Flags"
 
-Human:
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-n`, `--dry-run` | | Preview without mutating |
 
-```text
-Status cleared dry_run=true
-```
+=== "Human"
 
-JSON envelope. All fields use `omitempty`, so `status clear` carries only
-`dry_run` in the dry-run case and an empty `data` object on a real clear:
+    Human:
 
-```json
-{"data": {"dry_run": true}}
-```
+    ```text
+    Status cleared dry_run=true
+    ```
+
+=== "JSON"
+
+    JSON envelope. All fields use `omitempty`, so `status clear` carries only
+    `dry_run` in the dry-run case and an empty `data` object on a real clear:
+
+    ```json
+    {"data": {"dry_run": true}}
+    ```
 
 ## Common errors
 

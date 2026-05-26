@@ -17,42 +17,46 @@ slick workspace list --output=json
 
 ### Output
 
-Human (a primer table):
+=== "Human"
 
-```text
-PROFILE   WORKSPACE     NAME              TOKEN
-default   T123ABC456    Example Inc       user
-staging   T987XYZ123    Example Staging   bot
-```
+    Human (a primer table):
 
-`PROFILE` and `WORKSPACE` (`team_id`) hash-colour as identity fields.
+    ```text
+    PROFILE   WORKSPACE     NAME              TOKEN
+    default   T123ABC456    Example Inc       user
+    staging   T987XYZ123    Example Staging   bot
+    ```
 
-JSON envelope:
+    `PROFILE` and `WORKSPACE` (`team_id`) hash-colour as identity fields.
 
-```json
-{
-  "data": {
-    "workspaces": [
-      {
-        "name": "default",
-        "team_id": "T123ABC456",
-        "team_name": "Example Inc",
-        "token_type": "user",
-        "token_ref": "keychain:slack-cli/default",
-        "attribution": {"enabled": true}
-      },
-      {
-        "name": "staging",
-        "team_id": "T987XYZ123",
-        "team_name": "Example Staging",
-        "token_type": "bot",
-        "token_ref": "keychain:slack-cli/staging",
-        "attribution": {"enabled": false}
+=== "JSON"
+
+    JSON envelope:
+
+    ```json
+    {
+      "data": {
+        "workspaces": [
+          {
+            "name": "default",
+            "team_id": "T123ABC456",
+            "team_name": "Example Inc",
+            "token_type": "user",
+            "token_ref": "keychain:slack-cli/default",
+            "attribution": {"enabled": true}
+          },
+          {
+            "name": "staging",
+            "team_id": "T987XYZ123",
+            "team_name": "Example Staging",
+            "token_type": "bot",
+            "token_ref": "keychain:slack-cli/staging",
+            "attribution": {"enabled": false}
+          }
+        ]
       }
-    ]
-  }
-}
-```
+    }
+    ```
 
 `token_ref` is a credential-store pointer (e.g. `keychain:slack-cli/<profile>`
 or `env:SLACK_TOKEN`) — the raw token never appears in the envelope.

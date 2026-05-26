@@ -1,14 +1,7 @@
 # slick health
 
-Check Slack service health and Slack Web API reachability. These commands do
+**Check** Slack service health and Slack Web API reachability. These commands do
 not use the configured workspace, token, or scopes.
-
-```text
-slick health check     Run Slack Status and api.test checks
-slick health current   Show current Slack service status
-slick health history   List recent Slack service incidents
-slick health api-test  Check Slack Web API reachability with api.test
-```
 
 `health current` and `health history` call Slack Status API v2:
 
@@ -29,9 +22,11 @@ slick health check --output=json
 
 ### Flags
 
-```text
--s, --service <SERVICE>  Filter active incidents by Slack service
-```
+??? note "Flags"
+
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-s`, `--service` | `<SERVICE>` | Filter active incidents by Slack service |
 
 `--service` supports shell completion for common Slack Status services:
 
@@ -48,27 +43,31 @@ Workflows
 Workspace/Org Administration
 ```
 
-Human output:
+=== "Human"
 
-```text
-Slack health ok updated=2026-05-11T14:48:12-07:00 healthy=true status=ok api_ok=true active_incidents=0 total_active_incidents=0
-```
+    Human output:
 
-JSON envelope:
+    ```text
+    Slack health ok updated=2026-05-11T14:48:12-07:00 healthy=true status=ok api_ok=true active_incidents=0 total_active_incidents=0
+    ```
 
-```json
-{
-  "data": {
-    "healthy": true,
-    "status": "ok",
-    "api_ok": true,
-    "date_updated": "2026-05-11T14:48:12-07:00",
-    "active_incidents": [],
-    "active_incident_count": 0,
-    "total_active_incident_count": 0
-  }
-}
-```
+=== "JSON"
+
+    JSON envelope:
+
+    ```json
+    {
+      "data": {
+        "healthy": true,
+        "status": "ok",
+        "api_ok": true,
+        "date_updated": "2026-05-11T14:48:12-07:00",
+        "active_incidents": [],
+        "active_incident_count": 0,
+        "total_active_incident_count": 0
+      }
+    }
+    ```
 
 Without `--service`, `healthy` is true only when `api_ok` is true, Slack
 Status reports `ok`, and there are no active incidents. With `--service`,
@@ -86,25 +85,34 @@ slick health current --service "Apps/Integrations/APIs"
 
 ### Flags
 
-```text
--s, --service <SERVICE>  Filter active incidents by Slack service
-```
+??? note "Flags"
 
-When active incidents exist, human output renders a table:
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-s`, `--service` | `<SERVICE>` | Filter active incidents by Slack service |
 
-```text
-ID   STATUS  TYPE      UPDATED                    SERVICES         NOTES
-546  active  incident  2026-05-11T14:48:12-07:00  Messaging,Files  1
-```
+=== "Human"
 
-The trailing `TITLE` column is flexible and may appear on wider terminals. JSON
-output always includes `title` and `url`.
+    When active incidents exist, human output renders a table:
 
-With no active incidents, human output is a compact event:
+    ```text
+    ID   STATUS  TYPE      UPDATED                    SERVICES         NOTES
+    546  active  incident  2026-05-11T14:48:12-07:00  Messaging,Files  1
+    ```
 
-```text
-Slack status retrieved updated=2026-05-11T14:48:12-07:00 status=ok active_incidents=0 total_active_incidents=0
-```
+    The trailing `TITLE` column is flexible and may appear on wider terminals. JSON
+    output always includes `title` and `url`.
+
+    With no active incidents, human output is a compact event:
+
+    ```text
+    Slack status retrieved updated=2026-05-11T14:48:12-07:00 status=ok active_incidents=0 total_active_incidents=0
+    ```
+
+=== "JSON"
+
+    !!! warning "TODO"
+        TODO: Gather output for `health current`
 
 ## health history
 
@@ -118,36 +126,42 @@ slick health history --service Search --limit 5
 
 ### Flags
 
-```text
--L, --limit <N>          Maximum incidents to return; 0 returns all
--s, --service <SERVICE>  Filter incidents by Slack service
-```
+??? note "Flags"
 
-Human output renders the same incident table as `health current`.
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-L`, `--limit` | `<N>` | Maximum incidents to return; 0 returns all |
+    | `-s`, `--service` | `<SERVICE>` | Filter incidents by Slack service |
 
-JSON output includes incident fields that may be hidden in a narrow human table:
+=== "Human"
 
-```json
-{
-  "data": {
-    "limit": 1,
-    "incidents": [
-      {
-        "id": "1551",
-        "title": "EKM customers were previously experiencing issues with channel loading and message delivery",
-        "type": "incident",
-        "status": "resolved",
-        "url": "https://slack-status.com/2026-05/d284d808ed66c511",
-        "date_created": "2026-05-08T11:31:22-07:00",
-        "date_updated": "2026-05-11T14:48:12-07:00",
-        "services": ["Messaging", "Files", "Notifications", "Apps/Integrations/APIs"],
-        "note_count": 15
+    Human output renders the same incident table as `health current`.
+
+=== "JSON"
+
+    JSON output includes incident fields that may be hidden in a narrow human table:
+
+    ```json
+    {
+      "data": {
+        "limit": 1,
+        "incidents": [
+          {
+            "id": "1551",
+            "title": "EKM customers were previously experiencing issues with channel loading and message delivery",
+            "type": "incident",
+            "status": "resolved",
+            "url": "https://slack-status.com/2026-05/d284d808ed66c511",
+            "date_created": "2026-05-08T11:31:22-07:00",
+            "date_updated": "2026-05-11T14:48:12-07:00",
+            "services": ["Messaging", "Files", "Notifications", "Apps/Integrations/APIs"],
+            "note_count": 15
+          }
+        ],
+        "incident_count": 1
       }
-    ],
-    "incident_count": 1
-  }
-}
-```
+    }
+    ```
 
 ## health api-test
 
@@ -158,19 +172,23 @@ slick health api-test
 slick health api-test --output=json
 ```
 
-Human output:
+=== "Human"
 
-```text
-Slack API tested ok=true
-```
+    Human output:
 
-JSON envelope:
+    ```text
+    Slack API tested ok=true
+    ```
 
-```json
-{
-  "data": {"ok": true}
-}
-```
+=== "JSON"
+
+    JSON envelope:
+
+    ```json
+    {
+      "data": {"ok": true}
+    }
+    ```
 
 ## Incident fields
 

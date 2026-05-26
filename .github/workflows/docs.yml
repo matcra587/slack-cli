@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'docs/**'
+      - 'includes/**'
       - 'zensical.toml'
       - '.github/workflows/docs.yml'
   workflow_dispatch:

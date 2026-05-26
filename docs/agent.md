@@ -4,11 +4,6 @@ Agent tooling. `agent schema` emits the full command tree as JSON; `agent
 guide` emits Markdown runbooks scoped to specific workflows. Both are
 designed to be consumed by LLM agents rather than humans.
 
-```text
-slick agent schema  Output command schema as JSON
-slick agent guide   Output workflow instructions for agents
-```
-
 ## agent schema
 
 Emit the command tree, flag inventory, output modes, and exit-code contract
@@ -23,9 +18,11 @@ slick agent schema --compact -o compact     # minimal schema, no envelope
 
 ### Flags
 
-```text
--c, --compact  Emit a minimal schema (smaller per-command records)
-```
+??? note "Flags"
+
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-c`, `--compact` | | Emit a minimal schema (smaller per-command records) |
 
 `--compact` here is the command-local schema-shape flag (short form `-c`).
 It is distinct from the global `--output=compact` (short form `-o compact`),

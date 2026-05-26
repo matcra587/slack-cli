@@ -1,45 +1,60 @@
 # slick manifest
 
-Print a Slack app manifest you can import in Slack. slick does not create
-Slack apps; it generates the manifest text.
-
-```text
-slick manifest template  Output the Slack app manifest to import
-                         (aliases: generate)
-```
+**Print** a Slack app manifest you can import into a Slack workspace. slick
+does not create Slack apps; it generates the manifest text.
 
 ## manifest template
 
-```sh
-# Default messaging manifest for user-token auth
-slick manifest template --preset messaging --type user --name slack-cli > manifest.json
+=== "Default"
 
-# YAML output
-slick manifest template --preset messaging --type user --name slack-cli --format yaml > manifest.yml
+    Default messaging manifest for user-token auth:
 
-# Pin a local OAuth callback port (used by `auth login --oauth-callback-port`)
-slick manifest template --preset messaging --type user --name slack-cli --callback-port 53221 > manifest.json
+    ```sh
+    slick manifest template --preset messaging --type user --name slack-cli > manifest.json
+    ```
 
-# Override scopes individually
-slick manifest template --preset readonly --type user \
-  --user-scope channels:history --user-scope groups:history > manifest.json
-```
+=== "YAML output"
+
+    Emit the manifest as YAML:
+
+    ```sh
+    slick manifest template --preset messaging --type user --name slack-cli --format yaml > manifest.yml
+    ```
+
+=== "Pin callback port"
+
+    Pin a local OAuth callback port (used by `auth login --oauth-callback-port`):
+
+    ```sh
+    slick manifest template --preset messaging --type user --name slack-cli --callback-port 53221 > manifest.json
+    ```
+
+=== "Override scopes"
+
+    Override scopes individually:
+
+    ```sh
+    slick manifest template --preset readonly --type user \
+      --user-scope channels:history --user-scope groups:history > manifest.json
+    ```
 
 ### Flags
 
-```text
--N, --name <NAME>                 App display name
--d, --description <TEXT>          Short app description
--L, --long-description <TEXT>     Long app description
--p, --preset <PRESET>             Scope preset: readonly, messaging, files, search, or full
--t, --type <TYPE>                 Auth shape: user, bot, or both
--B, --background-color <#RRGGBB>  App background color
--S, --bot-scope <SCOPE>…          Override bot OAuth scope
--U, --user-scope <SCOPE>…         Override user OAuth scope
--r, --redirect-url <URL>…         OAuth redirect URL
--C, --callback-port <PORT>        Local OAuth callback port for the generated redirect URL
--f, --format <FORMAT>             Output format: json or yaml
-```
+??? note "Flags"
+
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-N`, `--name` | `<NAME>` | App display name |
+    | `-d`, `--description` | `<TEXT>` | Short app description |
+    | `-L`, `--long-description` | `<TEXT>` | Long app description |
+    | `-p`, `--preset` | `<PRESET>` | Scope preset: readonly, messaging, files, search, or full |
+    | `-t`, `--type` | `<TYPE>` | Auth shape: user, bot, or both |
+    | `-B`, `--background-color` | `<#RRGGBB>` | App background color |
+    | `-S`, `--bot-scope` | `<SCOPE>…` | Override bot OAuth scope |
+    | `-U`, `--user-scope` | `<SCOPE>…` | Override user OAuth scope |
+    | `-r`, `--redirect-url` | `<URL>…` | OAuth redirect URL |
+    | `-C`, `--callback-port` | `<PORT>` | Local OAuth callback port for the generated redirect URL |
+    | `-f`, `--format` | `<FORMAT>` | Output format: json or yaml |
 
 `--callback-port` and `--redirect-url` are alternatives: pass `--callback-port`
 and slick builds `http://localhost:<port>/callback`; pass `--redirect-url`
@@ -47,13 +62,39 @@ to set the URL directly.
 
 ### Presets
 
-| Preset | Includes |
-|--------|----------|
+| Preset | Summary |
+|--------|---------|
 | `readonly` | Read conversations, reactions, and users without mutation scopes. |
-| `messaging` | Default. Read conversations, send messages and DMs, manage reactions. |
+| `messaging` | Default. Readonly plus send/edit/delete messages and DMs, manage reactions. |
 | `files` | Messaging plus file upload (`files:write`). |
-| `search` | Readonly plus workspace message search (`search:read`, user-scope only). |
-| `full` | Messaging, file upload, and search. |
+| `search` | Readonly plus workspace message search (`search:read`, user-token only). |
+| `full` | Messaging, file upload, search, and `users.profile:write` for `status set`. |
+
+??? note "Scope matrix"
+
+    Authoritative per-preset scope set, derived from
+    [`internal/cli/manifest/manifest.go`](https://github.com/matcra587/slack-cli/blob/main/internal/cli/manifest/manifest.go):
+
+    | Scope | `readonly` | `messaging` | `files` | `search` | `full` |
+    |---|:-:|:-:|:-:|:-:|:-:|
+    | `channels:history` | ✓ | ✓ | ✓ | ✓ | ✓ |
+    | `channels:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
+    | `chat:write` |   | ✓ | ✓ |   | ✓ |
+    | `files:write` |   |   | ✓ |   | ✓ |
+    | `groups:history` | ✓ | ✓ | ✓ | ✓ | ✓ |
+    | `groups:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
+    | `im:history` | ✓ | ✓ | ✓ | ✓ | ✓ |
+    | `im:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
+    | `im:write` |   | ✓ | ✓ |   | ✓ |
+    | `mpim:history` | ✓ | ✓ | ✓ | ✓ | ✓ |
+    | `mpim:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
+    | `mpim:write` |   | ✓ | ✓ |   | ✓ |
+    | `reactions:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
+    | `reactions:write` |   | ✓ | ✓ |   | ✓ |
+    | `search:read` |   |   |   | ✓ | ✓ |
+    | `users:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
+    | `users:read.email` |   | ✓ | ✓ |   | ✓ |
+    | `users.profile:write` |   |   |   |   | ✓ |
 
 `--type user` is the normal choice — the CLI acts as you. Use `--type bot`
 only when messages should originate from the app's bot user. `--type both`
@@ -86,8 +127,9 @@ slick manifest template --preset messaging --type user --name slack-cli \
 slick auth login --oauth-callback-port "$PORT"
 ```
 
-The OAuth flow only works when the manifest's redirect URL matches the local
-callback slick is listening on.
+!!! warning "Redirect URL must match"
+    The OAuth flow only works when the manifest's redirect URL matches the local
+    callback slick is listening on.
 
 ## See also
 

@@ -1,37 +1,74 @@
 # slick history
 
-Read channel or thread history with bounded pagination. The default scope is
+**Read** channel or thread history with bounded pagination. The default scope is
 parent messages in a channel; `--thread` fetches replies to a parent
 timestamp.
 
-```text
-slick history list  List channel or thread history
-```
-
 ## history list
 
-```sh
-slick history list --channel C1234567890 --max-items 50
-slick history list --channel C1234567890 --thread 1746284582.123456
-slick history list --channel C1234567890 --since 1746000000.000000 --until 1746999999.999999
-slick history list --channel C1234567890 --user U1234567890
-slick history list --channel C1234567890 --include-replies --reply-limit 10
-slick history list --channel C1234567890 --max-items 50 --cursor <meta.pagination.next_cursor>
-```
+=== "By channel"
+
+    Read parent messages in a channel, capped by `--max-items`:
+
+    ```sh
+    slick history list --channel C1234567890 --max-items 50
+    ```
+
+=== "Thread"
+
+    Read replies under a specific parent timestamp:
+
+    ```sh
+    slick history list --channel C1234567890 --thread 1746284582.123456
+    ```
+
+=== "Time range"
+
+    Bound the window with oldest and latest Slack timestamps:
+
+    ```sh
+    slick history list --channel C1234567890 --since 1746000000.000000 --until 1746999999.999999
+    ```
+
+=== "By user"
+
+    Filter parent messages to a single author:
+
+    ```sh
+    slick history list --channel C1234567890 --user U1234567890
+    ```
+
+=== "With replies"
+
+    Include bounded thread replies per parent:
+
+    ```sh
+    slick history list --channel C1234567890 --include-replies --reply-limit 10
+    ```
+
+=== "Paginate"
+
+    Continue from a prior page using the opaque cursor:
+
+    ```sh
+    slick history list --channel C1234567890 --max-items 50 --cursor <meta.pagination.next_cursor>
+    ```
 
 ### Flags
 
-```text
--c, --channel <CHANNEL>  Channel ID, name, or alias
--M, --max-items <N>      Maximum messages to return
--s, --since <TS>         Oldest Slack timestamp
--u, --until <TS>         Latest Slack timestamp
--U, --user <USER>        Filter by user ID
--t, --thread <TS>        Read replies for parent timestamp
--C, --cursor <CURSOR>    Pagination cursor
--R, --include-replies    Include bounded thread replies
--L, --reply-limit <N>    Maximum replies per parent
-```
+??? note "Flags"
+
+    | Flag | Value | Description |
+    |------|-------|-------------|
+    | `-c`, `--channel` | `<CHANNEL>` | Channel ID, name, or alias |
+    | `-M`, `--max-items` | `<N>` | Maximum messages to return |
+    | `-s`, `--since` | `<TS>` | Oldest Slack timestamp |
+    | `-u`, `--until` | `<TS>` | Latest Slack timestamp |
+    | `-U`, `--user` | `<USER>` | Filter by user ID |
+    | `-t`, `--thread` | `<TS>` | Read replies for parent timestamp |
+    | `-C`, `--cursor` | `<CURSOR>` | Pagination cursor |
+    | `-R`, `--include-replies` | | Include bounded thread replies |
+    | `-L`, `--reply-limit` | `<N>` | Maximum replies per parent |
 
 History returns parent messages by default; `--thread` switches to replies
 under a specific parent. `--include-replies` bounds replies per parent via
@@ -39,62 +76,67 @@ under a specific parent. `--include-replies` bounds replies per parent via
 
 ### Output
 
-Human (populated):
+=== "Human"
 
-```text
-TS                 USER       TEXT                                 REPLIES
-1746284600.000001  U123ABC    Deploy complete                      3
-1746284582.123456  U987XYZ    Starting deploy                      0
-```
+    Human (populated):
 
-Human (empty result — table is suppressed, only the summary event renders):
+    ```text
+    TS                 USER       TEXT                                 REPLIES
+    1746284600.000001  U123ABC    Deploy complete                      3
+    1746284582.123456  U987XYZ    Starting deploy                      0
+    ```
 
-```text
-History retrieved max_items=5
-```
+    Human (empty result — table is suppressed, only the summary event renders):
 
-`ts` renders in `FieldTime` magenta when colour is enabled. The USER column
-hash-colours by user ID.
+    ```text
+    History retrieved max_items=5
+    ```
 
-JSON envelope. Each message carries Slack's full conversation object —
-expect `permalink`, `bot_id` (present for messages sent via Slack's API
-even when the `user` field is a real user), `reply_count`, an embedded
-`reactions` array (same shape as [`react list`](react.md#react-list)),
-and the rendered `blocks` (Block Kit payload, including the agent
-attribution context block when present):
+    `ts` renders in `FieldTime` magenta when colour is enabled. The USER column
+    hash-colours by user ID.
 
-```json
-{
-  "meta": {"pagination": {"next_cursor": "bmV4dF90czoxNzc4NDQxNjE4OTg5NDg5", "has_more": true, "max_items": 50, "items_returned": 50}, "…": "…"},
-  "data": {
-    "messages": [
-      {
-        "type": "message",
-        "user": "U123ABC",
-        "bot_id": "B0B1HM17BHS",
-        "text": "Deploy complete",
-        "ts": "1746284600.000001",
-        "thread_ts": "1746284600.000001",
-        "channel": "C1234567890",
-        "permalink": "https://example.slack.com/archives/C1234567890/p1746284600000001",
-        "reply_count": 3,
-        "reactions": [
-          {"name": "+1", "count": 2, "users": ["U123ABC", "U987XYZ"]}
-        ],
-        "blocks": [
-          {"type": "section", "text": {"type": "mrkdwn", "text": "Deploy complete"}, "block_id": "…"},
-          {"type": "context", "block_id": "…", "elements": [{"type": "mrkdwn", "text": ":robot_face: _Sent via slick (agent mode)_"}]}
+=== "JSON"
+
+    JSON envelope. Each message carries the Slack conversation object in
+    full — expect `permalink`, `bot_id` (present for messages sent via the Slack API
+    even when the `user` field is a real user), `reply_count`, an embedded
+    `reactions` array (same shape as [`react list`](react.md#react-list)),
+    and the rendered `blocks` ([Block Kit](https://docs.slack.dev/block-kit/) payload, including the agent
+    attribution context block when present):
+
+    ```json
+    {
+      "meta": {"pagination": {"next_cursor": "bmV4dF90czoxNzc4NDQxNjE4OTg5NDg5", "has_more": true, "max_items": 50, "items_returned": 50}, "…": "…"},
+      "data": {
+        "messages": [
+          {
+            "type": "message",
+            "user": "U123ABC",
+            "bot_id": "B0B1HM17BHS",
+            "text": "Deploy complete",
+            "ts": "1746284600.000001",
+            "thread_ts": "1746284600.000001",
+            "channel": "C1234567890",
+            "permalink": "https://example.slack.com/archives/C1234567890/p1746284600000001",
+            "reply_count": 3,
+            "reactions": [
+              {"name": "+1", "count": 2, "users": ["U123ABC", "U987XYZ"]}
+            ],
+            "blocks": [
+              {"type": "section", "text": {"type": "mrkdwn", "text": "Deploy complete"}, "block_id": "…"},
+              {"type": "context", "block_id": "…", "elements": [{"type": "mrkdwn", "text": ":robot_face: _Sent via slick (agent mode)_"}]}
+            ]
+          },
+          {"type": "message", "user": "U987XYZ", "text": "Starting deploy", "ts": "1746284582.123456", "channel": "C1234567890"}
         ]
-      },
-      {"type": "message", "user": "U987XYZ", "text": "Starting deploy", "ts": "1746284582.123456", "channel": "C1234567890"}
-    ]
-  }
-}
-```
+      }
+    }
+    ```
 
-`next_cursor` is an opaque base64-encoded string — treat it as bytes; do
-not try to decode or modify it. Pagination continuation passes the value
-verbatim back via `--cursor`.
+!!! warning "Opaque cursor"
+    `next_cursor` is an opaque base64-encoded string — treat it as bytes; do
+    not try to decode or modify it. Pagination continuation passes the value
+    verbatim back via `--cursor`.
 
 ## Pagination
 

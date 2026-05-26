@@ -48,6 +48,7 @@ slick agent schema --compact
 | Auth, manifests, token setup | `slick agent guide auth_setup` |
 | Config preferences | `slick agent guide config_prefs` |
 | Output modes, exit codes, parsing | `slick agent guide core_contract` |
+| Diagnose whether Slack itself is degraded before blaming auth | `slick agent guide check_health` |
 | High-impact or destructive operations | `slick agent guide safe_mutation` |
 | File upload testing | `slick agent guide upload_file` |
 | Command inventory | `slick agent guide inspect_schema` |

@@ -133,62 +133,135 @@ the machine command tree; ` + "`slick agent guide <workflow>`" + ` tells an agen
 perform the task, what to parse, and which quirks matter.
 
 ## core_contract
-- Runbook: apply this before any workflow when deciding output mode, parsing, and error handling.
-- Inputs: caller intent, whether output is for a human or automation, and the active command.
-- Command sequence: use JSON for automation; use rich or plain output only for human inspection.
-- Output modes: set ` + "`--output`" + ` (or ` + "`-o`" + `) to exactly one of ` + "`auto`" + `, ` + "`human`" + `, ` + "`json`" + `, ` + "`compact`" + `. ` + "`auto`" + ` picks ` + "`human`" + ` in a TTY and ` + "`json`" + ` otherwise.
-- Human hyperlinks: Slack channels, DMs, and permalinks may be OSC 8 terminal hyperlinks for humans. Do not scrape them; parse JSON for raw IDs, channel_name/channel_hr/channel_url metadata, timestamps, and full URLs.
-- Parse: stdout is command data only. stderr is diagnostics, progress, warnings, and structured errors.
-- Parse: failures in JSON mode put ` + "`errors[0].type`" + `, ` + "`errors[0].message`" + `, and ` + "`errors[0].exit_code`" + ` on stderr.
+Goal: Apply the cross-cutting output-mode, stdout/stderr, exit-code, and error-shape contract every other workflow inherits.
+
+**Decide**
+- TTY humans: ` + "`--output=human`" + ` (or omit; ` + "`auto`" + ` picks ` + "`human`" + ` on a TTY).
+- Automation: ` + "`--output=json`" + ` for envelope (` + "`json`" + ` mode), ` + "`--output=compact`" + ` for envelope-less ` + "`data`" + ` only (` + "`compact`" + ` mode).
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`meta.command`" + `, ` + "`meta.workspace`" + `, ` + "`meta.timestamp`" + `, ` + "`meta.request_id`" + ` [string, required] — envelope identity.
+- ` + "`data`" + ` [object, required] — command-specific payload.
+- ` + "`errors`" + ` [array, required] — empty on success.
+
+**Behavior**
+- stdout is command data only. stderr is diagnostics, progress, warnings, and structured errors.
+- JSON-mode failures emit ` + "`errors[0].type`" + `, ` + "`errors[0].message`" + `, ` + "`errors[0].exit_code`" + ` on stderr; stdout stays empty.
 - Exit codes: auth ` + "`1`" + `, not found ` + "`2`" + `, rate limit ` + "`3`" + `, validation ` + "`4`" + `, server ` + "`5`" + `, canceled ` + "`6`" + `, timeout ` + "`7`" + `.
-- Quirks: ` + "`--output=compact`" + ` strips the envelope on success; use it only when the caller wants command-specific JSON.
-- Quirks: ` + "`--output`" + ` selects an output mode only. It does not select raw Block Kit input; use command-local ` + "`--blocks`" + ` for that.
+- Slack channels/DMs/permalinks may render as OSC 8 hyperlinks for humans. Do not scrape — parse JSON for raw IDs, channel_name/channel_hr/channel_url, timestamps, full URLs.
+- ` + "`--output`" + ` selects output mode only; it does NOT switch input to Block Kit. Use command-local ` + "`--blocks`" + ` for that.
+- Attribution auto-attaches to ` + "`send_msg`" + ` / ` + "`reply`" + ` / ` + "`edit_msg`" + ` / ` + "`upload_file`" + ` comments as a context block on agent/CI detection — do NOT repeat in body. Toggle ` + "`--attribution`" + ` / ` + "`--no-attribution`" + `; override copy ` + "`--attribution-{label,emoji,message}`" + `.
+- Slack ts values stay strings (e.g. ` + "`1746284582.123456`" + `); never cast to float.
 
 ## check_health
-- Runbook: use this before blaming auth, config, scopes, or local networking when Slack calls start failing.
-- Inputs: optional Slack service filter such as ` + "`Messaging`" + `, ` + "`Search`" + `, ` + "`Files`" + `, or ` + "`Apps/Integrations/APIs`" + `.
-- Combined command: ` + "`slick health check --output=json`" + ` calls Slack Web API ` + "`api.test`" + ` and the Slack Status ` + "`current`" + ` endpoint.
-- Service-filtered command: ` + "`slick health check --service Messaging --output=json`" + ` reports health for matching active incidents only.
-- Current incidents command: ` + "`slick health current --output=json`" + `.
-- History command: ` + "`slick health history --limit 20 --output=json`" + `.
-- API probe command: ` + "`slick health api-test --output=json`" + `.
-- Parse: use ` + "`data.healthy`" + ` for the combined check, ` + "`data.api_ok`" + ` for Web API reachability, ` + "`data.status`" + ` for Slack Status, and ` + "`data.active_incidents[]`" + ` for incident details.
-- Parse: incident rows include ` + "`id`" + `, ` + "`title`" + `, ` + "`type`" + `, ` + "`status`" + `, ` + "`url`" + `, ` + "`date_created`" + `, ` + "`date_updated`" + `, ` + "`services[]`" + `, and ` + "`note_count`" + `.
-- Auth: No Slack token or scopes are required.
-- Quirks: these commands do not use the configured Slack workspace, token, or scopes. A failing health command points at Slack-side service availability, network, timeout, or malformed response issues rather than profile auth.
-- Quirks: Slack Status ` + "`current`" + ` can report ` + "`status=active`" + ` for services unrelated to your workflow. Use ` + "`--service`" + ` when you only care about one Slack service.
+Goal: Decide whether a failing Slack call is the Slack service, the Web API, your network, or your auth — before blaming auth or scopes.
+
+**Decide**
+- Combined probe (status + api.test): ` + "`slick health check`" + `.
+- Status only: ` + "`slick health current`" + ` (or ` + "`history`" + ` for past incidents).
+- API only: ` + "`slick health api-test`" + `.
+- Narrow to one service: ` + "`--service <Messaging|Search|Files|Apps/Integrations/APIs>`" + `.
+
+**Run**
+- Combined: ` + "`slick health check --output=json`" + `
+- Service-filtered: ` + "`slick health check --service Messaging --output=json`" + `
+- API probe: ` + "`slick health api-test --output=json`" + `
+- History: ` + "`slick health history --limit 20 --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`data.healthy`" + ` [bool, required] — combined verdict.
+- ` + "`data.api_ok`" + ` [bool, required] — Web API reachability.
+- ` + "`data.status`" + ` [string, required] — Slack Status overall.
+- ` + "`data.active_incidents[]`" + ` [array, optional] — each row has ` + "`id`" + `, ` + "`title`" + `, ` + "`type`" + `, ` + "`status`" + `, ` + "`url`" + `, ` + "`date_created`" + `, ` + "`date_updated`" + `, ` + "`services[]`" + `, ` + "`note_count`" + `.
+
+**Behavior**
+- These commands do NOT use the configured workspace, token, or scopes. A failing health command points at Slack-side service, network, timeout, or malformed-response issues — not at profile auth.
+- Slack Status ` + "`current`" + ` can report ` + "`status=active`" + ` for services unrelated to your workflow. Filter with ` + "`--service`" + ` when only one matters.
+
+**Next**
+- Alternative: → ` + "`auth_setup`" + ` (when health is fine but real Slack calls still fail — likely a scope/profile issue)
 
 ## auth_setup
-- Runbook: use this before first Slack API use, after token/profile errors, or when preparing a manifest for install.
-- Inputs: profile name, auth method, token type, app name, callback port if OAuth must be stable.
-- Preflight: run ` + "`slick auth status --output=json`" + ` to see whether the active profile is already valid.
-- Manifest: run ` + "`slick manifest template --preset messaging --type user --name <app-name>`" + ` for a messaging user-token app.
-- Manifest: run ` + "`slick manifest template --preset readonly --type user --name <app-name>`" + ` for a safer read-only app.
-- OAuth command: run ` + "`slick auth login --workspace <profile> --method oauth --oauth-client-id <id>`" + `. Local OAuth uses PKCE and does not need a client secret.
-- Token command: pass token material with ` + "`--token-stdin`" + `, ` + "`--token-file <path>`" + `, or ` + "`--token-env <VAR>`" + `. ` + "`--token-env`" + ` takes an environment variable name, not a token value.
-- Parse: auth status should confirm workspace ID, token type, and secret reference without exposing credential material.
-- Storage: credentials live in keychain or a configured secret backend such as ` + "`op://...`" + `. Never put plaintext ` + "`xox*`" + ` tokens in TOML or argv.
-- Runtime token override: ` + "`SLACK_CLI_TOKEN_<PROFILE>`" + ` beats ` + "`SLACK_CLI_TOKEN`" + ` and configured secret references for that profile.
-- Quirks: profile names are case-insensitive. ` + "`Default`" + ` and ` + "`default`" + ` refer to the same profile.
-- Quirks: if OAuth returns ` + "`bad_client_secret`" + `, import a CLI-generated manifest or enable PKCE in Slack.
-- Quirks: if Slack rejects the redirect URL, copy the exact local callback URL printed during login. Random callback ports must match exactly.
+Goal: Wire a Slack workspace profile with a valid token before any other workflow can call Slack.
+
+**Decide**
+
+# command shape
+- Bare ` + "`slick auth login`" + ` opens an interactive form on a TTY — the only place that prompts.
+- Headless: add ` + "`--workspace-name <profile>`" + ` plus either ` + "`--method oauth ...`" + ` or a token source flag. Default method is ` + "`token`" + `, so passing only ` + "`--token-stdin|file|env`" + ` is enough.
+
+# app shape
+- ` + "`--type user`" + ` (default; "act as me") vs ` + "`--type bot`" + ` (app identity) when generating the manifest.
+
+# scope footprint
+- ` + "`--preset messaging`" + ` (send + read), ` + "`--preset readonly`" + `, ` + "`--preset files`" + `, ` + "`--preset search`" + `, ` + "`--preset full`" + `.
+
+# guard
+- Already authenticated? Run preflight first.
+
+**Run**
+- Preflight: ` + "`slick auth status --output=json`" + `
+- Manifest: ` + "`slick manifest template --preset messaging --type user --name <app-name>`" + ` (swap ` + "`--preset`" + ` for a different scope footprint)
+- OAuth login (browser, PKCE): ` + "`slick auth login --workspace-name <profile> --method oauth --oauth-client-id <id> --oauth-callback-port <port>`" + `
+- Token login (no token in argv): pipe via ` + "`--token-stdin`" + `, point at ` + "`--token-file <path>`" + `, or pass an env var name (NOT its value) with ` + "`--token-env <VAR>`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`data.workspaces[].workspace`" + `, ` + "`data.workspaces[].team_id`" + `, ` + "`data.workspaces[].token_type`" + ` [string, required] — confirmation without credential material.
+- ` + "`data.workspaces[].validation_state`" + ` [string, required] — ` + "`valid`" + `, ` + "`missing`" + `, or ` + "`invalid`" + `.
+
+**Preconditions**
+- Profile names are case-insensitive (` + "`Default`" + ` and ` + "`default`" + ` collide).
+- ` + "`--token-env`" + ` takes an environment-variable name, not the token value itself.
+
+**Behavior**
+- Credentials live in OS keychain or a configured secret backend (e.g. ` + "`op://...`" + `). Never put plaintext ` + "`xox*`" + ` tokens in TOML, argv, stdout, stderr, or logs.
+- Runtime override: ` + "`SLACK_CLI_TOKEN_<PROFILE>`" + ` beats ` + "`SLACK_CLI_TOKEN`" + ` and the configured secret reference for that profile. Profile-suffix uppercased with non-alphanumeric → ` + "`_`" + `.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| ` + "`bad_client_secret`" + ` from OAuth | App configured for confidential client | Import a slick-generated manifest, or enable PKCE in Slack |
+| Slack rejects the OAuth redirect URL | Random callback port mismatch | Copy the exact local callback URL printed during login; pass it back as ` + "`--oauth-redirect-url`" + ` |
+| ` + "`auth_failure: missing_scope`" + ` after login | Manifest lacks the scope the workflow needs | Edit manifest preset → reauth |
+
+**Next**
+- Then: → ` + "`config_prefs`" + ` (set ` + "`default_channel`" + `, attribution defaults)
+- Then: → ` + "`send_msg`" + ` (verify auth with a real send)
 
 ## config_prefs
-- Runbook: use this to change profile preferences, not credentials.
-- Inputs: profile name, preference key, desired value, and whether replacement is intentional.
-- Create preferences: run ` + "`slick config init`" + `. It does not ask for tokens, token type, workspace ID, or workspace display name.
-- Missing config: if any command reports ` + "`config file not found`" + `, run ` + "`slick config init`" + ` before retrying.
-- Set default channel: run ` + "`slick config set workspaces.<profile>.default_channel <channel-id>`" + `.
-- Set attribution text: run ` + "`slick config set workspaces.<profile>.attribution.message <text>`" + `.
-- Set attribution emoji: run ` + "`slick config set workspaces.<profile>.attribution.emoji <emoji>`" + `.
-- Inspect config path: run ` + "`slick config path`" + `.
-- Inspect effective preferences: run ` + "`slick config list --output=json`" + `.
-- Parse: config JSON shows effective preferences but must not expose credential material.
-- Quirks: auth commands own credentials: ` + "`slick auth login`" + `, ` + "`slick auth status`" + `, ` + "`slick auth switch`" + `, and ` + "`slick auth logout`" + `.
-- Quirks: default channel is the fallback for ` + "`slick message send`" + ` when neither ` + "`--channel`" + ` nor ` + "`--user`" + ` is passed.
-- Quirks: config path uses XDG config home by default, including on macOS. Default is ` + "`~/.config/slick/config.toml`" + `. ` + "`SLICK_CONFIG`" + ` overrides it; legacy ` + "`SLACK_CLI_CONFIG`" + ` still works. Path inputs expand ` + "`~`" + ` and environment variables.
-- Quirks: configuration precedence is environment, then config file, then defaults.
-- Quirks: profile-scoped runtime tokens use ` + "`SLACK_CLI_TOKEN_<PROFILE>`" + ` with uppercase names and non-alphanumeric characters replaced by underscores.
+Goal: Change profile preferences (default channel, attribution defaults) without touching credentials.
+
+**Decide**
+- File missing? → ` + "`slick config init`" + ` first (it does NOT ask for tokens).
+- Default destination: ` + "`workspaces.<profile>.default_channel`" + ` (fallback for ` + "`message send`" + ` when neither ` + "`--channel`" + ` nor ` + "`--user`" + ` is passed).
+- Attribution defaults: ` + "`workspaces.<profile>.attribution.{enabled,message,emoji}`" + `.
+
+**Run**
+- Init: ` + "`slick config init`" + `
+- Set default channel: ` + "`slick config set workspaces.<profile>.default_channel <channel-id>`" + `
+- Set attribution copy: ` + "`slick config set workspaces.<profile>.attribution.message <text>`" + `
+- Set attribution emoji: ` + "`slick config set workspaces.<profile>.attribution.emoji <emoji>`" + `
+- Inspect path: ` + "`slick config path`" + `
+- Inspect effective: ` + "`slick config list --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`data.settings[]`" + ` [array, required] — ` + "`{key, value, description}`" + ` rows; never contains credential material.
+
+**Behavior**
+- Credentials are owned by ` + "`slick auth login|status|switch|logout`" + ` — not by ` + "`config`" + `.
+- Config path: ` + "`~/.config/slick/config.toml`" + ` (XDG, including macOS). ` + "`SLICK_CONFIG`" + ` overrides; legacy ` + "`SLACK_CLI_CONFIG`" + ` still works. Path inputs expand ` + "`~`" + ` and env vars.
+- Precedence: environment → config file → defaults.
+- Runtime token override is profile-scoped: ` + "`SLACK_CLI_TOKEN_<PROFILE>`" + `, name uppercased and non-alphanumeric replaced with ` + "`_`" + `.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| ` + "`config file not found`" + ` | Profile never initialized | Run ` + "`slick config init`" + ` |
+| ` + "`unknown key`" + ` from ` + "`config set`" + ` | Typo or wrong scope path | Use ` + "`slick config list`" + ` to see effective keys |
 
 ## send_msg
 Goal: Post a message to a channel, user, or group DM and capture the Slack timestamp and permalink for follow-up.
@@ -196,302 +269,729 @@ Goal: Post a message to a channel, user, or group DM and capture the Slack times
 **Decide**
 
 # target
-- Channel: ` + "`--channel <id-or-alias>`" + ` (falls back to ` + "`default_channel`" + ` only when not scheduled)
-- User: ` + "`--user <user-id-or-email>`" + ` (repeat or comma-separate for group DM)
+- Channel: ` + "`--channel <id-or-alias>`" + ` (falls back to ` + "`default_channel`" + ` only when not scheduled).
+- User: ` + "`--user <user-id-or-email>`" + ` (repeat or comma-separate for group DM).
 
 # body
-- One line: ` + "`--message <markdown>`" + `
-- Multiline or generated: ` + "`--file -`" + ` (pipe stdin; do not type literal ` + "`\\n`" + `)
-- Raw Block Kit: ` + "`--blocks`" + ` (input switch — required for real mentions and explicit ` + "`<url|label>`" + ` links)
+- One line: ` + "`--message <markdown>`" + `.
+- Multiline / generated: ` + "`--file -`" + ` (pipe stdin; real newlines, not ` + "`\\n`" + `).
+- Raw Block Kit: ` + "`--blocks`" + ` (required for real mentions and explicit ` + "`<url|label>`" + ` links).
 
 # modifiers
-- Future send: ` + "`--schedule <RFC3339|Go-duration|Unix-seconds>`" + ` (no natural-language strings)
-
-# guards
-- Dry run: ` + "`--dry-run`" + ` (validates locally, returns ` + "`ts=\"dry-run\"`" + `)
+- Future send: ` + "`--schedule <RFC3339|Go-duration|Unix-seconds>`" + ` (no natural language).
+- ` + "`--dry-run`" + ` validates locally and returns ` + "`ts=\"dry-run\"`" + `.
 
 **Run**
-- Channel:
-  ` + "`slick message send --channel <id-or-alias> --message <markdown> --output=json`" + `
-- User DM:
-  ` + "`slick message send --user <user-id-or-email> --message <markdown> --output=json`" + `
-- Stdin (multiline):
-  ` + "`printf '%s\\n' \"$body\" | slick message send --channel <id-or-alias> --file - --output=json`" + `
-- Scheduled:
-  ` + "`slick message send --channel <id-or-alias> --message <markdown> --schedule 90m --output=json`" + `
-- Raw Block Kit:
-  ` + "`slick message send --channel <id-or-alias> --blocks --file blocks.json --output=json`" + `
+- Canonical: ` + "`slick message send --channel <id-or-alias> --message <markdown> --output=json`" + `
+- Adapt: swap ` + "`--channel`" + `→` + "`--user`" + ` for DMs; replace ` + "`--message`" + ` with ` + "`--file -`" + ` for stdin or with ` + "`--blocks --file blocks.json`" + ` for raw Block Kit; append ` + "`--schedule 90m`" + ` to schedule.
 
 **Save**
 > Requires ` + "`--output=json`" + `.
 
-Immediate:
-- ` + "`data.message.ts`" + ` [string, required] — Slack timestamp.
-- ` + "`data.message.thread_ts`" + ` [string, optional] — present when threaded.
-- ` + "`data.permalink`" + ` [string, required] — Slack URL.
-- ` + "`data.message.channel`" + `, ` + "`data.message.channel_url`" + ` [string, required] — conversation metadata.
+Immediate: ` + "`data.message.ts`" + `, ` + "`data.message.thread_ts`" + ` (when threaded), ` + "`data.permalink`" + `, ` + "`data.message.channel`" + ` / ` + "`data.message.channel_url`" + `.
 
-Scheduled:
-- ` + "`data.channel`" + ` [string, required] — raw channel/DM/MPIM ID.
-- ` + "`data.scheduled_message_id`" + ` [string, required] — opaque ID; pass to ` + "`schedule_msg`" + ` to cancel.
-- ` + "`data.message.ts`" + ` — absent until Slack posts.
+Scheduled: ` + "`data.channel`" + ` (raw ID), ` + "`data.scheduled_message_id`" + ` (→ ` + "`schedule_msg`" + ` to cancel); ` + "`data.message.ts`" + ` absent until Slack posts.
 
-Dry run:
-- ` + "`data.message.ts == \"dry-run\"`" + ` (immediate) or ` + "`data.scheduled_message_id == \"dry-run\"`" + ` (scheduled).
+Dry run: ` + "`data.message.ts == \"dry-run\"`" + ` or ` + "`data.scheduled_message_id == \"dry-run\"`" + `.
 
 **Preconditions**
-- ` + "`--channel`" + ` and ` + "`--user`" + ` are mutually exclusive.
-- Scheduled sends require an explicit target — ` + "`default_channel`" + ` is not consulted.
-- ` + "`--schedule`" + ` rejects natural-language strings; use RFC3339, Go duration (` + "`90m`" + `, ` + "`2h30m`" + `), or Unix seconds.
-- Email targeting requires ` + "`users:read.email`" + ` scope.
+- ` + "`--channel`" + ` and ` + "`--user`" + ` are mutually exclusive; scheduled sends ignore ` + "`default_channel`" + ` and need an explicit target. Email targeting needs ` + "`users:read.email`" + `.
 
 **Behavior**
-- Markdown is escaped (` + "`&`" + `, ` + "`<`" + `, ` + "`>`" + ` → entities). Mention/link sentinels in ` + "`--message`" + ` render as literal text. Use ` + "`--blocks`" + ` for real ` + "`<@U123>`" + `, ` + "`<#C123>`" + `, ` + "`<!subteam^S1>`" + `, or ` + "`<url|label>`" + `.
-- Attribution context block auto-attaches on agent/CI detection. Do not duplicate the attribution text in your body. Force per-call with ` + "`--attribution`" + ` / ` + "`--no-attribution`" + `; override copy with ` + "`--attribution-{label,emoji,message}`" + `.
-- Unsupported block-level Markdown (lists, blockquotes, fenced code, raw HTML) survives as readable section text.
-- Slack timestamps stay as strings (e.g. ` + "`1746284582.123456`" + `); never cast to float.
+- Markdown is escaped (` + "`&`" + `, ` + "`<`" + `, ` + "`>`" + ` → entities); sentinels ` + "`<!channel>`" + `, ` + "`<@U123>`" + `, ` + "`<url|label>`" + ` in ` + "`--message`" + ` render as literal text — use ` + "`--blocks`" + ` for wire syntax.
+- Attribution auto-attaches (toggle / override): see → ` + "`core_contract`" + `.
 
 **Recover**
 | Symptom | Cause | Next |
 |---|---|---|
-| ` + "`validation_error: --channel or --user is required`" + ` | No target and no ` + "`default_channel`" + ` | Retry with ` + "`--channel <id>`" + ` or ` + "`--user <id>`" + ` |
-| ` + "`not_found: not_in_channel`" + ` | Token identity isn't in the channel | Invite the bot, or → ` + "`auth_setup`" + ` to switch to a user-token profile |
-| ` + "`not_found: users_not_found`" + ` (email DM) | Email didn't match a Slack profile in this workspace | → ` + "`lookup_user`" + ` then retry with ` + "`--user U…`" + ` |
-| ` + "`auth_failure: missing_scope`" + ` | Manifest lacks ` + "`chat:write`" + ` or ` + "`users:read.email`" + ` | → ` + "`auth_setup`" + ` to update manifest and reauthenticate |
-| Schedule ` + "`validation_error`" + ` | Past time, natural-language string, or >120 days out | Retry with future RFC3339 / Go duration / Unix seconds |
+| ` + "`validation_error: --channel or --user is required`" + ` | No target, no ` + "`default_channel`" + ` | Retry with explicit target |
+| ` + "`not_found: not_in_channel`" + ` | Token identity not in channel | Invite, or → ` + "`auth_setup`" + ` for user-token profile |
+| ` + "`not_found: users_not_found`" + ` | Email not a Slack profile here | → ` + "`lookup_user`" + `, retry with ` + "`--user U…`" + ` |
+| ` + "`auth_failure: missing_scope`" + ` | Manifest lacks ` + "`chat:write`" + ` / ` + "`users:read.email`" + ` | → ` + "`auth_setup`" + ` |
+| ` + "`validation_error`" + ` on ` + "`--schedule`" + ` | Past, natural language, or >120 days out | Future RFC3339 / Go duration / Unix seconds |
 
 **Next**
-- Then: → ` + "`reply`" + ` (start a thread on the new message — uses saved ` + "`data.message.ts`" + `)
-- Then: → ` + "`edit_msg`" + ` (modify the message — uses saved ` + "`data.message.channel`" + ` + ` + "`data.message.ts`" + `)
-- Alternative: → ` + "`react`" + ` (add reactions to the new message)
-- Alternative: → ` + "`schedule_msg`" + ` (list or cancel scheduled sends)
+- Then: → ` + "`reply`" + ` / → ` + "`edit_msg`" + ` / → ` + "`react`" + ` on the saved ts.
+- Alternative: → ` + "`schedule_msg`" + ` to list or cancel pending scheduled sends.
 
 ## schedule_msg
-- Runbook: use this to schedule a future channel or DM message, inspect pending scheduled messages, or cancel one before it fires.
-- Inputs: channel ID, channel alias, user ID, user alias, Slack-profile email, message body, schedule time, optional cursor, and scheduled-message ID for delete.
-- Schedule command: ` + "`slick message send --channel <channel-id-or-alias> --message <markdown> --schedule 90m --output=json`" + `.
-- Absolute schedule command: ` + "`slick message send --channel <channel-id-or-alias> --message <markdown> --schedule 2026-06-01T15:00:00-04:00 --output=json`" + `.
-- Scheduled DM command: use ` + "`slick message send --user <user-id-or-slack-profile-email> --message <markdown> --schedule 90m --output=json`" + `.
-- List command: ` + "`slick message scheduled list --channel <channel-id-or-alias> --limit <n> --output=json`" + `.
-- Human list output: TTY output or ` + "`--output=human`" + ` renders ` + "`ID / CHANNEL / DM / POST_AT / TEXT`" + `. ` + "`CHANNEL`" + ` may be a friendly ` + "`#channel`" + ` or ` + "`@user`" + ` label and is display-only.
-- Pagination command: if ` + "`meta.pagination.has_more`" + ` is true, run ` + "`slick message scheduled list --cursor <meta.pagination.next_cursor> --limit <n> --output=json`" + `.
-- Delete command: ` + "`slick message scheduled delete --channel <channel-id> --scheduled-id <QID> --output=json`" + `.
-- Parse schedule result: keep ` + "`data.channel`" + `, ` + "`data.scheduled_message_id`" + `, ` + "`data.post_at`" + `, and ` + "`data.post_at_iso`" + `.
-- Parse list result: use ` + "`data.scheduled_messages[].id`" + ` and raw ` + "`data.scheduled_messages[].channel`" + ` for delete targets. Do not parse human ` + "`CHANNEL`" + `. ` + "`channel_name`" + `, ` + "`channel_hr`" + `, ` + "`channel_url`" + `, ` + "`channel_type`" + `, ` + "`channel_user`" + `, and ` + "`is_dm`" + ` are best-effort friendly metadata. ` + "`text_preview`" + ` is capped at 200 Unicode characters.
-- Quirks: scheduled messages have no ` + "`ts`" + ` until Slack posts them. Use ` + "`scheduled_message_id`" + ` for pending operations.
-- Quirks: real scheduled ` + "`--user`" + ` sends open the DM or MPIM before scheduling. Parse returned ` + "`data.channel`" + ` as the raw Slack conversation ID for list/delete or later follow-up operations.
-- Quirks: ` + "`--dry-run --user --schedule`" + ` does not call Slack to resolve/open the DM; its preview ` + "`data.channel`" + ` echoes the requested user target.
-- Quirks: ` + "`--schedule`" + ` rejects past times, times beyond 120 days, and every format outside RFC3339, Go duration, or Unix seconds.
-- Quirks: delete does not require ` + "`--force`" + `, but ` + "`--dry-run`" + ` is available for preview.
-- Error handling: Slack ` + "`missing_scope`" + ` errors include the needed scope in the structured error details when Slack returns it.
+Goal: Create, list, or cancel scheduled messages.
+
+**Decide**
+
+# action
+- Create: scheduling is a modifier on ` + "`message send`" + ` — append ` + "`--schedule <when>`" + ` to any ` + "`send_msg`" + ` invocation.
+- List: ` + "`slick message scheduled list`" + ` (optional ` + "`--channel`" + ` filter, ` + "`--limit`" + `, ` + "`--cursor`" + `).
+- Cancel: ` + "`slick message scheduled delete`" + ` — requires exact ` + "`--channel`" + ` (raw ID) and ` + "`--scheduled-id`" + ` from a prior list or send.
+
+# when (create only)
+- Format: RFC3339 (` + "`2026-06-01T15:00:00-04:00`" + `), Go duration (` + "`90m`" + `, ` + "`2h30m`" + `), or Unix seconds. Never natural language.
+- Range: future, within 120 days.
+
+**Run**
+- List (all): ` + "`slick message scheduled list --limit <n> --output=json`" + `
+- List (one channel): ` + "`slick message scheduled list --channel <id-or-alias> --limit <n> --output=json`" + `
+- Next page: ` + "`slick message scheduled list --cursor <meta.pagination.next_cursor> --limit <n> --output=json`" + `
+- Cancel: ` + "`slick message scheduled delete --channel <raw-channel-id> --scheduled-id <QID> --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+
+List:
+- ` + "`data.scheduled_messages[].id`" + ` [string, required] — pass to ` + "`--scheduled-id`" + ` for delete.
+- ` + "`data.scheduled_messages[].channel`" + ` [string, required] — raw Slack conversation ID for ` + "`--channel`" + ` on delete.
+- ` + "`data.scheduled_messages[].post_at`" + ` / ` + "`.post_at_iso`" + ` [int64 / string, required] — fire time.
+- ` + "`data.scheduled_messages[].text_preview`" + ` [string, optional] — capped at 200 Unicode chars.
+- ` + "`meta.pagination.has_more`" + ` / ` + "`.next_cursor`" + ` [bool / string] — paginate until ` + "`has_more=false`" + `.
+
+Delete:
+- ` + "`data.channel`" + `, ` + "`data.scheduled_message_id`" + ` [string, required] — confirmation echo.
+
+**Preconditions**
+- Delete needs raw channel/DM/MPIM IDs — friendly ` + "`#channel`" + ` or ` + "`@user`" + ` labels in human output are display-only.
+- Pending sends have no ` + "`ts`" + ` until Slack posts them; correlate on ` + "`scheduled_message_id`" + `.
+
+**Behavior**
+- Delete supports ` + "`--dry-run`" + ` but does NOT require ` + "`--force`" + ` (Slack treats cancellation as cheap).
+- Friendly metadata (` + "`channel_name`" + `, ` + "`channel_hr`" + `, ` + "`channel_url`" + `, ` + "`is_dm`" + `, ` + "`channel_type`" + `, ` + "`channel_user`" + `) is best-effort and may be absent in error envelopes.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| ` + "`not_found`" + ` on delete | Wrong ` + "`--channel`" + ` (used DM alias instead of raw ID) | Re-list, copy ` + "`data.scheduled_messages[].channel`" + ` verbatim |
+| ` + "`auth_failure: missing_scope`" + ` | Manifest lacks ` + "`chat:write`" + ` (delete) or scheduled-message read scope | → ` + "`auth_setup`" + ` to widen manifest |
+
+**Next**
+- Then: → ` + "`send_msg`" + ` (create a new scheduled send)
+- Composes: → ` + "`cleanup_msgs`" + ` (after firing, scheduled sends become regular messages — clean them up with search + delete)
 
 ## react
-- Runbook: use this to add, remove, or inspect emoji reactions on a known message.
-- Inputs: channel ID, message timestamp, one or more emoji names, desired action.
-- Add command: ` + "`slick react add --channel <channel-id> --timestamp <message-ts> --emoji :thumbsup: --output=json`" + `.
-- Multi-emoji command: ` + "`slick react add --channel <channel-id> --timestamp <message-ts> --emoji thumbsup,white_check_mark,rocket --output=json`" + ` applies the emojis in input order. Repeat ` + "`--emoji`" + ` instead of comma-separating if a value contains a comma.
-- Remove command: ` + "`slick react remove --channel <channel-id> --timestamp <message-ts> --emoji :thumbsup: --output=json`" + `.
-- List command: ` + "`slick react list --channel <channel-id> --timestamp <message-ts> --output=json`" + `.
-- Parse: ` + "`data.mutations[]`" + ` lists ` + "`{channel, ts, emoji, dry_run}`" + ` for each emoji applied (length 1 for the single-emoji case, length N for ordered multi-emoji); ` + "`data.target.channel`" + ` and ` + "`data.target.ts`" + ` identify the target. In JSON, ` + "`meta.command`" + ` (` + "`react.add`" + ` vs ` + "`react.remove`" + `) conveys which side was applied. List output uses ` + "`data.reactions[]`" + ` with reaction names, counts, and users.
-- Quirks: timestamps are channel-scoped Slack strings such as ` + "`1746284582.123456`" + `.
-- Quirks: emoji may be passed as ` + "`thumbsup`" + ` or ` + "`:thumbsup:`" + `.
-- Quirks: ordered multi-emoji halts on the first failure; ` + "`data.mutations[]`" + ` will be absent on the error envelope, so retry the remaining emojis from a known-good state rather than assuming partial success.
-- Quirks: use ` + "`--dry-run`" + ` for add/remove before touching a live message.
-- Verification: after add/remove, run ` + "`slick react list`" + ` on the same channel and timestamp.
-- Command metadata uses ` + "`react.add`" + `, ` + "`react.remove`" + `, and ` + "`react.list`" + `.
+Goal: Add, remove, or list emoji reactions on a known channel message.
+
+**Decide**
+
+# direction
+- Add: ` + "`slick react add`" + `
+- Remove: ` + "`slick react remove`" + `
+- Inspect: ` + "`slick react list`" + `
+
+# target
+- Always needs ` + "`--channel <id>`" + ` + ` + "`--timestamp <slack-ts>`" + ` (get the ts from ` + "`read_history`" + ` or saved ` + "`data.message.ts`" + ` from ` + "`send_msg`" + `).
+
+# emoji (add/remove only)
+- One: ` + "`--emoji :thumbsup:`" + ` or ` + "`--emoji thumbsup`" + ` (colons optional).
+- Many (ordered): ` + "`--emoji thumbsup,white_check_mark,rocket`" + ` or repeat ` + "`--emoji`" + ` (use repeat when a value itself contains a comma).
+
+**Run**
+- Add: ` + "`slick react add --channel <id> --timestamp <ts> --emoji :thumbsup: --output=json`" + `
+- Add ordered batch: ` + "`slick react add --channel <id> --timestamp <ts> --emoji thumbsup,rocket --output=json`" + `
+- Remove: ` + "`slick react remove --channel <id> --timestamp <ts> --emoji :thumbsup: --output=json`" + `
+- List: ` + "`slick react list --channel <id> --timestamp <ts> --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+
+Add / remove:
+- ` + "`data.mutations[]`" + ` [array, required] — one entry per emoji actually applied, fields ` + "`{channel, ts, emoji, dry_run}`" + `.
+- ` + "`data.target.channel`" + `, ` + "`data.target.ts`" + ` [string, required] — echo of the target.
+- ` + "`meta.command`" + ` is ` + "`react.add`" + ` or ` + "`react.remove`" + `.
+
+List:
+- ` + "`data.reactions[]`" + ` [array] — ` + "`{name, count, users[]}`" + `.
+- ` + "`meta.command`" + ` is ` + "`react.list`" + `.
+
+**Preconditions**
+- Slack timestamps are strings (` + "`1746284582.123456`" + `); never cast to float.
+- Ordered multi-emoji is atomic-per-emoji: a failure aborts the rest. On an error envelope ` + "`data.mutations[]`" + ` is absent — re-derive remaining work from a fresh ` + "`react list`" + ` instead of assuming partial state.
+
+**Behavior**
+- ` + "`--dry-run`" + ` validates locally and short-circuits the Slack call; ` + "`data.mutations[].dry_run=true`" + `.
+- Verification cycle: after add/remove, ` + "`react list`" + ` on the same channel + ts.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| ` + "`not_found: message_not_found`" + ` | Wrong ` + "`--timestamp`" + ` or ts deleted | → ` + "`read_history`" + ` to re-find the message |
+| ` + "`already_reacted`" + ` / ` + "`no_reaction`" + ` | Emoji already present (add) or absent (remove) | Treat as success or skip; ` + "`react list`" + ` to confirm |
+| ` + "`auth_failure: missing_scope`" + ` | Manifest lacks ` + "`reactions:write`" + ` or ` + "`reactions:read`" + ` | → ` + "`auth_setup`" + ` |
+
+**Next**
+- Then: → ` + "`reply`" + ` (continue the thread)
+- Alternative: → ` + "`edit_msg`" + ` (modify the target instead of decorating)
 
 ## reply
-- Runbook: use this to post or verify a thread reply.
-- Inputs: channel ID, parent message timestamp, reply body, optional raw Block Kit JSON.
-- Message command: ` + "`slick reply --channel <channel-id> --parent <parent-message-ts> --message <markdown> --output=json`" + `.
-- Stdin command: ` + "`printf '%s\n' \"$reply\" | slick reply --channel <channel-id> --parent <parent-message-ts> --file - --output=json`" + `.
-- Raw Block Kit command: add ` + "`--blocks`" + ` only when the reply body is raw Block Kit JSON.
-- Parse: keep ` + "`data.message.thread_ts`" + ` and ` + "`data.message.ts`" + ` to confirm nesting.
-- Verify: run ` + "`slick history list --channel <channel-id> --thread <parent-message-ts> --output=json`" + `.
-- Quirks: ` + "`--parent`" + ` is the parent message timestamp, not a permalink or search result index.
-- Quirks: ` + "`--dry-run`" + ` validates the local payload and returns ` + "`thread_ts`" + ` without calling Slack.
-- Quirks: user-supplied Markdown is escaped on the wire (` + "`&`" + `, ` + "`<`" + `, ` + "`>`" + ` → HTML entities); sentinels like ` + "`<!channel>`" + `, ` + "`<@U123>`" + `, ` + "`<#C123>`" + `, and ` + "`<url|label>`" + ` in ` + "`--message`" + ` content render as literal text and do NOT fire mentions or link substitutions. To intentionally mention a user or post an explicit link, bypass the converter with ` + "`--blocks`" + ` and write the wire syntax in the JSON.
-- Command metadata uses ` + "`reply`" + `.
+Goal: Post a threaded reply to a parent message, returning the new ` + "`ts`" + ` and the shared ` + "`thread_ts`" + ` for follow-ups.
+
+**Decide**
+
+# target
+- ` + "`--channel <id>`" + ` + ` + "`--parent <parent-ts>`" + ` (parent ts comes from ` + "`send_msg`" + ` ` + "`data.message.ts`" + ` or ` + "`read_history`" + `).
+
+# body
+- One line: ` + "`--message <markdown>`" + `
+- Multiline or generated: pipe to ` + "`--file -`" + `
+- Raw Block Kit: ` + "`--blocks`" + ` (required for real mentions / explicit ` + "`<url|label>`" + ` links)
+
+# guards
+- Dry run: ` + "`--dry-run`" + ` validates locally and returns ` + "`thread_ts`" + ` without calling Slack.
+
+**Run**
+- Message: ` + "`slick reply --channel <id> --parent <parent-ts> --message <markdown> --output=json`" + `
+- Stdin: ` + "`printf '%s\\n' \"$reply\" | slick reply --channel <id> --parent <parent-ts> --file - --output=json`" + `
+- Raw Block Kit: ` + "`slick reply --channel <id> --parent <parent-ts> --blocks --file reply.json --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`data.message.ts`" + ` [string, required] — the reply's own ts (use for ` + "`react`" + ` / ` + "`edit_msg`" + ` on the reply).
+- ` + "`data.message.thread_ts`" + ` [string, required] — shared thread anchor; equals ` + "`--parent`" + ` on the first reply.
+- ` + "`data.permalink`" + ` [string, required] — Slack URL.
+
+**Preconditions**
+- ` + "`--parent`" + ` is the parent message timestamp, not a permalink or a search-result index.
+- The parent must still exist; a deleted parent breaks the thread.
+
+**Behavior**
+- Markdown is escaped on the wire (` + "`&`" + `, ` + "`<`" + `, ` + "`>`" + ` → HTML entities). Sentinels like ` + "`<!channel>`" + `, ` + "`<@U123>`" + `, ` + "`<#C123>`" + `, ` + "`<url|label>`" + ` in ` + "`--message`" + ` render as literal text — they do NOT fire mentions. Use ` + "`--blocks`" + ` to send real mentions or explicit linked text.
+- Attribution auto-attaches (toggle / override): see → ` + "`core_contract`" + `.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| ` + "`not_found: message_not_found`" + ` | Parent ts wrong or parent deleted | → ` + "`read_history`" + ` to re-find the parent |
+| ` + "`thread_not_found`" + ` | Parent isn't in this channel | Verify ` + "`--channel`" + ` matches the parent's channel |
+
+**Next**
+- Then: → ` + "`read_history`" + ` with ` + "`--thread <thread_ts>`" + ` to see the full thread.
+- Alternative: → ` + "`edit_msg`" + ` or ` + "`react`" + ` on the reply's own ` + "`ts`" + `.
 
 ## read_history
-- Runbook: Use history to discover message timestamps before reacting, editing, deleting, or replying.
-- Inputs: channel ID, optional time range, optional user ID, optional thread timestamp.
-- Parent history command: ` + "`slick history list --channel <channel-id> --max-items <n> --output=json`" + `.
-- Thread command: ` + "`slick history list --channel <channel-id> --thread <parent-ts> --max-items <n> --output=json`" + `.
-- Filter command: add ` + "`--since <slack-ts>`" + `, ` + "`--until <slack-ts>`" + `, or ` + "`--user <user-id>`" + ` when narrowing results.
-- Parse: use ` + "`data.messages[].ts`" + ` as the timestamp for ` + "`slick reply --parent`" + `, ` + "`slick react add --timestamp`" + `, ` + "`slick message edit --timestamp`" + `, or ` + "`slick message delete --timestamp`" + `.
-- Parse: Use the parent message ` + "`ts`" + ` with ` + "`slick reply --parent`" + `.
-- Parse: Use any message or reply ` + "`ts`" + ` with ` + "`slick react add --timestamp`" + `, ` + "`slick message edit --timestamp`" + `, or ` + "`slick message delete --timestamp`" + `.
-- Parse: messages include ` + "`text`" + `, ` + "`blocks`" + ` when available, reply metadata, and ` + "`permalink`" + ` when fetched.
-- Pagination: use ` + "`meta.pagination.cursor`" + ` and ` + "`meta.pagination.has_more`" + ` when another page is needed.
-- Quirks: bound every read with ` + "`--max-items`" + ` in automation.
-- Quirks: plain mode renders history as a table for humans. JSON mode preserves the envelope and metadata for agents.
-- Quirks: history text may flatten display formatting; inspect ` + "`blocks`" + ` when Slack-native structure matters.
+Goal: Discover message timestamps in a channel or thread so other workflows (` + "`react`" + `, ` + "`reply`" + `, ` + "`edit_msg`" + `, ` + "`delete_msg`" + `) have exact ` + "`ts`" + ` values to act on.
+
+**Decide**
+
+# scope
+- Channel timeline: ` + "`--channel <id>`" + ` only.
+- Thread: add ` + "`--thread <parent-ts>`" + ` to get only that thread's replies.
+
+# narrowing
+- Time window: ` + "`--since <slack-ts>`" + `, ` + "`--until <slack-ts>`" + ` (Slack ts strings, not RFC3339).
+- Author: ` + "`--user <user-id>`" + `.
+
+# bound
+- Always pass ` + "`--max-items <n>`" + ` in automation — Slack will keep paging until exhausted otherwise.
+
+**Run**
+- Channel: ` + "`slick history list --channel <id> --max-items <n> --output=json`" + `
+- Thread: ` + "`slick history list --channel <id> --thread <parent-ts> --max-items <n> --output=json`" + `
+- Filtered: append ` + "`--since`" + ` / ` + "`--until`" + ` / ` + "`--user`" + `
+- Next page: ` + "`slick history list --channel <id> --cursor <meta.pagination.cursor> --max-items <n> --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`data.messages[].ts`" + ` [string, required] — feed to ` + "`react --timestamp`" + `, ` + "`reply --parent`" + ` (when it's a parent), ` + "`message edit/delete --timestamp`" + `.
+- ` + "`data.messages[].text`" + ` [string] and ` + "`data.messages[].blocks`" + ` [array, optional] — text may flatten display formatting; check ` + "`blocks`" + ` when Slack-native structure matters.
+- ` + "`data.messages[].permalink`" + ` [string, optional] — present when fetched.
+- ` + "`meta.pagination.cursor`" + ` / ` + "`.has_more`" + ` [string / bool] — paginate until ` + "`has_more=false`" + `.
+
+**Behavior**
+- Plain mode (TTY / ` + "`--output=human`" + `) renders a table for humans; JSON mode is the agent contract.
+- A reply's ` + "`ts`" + ` is its own message ts; the thread anchor is its ` + "`thread_ts`" + `.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| Empty ` + "`data.messages[]`" + ` | Filter too tight or channel actually empty | Drop ` + "`--since/--until/--user`" + ` and re-run |
+| ` + "`channel_not_found`" + ` | Bot/user identity isn't in the channel | → ` + "`discover_destination`" + ` then invite |
+| ` + "`auth_failure: missing_scope`" + ` | Manifest lacks ` + "`channels:history`" + ` / ` + "`groups:history`" + ` / ` + "`im:history`" + ` / ` + "`mpim:history`" + ` for the conversation type | → ` + "`auth_setup`" + ` |
+
+**Next**
+- Then: → ` + "`react`" + `, ` + "`reply`" + `, ` + "`edit_msg`" + `, ` + "`delete_msg`" + ` (all need the saved ts).
+- Alternative: → ` + "`search_msgs`" + ` for workspace-wide discovery instead of one channel.
 
 ## search_msgs
-- Runbook: use this for workspace-wide message search, especially cleanup by run ID.
-- Inputs: exact query text, maximum page size, optional cursor from a previous page.
-- Search command: ` + "`slick lookup messages --query <query> --max-items <n> --output=json`" + `.
-- Pagination command: if ` + "`meta.pagination.has_more`" + ` is true, run ` + "`slick lookup messages --query <query> --max-items <n> --cursor <meta.pagination.next_cursor> --output=json`" + `.
-- Parse: use JSON fields, not plain snippets. Result targets are under ` + "`data.matches[].channel.id`" + ` and ` + "`data.matches[].ts`" + `.
-- Parse: JSON includes full text and metadata. Plain output truncates snippets for humans; ` + "`--full`" + ` only affects human plain output.
-- Auth: this requires a Slack user token with ` + "`search:read`" + `. Bot-token profiles cannot use Slack Web API ` + "`search.messages`" + `.
-- Manifest: search-capable manifests need ` + "`--type user`" + ` or ` + "`--type both`" + `; with both, ` + "`search:read`" + ` belongs under user scopes only.
-- Quirks: search can be slower and more rate-limited than channel history.
-- Quirks: for cleanup by run ID, collect every paginated search page before deleting. Deleting newer matches can reveal older matches, so repeat search and delete until paginated search returns zero matches.
+Goal: Workspace-wide message search — the only way to find content without already knowing the channel.
+
+**Decide**
+- Looking for a known run ID, phrase, or user mention across the workspace? Use this.
+- Inside one channel? Prefer → ` + "`read_history`" + ` (faster, cheaper, less rate-limited).
+- Need user identity, not message text? → ` + "`lookup_user`" + `.
+
+**Run**
+- Search: ` + "`slick lookup messages --query <query> --max-items <n> --output=json`" + `
+- Next page: ` + "`slick lookup messages --query <query> --cursor <meta.pagination.next_cursor> --max-items <n> --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`data.matches[].channel.id`" + ` [string, required] — pass verbatim as ` + "`--channel`" + ` for downstream operations.
+- ` + "`data.matches[].ts`" + ` [string, required] — message ts for ` + "`react`" + ` / ` + "`edit_msg`" + ` / ` + "`delete_msg`" + `.
+- ` + "`data.matches[].text`" + ` [string] — full text in JSON; plain output truncates and ` + "`--full`" + ` only affects human plain.
+- ` + "`meta.pagination.has_more`" + ` / ` + "`.next_cursor`" + ` [bool / string] — paginate until ` + "`has_more=false`" + `.
+
+**Preconditions**
+- Needs a user-token profile with ` + "`search:read`" + `. Bot-token profiles cannot call Slack Web API ` + "`search.messages`" + ` at all.
+- For mixed manifests, ` + "`search:read`" + ` belongs under user scopes only (` + "`--type user`" + ` or ` + "`--type both`" + `).
+
+**Behavior**
+- Search is slower and more strictly rate-limited than channel history; backoff is automatic on structured ` + "`rate_limit`" + ` errors.
+- Result snippets in plain output are display-only; for automation parse JSON fields.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| ` + "`auth_failure: missing_scope`" + ` (` + "`search:read`" + `) | Bot-token profile or manifest without user-scope search | → ` + "`auth_setup`" + ` with ` + "`--preset search`" + ` and ` + "`--type user`" + ` |
+| Zero matches but you know the message exists | Slack search index lag (can be minutes) | Retry later; or → ` + "`read_history`" + ` if you know the channel |
+
+**Next**
+- Composes: → ` + "`cleanup_msgs`" + ` (the canonical search-then-delete-by-run-ID loop).
+- Then: → ` + "`react`" + ` / ` + "`reply`" + ` / ` + "`edit_msg`" + ` on any single match.
 
 ## upload_file
-- Runbook: use this only when explicitly testing the hidden file upload workflow.
-- Status: probationary and not promoted. Command entries are hidden from help and shell completion; guide/schema may mention this workflow with that status.
-- Inputs: channel ID, file path or stdin bytes, filename for stdin, optional comment body.
-- File command: ` + "`slick file upload --channel <channel-id> --file <path> --output=json`" + `.
-- Stdin command: ` + "`slick file upload --channel <channel-id> --file - --filename <name> --output=json`" + `.
-- Comment command: add ` + "`--message <markdown>`" + ` for an upload comment.
-- Raw comment command: add ` + "`--blocks --message <json>`" + ` only when the comment is raw Block Kit JSON; it does not affect uploaded file bytes.
-- Parse: keep ` + "`data.file.permalink`" + ` when Slack returns it.
-- Quirks: stdin upload requires ` + "`--filename`" + `. Missing files, directories, and missing stdin metadata fail locally before Slack upload endpoints.
-- Quirks: upload progress and diagnostics go to stderr; stdout remains command data.
-- Quirks: when ` + "`--message`" + ` is supplied as an upload comment, it goes through the same Markdown converter as ` + "`message send`" + ` and is escaped on the wire (` + "`&`" + `, ` + "`<`" + `, ` + "`>`" + ` → HTML entities); sentinels like ` + "`<!channel>`" + `, ` + "`<@U123>`" + `, ` + "`<#C123>`" + `, and ` + "`<url|label>`" + ` render as literal text. Use ` + "`--blocks`" + ` for the comment payload to mention or link intentionally.
-- Scope: real uploads require ` + "`files:write`" + `. Use ` + "`--dry-run`" + ` to verify payload shape without the scope.
+Goal: Upload a file (path or stdin bytes) to a channel and capture its permalink.
+
+> Status: probationary. ` + "`slick file upload`" + ` is hidden from help and completion; use only when explicitly testing the upload surface.
+
+**Decide**
+
+# source
+- Path: ` + "`--file <path>`" + ` (path expansion via ` + "`~`" + ` / env vars supported)
+- Stdin: ` + "`--file -`" + ` (REQUIRES ` + "`--filename <name>`" + `)
+
+# optional comment
+- Markdown: ` + "`--message <markdown>`" + `
+- Raw Block Kit comment: ` + "`--blocks`" + ` + ` + "`--message <json>`" + ` (affects comment only, not file bytes)
+
+# guard
+- ` + "`--dry-run`" + ` validates payload locally; skips the real Slack upload (and the ` + "`files:write`" + ` scope check).
+
+**Run**
+- Path: ` + "`slick file upload --channel <id> --file <path> --output=json`" + `
+- Stdin: ` + "`cat artefact.bin | slick file upload --channel <id> --file - --filename <name> --output=json`" + `
+- With comment: append ` + "`--message <markdown>`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`data.file.permalink`" + ` [string, optional] — Slack URL when returned.
+- ` + "`data.file.id`" + `, ` + "`data.file.channels[]`" + ` [string / array] — Slack file metadata.
+
+**Preconditions**
+- Real uploads need ` + "`files:write`" + `.
+- Missing path, directory targets, and stdin without ` + "`--filename`" + ` fail locally before any Slack call.
+
+**Behavior**
+- Upload progress and diagnostics go to stderr; stdout stays the command-data channel.
+- Comment Markdown is escaped on the wire (` + "`&`" + `, ` + "`<`" + `, ` + "`>`" + ` → entities); sentinels — ` + "`<!channel>`" + `, ` + "`<@U123>`" + `, ` + "`<#C123>`" + `, ` + "`<url|label>`" + ` — render as literal text and do NOT fire mentions. Use ` + "`--blocks`" + ` for the comment payload to mention or link intentionally.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| Local error ` + "`stdin requires --filename`" + ` | Piped to ` + "`--file -`" + ` without naming the artifact | Re-run with ` + "`--filename <name>`" + ` |
+| ` + "`auth_failure: missing_scope`" + ` | Manifest lacks ` + "`files:write`" + ` | → ` + "`auth_setup`" + ` with ` + "`--preset files`" + ` |
+
+**Next**
+- Then: → ` + "`send_msg`" + ` to announce or link the upload separately.
 
 ## edit_msg
-- Runbook: use this to correct one of the authenticated user's own messages.
-- Inputs: channel ID, exact message timestamp, replacement markdown or raw Block Kit JSON.
-- Markdown command: ` + "`slick message edit --channel <channel-id> --timestamp <message-ts> --message <markdown> --output=json`" + `.
-- Stdin command: ` + "`printf '%s\n' \"$body\" | slick message edit --channel <channel-id> --timestamp <message-ts> --file - --output=json`" + `.
-- Raw Block Kit command: add ` + "`--blocks`" + ` only when the replacement is raw Block Kit JSON.
-- Parse: keep ` + "`data.message.channel`" + `, ` + "`data.message.ts`" + `, and ` + "`data.message.text`" + ` when present. Edit output does not include returned ` + "`data.message.blocks`" + `; verify rendered Block Kit through history or the Slack UI when needed.
-- Quirks: Slack only allows editing own messages where token scopes permit it.
-- Quirks: the timestamp is unique only inside a channel; always pass both channel and timestamp.
-- Quirks: user-supplied Markdown is escaped on the wire (` + "`&`" + `, ` + "`<`" + `, ` + "`>`" + ` → HTML entities); sentinels like ` + "`<!channel>`" + `, ` + "`<@U123>`" + `, ` + "`<#C123>`" + `, and ` + "`<url|label>`" + ` in the new ` + "`--message`" + ` content render as literal text and do NOT fire mentions or link substitutions. To intentionally mention a user or post an explicit link, bypass the converter with ` + "`--blocks`" + ` and write the wire syntax in the JSON.
-- Safety: use ` + "`--dry-run`" + ` before editing incident, release, or high-visibility channels.
-- Error handling: if Slack rejects the edit as not-owned or not permitted, return the structured error. Do not try delete/send fallback.
+Goal: Rewrite the text or Block Kit body of one of the authenticated identity's own messages, in place.
+
+**Decide**
+
+# target
+- ` + "`--channel <id>`" + ` + ` + "`--timestamp <message-ts>`" + ` (timestamps are unique only inside a channel — always pass both).
+
+# replacement body
+- One line: ` + "`--message <markdown>`" + `
+- Stdin: ` + "`--file -`" + `
+- Raw Block Kit: ` + "`--blocks`" + ` + ` + "`--file <json>`" + `
+
+# guard
+- ` + "`--dry-run`" + ` validates locally without mutating Slack — use it before editing incident, release, or high-visibility channels.
+
+**Run**
+- Markdown: ` + "`slick message edit --channel <id> --timestamp <ts> --message <markdown> --output=json`" + `
+- Stdin: ` + "`printf '%s\\n' \"$body\" | slick message edit --channel <id> --timestamp <ts> --file - --output=json`" + `
+- Raw Block Kit: ` + "`slick message edit --channel <id> --timestamp <ts> --blocks --file edit.json --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`data.message.channel`" + `, ` + "`data.message.ts`" + ` [string, required] — echo of the target.
+- ` + "`data.message.text`" + ` [string, optional] — Slack-returned post-edit text when present.
+- Returned ` + "`blocks`" + ` are NOT included; if you need to verify rendered Block Kit, → ` + "`read_history`" + ` or check the Slack UI.
+
+**Preconditions**
+- Slack only allows editing messages owned by the token identity; bot tokens can only edit bot-posted messages, user tokens only user-posted ones.
+
+**Behavior**
+- Markdown is escaped on the wire (` + "`&`" + `, ` + "`<`" + `, ` + "`>`" + ` → entities); sentinels — ` + "`<!channel>`" + `, ` + "`<@U123>`" + `, ` + "`<#C123>`" + `, ` + "`<url|label>`" + ` — render as literal text and do NOT fire mentions. Use ` + "`--blocks`" + ` for the new content to mention or link intentionally.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| ` + "`cant_update_message`" + ` / ` + "`message_not_found`" + ` | Wrong owner, wrong ts, or message deleted | Stop — return the structured error. Do NOT fall back to delete+send (creates a new ts and breaks references). |
+| ` + "`auth_failure: missing_scope`" + ` | Manifest lacks ` + "`chat:write`" + ` | → ` + "`auth_setup`" + ` |
+
+**Next**
+- Then: → ` + "`read_history`" + ` to confirm the rendered result when ` + "`--blocks`" + ` was used.
+- Alternative: if you can't edit, prefer a → ` + "`reply`" + ` correction over → ` + "`delete_msg`" + ` (preserves thread context).
 
 ## delete_msg
-- Runbook: use this to delete one of the authenticated user's own messages.
-- Inputs: channel ID and exact Slack message timestamp.
-- Dry-run command: ` + "`slick message delete --channel <channel-id> --timestamp <message-ts> --dry-run --force --output=json`" + `.
-- Delete command: ` + "`slick message delete --channel <channel-id> --timestamp <message-ts> --force --output=json`" + `.
-- Parse: deletion success is scoped to the channel and timestamp pair.
-- Quirks: ` + "`--force`" + ` is required for real delete. ` + "`--dry-run --force`" + ` is safe and should not call Slack mutation endpoints.
-- Quirks: never delete by "last message" or search-result index. This CLI intentionally requires exact channel and timestamp.
-- Quirks: prefer editing over deleting when preserving thread context matters.
-- Bulk cleanup: build targets from JSON search results with exact ` + "`channel.id`" + ` and ` + "`ts`" + `. Use controlled parallelism, retry ` + "`rate_limit`" + ` errors after ` + "`retry_after_seconds`" + `, and treat ` + "`message_not_found`" + ` as already clean.
+Goal: Permanently delete one of the authenticated identity's own messages by exact channel + ts.
+
+**Decide**
+- Single deletion? Use this directly.
+- Reversible correction? Prefer → ` + "`edit_msg`" + ` (preserves thread + references).
+- Bulk by run ID? → ` + "`cleanup_msgs`" + ` (drives this workflow from search results).
+
+**Run**
+- Preview (no Slack mutation): ` + "`slick message delete --channel <id> --timestamp <ts> --dry-run --force --output=json`" + `
+- Real delete: ` + "`slick message delete --channel <id> --timestamp <ts> --force --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`data.channel`" + `, ` + "`data.ts`" + ` [string, required] — echo of the deleted target.
+- ` + "`meta.command`" + ` is ` + "`message.delete`" + `.
+
+**Preconditions**
+- ` + "`--force`" + ` is mandatory for real deletes (` + "`--dry-run --force`" + ` is safe and never calls mutation endpoints).
+- Never delete by "last message", search-result index, or display position — this CLI intentionally requires exact channel + ts.
+- The token identity must own the message.
+
+**Behavior**
+- Deletion is irreversible. There is no undo.
+- Slack returns ` + "`message_not_found`" + ` for already-deleted messages — bulk callers should treat that as "already clean".
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| ` + "`message_not_found`" + ` | Already deleted (race with another worker) | Treat as success in cleanup loops |
+| ` + "`cant_delete_message`" + ` | Wrong owner identity | Switch profile via → ` + "`auth_setup`" + ` or accept that this message stays |
+| ` + "`rate_limit`" + ` | Bulk pressure | Sleep ` + "`errors[0].retry_after_seconds`" + `, retry same target |
+
+**Next**
+- Composes: → ` + "`cleanup_msgs`" + ` for the canonical search-then-delete loop.
 
 ## developer_review
-- Runbook: use this when asked to post a developer-style review, incident update, release note, or realistic live message workflow.
-- Inputs: target channel ID or alias, review subject or URL, decision text, optional run ID, optional follow-up detail.
-- Preflight: run ` + "`slick lookup channel --channel <channel-id-or-alias> --output=json`" + ` when the destination is unfamiliar; use ` + "`--dry-run`" + ` first in high-visibility channels.
-- Compose: write one parent body in stdin. Use Slack mrkdwn naturally: bold section labels, bullet lists, numbered requested changes, inline code, links, and emoji.
-- Send the parent: pipe real multiline stdin into ` + "`slick message send --channel <id> --file - --output=json`" + `; do not type literal ` + "`\\n`" + ` when a real newline is required.
-- Parse and store: keep ` + "`data.message.channel`" + `, ` + "`data.message.ts`" + `, and ` + "`data.permalink`" + `. The timestamp is the parent key for reactions and replies.
-- React: ` + "`slick react add --channel <id> --timestamp <parent-ts> --emoji eyes --output=json`" + `, ` + "`white_check_mark`" + `, or another natural review emoji.
-- Reply: pipe real multiline stdin into ` + "`slick reply --channel <id> --parent <parent-ts> --file - --output=json`" + `.
-- Verify: run ` + "`slick react list --channel <id> --timestamp <parent-ts> --output=json`" + ` and ` + "`slick history list --channel <id> --thread <parent-ts> --output=json`" + `.
-- Quirks: agent attribution renders as a context block, so do not repeat the attribution phrase in the body.
-- Quirks: Slack history text can flatten display formatting; use the posted UI or Block Kit fields when exact visual rendering matters.
+Goal: Post a realistic developer-style review (or incident update / release note) as a parent message, then decorate with reactions and thread replies.
+
+This is a composition workflow — no command is unique to it. The contract is the sequence and the discipline.
+
+**Decide**
+- Pick the channel. Unfamiliar destination? Preflight with → ` + "`discover_destination`" + `.
+- Pick the body shape: prose + bullets + inline code → Markdown via stdin; specific Slack rendering → ` + "`--blocks`" + `.
+- High-visibility (incidents, release, exec channels)? Run the parent with ` + "`--dry-run`" + ` first.
+
+**Run** (compose → send → decorate → verify)
+1. Compose one parent body in stdin (real newlines, NOT literal ` + "`\\n`" + `). Use mrkdwn naturally: bold section labels, bullet lists, numbered requested changes, inline code, links, emoji.
+2. Send parent: ` + "`slick message send --channel <id> --file - --output=json`" + `
+3. Save ` + "`data.message.channel`" + `, ` + "`data.message.ts`" + `, ` + "`data.permalink`" + `.
+4. React: ` + "`slick react add --channel <id> --timestamp <parent-ts> --emoji eyes --output=json`" + ` (or ` + "`white_check_mark`" + `, etc.)
+5. Reply with detail: ` + "`slick reply --channel <id> --parent <parent-ts> --file - --output=json`" + `
+6. Verify: ` + "`slick react list --channel <id> --timestamp <parent-ts> --output=json`" + ` + ` + "`slick history list --channel <id> --thread <parent-ts> --output=json`" + `
+
+**Save**
+- Carry ` + "`data.message.ts`" + ` (from step 2) as ` + "`parent-ts`" + ` through every subsequent step. It is the join key for the whole review.
+
+**Behavior**
+- Attribution auto-attaches (toggle / override): see → ` + "`core_contract`" + `.
+- Slack history text flattens display formatting; for exact visual rendering use the Slack UI or compare ` + "`blocks`" + `.
+
+**Next**
+- Composes: this workflow composes → ` + "`send_msg`" + ` + → ` + "`react`" + ` + → ` + "`reply`" + ` + → ` + "`read_history`" + `.
+- Then: → ` + "`cleanup_msgs`" + ` after live-test runs (include a distinctive run ID in the body for findability).
 
 ## cleanup_msgs
-- Runbook: use this after live tests that include a distinctive run ID in each message.
-- Inputs: exact run IDs to remove, maximum page size, and a modest worker count for deletes.
-- Discover: ` + "`slick lookup messages --query <run-id> --max-items <n> --output=json`" + `.
-- Paginate: while ` + "`meta.pagination.has_more`" + ` is true, run ` + "`slick lookup messages --query <run-id> --max-items <n> --cursor <meta.pagination.next_cursor> --output=json`" + `.
-- Build targets: use ` + "`data.matches[].channel.id`" + ` and ` + "`data.matches[].ts`" + ` only. Do not delete by snippet, visual order, or plain output.
-- Delete: ` + "`slick message delete --channel <channel-id> --timestamp <ts> --force --output=json`" + `.
-- Retry: on structured ` + "`rate_limit`" + ` errors, sleep for ` + "`errors[0].retry_after_seconds`" + ` before retrying that target.
-- Missing target: treat ` + "`message_not_found`" + ` as already clean; another worker or earlier pass may have deleted it.
-- Repeat: rerun paginated search and delete until every run ID returns zero matches.
-- Quirks: a single ` + "`--max-items`" + ` page is not proof of cleanup; search result windows can shift as deletes happen.
-- Quirks: separate CLI processes do not share proactive throttle state, so keep cleanup parallelism modest.
+Goal: After a live test, delete every message tagged with a distinctive run ID — even ones spread across channels.
+
+This composes → ` + "`search_msgs`" + ` and → ` + "`delete_msg`" + ` in a loop. The loop is the contract.
+
+**Decide**
+- Tag every live-test message with a unique run ID up front (e.g. ` + "`slick-live-2026-05-26-abcd`" + `). Without it, cleanup is guesswork.
+- Use modest parallelism for the delete fan-out — separate CLI processes do NOT share proactive throttle state.
+
+**Run** (loop until search returns zero matches, capped)
+1. Discover: ` + "`slick lookup messages --query <run-id> --max-items <n> --output=json`" + `
+2. Paginate until ` + "`meta.pagination.has_more=false`" + `: re-run with ` + "`--cursor <meta.pagination.next_cursor>`" + `.
+3. Build targets ONLY from ` + "`data.matches[].channel.id`" + ` + ` + "`data.matches[].ts`" + `. Never delete by snippet, visual order, or plain output.
+4. Delete each: ` + "`slick message delete --channel <id> --timestamp <ts> --force --output=json`" + `.
+5. Repeat steps 1–4 until paginated search returns zero matches OR an iteration cap fires (see Behavior).
+
+**Behavior**
+- Hard cap: stop after 10 outer loop iterations or if match count fails to decrease across two consecutive loops. A non-decreasing count means the query matches non-test content; escalate to the user with the residue rather than looping forever.
+- On structured ` + "`rate_limit`" + ` errors, sleep ` + "`errors[0].retry_after_seconds`" + ` before retrying that target.
+- ` + "`message_not_found`" + ` = already clean (another worker won the race). Treat as success.
+- A single ` + "`--max-items`" + ` page is NOT proof of cleanup — search-result windows can shift mid-delete, so the outer re-run loop is mandatory.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| Loop never terminates | Run-ID query matches non-test content | Tighten query (add timestamp prefix, channel filter, or longer ID) |
+| Persistent ` + "`cant_delete_message`" + ` | Different identity posted some matches | Either accept residue or → ` + "`auth_setup`" + ` switch profile and re-run |
+
+**Next**
+- Composes: → ` + "`search_msgs`" + ` (discover) + → ` + "`delete_msg`" + ` (execute).
 
 ## discover_destination
-- Runbook: use this before posting when the target channel, DM, or membership state is uncertain.
-- Inputs: target name, channel ID, user ID, or desired conversation type.
-- Channel list command: ` + "`slick lookup channel --types public_channel,private_channel --max-items <n> --output=json`" + `.
-- Existing DM list command: ` + "`slick lookup channel --types im --max-items <n> --output=json`" + `.
-- Exact lookup command: ` + "`slick lookup channel --channel <channel-id-or-alias> --output=json`" + `.
-- Parse: use IDs from ` + "`data.channels[]`" + `; check ` + "`is_member`" + ` and ` + "`is_archived`" + ` before posting.
-- Quirks: plain mode renders tables for humans. Agents should keep JSON output and parse IDs from ` + "`data.channels`" + `.
-- Quirks: prefer IDs such as ` + "`C123...`" + ` and ` + "`D123...`" + ` over display names; human names can change.
-- Quirks: ` + "`--types all`" + ` includes public channels, private channels, IMs, and MPIMs. Use narrower types when possible.
+Goal: Resolve a channel name/alias/ID to the exact Slack conversation ID and confirm the identity is a member before posting.
+
+**Decide**
+
+# question
+- I know the exact ID: skip → ` + "`send_msg`" + ` directly (but consider an exact lookup to check ` + "`is_member`" + ` first).
+- I know a name or alias: exact lookup.
+- I'm browsing: filtered list.
+
+# scope (narrow when possible)
+- Public + private channels: ` + "`--types public_channel,private_channel`" + `
+- Existing DMs only: ` + "`--types im`" + `
+- Group DMs: ` + "`--types mpim`" + `
+- Everything: ` + "`--types all`" + ` (use sparingly)
+
+**Run**
+- Exact lookup: ` + "`slick lookup channel --channel <id-or-alias> --output=json`" + `
+- Browse channels: ` + "`slick lookup channel --types public_channel,private_channel --max-items <n> --output=json`" + `
+- List existing DMs: ` + "`slick lookup channel --types im --max-items <n> --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`data.channels[].id`" + ` [string, required] — pass verbatim to ` + "`--channel`" + ` elsewhere. Prefer over display names (names can change).
+- ` + "`data.channels[].is_member`" + ` [bool, required] — false ⇒ bot/user identity must be invited first.
+- ` + "`data.channels[].is_archived`" + ` [bool, required] — true ⇒ posts will fail.
+
+**Behavior**
+- Plain mode renders human tables; JSON mode is the agent contract.
+- Channel IDs are stable (` + "`C…`" + `, ` + "`G…`" + `, ` + "`D…`" + `, ` + "`MP…`" + `); display names are not.
+
+**Next**
+- Then: → ` + "`send_msg`" + ` once ` + "`is_member=true`" + ` and ` + "`is_archived=false`" + `.
+- Alternative: → ` + "`lookup_user`" + ` for DM targets by user identity instead of conversation ID.
+- Composes: → ` + "`cache_metadata`" + ` (` + "`slick cache channels`" + `) keeps this and shell completion cheap across many calls.
 
 ## inspect_schema
-- Runbook: use this when an agent needs command inventory, flags, output contracts, or another workflow runbook.
-- Schema command: ` + "`slick agent schema --output=json`" + ` for the full machine schema.
-- Compact schema command: ` + "`slick agent schema --compact`" + ` for a smaller command tree (the local --compact flag changes schema shape; --output=compact only strips the envelope).
-- Guide list command: ` + "`slick agent guide`" + ` to list workflows.
-- Workflow runbook command: ` + "`slick agent guide <workflow>`" + ` to load the task runbook.
-- Parse: schema includes commands, flags, input shapes, output schemas, env vars, exit codes, examples, workflows, best practices, and anti-patterns.
-- Quirks: the old root ` + "`slick schema`" + ` alias is intentionally removed; schema discovery lives under ` + "`agent schema`" + `.
-- Quirks: ` + "`schema.Commands`" + ` excludes hidden probationary commands. ` + "`schema.Workflows`" + ` may mention probationary workflows with status text.
-- Quirks: examples are examples, not guaranteed-safe invocations. Apply ` + "`--dry-run`" + ` to mutations first.
-- Quirks: if a guide section conflicts with ` + "`agent schema`" + `, trust the schema for flags and command existence, then file a bug against the guide.
+Goal: Self-discover commands, flags, output contracts, and other workflows from inside the CLI itself.
+
+**Decide**
+- Need the full inventory: ` + "`slick agent schema --output=json`" + `.
+- Want a smaller command tree: ` + "`slick agent schema --compact`" + ` (shape change). NOTE: ` + "`--compact`" + ` (no value) is different from ` + "`--output=compact`" + ` (envelope strip only).
+- Just want workflow names: ` + "`slick agent guide`" + ` (no args).
+- Want one workflow's runbook: ` + "`slick agent guide <workflow>`" + `.
+
+**Run**
+- Full schema: ` + "`slick agent schema --output=json`" + `
+- Compact: ` + "`slick agent schema --compact --output=json`" + `
+- Workflow list: ` + "`slick agent guide`" + `
+- Workflow runbook: ` + "`slick agent guide <workflow>`" + `
+
+**Save**
+- ` + "`schema.Commands`" + ` — visible commands + flags + input/output shapes (hidden probationary entries are excluded).
+- ` + "`schema.Workflows`" + ` — workflow names; may mention probationary workflows with status text.
+- ` + "`schema.EnvVars`" + `, ` + "`schema.ExitCodes`" + `, ` + "`schema.Examples`" + `, ` + "`schema.BestPractices`" + `, ` + "`schema.AntiPatterns`" + ` — reference matter.
+
+**Behavior**
+- The old root ` + "`slick schema`" + ` alias was removed — discovery lives under ` + "`agent schema`" + `.
+- Examples are examples, NOT guaranteed-safe invocations. Apply ` + "`--dry-run`" + ` to mutations first.
+- Conflict resolution: if a guide section disagrees with ` + "`agent schema`" + ` on flags or command existence, trust the schema (it's generated from the cobra tree) and file a bug against the guide.
+
+**Next**
+- Then: the workflow you discovered — every workflow name in this guide doubles as a ` + "`slick agent guide <name>`" + ` argument.
 
 ## lookup_user
-- Runbook: use this to find stable user IDs, presence, status, and timezone before DM or human-aware work.
-- Inputs: user filter text or exact user ID, whether presence is needed.
-- List command: ` + "`slick lookup user --max-items <n> --output=json`" + `.
-- Filter command: ` + "`slick lookup user --filter ansible --max-items 20 --output=json`" + `.
-- Exact command: ` + "`slick lookup user --user <user-id> --output=json`" + `.
-- Presence command: add ` + "`--presence`" + ` only when the token has presence visibility.
-- Deleted users: list mode excludes deleted and deactivated users by default; add ` + "`--include-deleted`" + ` only when auditing old accounts.
-- Cache command: ` + "`slick cache users --output=json`" + ` primes active users for shell completion and repeated discovery.
-- Parse: use ` + "`data.users[].id`" + ` for commands, ` + "`data.users[].tz`" + ` for scheduling, and ` + "`data.users[].presence`" + ` when presence is available.
-- Next step: pass ` + "`data.users[].id`" + ` to ` + "`slick message send --user <user-id>`" + ` for DM workflows.
-- Quirks: prefer user IDs such as ` + "`U123...`" + ` in commands; names and display names can change.
-- Quirks: presence and custom status depend on token scopes and Slack workspace policy. Missing fields are not always an error.
+Goal: Resolve a name, email, or partial filter to a stable Slack user ID (and optionally presence, status, timezone) before DM or human-aware work.
+
+**Decide**
+
+# question
+- I have an exact user ID: confirm with exact lookup if you need presence/status/tz.
+- I have part of a name: filter list.
+- I'm browsing: paginated list.
+
+# extras (opt-in)
+- ` + "`--presence`" + ` — only when the token has presence visibility.
+- ` + "`--include-deleted`" + ` — list mode excludes deactivated users by default; opt in only for audits.
+
+**Run**
+- List: ` + "`slick lookup user --max-items <n> --output=json`" + `
+- Filter: ` + "`slick lookup user --filter <text> --max-items 20 --output=json`" + `
+- Exact: ` + "`slick lookup user --user <user-id> --output=json`" + `
+- Cache (prime for shell completion + repeat discovery): ` + "`slick cache users --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`data.users[].id`" + ` [string, required] — feed to ` + "`message send --user`" + ` and elsewhere.
+- ` + "`data.users[].tz`" + ` [string, optional] — IANA tz for scheduling-aware logic.
+- ` + "`data.users[].presence`" + ` [string, optional] — only when ` + "`--presence`" + ` is set AND the token allows it.
+
+**Behavior**
+- Prefer IDs (` + "`U123…`" + `) in downstream commands; display names can change without warning.
+- Missing presence / custom-status fields are NOT errors; they reflect scope/policy.
+
+**Next**
+- Then: → ` + "`send_dm`" + ` (the DM-by-user wrapper).
+- Composes: → ` + "`cache_metadata`" + ` to keep this cheap across many calls.
 
 ## cache_metadata
-- Runbook: use this before repeated lookup, shell completion, or large live tests that may hit Slack rate limits.
-- Cache users: ` + "`slick cache users --output=json`" + ` caches active users only. Deleted and deactivated users stay out of the cache.
-- Cache channels: ` + "`slick cache channels --output=json`" + ` caches active public channels, private channels, IMs, and MPIMs.
-- Refresh: add ` + "`--refresh`" + ` to force a Slack API fetch even when the cache is fresh.
-- TTL: default freshness is 1440 minutes. Use ` + "`--ttl-minutes 10080`" + ` for a weekly refresh window.
-- Bounds: use ` + "`--page-size <n>`" + ` and ` + "`--max-pages <n>`" + ` to control pagination when priming large workspaces.
-- Clear: ` + "`slick cache clear users`" + ` or ` + "`slick cache clear channels`" + ` removes one cache resource. ` + "`slick cache clear`" + ` removes all resources for the active profile.
-- Parse: ` + "`slick cache clear <resource>`" + ` returns ` + "`{profile, resource, cleared}`" + ` where ` + "`cleared=true`" + ` means the resource existed and was removed; ` + "`cleared=false`" + ` means the cache was already empty. ` + "`slick cache clear`" + ` (no resource) returns ` + "`{profile, resources}`" + ` where ` + "`resources[]`" + ` lists every removed name; an empty or absent slice means nothing was removed. On a partial failure the error envelope includes ` + "`details.partial`" + ` with the resources removed before the failure.
-- Path: cache files live under XDG cache home, normally ` + "`~/.cache/slick/<profile>/`" + `.
-- Quirks: shell completion prefers fresh cached users/channels before live Slack API calls.
-- Quirks: cache files are metadata only; they do not store tokens or message content.
+Goal: Prime, refresh, or clear local caches of active users and channels so shell completion and repeat lookups don't hit Slack.
+
+**Decide**
+- Priming for completion / live tests: ` + "`cache users`" + ` and/or ` + "`cache channels`" + `.
+- Forcing a refresh: add ` + "`--refresh`" + ` to ignore the TTL.
+- Resetting one cache or all: ` + "`cache clear <resource>`" + ` or ` + "`cache clear`" + ` (no arg = all).
+
+**Run**
+- Prime users: ` + "`slick cache users --output=json`" + ` (active only — deactivated users stay out)
+- Prime channels: ` + "`slick cache channels --output=json`" + ` (active public + private + IM + MPIM)
+- Force refresh: append ` + "`--refresh`" + `
+- Tune freshness: ` + "`--ttl-minutes 10080`" + ` for a weekly window (default 1440)
+- Tune pagination on large workspaces: ` + "`--page-size <n>`" + ` + ` + "`--max-pages <n>`" + `
+- Clear one resource: ` + "`slick cache clear users`" + ` or ` + "`slick cache clear channels`" + `
+- Clear all for the active profile: ` + "`slick cache clear`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+
+Clear one resource:
+- ` + "`{profile, resource, cleared}`" + ` — ` + "`cleared=true`" + ` ⇒ removed something; ` + "`false`" + ` ⇒ cache already empty.
+
+Clear all:
+- ` + "`{profile, resources}`" + ` — ` + "`resources[]`" + ` lists removed names. Empty/absent slice ⇒ nothing removed.
+- On partial failure: ` + "`errors[0].details.partial`" + ` carries resources removed before the failure.
+
+**Behavior**
+- Cache files live under XDG cache home, normally ` + "`~/.cache/slick/<profile>/`" + `.
+- Caches are metadata only — they never store tokens or message content.
+- Shell completion prefers fresh cached entries before falling back to live Slack API calls.
+
+**Next**
+- Then: any → ` + "`lookup_user`" + ` / → ` + "`discover_destination`" + ` invocation now hits the cache first.
 
 ## send_dm
-- Runbook: use this to send a direct message to a Slack user.
-- Inputs: stable user ID, Slack-profile email address, configured alias, message body, workspace/profile, and token type expectations.
-- Preflight: use ` + "`slick lookup user --user <user-id> --output=json`" + ` if the ID is uncertain.
-- Command: ` + "`slick message send --user <user-id-or-slack-profile-email> --message <markdown> --output=json`" + `.
-- Group DM command: repeat ` + "`--user`" + ` or comma-separate values.
-- Stdin command: ` + "`printf '%s\n' \"$body\" | slick message send --user <user-id-or-slack-profile-email> --file - --output=json`" + `.
-- Parse: keep ` + "`data.message.channel`" + ` and ` + "`data.message.ts`" + ` from JSON output. The returned channel is the DM conversation ID to reuse for follow-up operations.
-- Raw Block Kit: use ` + "`--blocks`" + ` only when the DM body is raw Block Kit JSON.
-- Quirks: ` + "`message send --user`" + ` opens the DM through Slack before posting. Slack decides whether the active bot-token or user-token profile may open the DM.
-- Quirks: email recipients are resolved with Slack ` + "`users.lookupByEmail`" + ` before opening the DM. The email must match the user's Slack profile email; ` + "`users_not_found`" + ` means Slack did not match that address in the active workspace.
-- Quirks: add ` + "`--schedule <when>`" + ` to schedule a DM to ` + "`--user`" + ` instead of sending immediately. Real scheduled DM sends return the raw DM or MPIM ID in ` + "`data.channel`" + `.
-- Quirks: user-token profiles are the normal choice for "DM anyone as me" workflows; bot-token profiles depend on app install and conversation access.
-- Quirks: ` + "`--dry-run`" + ` verifies message composition but cannot prove Slack will open the DM.
-- Error handling: Scope validation is best-effort when token metadata is available. ` + "`missing_scope`" + ` and ` + "`no_permission`" + ` use ` + "`auth_failure`" + `; destination or membership errors such as ` + "`not_in_channel`" + ` still use the fixed structured error contract.
+Goal: Send a direct message to a user by ID or Slack-profile email, returning the DM conversation ID for follow-up.
+
+This is → ` + "`send_msg`" + ` with ` + "`--user`" + ` instead of ` + "`--channel`" + `. Same body shapes, same envelope.
+
+**Decide**
+
+# recipient
+- One user by ID (preferred): ` + "`--user U123...`" + `
+- One user by Slack-profile email: ` + "`--user alice@example.com`" + ` (needs ` + "`users:read.email`" + `)
+- Group DM: repeat ` + "`--user`" + ` or comma-separate values
+
+# unsure of the ID?
+- Preflight → ` + "`lookup_user`" + `.
+
+# body
+- Same as → ` + "`send_msg`" + ` (` + "`--message`" + ` / ` + "`--file -`" + ` / ` + "`--blocks`" + `).
+
+# modifiers
+- Schedule: add ` + "`--schedule <when>`" + ` (real scheduled DM sends still return the raw DM/MPIM ID in ` + "`data.channel`" + ` — usable as a ` + "`schedule_msg`" + ` delete target).
+
+**Run**
+- ID: ` + "`slick message send --user <user-id> --message <markdown> --output=json`" + `
+- Email: ` + "`slick message send --user <slack-profile-email> --message <markdown> --output=json`" + `
+- Stdin: ` + "`printf '%s\\n' \"$body\" | slick message send --user <id-or-email> --file - --output=json`" + `
+- Group DM: ` + "`slick message send --user U123 --user U456 --message <markdown> --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`data.message.channel`" + ` [string, required] — the DM/MPIM conversation ID Slack opened. Reuse for ` + "`read_history`" + `, ` + "`reply`" + `, etc.
+- ` + "`data.message.ts`" + ` [string, required] — message timestamp.
+
+**Preconditions**
+- Slack decides whether the active token (bot vs user) may open the DM at all.
+- For "DM anyone as me", a user-token profile is the normal choice; bot-token profiles depend on app install + conversation access.
+- ` + "`--dry-run`" + ` verifies composition but cannot prove Slack will open the DM.
+
+**Behavior**
+- ` + "`message send --user`" + ` opens the DM through Slack before posting; the returned ` + "`data.message.channel`" + ` is that opened conversation.
+- Email recipients route through Slack ` + "`users.lookupByEmail`" + ` first; ` + "`users_not_found`" + ` means the email isn't a Slack profile in this workspace.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| ` + "`not_found: users_not_found`" + ` | Email doesn't match a Slack profile here | → ` + "`lookup_user`" + ` with filter, then retry with the ID |
+| ` + "`auth_failure: missing_scope`" + ` (` + "`users:read.email`" + `) | Email targeting without the scope | → ` + "`auth_setup`" + ` |
+| ` + "`auth_failure: no_permission`" + ` (open DM) | Bot can't DM this person | Switch to user-token profile or invite into a shared channel first |
+
+**Next**
+- Then: → ` + "`reply`" + ` / → ` + "`react`" + ` on the new DM message.
 
 ## set_status
-- Runbook: use this to set or clear the authenticated user's Slack status.
-- Inputs: status text, emoji, optional expiration, workspace/profile, and token type.
-- Set command: ` + "`slick status set --text <text> --emoji :headphones: --expires-in 2h --output=json`" + `.
-- Positional command: ` + "`slick status set \"In a meeting\" :calendar: --output=json`" + `.
-- Clear command: ` + "`slick status clear --output=json`" + `.
-- Dry-run: use ` + "`--dry-run`" + ` to preview the status payload without calling Slack.
-- Parse: keep ` + "`data.text`" + `, ` + "`data.emoji`" + `, and ` + "`data.expiration`" + ` when present. In JSON, ` + "`meta.command`" + ` (` + "`status.set`" + ` vs ` + "`status.clear`" + `) tells you which path ran.
-- Quirks: status requires a user token with ` + "`users.profile:write`" + `; bot-token profiles cannot set a user's status.
+Goal: Set or clear the authenticated user's Slack profile status (text, emoji, optional expiration).
+
+**Decide**
+
+# action
+- Set: ` + "`slick status set`" + `
+- Clear: ` + "`slick status clear`" + `
+
+# body (set only)
+- Flagged: ` + "`--text <text> --emoji :headphones: --expires-in 2h`" + `
+- Positional shorthand: ` + "`slick status set \"In a meeting\" :calendar:`" + `
+
+# guard
+- ` + "`--dry-run`" + ` previews the status payload without calling Slack.
+
+**Run**
+- Set (flagged): ` + "`slick status set --text \"deep work\" --emoji :headphones: --expires-in 2h --output=json`" + `
+- Set (positional): ` + "`slick status set \"In a meeting\" :calendar: --output=json`" + `
+- Clear: ` + "`slick status clear --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+- ` + "`data.text`" + `, ` + "`data.emoji`" + ` [string, optional] — echo of what was set; absent on clear.
+- ` + "`data.expiration`" + ` [int64, optional] — Unix seconds when present.
+- ` + "`meta.command`" + ` is ` + "`status.set`" + ` or ` + "`status.clear`" + ` — branch on this, not on data fields.
+
+**Preconditions**
+- Requires a **user-token** profile with ` + "`users.profile:write`" + `. Bot tokens cannot set a user's status.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| ` + "`auth_failure: missing_scope`" + ` (` + "`users.profile:write`" + `) | Bot-token profile or missing scope | → ` + "`auth_setup`" + ` with a user-token profile |
+
+**Next**
+- Alternative: → ` + "`config_prefs`" + ` for non-Slack-side defaults (e.g. ` + "`default_channel`" + `).
 
 ## safe_mutation
-- Runbook: use this before send, reply, edit, delete, react, and file upload mutations in important channels.
-- Inputs: target channel or user, intended mutation, whether the target is high-impact, expected output mode.
-- Preflight: run a read-only lookup in the same profile before changing a high-traffic channel.
-- Dry-run: use ` + "`--dry-run`" + ` before destructive or high-visibility mutations.
-- Execute: keep JSON output for automation and parse explicit IDs, timestamps, and permalinks.
-- Evidence: for real writes, record the returned channel, timestamp, permalink, and dry-run status in the calling agent's evidence.
-- Failure parsing: do not scrape human text. Parse stderr JSON for ` + "`type`" + `, ` + "`message`" + `, and ` + "`exit_code`" + `.
-- Rate limits: retry only after respecting Slack's retry guidance. The CLI maps rate-limit failures to exit code ` + "`3`" + ` and structured ` + "`rate_limit`" + ` errors.
-- Quirks: ` + "`chat.postMessage`" + ` has special same-channel limits. Separate CLI processes do not share proactive throttle state, so shell fanout can still hit structured ` + "`rate_limit`" + ` errors.
-- Quirks: keep mutation fanout modest unless the purpose is a deliberate rate-limit test.
-- Quirks: use ` + "`--output=human`" + ` only for human inspection, never for machine parsing.
+Goal: A cross-cutting checklist for ` + "`send_msg`" + `, ` + "`reply`" + `, ` + "`edit_msg`" + `, ` + "`delete_msg`" + `, ` + "`react`" + `, and ` + "`upload_file`" + ` against high-visibility targets (incidents, release, exec channels).
+
+This is not a command — it's the discipline that wraps the mutating workflows.
+
+**Decide**
+
+# is this destination high-impact?
+- Yes (incident, release, exec, prod alerts) → preflight + dry-run + recorded evidence.
+- No → still keep JSON output, but skip the recorded-evidence step.
+
+# what stage am I in?
+- Pre-flight: read-only lookup with the same profile.
+- Pre-write: ` + "`--dry-run`" + ` to validate the payload.
+- Real write: machine-parseable invocation.
+- Post-write: record evidence.
+
+**Run** (sequence, per mutation)
+1. Preflight: → ` + "`discover_destination`" + ` (channel known + ` + "`is_member=true`" + `) or → ` + "`read_history`" + ` (right message ts).
+2. Dry-run: same command with ` + "`--dry-run --output=json`" + `; verify payload shape and ts placeholders.
+3. Real write: drop ` + "`--dry-run`" + `, keep ` + "`--output=json`" + `, **add the target workflow's per-command confirm flags** (` + "`--force`" + ` for → ` + "`delete_msg`" + `, ` + "`--blocks`" + ` when the input is raw Block Kit, etc. — defer to the target's Decide block).
+4. Evidence (for important writes): record returned ` + "`data.message.channel`" + `, ` + "`data.message.ts`" + `, ` + "`data.permalink`" + `, and the dry-run flag value.
+
+**Preconditions**
+- Always ` + "`--output=json`" + ` for automation — never parse ` + "`--output=human`" + ` (it's display-only).
+- Parse stderr JSON for ` + "`type`" + ` / ` + "`message`" + ` / ` + "`exit_code`" + ` on failure; do NOT scrape human text.
+
+**Behavior**
+- Rate limits map to exit code ` + "`3`" + ` + structured ` + "`rate_limit`" + ` errors with ` + "`errors[0].retry_after_seconds`" + `. Sleep before retrying that target.
+- ` + "`chat.postMessage`" + ` has same-channel limits. Separate CLI processes do NOT share proactive throttle state, so shell fanout can still hit ` + "`rate_limit`" + ` even with conservative single-process pacing.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| ` + "`rate_limit`" + ` (exit ` + "`3`" + `) | Same-channel or workspace fanout exceeded Slack budget | Sleep ` + "`errors[0].retry_after_seconds`" + `, retry. Reduce parallelism. |
+| ` + "`validation_error`" + ` requesting ` + "`--force`" + ` | Real write to ` + "`delete_msg`" + ` without the confirm flag | Add ` + "`--force`" + ` (delete is the only workflow that requires it). |
+| Unexpected ` + "`validation_error`" + ` after dry-run was clean | Real Slack state diverged (channel archived, user deactivated) between dry-run and write | Re-preflight, then retry |
+| Exit ` + "`6`" + ` (canceled) mid-flight | Caller (agent or user) interrupted the command | Treat as unfinished — re-preflight before any retry; do not assume Slack state matches your last dry-run. |
+
+**Next**
+- Composes: every mutating workflow listed in the Goal can be wrapped in this pattern.
 `
 
 func GetGuide() string {

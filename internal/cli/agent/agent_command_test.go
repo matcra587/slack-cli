@@ -135,11 +135,13 @@ func TestAgentGuideOutputsNamedWorkflowInstructions(t *testing.T) {
 		"--file -",
 		"--blocks",
 		"--output=json",
+		// Attribution surface now lives in core_contract; send_msg
+		// references it instead of duplicating the flag list.
 		"Attribution",
-		"--attribution-{label,emoji,message}",
-		"--no-attribution",
-		"--blocks",
-		"Raw Block Kit",
+		"core_contract",
+		// Lower-case "raw Block Kit" — the capitalised form was dropped
+		// along with the Behavior bullet during the token squeeze.
+		"raw Block Kit",
 	} {
 		if !strings.Contains(stdout, fragment) {
 			t.Fatalf("stdout = %q, want fragment %q", stdout, fragment)
@@ -216,8 +218,10 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 		"config_prefs": {
 			"## config_prefs",
 			"slick config init",
+			// R4 schema: the section's Goal line uses "preferences",
+			// and the Behavior block points back at the auth commands.
 			"preferences",
-			"auth commands",
+			"slick auth login",
 		},
 		"core_contract": {
 			"## core_contract",
@@ -248,8 +252,11 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 			"## discover_destination",
 			"slick lookup channel",
 			"--types",
-			"prefer IDs",
-			"plain mode renders tables",
+			// R4 Behavior: "Prefer over display names" (covers the
+			// stable-ID guidance the old assertion was after).
+			"display names",
+			// R4 Behavior: "Plain mode renders human tables".
+			"Plain mode",
 		},
 		"inspect_schema": {
 			"## inspect_schema",
@@ -272,8 +279,10 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 		"safe_mutation": {
 			"## safe_mutation",
 			"--dry-run",
-			"destructive",
-			"JSON",
+			// R4 Decide: "high-impact" replaces the old "destructive" framing
+			// while preserving the safety intent.
+			"high-impact",
+			"--output=json",
 		},
 	}
 	for section, fragments := range tests {

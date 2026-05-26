@@ -383,11 +383,11 @@ func resolveMessageSendTarget(profile config.WorkspaceProfile, channel string, u
 	case channel == "" && len(resolvedUsers) == 0:
 		channel = resolveAlias(profile, strings.TrimSpace(profile.DefaultChannel))
 		if channel == "" {
-			return sendTarget{}, errors.New("channel or user is required")
+			return sendTarget{}, errors.New("--channel or --user is required")
 		}
 		return sendTarget{Channel: channel}, nil
 	case channel != "" && len(resolvedUsers) > 0:
-		return sendTarget{}, errors.New("channel and user are mutually exclusive")
+		return sendTarget{}, errors.New("--channel and --user are mutually exclusive")
 	case channel != "":
 		return sendTarget{Channel: channel}, nil
 	}
@@ -399,9 +399,9 @@ func resolveExplicitMessageSendTarget(profile config.WorkspaceProfile, channel s
 	resolvedUsers := resolveUserTargets(profile, users)
 	switch {
 	case channel == "" && len(resolvedUsers) == 0:
-		return sendTarget{}, errors.New("channel or user is required")
+		return sendTarget{}, errors.New("--channel or --user is required")
 	case channel != "" && len(resolvedUsers) > 0:
-		return sendTarget{}, errors.New("channel and user are mutually exclusive")
+		return sendTarget{}, errors.New("--channel and --user are mutually exclusive")
 	case channel != "":
 		return sendTarget{Channel: channel}, nil
 	}

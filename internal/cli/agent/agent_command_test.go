@@ -134,14 +134,12 @@ func TestAgentGuideOutputsNamedWorkflowInstructions(t *testing.T) {
 		"--channel",
 		"--file -",
 		"--blocks",
-		"JSON",
+		"--output=json",
 		"Attribution",
-		"--attribution-emoji",
-		"--attribution-message",
+		"--attribution-{label,emoji,message}",
 		"--no-attribution",
 		"--blocks",
-		"output mode only",
-		"attribution.enabled",
+		"Raw Block Kit",
 	} {
 		if !strings.Contains(stdout, fragment) {
 			t.Fatalf("stdout = %q, want fragment %q", stdout, fragment)

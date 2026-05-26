@@ -106,7 +106,7 @@ type EnvelopeMeta struct {
 	Command    string      `json:"command"`
 	Workspace  string      `json:"workspace"`
 	Timestamp  string      `json:"timestamp"`
-	RequestID  string      `json:"request_id"`
+	RequestID  string      `json:"request_id,omitempty"`
 	Pagination *Pagination `json:"pagination,omitempty"`
 }
 

@@ -191,29 +191,80 @@ perform the task, what to parse, and which quirks matter.
 - Quirks: profile-scoped runtime tokens use ` + "`SLACK_CLI_TOKEN_<PROFILE>`" + ` with uppercase names and non-alphanumeric characters replaced by underscores.
 
 ## send_msg
-- Runbook: use this to send a channel message or DM and capture the Slack timestamp/permalink.
-- Inputs: target channel ID, user ID, Slack-profile email, or configured alias; markdown body or Block Kit JSON; workspace/profile; and whether attribution should be enabled.
-- Channel command: ` + "`slick message send --channel <channel-id-or-alias> --message <markdown> --output=json`" + `.
-- Stdin command: ` + "`printf '%s\n' \"$body\" | slick message send --channel <channel-id-or-alias> --file - --output=json`" + `.
-- Multiline command: use real stdin, such as a heredoc piped to ` + "`slick message send --channel <id> --file - --output=json`" + `; do not type literal ` + "`\\n`" + ` when you need a visible newline.
-- DM command: ` + "`slick message send --user <user-id-or-slack-profile-email> --message <markdown> --output=json`" + `. There is no ` + "`slick dm`" + ` command.
-- Group DM command: repeat ` + "`--user`" + ` or comma-separate values, such as ` + "`slick message send --user alice@example.com,bob@example.com --user U123 --message <markdown> --output=json`" + `.
-- Scheduled channel command: ` + "`slick message send --channel <channel-id-or-alias> --message <markdown> --schedule 90m --output=json`" + `. ` + "`--schedule`" + ` only accepts RFC3339 timestamps, Go durations, or Unix seconds.
-- Scheduled DM command: ` + "`slick message send --user <user-id-or-slack-profile-email> --message <markdown> --schedule 90m --output=json`" + `. Real scheduled DM sends return the raw DM or MPIM ID in ` + "`data.channel`" + `.
-- Raw Block Kit command: pass ` + "`--blocks`" + ` only when the body is a raw Block Kit JSON array. ` + "`--blocks`" + ` validates Slack Block Kit JSON rules before any Slack mutation.
-- Parse: keep ` + "`data.message.channel`" + `, ` + "`data.message.ts`" + `, ` + "`data.message.thread_ts`" + ` for replies, and ` + "`data.permalink`" + ` when present.
-- Parse scheduled sends: keep ` + "`data.channel`" + ` and ` + "`data.scheduled_message_id`" + `. Scheduled messages do not have ` + "`ts`" + ` until Slack posts them.
-- Attribution: an attribution context block is auto-attached when an agent/CI env var is detected. Configure persistent defaults with ` + "`attribution.enabled`" + `, ` + "`attribution.message`" + `, ` + "`attribution.emoji`" + `; override per call with ` + "`--attribution-label`" + `, ` + "`--attribution-emoji`" + `, ` + "`--attribution-message`" + `. Toggle the block per call with ` + "`--attribution`" + ` (force on) or ` + "`--no-attribution`" + ` (force off); both override config and env detection.
-- Quirks: ` + "`--channel`" + ` and ` + "`--user`" + ` are mutually exclusive. Passing neither uses configured ` + "`default_channel`" + ` when present; otherwise it is a validation error.
-- Quirks: for scheduled sends, pass exactly one explicit target: ` + "`--channel`" + ` or ` + "`--user`" + `. Scheduled sends do not use configured ` + "`default_channel`" + ` when no target is passed.
-- Quirks: ` + "`message send --schedule`" + ` intentionally rejects natural-language strings such as ` + "`tomorrow at 9am`" + `; use RFC3339, a Go duration, or Unix seconds.
-- Quirks: email DM targeting calls Slack ` + "`users.lookupByEmail`" + `, uses the user's Slack profile email, and requires ` + "`users:read.email`" + `. ` + "`users_not_found`" + ` means the address did not match a Slack user in the active workspace.
-- Quirks: Markdown is converted to Block Kit by default. ` + "`--output`" + ` selects an output mode only and does not select raw Block Kit input; use command-local ` + "`--blocks`" + ` for that.
-- Quirks: Unsupported block-level Markdown preserves original source text in readable Block Kit sections.
-- Quirks: Do not repeat attribution text in the message body. If attribution is enabled, Slack shows it in the context block below the message.
-- Quirks: for live workflow tests, send realistic content such as a PR review, incident update, or release note; synthetic marker text can hide UI issues.
-- Quirks: Slack timestamps are strings such as ` + "`1746284582.123456`" + `. Keep them as strings.
-- Error handling: ` + "`missing_scope`" + ` and ` + "`no_permission`" + ` map to structured auth failures. ` + "`not_in_channel`" + ` maps to ` + "`not_found`" + `; change destination, membership, or app access before retrying.
+Goal: Post a message to a channel, user, or group DM and capture the Slack timestamp and permalink for follow-up.
+
+**Decide**
+
+# target
+- Channel: ` + "`--channel <id-or-alias>`" + ` (falls back to ` + "`default_channel`" + ` only when not scheduled)
+- User: ` + "`--user <user-id-or-email>`" + ` (repeat or comma-separate for group DM)
+
+# body
+- One line: ` + "`--message <markdown>`" + `
+- Multiline or generated: ` + "`--file -`" + ` (pipe stdin; do not type literal ` + "`\\n`" + `)
+- Raw Block Kit: ` + "`--blocks`" + ` (input switch — required for real mentions and explicit ` + "`<url|label>`" + ` links)
+
+# modifiers
+- Future send: ` + "`--schedule <RFC3339|Go-duration|Unix-seconds>`" + ` (no natural-language strings)
+
+# guards
+- Dry run: ` + "`--dry-run`" + ` (validates locally, returns ` + "`ts=\"dry-run\"`" + `)
+
+**Run**
+- Channel:
+  ` + "`slick message send --channel <id-or-alias> --message <markdown> --output=json`" + `
+- User DM:
+  ` + "`slick message send --user <user-id-or-email> --message <markdown> --output=json`" + `
+- Stdin (multiline):
+  ` + "`printf '%s\\n' \"$body\" | slick message send --channel <id-or-alias> --file - --output=json`" + `
+- Scheduled:
+  ` + "`slick message send --channel <id-or-alias> --message <markdown> --schedule 90m --output=json`" + `
+- Raw Block Kit:
+  ` + "`slick message send --channel <id-or-alias> --blocks --file blocks.json --output=json`" + `
+
+**Save**
+> Requires ` + "`--output=json`" + `.
+
+Immediate:
+- ` + "`data.message.ts`" + ` [string, required] — Slack timestamp.
+- ` + "`data.message.thread_ts`" + ` [string, optional] — present when threaded.
+- ` + "`data.permalink`" + ` [string, required] — Slack URL.
+- ` + "`data.message.channel`" + `, ` + "`data.message.channel_url`" + ` [string, required] — conversation metadata.
+
+Scheduled:
+- ` + "`data.channel`" + ` [string, required] — raw channel/DM/MPIM ID.
+- ` + "`data.scheduled_message_id`" + ` [string, required] — opaque ID; pass to ` + "`schedule_msg`" + ` to cancel.
+- ` + "`data.message.ts`" + ` — absent until Slack posts.
+
+Dry run:
+- ` + "`data.message.ts == \"dry-run\"`" + ` (immediate) or ` + "`data.scheduled_message_id == \"dry-run\"`" + ` (scheduled).
+
+**Preconditions**
+- ` + "`--channel`" + ` and ` + "`--user`" + ` are mutually exclusive.
+- Scheduled sends require an explicit target — ` + "`default_channel`" + ` is not consulted.
+- ` + "`--schedule`" + ` rejects natural-language strings; use RFC3339, Go duration (` + "`90m`" + `, ` + "`2h30m`" + `), or Unix seconds.
+- Email targeting requires ` + "`users:read.email`" + ` scope.
+
+**Behavior**
+- Markdown is escaped (` + "`&`" + `, ` + "`<`" + `, ` + "`>`" + ` → entities). Mention/link sentinels in ` + "`--message`" + ` render as literal text. Use ` + "`--blocks`" + ` for real ` + "`<@U123>`" + `, ` + "`<#C123>`" + `, ` + "`<!subteam^S1>`" + `, or ` + "`<url|label>`" + `.
+- Attribution context block auto-attaches on agent/CI detection. Do not duplicate the attribution text in your body. Force per-call with ` + "`--attribution`" + ` / ` + "`--no-attribution`" + `; override copy with ` + "`--attribution-{label,emoji,message}`" + `.
+- Unsupported block-level Markdown (lists, blockquotes, fenced code, raw HTML) survives as readable section text.
+- Slack timestamps stay as strings (e.g. ` + "`1746284582.123456`" + `); never cast to float.
+
+**Recover**
+| Symptom | Cause | Next |
+|---|---|---|
+| ` + "`validation_error: --channel or --user is required`" + ` | No target and no ` + "`default_channel`" + ` | Retry with ` + "`--channel <id>`" + ` or ` + "`--user <id>`" + ` |
+| ` + "`not_found: not_in_channel`" + ` | Token identity isn't in the channel | Invite the bot, or → ` + "`auth_setup`" + ` to switch to a user-token profile |
+| ` + "`not_found: users_not_found`" + ` (email DM) | Email didn't match a Slack profile in this workspace | → ` + "`lookup_user`" + ` then retry with ` + "`--user U…`" + ` |
+| ` + "`auth_failure: missing_scope`" + ` | Manifest lacks ` + "`chat:write`" + ` or ` + "`users:read.email`" + ` | → ` + "`auth_setup`" + ` to update manifest and reauthenticate |
+| Schedule ` + "`validation_error`" + ` | Past time, natural-language string, or >120 days out | Retry with future RFC3339 / Go duration / Unix seconds |
+
+**Next**
+- Then: → ` + "`reply`" + ` (start a thread on the new message — uses saved ` + "`data.message.ts`" + `)
+- Then: → ` + "`edit_msg`" + ` (modify the message — uses saved ` + "`data.message.channel`" + ` + ` + "`data.message.ts`" + `)
+- Alternative: → ` + "`react`" + ` (add reactions to the new message)
+- Alternative: → ` + "`schedule_msg`" + ` (list or cancel scheduled sends)
 
 ## schedule_msg
 - Runbook: use this to schedule a future channel or DM message, inspect pending scheduled messages, or cancel one before it fires.
@@ -259,6 +310,7 @@ perform the task, what to parse, and which quirks matter.
 - Verify: run ` + "`slick history list --channel <channel-id> --thread <parent-message-ts> --output=json`" + `.
 - Quirks: ` + "`--parent`" + ` is the parent message timestamp, not a permalink or search result index.
 - Quirks: ` + "`--dry-run`" + ` validates the local payload and returns ` + "`thread_ts`" + ` without calling Slack.
+- Quirks: user-supplied Markdown is escaped on the wire (` + "`&`" + `, ` + "`<`" + `, ` + "`>`" + ` → HTML entities); sentinels like ` + "`<!channel>`" + `, ` + "`<@U123>`" + `, ` + "`<#C123>`" + `, and ` + "`<url|label>`" + ` in ` + "`--message`" + ` content render as literal text and do NOT fire mentions or link substitutions. To intentionally mention a user or post an explicit link, bypass the converter with ` + "`--blocks`" + ` and write the wire syntax in the JSON.
 - Command metadata uses ` + "`reply`" + `.
 
 ## read_history
@@ -299,6 +351,7 @@ perform the task, what to parse, and which quirks matter.
 - Parse: keep ` + "`data.file.permalink`" + ` when Slack returns it.
 - Quirks: stdin upload requires ` + "`--filename`" + `. Missing files, directories, and missing stdin metadata fail locally before Slack upload endpoints.
 - Quirks: upload progress and diagnostics go to stderr; stdout remains command data.
+- Quirks: when ` + "`--message`" + ` is supplied as an upload comment, it goes through the same Markdown converter as ` + "`message send`" + ` and is escaped on the wire (` + "`&`" + `, ` + "`<`" + `, ` + "`>`" + ` → HTML entities); sentinels like ` + "`<!channel>`" + `, ` + "`<@U123>`" + `, ` + "`<#C123>`" + `, and ` + "`<url|label>`" + ` render as literal text. Use ` + "`--blocks`" + ` for the comment payload to mention or link intentionally.
 - Scope: real uploads require ` + "`files:write`" + `. Use ` + "`--dry-run`" + ` to verify payload shape without the scope.
 
 ## edit_msg
@@ -310,6 +363,7 @@ perform the task, what to parse, and which quirks matter.
 - Parse: keep ` + "`data.message.channel`" + `, ` + "`data.message.ts`" + `, and ` + "`data.message.text`" + ` when present. Edit output does not include returned ` + "`data.message.blocks`" + `; verify rendered Block Kit through history or the Slack UI when needed.
 - Quirks: Slack only allows editing own messages where token scopes permit it.
 - Quirks: the timestamp is unique only inside a channel; always pass both channel and timestamp.
+- Quirks: user-supplied Markdown is escaped on the wire (` + "`&`" + `, ` + "`<`" + `, ` + "`>`" + ` → HTML entities); sentinels like ` + "`<!channel>`" + `, ` + "`<@U123>`" + `, ` + "`<#C123>`" + `, and ` + "`<url|label>`" + ` in the new ` + "`--message`" + ` content render as literal text and do NOT fire mentions or link substitutions. To intentionally mention a user or post an explicit link, bypass the converter with ` + "`--blocks`" + ` and write the wire syntax in the JSON.
 - Safety: use ` + "`--dry-run`" + ` before editing incident, release, or high-visibility channels.
 - Error handling: if Slack rejects the edit as not-owned or not permitted, return the structured error. Do not try delete/send fallback.
 

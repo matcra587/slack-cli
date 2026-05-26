@@ -138,8 +138,11 @@ func TestThreadReplyCommandPreservesUnsupportedMarkdownSourceFallback(t *testing
 			if err := json.Unmarshal([]byte(req.Form.Get("blocks")), &blocks); err != nil {
 				t.Fatalf("blocks form value is not JSON: %v", err)
 			}
-			if got := rawSectionText(t, blocks[0]); got != "> threaded context" {
-				t.Fatalf("block text = %q, want source-preserving blockquote", got)
+			// `>` is escaped to `&gt;` on the wire by slackutilsx.EscapeMessage;
+			// Slack decodes it before mrkdwn parsing so blockquote rendering
+			// is preserved. See internal/blockkit/markdown.go::FromMarkdown.
+			if got := rawSectionText(t, blocks[0]); got != "&gt; threaded context" {
+				t.Fatalf("block text = %q, want escaped blockquote", got)
 			}
 			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284599.123456","message":{"type":"message","text":"reply","ts":"1746284599.123456","thread_ts":"1746284582.123456"}}`)
 		},

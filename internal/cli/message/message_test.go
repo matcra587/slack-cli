@@ -611,11 +611,14 @@ func TestMessageSendCommandPreservesUnsupportedMarkdownSourceFallback(t *testing
 					got = append(got, rawSectionText(t, block))
 				}
 			}
+			// `&`, `<`, and `>` are escaped through slackutilsx.EscapeMessage
+			// before reaching Slack so user content cannot inject mention or
+			// link sentinels. See internal/blockkit/markdown.go::FromMarkdown.
 			for _, want := range []string{
 				"- alpha\n- beta",
-				"> quoted",
+				"&gt; quoted",
 				"```sh\necho hello\n```",
-				"<details>\n<summary>Deploy</summary>\n</details>",
+				"&lt;details&gt;\n&lt;summary&gt;Deploy&lt;/summary&gt;\n&lt;/details&gt;",
 			} {
 				if !containsString(got, want) {
 					t.Fatalf("section texts = %#v, want source-preserving fallback %q", got, want)

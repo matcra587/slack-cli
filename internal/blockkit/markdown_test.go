@@ -81,9 +81,13 @@ func TestFromMarkdownPreservesUnsupportedBlockSourceFallback(t *testing.T) {
 			want:  "- alpha\n- beta",
 		},
 		{
+			// Markdown blockquote — `>` is escaped to `&gt;` on the wire.
+			// Verified live against Slack: the UI decodes `&gt;` before
+			// mrkdwn parsing, so the blockquote still renders visually.
+			// No user-visible regression.
 			name:  "blockquote",
 			input: "> quoted\n> source\n",
-			want:  "> quoted\n> source",
+			want:  "&gt; quoted\n&gt; source",
 		},
 		{
 			name:  "fenced code",
@@ -91,9 +95,12 @@ func TestFromMarkdownPreservesUnsupportedBlockSourceFallback(t *testing.T) {
 			want:  "```sh\necho hello\n```",
 		},
 		{
+			// Raw HTML in user input — angle brackets are escaped, so Slack
+			// renders the entities as literal `<` / `>`. Slack never
+			// rendered HTML anyway, so end-user effect is identical.
 			name:  "raw html",
 			input: "<details>\n<summary>Deploy</summary>\n</details>\n",
-			want:  "<details>\n<summary>Deploy</summary>\n</details>",
+			want:  "&lt;details&gt;\n&lt;summary&gt;Deploy&lt;/summary&gt;\n&lt;/details&gt;",
 		},
 		{
 			name:  "unsupported extension marker",
@@ -120,6 +127,47 @@ func TestFromMarkdownPreservesUnsupportedBlockSourceFallback(t *testing.T) {
 			}
 			if got := strings.TrimSpace(section.Text.Text); got != tt.want {
 				t.Fatalf("section text = %q, want source-preserving fallback %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestFromMarkdownEscapesSlackMentionSentinels guards the canonical Slack
+// mrkdwn escape applied to user-supplied content. Without escaping, a CI
+// log piped through `slick message send` could contain `<!channel>`,
+// `<@U999>`, `<#C123>`, or a phishing `<https://evil.com|trusted.com>` and
+// Slack would auto-parse them. With slackutilsx.EscapeMessage in place,
+// `<` and `>` become `&lt;` and `&gt;`, killing the sentinel.
+func TestFromMarkdownEscapesSlackMentionSentinels(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"channel ping", "Look at <!channel>", "Look at &lt;!channel&gt;"},
+		{"here ping", "Heads up <!here>", "Heads up &lt;!here&gt;"},
+		{"everyone ping", "Hi <!everyone>", "Hi &lt;!everyone&gt;"},
+		{"user mention", "FYI <@U999HUMAN>", "FYI &lt;@U999HUMAN&gt;"},
+		{"channel ref", "See <#C123>", "See &lt;#C123&gt;"},
+		{"subteam", "Ping <!subteam^S123>", "Ping &lt;!subteam^S123&gt;"},
+		{"phishing link", "Click <https://evil.com|trusted.com>", "Click &lt;https://evil.com|trusted.com&gt;"},
+		{"ampersand", "A & B", "A &amp; B"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			blocks, err := blockkit.FromMarkdown(tt.input)
+			if err != nil {
+				t.Fatalf("FromMarkdown returned error: %v", err)
+			}
+			if len(blocks) != 1 {
+				t.Fatalf("block count = %d, want 1", len(blocks))
+			}
+			section, ok := blocks[0].(*blockkit.SectionBlock)
+			if !ok {
+				t.Fatalf("block type = %T, want SectionBlock", blocks[0])
+			}
+			if got := strings.TrimSpace(section.Text.Text); got != tt.want {
+				t.Fatalf("section text = %q, want %q (escape sentinel)", got, tt.want)
 			}
 		})
 	}

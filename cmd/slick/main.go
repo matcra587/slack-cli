@@ -18,6 +18,7 @@ import (
 	"github.com/gechr/x/human"
 	"github.com/gechr/x/shell"
 	"github.com/gechr/x/terminal"
+	"github.com/google/uuid"
 	"github.com/matcra587/slack-cli/internal/agent"
 	cliagent "github.com/matcra587/slack-cli/internal/cli/agent"
 	cliauth "github.com/matcra587/slack-cli/internal/cli/auth"
@@ -191,6 +192,11 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 			HTTPClient:   runtime.HTTPClient,
 			Now:          runtime.Now,
 		}
+	}
+	if runtime.RequestID == nil {
+		// Stable per-process UUID so every envelope from one invocation
+		// shares the same request_id for log correlation.
+		runtime.RequestID = sync.OnceValue(uuid.NewString)
 	}
 
 	root := &cobra.Command{

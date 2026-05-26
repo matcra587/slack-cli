@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	slackgo "github.com/slack-go/slack"
+	"github.com/slack-go/slack/slackutilsx"
 	goldmark "github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
@@ -17,6 +18,23 @@ var defaultParser = sync.OnceValue(func() parser.Parser {
 	return goldmark.New(goldmark.WithExtensions(extension.Table)).Parser()
 })
 
+// FromMarkdown parses user-supplied Markdown into Block Kit blocks. Section
+// block content is escaped through slack-go's slackutilsx.EscapeMessage
+// (`&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`) so that user content cannot
+// inject Slack mention/link sentinels like `<!channel>`, `<@U…>`, `<#C…>`,
+// or the `<url|label>` phishing pattern. This matches slack-go's
+// `DEFAULT_MESSAGE_ESCAPE_TEXT = true` behavior for the top-level message
+// text field.
+//
+// Slack decodes `&gt;` before mrkdwn blockquote detection, so a user piping
+// `> quoted` through `slick message send` still renders as a Slack
+// blockquote (verified live 2026-05-26 against homeassistant587.slack.com).
+// Bare URLs still auto-link because Slack's URL detector runs on the
+// decoded text.
+//
+// `--blocks` raw Block Kit JSON bypasses this path entirely; the caller
+// owns escaping there. See
+// https://docs.slack.dev/reference/surfaces/formatting#escaping.
 func FromMarkdown(markdown string) ([]Block, error) {
 	source := []byte(markdown)
 	doc := defaultParser().Parse(text.NewReader(source))
@@ -27,12 +45,12 @@ func FromMarkdown(markdown string) ([]Block, error) {
 		case ast.KindParagraph:
 			content := strings.TrimSpace(sourceFromNode(node, source))
 			if content != "" {
-				blocks = append(blocks, slackgo.NewSectionBlock(MarkdownText(content), nil, nil))
+				blocks = append(blocks, slackgo.NewSectionBlock(MarkdownText(slackutilsx.EscapeMessage(content)), nil, nil))
 			}
 		case ast.KindHeading:
 			content := strings.TrimSpace(textFromNode(node, source))
 			if content != "" {
-				blocks = append(blocks, slackgo.NewSectionBlock(MarkdownText(content), nil, nil))
+				blocks = append(blocks, slackgo.NewSectionBlock(MarkdownText(slackutilsx.EscapeMessage(content)), nil, nil))
 			}
 		case extast.KindTable:
 			table := tableFromNode(node, source)
@@ -45,7 +63,7 @@ func FromMarkdown(markdown string) ([]Block, error) {
 				content = strings.TrimSpace(textFromNode(node, source))
 			}
 			if content != "" {
-				blocks = append(blocks, slackgo.NewSectionBlock(MarkdownText(content), nil, nil))
+				blocks = append(blocks, slackgo.NewSectionBlock(MarkdownText(slackutilsx.EscapeMessage(content)), nil, nil))
 			}
 		}
 	}

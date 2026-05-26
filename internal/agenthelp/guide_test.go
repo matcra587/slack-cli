@@ -11,16 +11,15 @@ func TestGuideDocumentsBlocksRawAndAttributionConfig(t *testing.T) {
 	guide := agenthelp.GetGuideSection("send_msg")
 	for _, fragment := range []string{
 		"--blocks",
-		"raw Block Kit",
-		"validates Slack Block Kit JSON rules",
-		"Unsupported block-level Markdown preserves original source text",
-		"--output",
-		"output mode only",
-		"attribution.enabled",
-		"attribution.message",
-		"attribution.emoji",
-		"Do not repeat attribution text",
-		"realistic content such as a PR review",
+		"Raw Block Kit",
+		"required for real mentions",
+		"Unsupported block-level Markdown",
+		"readable section text",
+		"Requires `--output=json`",
+		"--attribution",
+		"--no-attribution",
+		"--attribution-{label,emoji,message}",
+		"Do not duplicate the attribution text",
 	} {
 		if !strings.Contains(guide, fragment) {
 			t.Fatalf("send_msg guide missing %q:\n%s", fragment, guide)
@@ -50,8 +49,8 @@ func TestGuideDocumentsBestEffortScopeAndPermissionErrors(t *testing.T) {
 func TestGuideDocumentsSlackErrorClasses(t *testing.T) {
 	guide := agenthelp.GetGuideSection("send_msg")
 	for _, fragment := range []string{
-		"`missing_scope` and `no_permission` map to structured auth failures",
-		"`not_in_channel` maps to `not_found`",
+		"`auth_failure: missing_scope`",
+		"`not_found: not_in_channel`",
 	} {
 		if !strings.Contains(guide, fragment) {
 			t.Fatalf("send_msg guide missing %q:\n%s", fragment, guide)
@@ -115,9 +114,10 @@ func TestGuideDocumentsScheduledHumanAndJSONTargets(t *testing.T) {
 func TestGuideDocumentsScheduledUserTargetsInSendRunbook(t *testing.T) {
 	guide := agenthelp.GetGuideSection("send_msg")
 	for _, fragment := range []string{
-		"Scheduled DM command",
-		"slick message send --user <user-id-or-slack-profile-email>",
-		"pass exactly one explicit target: `--channel` or `--user`",
+		"Scheduled:",
+		"--schedule 90m",
+		"<user-id-or-email>",
+		"Scheduled sends require an explicit target",
 	} {
 		if !strings.Contains(guide, fragment) {
 			t.Fatalf("send_msg guide missing %q:\n%s", fragment, guide)

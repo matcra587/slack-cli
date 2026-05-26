@@ -82,7 +82,7 @@ func TestScheduledSendRejectsInvalidTargetsAndSchedulesBeforeSlack(t *testing.T)
 		{
 			name: "default channel not used for scheduled send",
 			args: []string{"message", "send", "--message", "Later", "--schedule", "90m"},
-			want: "channel or user is required",
+			want: "--channel or --user is required",
 		},
 		{
 			name: "natural language rejected",

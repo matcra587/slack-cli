@@ -91,6 +91,26 @@ Common types: `feat`, `fix`, `docs`, `test`, `refactor`, `build`, `ci`,
 `chore`. The pre-commit hook enforces this format and runs the standard
 local checks; do not bypass it without a reason.
 
+### Release notes
+
+Goreleaser builds the GitHub release changelog from commits between tags,
+filtered through the `changelog.filters.exclude` patterns in
+[`.goreleaser.yml`](.goreleaser.yml). Commits whose subject matches any of
+the following prefixes are **excluded** from the rendered changelog:
+
+| Excluded prefix | Why |
+|---|---|
+| `docs:` | Documentation-only changes |
+| `style:` | Formatting / whitespace / cosmetic |
+| `chore:` | Maintenance, deps bumps, housekeeping |
+| `ci:` | CI workflow changes |
+| `test:` | Tests only |
+
+`feat:`, `fix:`, `refactor:`, `build:`, and `perf:` commits **do** appear
+in the changelog. Pick the prefix that reflects what the reader of release
+notes should care about — a `chore: bump foo` that secretly contains a
+breaking change should be reclassified as `fix` or `feat!`.
+
 ## Releasing
 
 ```bash

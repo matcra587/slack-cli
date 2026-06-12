@@ -11,7 +11,7 @@ require (
 	github.com/gechr/primer v0.0.14
 	github.com/gechr/x v0.0.7
 	github.com/google/uuid v1.6.0
-	github.com/slack-go/slack v0.23.0
+	github.com/slack-go/slack v0.25.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/yuin/goldmark v1.8.2

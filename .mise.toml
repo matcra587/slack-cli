@@ -6,7 +6,7 @@ lockfile = true
 
 [tools]
 # clover: provider=auto constraint=minor
-go = "1.26.3"
+go = "1.26.5"
 actionlint = "latest"
 goreleaser = "latest"
 cosign = "latest"

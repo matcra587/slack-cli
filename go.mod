@@ -1,7 +1,7 @@
 module github.com/matcra587/slack-cli
 
 // clover: provider=auto constraint=minor
-go 1.26.3
+go 1.26.5
 
 require (
 	charm.land/huh/v2 v2.0.3

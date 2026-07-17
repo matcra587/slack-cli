@@ -20,6 +20,6 @@ jobs:
   security:
     name: Security
     # clover: provider=auto constraint=minor tag-prefix=security/ tags=actions
-    uses: matcra587/github-actions/.github/workflows/security.yml@94784f7af61e7af7ddb69263211259f18b1dfd68 # security/v0.3.1
+    uses: matcra587/github-actions/.github/workflows/security.yml@8ac690a9ce57ff20ff105dbdb99989a1bf7fd9f4 # security/v0.3.2
     permissions:
       contents: read

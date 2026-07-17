@@ -23,3 +23,6 @@ jobs:
     uses: matcra587/github-actions/.github/workflows/security.yml@3e61d37c312b21e008fa58eda8844a70b6a24f9d # security/v0.4.0
     permissions:
       contents: read
+      security-events: write # SARIF + CodeQL uploads to code scanning.
+    with:
+      sarif: true

@@ -5,6 +5,7 @@ min_version = "2026.5.0"
 lockfile = true
 
 [tools]
+# clover: provider=auto constraint=minor
 go = "1.26.3"
 actionlint = "latest"
 goreleaser = "latest"

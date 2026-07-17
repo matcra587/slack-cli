@@ -21,15 +21,18 @@ jobs:
       id-token: write           # Required for cosign via OIDC.
     steps:
       - name: Checkout
+        # clover: provider=auto constraint=minor
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Install cosign
+        # clover: provider=auto constraint=minor
         uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
 
       - name: Install mise
+        # clover: provider=auto constraint=minor
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -53,6 +56,7 @@ jobs:
 
       - name: Run GoReleaser
         if: steps.release-state.outputs.exists != 'true'
+        # clover: provider=auto constraint=minor
         uses: goreleaser/goreleaser-action@1a80836c5c9d9e5755a25cb59ec6f45a3b5f41a8 # v7.2.1
         with:
           distribution: goreleaser
@@ -86,6 +90,7 @@ jobs:
 
       - name: Create Homebrew tap token
         id: app-token
+        # clover: provider=auto constraint=minor
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
           client-id: ${{ vars.APP_CLIENT_ID }}
@@ -93,6 +98,7 @@ jobs:
           repositories: homebrew-tap
 
       - name: Publish Homebrew formula
+        # clover: provider=auto constraint=minor
         uses: matcra587/github-actions/packages/homebrew-publish-formula@6e3053f35d4ec31adc4f82c04a2c43209f3b36e6 # homebrew/v0.1.0
         with:
           token: ${{ steps.app-token.outputs.token }}

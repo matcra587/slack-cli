@@ -1,5 +1,6 @@
 module github.com/matcra587/slack-cli
 
+// clover: provider=auto constraint=minor
 go 1.26.3
 
 require (

@@ -457,8 +457,7 @@ func statusEndpointURL(baseURL, endpoint string) string {
 }
 
 func cliError(ctx context.Context, err error) clioutput.CLIError {
-	var slackErr slackgo.SlackErrorResponse
-	if errors.As(err, &slackErr) {
+	if slackErr, ok := errors.AsType[slackgo.SlackErrorResponse](err); ok {
 		return clioutput.CliErrorFromSlack(ctx, slackErr, "")
 	}
 	return clioutput.CliErrorFromSlack(ctx, err, "")

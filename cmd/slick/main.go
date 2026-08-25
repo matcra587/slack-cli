@@ -418,8 +418,7 @@ func main() {
 	}()
 	root.SetContext(ctx)
 	if err := root.ExecuteContext(ctx); err != nil {
-		var commandErr CommandError
-		if errors.As(err, &commandErr) {
+		if commandErr, ok := errors.AsType[CommandError](err); ok {
 			os.Exit(commandErr.CLIError.ExitCode)
 		}
 		isTTY := terminal.Is(os.Stdout)

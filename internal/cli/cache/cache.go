@@ -467,8 +467,7 @@ func (e fetchError) Error() string {
 }
 
 func cliErrorFromCacheError(ctx context.Context, err error) clioutput.CLIError {
-	var fetchErr fetchError
-	if errors.As(err, &fetchErr) {
+	if fetchErr, ok := errors.AsType[fetchError](err); ok {
 		return fetchErr.err
 	}
 	return clioutput.CliErrorFromSlack(ctx, err, "")

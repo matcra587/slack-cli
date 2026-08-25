@@ -31,8 +31,7 @@ func CliErrorFromSlack(ctx context.Context, err error, kind string) CLIError {
 }
 
 func mapSlackError(err error, kind string) (CLIError, bool) {
-	var scopeErr MissingScopeError
-	if errors.As(err, &scopeErr) {
+	if scopeErr, ok := errors.AsType[MissingScopeError](err); ok {
 		cliErr := CLIError{Type: ErrorTypeAuth, Message: scopeErr.Error(), ExitCode: ExitCodeAuthFailure}
 		if needed := missingScopeDetails(scopeErr); len(needed) > 0 {
 			cliErr = cliErr.WithDetails(map[string]any{"needed": needed})
@@ -40,8 +39,7 @@ func mapSlackError(err error, kind string) (CLIError, bool) {
 		return cliErr, true
 	}
 
-	var rateErr *slackgo.RateLimitedError
-	if errors.As(err, &rateErr) {
+	if rateErr, ok := errors.AsType[*slackgo.RateLimitedError](err); ok {
 		seconds := max(int(math.Ceil(rateErr.RetryAfter.Seconds())), 0)
 		return CLIError{
 			Type:              ErrorTypeRateLimit,

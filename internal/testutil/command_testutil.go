@@ -60,8 +60,7 @@ func RunBinary(t testing.TB, binary string, args []string, opts CommandOptions) 
 	exitCode := 0
 	if err != nil {
 		exitCode = -1
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			exitCode = exitErr.ExitCode()
 		}
 	}

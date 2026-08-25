@@ -748,8 +748,7 @@ func (e oauthTimeoutError) Error() string {
 }
 
 func authCLIErrorFromError(err error) clioutput.CLIError {
-	var timeout oauthTimeoutError
-	if errors.As(err, &timeout) {
+	if timeout, ok := errors.AsType[oauthTimeoutError](err); ok {
 		return clioutput.CLIError{
 			Type:     clioutput.ErrorTypeAuth,
 			Message:  timeout.Error(),

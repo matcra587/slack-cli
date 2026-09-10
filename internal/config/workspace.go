@@ -34,7 +34,7 @@ type WorkspaceProfile struct {
 	AgentLabel       string            `toml:"agent_label,omitempty" json:"agent_label,omitempty"`
 	AgentEmoji       string            `toml:"agent_emoji,omitempty" json:"agent_emoji,omitempty"`
 	AgentMessage     string            `toml:"agent_message,omitempty" json:"agent_message,omitempty"`
-	Attribution      AttributionConfig `toml:"attribution,omitempty" json:"attribution,omitempty"`
+	Attribution      AttributionConfig `toml:"attribution,omitempty" json:"attribution"`
 	RateLimitTier    string            `toml:"rate_limit_tier,omitempty" json:"rate_limit_tier,omitempty"`
 	Aliases          map[string]string `toml:"aliases,omitempty" json:"aliases,omitempty"`
 }

@@ -55,7 +55,7 @@ type templateOptions struct {
 type generatedManifest struct {
 	Display     slackgo.Display            `json:"display_information" yaml:"display_information"`
 	Features    *generatedFeatures         `json:"features,omitempty" yaml:"features,omitempty"`
-	OAuthConfig generatedOAuthConfig       `json:"oauth_config,omitempty" yaml:"oauth_config,omitempty"`
+	OAuthConfig generatedOAuthConfig       `json:"oauth_config" yaml:"oauth_config,omitempty"`
 	Settings    *generatedManifestSettings `json:"settings,omitempty" yaml:"settings,omitempty"`
 }
 
@@ -65,7 +65,7 @@ type generatedFeatures struct {
 
 type generatedOAuthConfig struct {
 	RedirectUrls []string            `json:"redirect_urls,omitempty" yaml:"redirect_urls,omitempty"`
-	Scopes       slackgo.OAuthScopes `json:"scopes,omitempty" yaml:"scopes,omitempty"`
+	Scopes       slackgo.OAuthScopes `json:"scopes" yaml:"scopes,omitempty"`
 	PKCEEnabled  bool                `json:"pkce_enabled" yaml:"pkce_enabled"`
 }
 

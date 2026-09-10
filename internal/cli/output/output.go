@@ -13,7 +13,9 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
+	"github.com/gechr/clog/field/hyperlink"
 	clogstyle "github.com/gechr/clog/style"
+	"github.com/matcra587/slack-cli/internal/cli/clitheme"
 )
 
 type RenderMode int
@@ -190,6 +192,7 @@ func TrimInputName(logger *clog.Logger, kind, name string) string {
 func BuildBaseLoggers(stdout, stderr io.Writer, colorMode clog.ColorMode) (*clog.Logger, *clog.Logger) {
 	sl := clog.New(clog.NewOutput(stdout, colorMode))
 	sl.SetOmitZero(true)
+	sl.SetHyperlinkFallback(hyperlink.FallbackText)
 	// Success events on stdout read as actions ("Message sent  ts=...") with
 	// no level prefix. Warning and error events still go through stderr's
 	// logger which keeps the slog-style level prefix.
@@ -197,6 +200,7 @@ func BuildBaseLoggers(stdout, stderr io.Writer, colorMode clog.ColorMode) (*clog
 
 	el := clog.New(clog.NewOutput(stderr, colorMode))
 	el.SetOmitZero(true)
+	el.SetHyperlinkFallback(hyperlink.FallbackText)
 	el.SetParts(clog.PartLevel, clog.PartMessage, clog.PartFields)
 	el.SetNonTTYLevel(clog.LevelWarn)
 	el.SetJSONPrintMode(clog.JSONFlat)
@@ -403,7 +407,7 @@ func RenderTimezone(th *theme.Theme, value string) string {
 
 func HashEntityStyle(th *theme.Theme, key string) *lipgloss.Style {
 	if th == nil {
-		th = theme.Default()
+		th = clitheme.Default()
 	}
 	if len(th.EntityColors) == 0 || strings.TrimSpace(key) == "" {
 		return nil

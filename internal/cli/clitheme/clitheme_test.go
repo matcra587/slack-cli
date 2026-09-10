@@ -10,7 +10,7 @@ import (
 )
 
 func TestLoginHuhThemeUsesClibSemanticColors(t *testing.T) {
-	th := clibtheme.Default().With(
+	th := Default().With(
 		clibtheme.WithHelpCommand(lipgloss.NewStyle().Foreground(lipgloss.Color("#123456"))),
 		clibtheme.WithHelpDim(lipgloss.NewStyle().Foreground(lipgloss.Color("#654321"))),
 		clibtheme.WithHelpFlag(lipgloss.NewStyle().Foreground(lipgloss.Color("#fedcba"))),

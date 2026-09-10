@@ -15,8 +15,7 @@ import (
 	"github.com/gechr/clib/help"
 	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
-	"github.com/gechr/x/human"
-	"github.com/gechr/x/shell"
+	xfilepath "github.com/gechr/x/filepath"
 	"github.com/gechr/x/terminal"
 	"github.com/google/uuid"
 	"github.com/matcra587/slack-cli/internal/agent"
@@ -24,6 +23,7 @@ import (
 	cliauth "github.com/matcra587/slack-cli/internal/cli/auth"
 	clicache "github.com/matcra587/slack-cli/internal/cli/cache"
 	clichannel "github.com/matcra587/slack-cli/internal/cli/channel"
+	"github.com/matcra587/slack-cli/internal/cli/clitheme"
 	clicompletion "github.com/matcra587/slack-cli/internal/cli/completion"
 	cliconfig "github.com/matcra587/slack-cli/internal/cli/config"
 	clifile "github.com/matcra587/slack-cli/internal/cli/file"
@@ -212,7 +212,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 
 	clog.SetEnvPrefix("SLICK")
 	theme.SetEnvPrefix("SLICK")
-	getTheme := sync.OnceValue(theme.Default)
+	getTheme := sync.OnceValue(clitheme.Default)
 	th := getTheme()
 	renderer := help.NewRenderer(th)
 	runtime.Theme = th
@@ -321,14 +321,18 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 
 func defaultConfigPath() string {
 	if path := os.Getenv("SLICK_CONFIG"); path != "" {
-		return human.ExpandPath(path)
+		return xfilepath.Expand(path)
 	}
 	if path := os.Getenv("SLACK_CLI_CONFIG"); path != "" {
-		return human.ExpandPath(path)
+		return xfilepath.Expand(path)
 	}
-	dir, err := shell.XDGConfigHome()
-	if err != nil {
-		return ""
+	dir := os.Getenv("XDG_CONFIG_HOME")
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		dir = filepath.Join(home, ".config")
 	}
 	return filepath.Join(dir, "slick", "config.toml")
 }

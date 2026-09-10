@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gechr/clib/theme"
 	"github.com/matcra587/slack-cli/internal/agent"
+	"github.com/matcra587/slack-cli/internal/cli/clitheme"
 	climanifest "github.com/matcra587/slack-cli/internal/cli/manifest"
 	"github.com/matcra587/slack-cli/internal/cli/runtime/runtimetest"
 	"github.com/matcra587/slack-cli/internal/config"
@@ -372,7 +372,7 @@ func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, ar
 		Config:       cfg,
 		SlackBaseURL: baseURL,
 		Stdin:        strings.NewReader(stdin),
-		Theme:        theme.Default(),
+		Theme:        clitheme.Default(),
 	})
 	root := runtimetest.NewRoot(runtime, stdout, stderr)
 	root.AddCommand(climanifest.NewCommand(runtime))

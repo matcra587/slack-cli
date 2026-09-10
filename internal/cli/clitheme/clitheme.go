@@ -4,6 +4,8 @@
 package clitheme
 
 import (
+	"strings"
+
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	clibtheme "github.com/gechr/clib/theme"
@@ -14,10 +16,10 @@ import (
 // base theme for plain or monochrome themes.
 func LoginHuhTheme(th *clibtheme.Theme) huh.Theme {
 	if th == nil {
-		th = clibtheme.Default()
+		th = Default()
 	}
 	return huh.ThemeFunc(func(isDark bool) *huh.Styles {
-		if th.String() == "plain" || th.String() == "monochrome" {
+		if strings.HasPrefix(th.String(), "plain-") || strings.HasPrefix(th.String(), "monochrome-") {
 			return huh.ThemeBase(isDark)
 		}
 		resolved := th.Init()

@@ -11,10 +11,9 @@ import (
 
 	"charm.land/huh/v2"
 	clib "github.com/gechr/clib/cli/cobra"
-	clibtheme "github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
-	xfs "github.com/gechr/x/fs"
 	"github.com/gechr/x/human"
+	xos "github.com/gechr/x/os"
 	clitheme "github.com/matcra587/slack-cli/internal/cli/clitheme"
 	"github.com/matcra587/slack-cli/internal/cli/cliutil"
 	clioauth "github.com/matcra587/slack-cli/internal/cli/oauth"
@@ -231,7 +230,7 @@ func runInit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts InitOptio
 	if strings.TrimSpace(path) == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("config path is unavailable"))
 	}
-	exists, err := xfs.Exists(path)
+	exists, err := xos.Exists(path)
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 	}
@@ -333,7 +332,7 @@ func runInitForm(runtime *cliruntime.RootRuntime, opts *InitOptions) error {
 
 func runForm(runtime *cliruntime.RootRuntime, form *huh.Form) error {
 	form = form.
-		WithTheme(clitheme.LoginHuhTheme(clibtheme.Default())).
+		WithTheme(clitheme.LoginHuhTheme(clitheme.Default())).
 		WithInput(runtime.Stdin).
 		WithOutput(runtime.Stderr)
 	if !clioauth.UsesTerminalFiles(runtime) {
@@ -378,7 +377,7 @@ func newPathCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cliruntime.LocalContext(cmd, runtime, "config")
-			exists, err := xfs.Exists(runtime.ConfigPath)
+			exists, err := xos.Exists(runtime.ConfigPath)
 			return ctx.WriteResult("config.path", PathData{Path: runtime.ConfigPath, Exists: err == nil && exists})
 		},
 	}

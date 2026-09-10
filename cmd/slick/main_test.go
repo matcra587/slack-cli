@@ -113,6 +113,11 @@ func TestDefaultConfigPathUsesXDGConfigDirAndEnvOverride(t *testing.T) {
 		t.Fatalf("defaultConfigPath = %q, want %q", got, want)
 	}
 
+	t.Setenv("XDG_CONFIG_HOME", "relative-config")
+	if got, want := defaultConfigPath(), filepath.Join("relative-config", "slick", "config.toml"); got != want {
+		t.Fatalf("relative XDG config path = %q, want %q", got, want)
+	}
+
 	t.Setenv("XDG_CONFIG_HOME", "")
 	home = t.TempDir()
 	t.Setenv("HOME", home)

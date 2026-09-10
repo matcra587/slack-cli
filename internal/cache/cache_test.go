@@ -12,6 +12,24 @@ import (
 	"github.com/matcra587/slack-cli/internal/cache"
 )
 
+func TestRootPreservesXDGLayout(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	for _, tt := range []struct{ xdg, want string }{
+		{"", filepath.Join(home, ".cache", "slick")},
+		{"relative-cache", filepath.Join("relative-cache", "slick")},
+	} {
+		t.Run(tt.xdg, func(t *testing.T) {
+			t.Setenv("XDG_CACHE_HOME", tt.xdg)
+			got, err := cache.Root()
+			if err != nil || got != tt.want {
+				t.Fatalf("Root() = %q, %v; want %q", got, err, tt.want)
+			}
+		})
+	}
+}
+
 func TestCacheRoundTripUsesSlickXDGCacheHome(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("XDG_CACHE_HOME", root)

@@ -9,8 +9,7 @@ import (
 	"strings"
 	"time"
 
-	xfs "github.com/gechr/x/fs"
-	"github.com/gechr/x/shell"
+	xfilepath "github.com/gechr/x/filepath"
 )
 
 const DefaultTTL = 24 * time.Hour
@@ -28,16 +27,21 @@ func Path(profile, resource string) (string, error) {
 		return "", err
 	}
 	path := filepath.Join(root, sanitize(profile), sanitize(resource)+".json")
-	if !xfs.IsWithin(root, path) {
+	if !xfilepath.IsWithin(root, path) {
 		return "", fmt.Errorf("cache path escaped root")
 	}
 	return path, nil
 }
 
 func Root() (string, error) {
-	dir, err := shell.XDGCacheHome()
-	if err != nil {
-		return "", err
+	// Slick uses the XDG cache layout on every platform.
+	dir := os.Getenv("XDG_CACHE_HOME")
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		dir = filepath.Join(home, ".cache")
 	}
 	return filepath.Join(dir, "slick"), nil
 }

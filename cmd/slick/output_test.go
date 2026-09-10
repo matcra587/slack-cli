@@ -587,17 +587,5 @@ func newOutputTestContext(mode RenderMode, colorMode ...clog.ColorMode) (*Comman
 }
 
 func buildTestLoggers(stdout, stderr *bytes.Buffer) (*clog.Logger, *clog.Logger) {
-	sl := clog.New(clog.TestOutput(stdout))
-	sl.SetOmitZero(true)
-	// Mirror BuildBaseLoggers: stdout success events drop the level prefix so
-	// plain-mode output reads as "Message sent  ts=..." not "INF Message sent".
-	sl.SetParts(clog.PartMessage, clog.PartFields)
-
-	el := clog.New(clog.TestOutput(stderr))
-	el.SetOmitZero(true)
-	el.SetParts(clog.PartLevel, clog.PartMessage, clog.PartFields)
-	el.SetNonTTYLevel(clog.LevelWarn)
-	el.SetJSONPrintMode(clog.JSONFlat)
-
-	return sl, el
+	return buildBaseLoggers(stdout, stderr, clog.ColorNever)
 }

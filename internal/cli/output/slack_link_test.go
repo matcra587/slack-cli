@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
 	"github.com/gechr/x/ansi"
+	"github.com/matcra587/slack-cli/internal/cli/clitheme"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 )
 
@@ -151,7 +151,7 @@ func TestWriteHealthIncidentTableDimsID(t *testing.T) {
 
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
-	th := theme.Default()
+	th := clitheme.Default()
 	sl, el := clioutput.BuildBaseLoggers(stdout, stderr, clog.ColorAlways)
 	ctx := &clioutput.CommandContext{
 		Workspace: "default",

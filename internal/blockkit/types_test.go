@@ -14,7 +14,7 @@ func TestBlockKitTypesMarshalToSlackNativeJSON(t *testing.T) {
 		blockkit.DividerBlock{Type: "divider"},
 		blockkit.ImageBlock{Type: "image", ImageURL: "https://example.com/image.png", AltText: "example"},
 		blockkit.FileBlock{Type: "file", ExternalID: "F123", Source: "remote"},
-		blockkit.TableBlock{Type: "table", Rows: [][]*blockkit.RichTextBlock{{blockkit.RichTextCell("service"), blockkit.RichTextCell("status")}}},
+		blockkit.TableBlock{Type: "table", Rows: [][]blockkit.TableCell{{blockkit.RichTextCell("service"), blockkit.RichTextCell("status")}}},
 	}
 
 	raw, err := json.Marshal(blocks)

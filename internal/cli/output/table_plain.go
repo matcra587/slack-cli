@@ -231,7 +231,7 @@ func (c *CommandContext) WriteMessageTable(messages []Message) error {
 		{Name: "text", Header: "TEXT", Flex: true, Render: func(row Message, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.Text)) }},
 		{Name: "replies", Header: "REPLIES", Render: func(row Message, _ *table.RenderContext) table.Cell { return c.numberCell(row.ReplyCount) }},
 	}
-	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(messages).String())
+	return c.WriteString(renderTable(c, columns, messages))
 }
 
 func (c *CommandContext) WriteSearchTable(matches []SearchMessage, full bool) error {
@@ -251,7 +251,7 @@ func (c *CommandContext) WriteSearchTable(matches []SearchMessage, full bool) er
 			return table.TextCell(text)
 		}},
 	}
-	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(matches).String())
+	return c.WriteString(renderTable(c, columns, matches))
 }
 
 func (c *CommandContext) WriteChannelTable(command string, channels []Channel) error {
@@ -278,7 +278,7 @@ func (c *CommandContext) WriteChannelTable(command string, channels []Channel) e
 		{Name: "members", Header: "MEMBERS", Render: func(row Channel, _ *table.RenderContext) table.Cell { return c.numberCell(row.NumMembers) }},
 		{Name: "topic", Header: "TOPIC", Flex: true, Render: func(row Channel, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.Topic)) }},
 	}
-	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(channels).String())
+	return c.WriteString(renderTable(c, columns, channels))
 }
 
 func (c *CommandContext) WriteUserTable(users []User) error {
@@ -312,7 +312,7 @@ func (c *CommandContext) WriteUserTable(users []User) error {
 		}},
 		table.Column[User]{Name: "status", Header: "STATUS", Flex: true, Render: func(row User, _ *table.RenderContext) table.Cell { return table.TextCell(ptrString(row.StatusText)) }},
 	)
-	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(users).String())
+	return c.WriteString(renderTable(c, columns, users))
 }
 
 func (c *CommandContext) WriteScheduledMessageTable(messages []ScheduledMessage) error {
@@ -333,7 +333,7 @@ func (c *CommandContext) WriteScheduledMessageTable(messages []ScheduledMessage)
 			return table.TextCell(row.TextPreview)
 		}},
 	}
-	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(messages).String())
+	return c.WriteString(renderTable(c, columns, messages))
 }
 
 func usersHavePresence(users []User) bool {
@@ -357,7 +357,7 @@ func (c *CommandContext) WriteReactionTable(reactions []ReactionSummary) error {
 			return c.reactionUsersCell(row.Users)
 		}},
 	}
-	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(reactions).String())
+	return c.WriteString(renderTable(c, columns, reactions))
 }
 
 func (c *CommandContext) WriteHealthIncidentTable(incidents []HealthIncident) error {
@@ -384,7 +384,7 @@ func (c *CommandContext) WriteHealthIncidentTable(incidents []HealthIncident) er
 			return table.TextCell(row.Title)
 		}},
 	}
-	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(incidents).String())
+	return c.WriteString(renderTable(c, columns, incidents))
 }
 
 // reactionUsersCell hash-colors each comma-separated user ID using the
@@ -440,7 +440,7 @@ func (c *CommandContext) WriteConfigEntriesTable(entries []ConfigEntry) error {
 			return table.StyledCell(c.Theme.Dim.Render(text), text)
 		}},
 	}
-	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(entries).String())
+	return c.WriteString(renderTable(c, columns, entries))
 }
 
 // configValueCell renders a config value: bool values get red/green by
@@ -484,7 +484,7 @@ func (c *CommandContext) WriteWorkspaceTable(workspaces []config.WorkspaceProfil
 			return c.hashCell("token_type:"+string(row.TokenType), string(row.TokenType))
 		}},
 	}
-	return c.WriteString(table.NewRenderer(columns, c.tableContext(), table.WithTTY(c.IsTTY), table.WithTermWidth(c.tableWidth())).Render(workspaces).String())
+	return c.WriteString(renderTable(c, columns, workspaces))
 }
 
 func ptrString(value *string) string {

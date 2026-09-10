@@ -12,7 +12,7 @@ func TestValidateBlocksAcceptsSupportedBlocks(t *testing.T) {
 	blocks := []blockkit.Block{
 		blockkit.SectionBlock{Text: blockkit.MarkdownText("hello")},
 		*blockkit.AttributionBlock(":robot_face:", "agent mode"),
-		blockkit.TableBlock{Rows: [][]*blockkit.RichTextBlock{{blockkit.RichTextCell("service")}}},
+		blockkit.TableBlock{Rows: [][]blockkit.TableCell{{blockkit.RichTextCell("service")}}},
 	}
 
 	if err := blockkit.ValidateBlocks(blocks); err != nil {
@@ -105,8 +105,8 @@ func TestValidateBlocksRejectsBadShapesWithoutPanic(t *testing.T) {
 func TestValidateBlocksRejectsTableLimits(t *testing.T) {
 	t.Run("more than one table", func(t *testing.T) {
 		err := blockkit.ValidateBlocks([]blockkit.Block{
-			blockkit.TableBlock{Rows: [][]*blockkit.RichTextBlock{{blockkit.RichTextCell("a")}}},
-			blockkit.TableBlock{Rows: [][]*blockkit.RichTextBlock{{blockkit.RichTextCell("b")}}},
+			blockkit.TableBlock{Rows: [][]blockkit.TableCell{{blockkit.RichTextCell("a")}}},
+			blockkit.TableBlock{Rows: [][]blockkit.TableCell{{blockkit.RichTextCell("b")}}},
 		})
 		if err == nil || !strings.Contains(err.Error(), "one table") {
 			t.Fatalf("ValidateBlocks error = %v, want one table limit", err)
@@ -114,9 +114,9 @@ func TestValidateBlocksRejectsTableLimits(t *testing.T) {
 	})
 
 	t.Run("too many rows", func(t *testing.T) {
-		rows := make([][]*blockkit.RichTextBlock, 101)
+		rows := make([][]blockkit.TableCell, 101)
 		for i := range rows {
-			rows[i] = []*blockkit.RichTextBlock{blockkit.RichTextCell("x")}
+			rows[i] = []blockkit.TableCell{blockkit.RichTextCell("x")}
 		}
 		err := blockkit.ValidateBlocks([]blockkit.Block{blockkit.TableBlock{Rows: rows}})
 		if err == nil || !strings.Contains(err.Error(), "100") {
@@ -125,11 +125,11 @@ func TestValidateBlocksRejectsTableLimits(t *testing.T) {
 	})
 
 	t.Run("too many columns", func(t *testing.T) {
-		row := make([]*blockkit.RichTextBlock, 21)
+		row := make([]blockkit.TableCell, 21)
 		for i := range row {
 			row[i] = blockkit.RichTextCell("x")
 		}
-		err := blockkit.ValidateBlocks([]blockkit.Block{blockkit.TableBlock{Rows: [][]*blockkit.RichTextBlock{row}}})
+		err := blockkit.ValidateBlocks([]blockkit.Block{blockkit.TableBlock{Rows: [][]blockkit.TableCell{row}}})
 		if err == nil || !strings.Contains(err.Error(), "20") {
 			t.Fatalf("ValidateBlocks error = %v, want column limit", err)
 		}

@@ -5,16 +5,24 @@ min_version = "2026.5.0"
 lockfile = true
 
 [tools]
-# clover: provider=auto constraint=minor tags=go
-go = "1.26.6"
-actionlint = "latest"
-goreleaser = "latest"
-cosign = "latest"
-zizmor = "latest"
-rumdl = "latest"
-hk = "latest"
-pkl = "latest"
-shellcheck = "latest"
+# @clover: constraint=minor tags=go
+go = "1.27.1"
+# @clover: constraint=major tags=actionlint
+actionlint = "1.7.12"
+# @clover: constraint=major tags=goreleaser
+goreleaser = "2.18.1"
+# @clover: constraint=major tags=cosign
+cosign = "3.1.3"
+# @clover: constraint=major tags=zizmor
+zizmor = "1.30.1"
+# @clover: constraint=major tags=rumdl
+rumdl = "0.2.69"
+# @clover: id=hk constraint=major tags=hk
+hk = "1.58.1"
+# @clover: constraint=major tags=pkl
+pkl = "0.32.1"
+# @clover: constraint=major tags=shellcheck
+shellcheck = "0.11.0"
 
 [env]
 HK_MISE = 1

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/gechr/clog"
+	xfilepath "github.com/gechr/x/filepath"
 	"github.com/gechr/x/human"
 	"github.com/matcra587/slack-cli/internal/agent"
 	"github.com/matcra587/slack-cli/internal/blockkit"
@@ -226,7 +227,7 @@ func readUploadSource(stdin io.Reader, filePath, filename string) ([]byte, strin
 		content, err := io.ReadAll(stdin)
 		return content, filename, err
 	}
-	expandedPath := human.ExpandPath(filePath)
+	expandedPath := xfilepath.Expand(filePath)
 	content, err := os.ReadFile(expandedPath) //nolint:gosec // File upload intentionally reads the caller-supplied path.
 	if err != nil {
 		return nil, "", err

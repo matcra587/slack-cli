@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/gechr/clog"
-	"github.com/gechr/x/human"
+	xfilepath "github.com/gechr/x/filepath"
 	xstrings "github.com/gechr/x/strings"
 	"github.com/matcra587/slack-cli/internal/agent"
 	"github.com/matcra587/slack-cli/internal/blockkit"
@@ -514,7 +514,7 @@ func ReadMessageSource(stdin io.Reader, src Source) (string, error) {
 		}
 		return string(raw), nil
 	}
-	raw, err := os.ReadFile(human.ExpandPath(src.File))
+	raw, err := os.ReadFile(xfilepath.Expand(src.File))
 	if err != nil {
 		return "", err
 	}

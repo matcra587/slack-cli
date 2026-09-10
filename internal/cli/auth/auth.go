@@ -22,7 +22,8 @@ import (
 
 	"charm.land/huh/v2"
 	clibtheme "github.com/gechr/clib/theme"
-	"github.com/gechr/x/human"
+	"github.com/gechr/clog/fx"
+	xfilepath "github.com/gechr/x/filepath"
 	"github.com/gechr/x/shell"
 	clitheme "github.com/matcra587/slack-cli/internal/cli/clitheme"
 	climanifest "github.com/matcra587/slack-cli/internal/cli/manifest"
@@ -416,7 +417,7 @@ func resolveLoginTokenSource(runtime *cliruntime.RootRuntime, input *loginInput)
 			}
 			input.Token = trimTokenSource(raw)
 		case input.TokenFile != "":
-			raw, err := os.ReadFile(human.ExpandPath(input.TokenFile))
+			raw, err := os.ReadFile(xfilepath.Expand(input.TokenFile))
 			if err != nil {
 				return fmt.Errorf("reading token file: %w", err)
 			}
@@ -483,7 +484,7 @@ func runAuthLoginForm(ctx *clioutput.CommandContext, runtime *cliruntime.RootRun
 				Value(&input.AuthMethod),
 		),
 	).
-		WithTheme(clitheme.LoginHuhTheme(clibtheme.Default())).
+		WithTheme(clitheme.LoginHuhTheme(clitheme.Default())).
 		WithInput(runtime.Stdin).
 		WithOutput(runtime.Stderr)
 	if accessible {
@@ -518,7 +519,7 @@ func runTokenLoginForm(runtime *cliruntime.RootRuntime, input *loginInput, help 
 	form := huh.NewForm(
 		huh.NewGroup(authTokenInput(&input.Token, help["token"], accessible)),
 	).
-		WithTheme(clitheme.LoginHuhTheme(clibtheme.Default())).
+		WithTheme(clitheme.LoginHuhTheme(clitheme.Default())).
 		WithInput(runtime.Stdin).
 		WithOutput(runtime.Stderr)
 	if accessible {
@@ -545,7 +546,7 @@ func runOAuthLoginForm(ctx *clioutput.CommandContext, runtime *cliruntime.RootRu
 				Validate(validateOAuthRedirectField),
 		),
 	).
-		WithTheme(clitheme.LoginHuhTheme(clibtheme.Default())).
+		WithTheme(clitheme.LoginHuhTheme(clitheme.Default())).
 		WithInput(runtime.Stdin).
 		WithOutput(runtime.Stderr)
 	if accessible {
@@ -654,48 +655,42 @@ func completeOAuthLogin(reqCtx context.Context, ctx *clioutput.CommandContext, r
 	defer signalStop()
 	oauthCtx, cancelOAuth := context.WithTimeout(signalCtx, timeout)
 	defer cancelOAuth()
-	// Capture the OAuth exchange response via atomic.Pointer so the
-	// task goroutine inside Spinner.Wait synchronizes with the main
-	// goroutine. clog's runAnimation races task return against
-	// ctx.Done(); if ctx wins, Wait returns while the task may still
-	// be writing. atomic.Pointer gives us a happens-before edge for
-	// the load below.
+	// Publish the OAuth response safely if cancellation races the exchange.
 	var responsePtr atomic.Pointer[slackgo.OAuthV2Response]
 	spinner := ctx.StderrLogger().Spinner("Waiting for Slack OAuth callback").
 		Link("authorize_url", authorizeURL, clioutput.HyperlinkText(authorizeURL)).
 		Link("redirect_url", redirectURL.String(), clioutput.HyperlinkText(redirectURL.String()))
-	spinner.ClearOnCancel = true
-	spinErr := spinner.
-		Wait(oauthCtx, func(taskCtx context.Context) error {
-			_ = openURL(authorizeURL)
-			var callback oauthCallbackResult
-			select {
-			case callback = <-resultCh:
-			case <-taskCtx.Done():
-				if errors.Is(taskCtx.Err(), context.DeadlineExceeded) {
-					return oauthTimeoutError{RedirectURL: redirectURL.String()}
-				}
-				return taskCtx.Err()
+	group := ctx.StderrLogger().Group(oauthCtx, fx.WithClearOnCancel())
+	group.Add(spinner).Run(func(taskCtx context.Context) error {
+		_ = openURL(authorizeURL)
+		var callback oauthCallbackResult
+		select {
+		case callback = <-resultCh:
+		case <-taskCtx.Done():
+			if errors.Is(taskCtx.Err(), context.DeadlineExceeded) {
+				return oauthTimeoutError{RedirectURL: redirectURL.String()}
 			}
-			if callback.Err != nil {
-				return callback.Err
-			}
-			// The exchange is a single Slack POST that runs after the user has
-			// already interacted; give it its own fresh per-request timeout
-			// rather than racing with what's left of OAuthTimeout. Layer it
-			// on signalCtx so Ctrl-C also kills the in-flight request.
-			exchangeCtx, cancelExchange := context.WithTimeout(signalCtx, exchangeTimeout)
-			defer cancelExchange()
-			resp, err := oauthExchangeCode(exchangeCtx, runtime, input.ClientID, callback.Code, redirectURL.String(), verifier)
-			if err != nil {
-				return err
-			}
-			responsePtr.Store(resp)
-			return nil
-		}).Silent()
+			return taskCtx.Err()
+		}
+		if callback.Err != nil {
+			return callback.Err
+		}
+		// The exchange is a single Slack POST that runs after the user has
+		// already interacted; give it its own fresh per-request timeout
+		// rather than racing with what's left of OAuthTimeout. Layer it
+		// on signalCtx so Ctrl-C also kills the in-flight request.
+		exchangeCtx, cancelExchange := context.WithTimeout(signalCtx, exchangeTimeout)
+		defer cancelExchange()
+		resp, err := oauthExchangeCode(exchangeCtx, runtime, input.ClientID, callback.Code, redirectURL.String(), verifier)
+		if err != nil {
+			return err
+		}
+		responsePtr.Store(resp)
+		return nil
+	})
+	spinErr := group.Wait().Silent()
 	if spinErr != nil {
-		// runAnimation races the task return against ctx.Done(); if the ctx
-		// branch wins we get a bare DeadlineExceeded. Re-wrap as the
+		// Cancellation can return a bare DeadlineExceeded. Re-wrap as the
 		// structured oauth-timeout error so callers see the redirect_url.
 		if errors.Is(spinErr, context.DeadlineExceeded) {
 			return false, oauthTimeoutError{RedirectURL: redirectURL.String()}

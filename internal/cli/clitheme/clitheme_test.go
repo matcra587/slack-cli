@@ -10,7 +10,7 @@ import (
 )
 
 func TestLoginHuhThemeUsesClibSemanticColors(t *testing.T) {
-	th := clibtheme.Default().With(
+	th := Default().With(
 		clibtheme.WithHelpCommand(lipgloss.NewStyle().Foreground(lipgloss.Color("#123456"))),
 		clibtheme.WithHelpDim(lipgloss.NewStyle().Foreground(lipgloss.Color("#654321"))),
 		clibtheme.WithHelpFlag(lipgloss.NewStyle().Foreground(lipgloss.Color("#fedcba"))),
@@ -30,5 +30,15 @@ func assertSameColor(t *testing.T, want string, got color.Color) {
 	gotHex := fmt.Sprintf("#%02x%02x%02x", uint8(r>>8), uint8(g>>8), uint8(b>>8))
 	if gotHex != want {
 		t.Fatalf("color = %s, want %s", gotHex, want)
+	}
+}
+
+func TestMergeLoginHuhStylePreservesUnsetColors(t *testing.T) {
+	base := lipgloss.NewStyle().Foreground(lipgloss.Color("#123456")).Background(lipgloss.Color("#654321"))
+	got := mergeLoginHuhStyle(base, lipgloss.NewStyle().Bold(true))
+	assertSameColor(t, "#123456", got.GetForeground())
+	assertSameColor(t, "#654321", got.GetBackground())
+	if !got.GetBold() {
+		t.Fatal("bold override was lost")
 	}
 }

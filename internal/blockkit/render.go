@@ -1,8 +1,11 @@
 package blockkit
 
 import (
+	"strconv"
 	"strings"
 	"sync"
+
+	slackgo "github.com/slack-go/slack"
 )
 
 var defaultStripReplacer = sync.OnceValue(func() *strings.Replacer {
@@ -50,7 +53,7 @@ func renderTable(b *strings.Builder, table *TableBlock) {
 	for _, row := range table.Rows {
 		cells := make([]string, 0, len(row))
 		for _, cell := range row {
-			cells = append(cells, richTextPlain(cell))
+			cells = append(cells, tableCellPlain(cell))
 		}
 		writeLine(b, strings.Join(cells, "\t"))
 	}
@@ -85,4 +88,31 @@ func writeLine(b *strings.Builder, line string) {
 
 func stripMarkdown(s string) string {
 	return defaultStripReplacer().Replace(s)
+}
+
+func tableCellPlain(cell TableCell) string {
+	switch typed := cell.(type) {
+	case *slackgo.TableRichTextCell:
+		if typed != nil {
+			return richTextPlain(&RichTextBlock{Elements: typed.Elements})
+		}
+	case slackgo.TableRichTextCell:
+		return tableCellPlain(&typed)
+	case *slackgo.TableRawTextCell:
+		if typed != nil {
+			return typed.Text
+		}
+	case slackgo.TableRawTextCell:
+		return typed.Text
+	case *slackgo.TableRawNumberCell:
+		if typed != nil {
+			if typed.Text != "" {
+				return typed.Text
+			}
+			return strconv.FormatFloat(typed.Value, 'f', -1, 64)
+		}
+	case slackgo.TableRawNumberCell:
+		return tableCellPlain(&typed)
+	}
+	return ""
 }

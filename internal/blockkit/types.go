@@ -13,6 +13,7 @@ type (
 	FileBlock                  = slackgo.FileBlock
 	MarkdownBlock              = slackgo.MarkdownBlock
 	TableBlock                 = slackgo.TableBlock
+	TableCell                  = slackgo.TableCell
 	RichTextBlock              = slackgo.RichTextBlock
 	RichTextSection            = slackgo.RichTextSection
 	RichTextSectionTextElement = slackgo.RichTextSectionTextElement
@@ -31,6 +32,6 @@ func PlainText(text string) *TextObject {
 	return slackgo.NewTextBlockObject(TextTypePlain, text, false, false)
 }
 
-func RichTextCell(text string) *slackgo.RichTextBlock {
-	return slackgo.NewRichTextBlock("", slackgo.NewRichTextSection(slackgo.NewRichTextSectionTextElement(text, nil)))
+func RichTextCell(text string) *slackgo.TableRichTextCell {
+	return slackgo.NewTableRichTextCell(slackgo.NewRichTextSection(slackgo.NewRichTextSectionTextElement(text, nil)))
 }

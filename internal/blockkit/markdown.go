@@ -91,8 +91,8 @@ func tableFromNode(table ast.Node, source []byte) TableBlock {
 	return *block
 }
 
-func tableRowFromNode(row ast.Node, source []byte) []*slackgo.RichTextBlock {
-	var cells []*slackgo.RichTextBlock
+func tableRowFromNode(row ast.Node, source []byte) []slackgo.TableCell {
+	var cells []slackgo.TableCell
 	for cell := row.FirstChild(); cell != nil; cell = cell.NextSibling() {
 		if cell.Kind() != extast.KindTableCell {
 			continue

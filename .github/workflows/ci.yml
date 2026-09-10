@@ -11,23 +11,19 @@ concurrency:
 permissions: {}
 
 jobs:
-  go-test:
-    name: Go test
-    # clover: provider=auto tags=actions
-    uses: matcra587/github-actions/.github/workflows/go-test.yml@67f0de0d0ceebe69895e868207c04e5c66b3bde8
+  go-ci:
+    name: Go CI
+    # @clover: constraint=major tag-prefix=go-ci/ tags=actions
+    uses: matcra587/github-actions/.github/workflows/go-ci.yml@9e87045cb838afd0d6a65ebff3ae2d50fa7e8887 # go-ci/v0.3.2
     permissions:
       contents: read
-
-  go-lint:
-    name: Go lint
-    # clover: provider=auto tags=actions
-    uses: matcra587/github-actions/.github/workflows/go-lint.yml@67f0de0d0ceebe69895e868207c04e5c66b3bde8
-    permissions:
-      contents: read
+    with:
+      # clover: provider=github repository=golangci/golangci-lint constraint=major
+      golangci-version: v2.13.2
 
   md-lint:
     name: Markdown lint
-    # clover: provider=auto tags=actions
-    uses: matcra587/github-actions/.github/workflows/md-lint.yml@67f0de0d0ceebe69895e868207c04e5c66b3bde8
+    # @clover: constraint=major tag-prefix=go-ci/ tags=actions
+    uses: matcra587/github-actions/.github/workflows/md-lint.yml@9e87045cb838afd0d6a65ebff3ae2d50fa7e8887 # go-ci/v0.3.2
     permissions:
       contents: read

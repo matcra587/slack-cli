@@ -32,3 +32,13 @@ func assertSameColor(t *testing.T, want string, got color.Color) {
 		t.Fatalf("color = %s, want %s", gotHex, want)
 	}
 }
+
+func TestMergeLoginHuhStylePreservesUnsetColors(t *testing.T) {
+	base := lipgloss.NewStyle().Foreground(lipgloss.Color("#123456")).Background(lipgloss.Color("#654321"))
+	got := mergeLoginHuhStyle(base, lipgloss.NewStyle().Bold(true))
+	assertSameColor(t, "#123456", got.GetForeground())
+	assertSameColor(t, "#654321", got.GetBackground())
+	if !got.GetBold() {
+		t.Fatal("bold override was lost")
+	}
+}

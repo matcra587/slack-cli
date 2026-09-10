@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	slackgo "github.com/slack-go/slack"
 )
 
 const (
@@ -535,7 +537,14 @@ func validateTable(index int, block *TableBlock) error {
 			return fmt.Errorf("block %d table row %d exceeds %d columns", index, rowIndex, maxTableColumns)
 		}
 		for colIndex, cell := range row {
-			if cell == nil || cell.Type != "rich_text" {
+			valid := false
+			switch typed := cell.(type) {
+			case *slackgo.TableRichTextCell:
+				valid = typed != nil && typed.Type == slackgo.TableCellRichText
+			case slackgo.TableRichTextCell:
+				valid = typed.Type == slackgo.TableCellRichText
+			}
+			if !valid {
 				return fmt.Errorf("block %d table cell %d:%d must be rich_text", index, rowIndex, colIndex)
 			}
 		}

@@ -40,13 +40,15 @@ func LoginHuhTheme(th *clibtheme.Theme) huh.Theme {
 		// theme's command color as a solid background; blurred buttons sit
 		// quietly in dim. Inherit huh.ThemeBase's button padding/margin so
 		// only the colors change.
-		if helpCommandFg := helpCommand.GetForeground(); helpCommandFg != nil {
+		helpCommandFg := helpCommand.GetForeground()
+		if _, unset := helpCommandFg.(lipgloss.NoColor); !unset {
 			t.Focused.FocusedButton = t.Focused.FocusedButton.
 				Foreground(lipgloss.Color("0")).
 				Background(helpCommandFg).
 				Bold(true)
 		}
-		if helpDimFg := helpDim.GetForeground(); helpDimFg != nil {
+		helpDimFg := helpDim.GetForeground()
+		if _, unset := helpDimFg.(lipgloss.NoColor); !unset {
 			t.Focused.BlurredButton = t.Focused.BlurredButton.
 				Foreground(helpDimFg).
 				UnsetBackground()
@@ -74,10 +76,12 @@ func derefStyle(s *lipgloss.Style) lipgloss.Style {
 }
 
 func mergeLoginHuhStyle(base, override lipgloss.Style) lipgloss.Style {
-	if foreground := override.GetForeground(); foreground != nil {
+	foreground := override.GetForeground()
+	if _, unset := foreground.(lipgloss.NoColor); !unset {
 		base = base.Foreground(foreground)
 	}
-	if background := override.GetBackground(); background != nil {
+	background := override.GetBackground()
+	if _, unset := background.(lipgloss.NoColor); !unset {
 		base = base.Background(background)
 	}
 	if override.GetBold() {

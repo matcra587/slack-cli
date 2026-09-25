@@ -8,7 +8,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/BurntSushi/toml v1.6.0
 	github.com/charmbracelet/x/ansi v0.11.8
-	github.com/gechr/clib v0.7.17
+	github.com/gechr/clib v0.7.18
 	github.com/gechr/clog v0.17.1
 	github.com/gechr/primer v0.2.7
 	github.com/gechr/x v0.6.0

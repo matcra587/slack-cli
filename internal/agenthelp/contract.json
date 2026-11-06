@@ -1,0 +1,350 @@
+{
+  "description": "Slack CLI - agent-first command line interface for Slack workspaces",
+  "auth": {
+    "type": "bearer",
+    "env_var": "SLACK_CLI_TOKEN",
+    "description": "Slack token via SLACK_CLI_TOKEN_<PROFILE>, SLACK_CLI_TOKEN, or configured secret ref. Never store plaintext tokens in TOML or argv."
+  },
+  "output": {
+    "default": "JSON envelope in non-TTY/agent mode, human-readable text in TTY",
+    "output_flag": "--output",
+    "modes": [
+      "auto",
+      "human",
+      "json",
+      "compact"
+    ],
+    "notes": [
+      "set --output (or -o) to exactly one of auto, human, json, compact",
+      "auto picks human in a TTY and json otherwise",
+      "stdout carries one machine result on success or failure; human diagnostics use stderr",
+      "machine failures use the full {ok,meta,data,errors} envelope even in compact mode; stderr has no duplicate human error",
+      "paginated data includes pagination in json and compact; json keeps meta.pagination as a compatibility mirror",
+      "output_write_failed is io exit 8 and must not trigger replay of a mutation",
+      "mutation commands support --dry-run",
+      "agent-originated messages include attribution unless explicitly disabled",
+      "use command-local --blocks for raw Block Kit input",
+      "Markdown uses source-preserving Markdown fallback sections for unsupported block-level constructs",
+      "--blocks validates Slack Block Kit JSON rules before Slack mutation",
+      "Slack errors such as missing_scope, not_in_channel, and no_permission map to fixed exit codes",
+      "Explicit JSON output always uses {ok,meta,data,errors}; meta.exit_code is present on success and failure. Discovery schema is data.schema; guides are data.document. Compact success is bare data."
+    ]
+  },
+  "input_shapes": {
+    "auth.login": [
+      "--workspace <name>",
+      "--method <oauth|token>",
+      "--token-stdin",
+      "--token-file <path>",
+      "--token-env <env-var-name>",
+      "--oauth-client-id <id>",
+      "--oauth-redirect-url <local-url>",
+      "--force"
+    ],
+    "cache.channels": [
+      "--refresh",
+      "--ttl-minutes <n>",
+      "--page-size <n>",
+      "--max-pages <n>",
+      "active public/private/DM/MPIM conversations"
+    ],
+    "cache.clear": [
+      "optional resource: users or channels",
+      "no resource clears all cache files for the profile"
+    ],
+    "cache.users": [
+      "--refresh",
+      "--ttl-minutes <n>",
+      "--page-size <n>",
+      "--max-pages <n>",
+      "active users only"
+    ],
+    "file.upload": [
+      "--channel <id|alias>",
+      "--file <path|->",
+      "--filename <name> required for stdin",
+      "--message <markdown>",
+      "--blocks Block Kit JSON array for --message comment"
+    ],
+    "health.api-test": [
+      "calls unauthenticated Slack Web API api.test",
+      "no Slack scopes required"
+    ],
+    "health.check": [
+      "runs api.test plus Slack Status current",
+      "optional --service <Slack service>",
+      "data.healthy is true when api_ok is true and there are no active incidents for the requested scope"
+    ],
+    "health.current": [
+      "optional --service <Slack service>",
+      "calls unauthenticated slack-status.com v2 current endpoint"
+    ],
+    "health.history": [
+      "--limit <n> defaults to 20; 0 returns all fetched incidents",
+      "optional --service <Slack service>",
+      "calls unauthenticated slack-status.com v2 history endpoint"
+    ],
+    "history.list": [
+      "--channel <id|alias>",
+      "--max-items <n>",
+      "--since <slack-ts>",
+      "--until <slack-ts>",
+      "--user <id>",
+      "--thread <ts>"
+    ],
+    "lookup.channel": [
+      "--channel <id|alias> for one conversation",
+      "--types <public_channel,private_channel,im,mpim>",
+      "--max-items <n>",
+      "--filter <text>"
+    ],
+    "lookup.user": [
+      "--user <id|alias> for one user",
+      "--max-items <n>",
+      "--filter <text>",
+      "--presence",
+      "--include-deleted"
+    ],
+    "manifest": [
+      "template --name <name>",
+      "template --format <json|yaml>",
+      "local manifest generation only"
+    ],
+    "message.scheduled.delete": [
+      "--channel <id|alias>",
+      "--scheduled-id <QID>",
+      "--dry-run"
+    ],
+    "message.scheduled.list": [
+      "optional --channel <id|alias>",
+      "--cursor <cursor>",
+      "--limit <n>",
+      "data.scheduled_messages[] rows include id/channel/post_at/text_preview plus best-effort channel_name/channel_hr/channel_url/channel_type/channel_user/is_dm metadata"
+    ],
+    "message.send": [
+      "--channel <id|alias>",
+      "--user <id|alias|slack-profile-email>",
+      "--channel and --user are mutually exclusive",
+      "--message <markdown>",
+      "--file <path|->",
+      "stdin markdown when --file -",
+      "source-preserving Markdown fallback for unsupported block-level constructs",
+      "--blocks Block Kit JSON array",
+      "--blocks validates Slack Block Kit JSON rules",
+      "--schedule <RFC3339|duration|unix-seconds> for channel or user scheduled sends",
+      "scheduled --user sends resolve/open the DM before chat.scheduleMessage; real output data.channel is the raw DM/MPIM channel ID"
+    ],
+    "react.add": [
+      "--channel <id|alias>",
+      "--timestamp <slack-ts>",
+      "--emoji <name|:name:>",
+      "--dry-run"
+    ],
+    "react.list": [
+      "--channel <id|alias>",
+      "--timestamp <slack-ts>"
+    ],
+    "react.remove": [
+      "--channel <id|alias>",
+      "--timestamp <slack-ts>",
+      "--emoji <name|:name:>",
+      "--dry-run"
+    ],
+    "reply": [
+      "--channel <id|alias>",
+      "--parent <slack-ts>",
+      "--message <markdown>",
+      "--file <path|->",
+      "--blocks Block Kit JSON array",
+      "--dry-run"
+    ]
+  },
+  "output_schemas": {
+    "compact": [
+      "command-specific data on success, including pagination for paginated operations",
+      "full failure envelope on error"
+    ],
+    "health.api-test": [
+      "data.ok",
+      "data.args when Slack echoes request arguments"
+    ],
+    "health.check": [
+      "data.healthy",
+      "data.status",
+      "data.api_ok",
+      "data.active_incidents[]",
+      "data.active_incident_count"
+    ],
+    "health.current": [
+      "data.status",
+      "data.date_updated",
+      "data.active_incidents[]",
+      "data.active_incident_count",
+      "data.total_active_incident_count"
+    ],
+    "health.history": [
+      "data.incidents[]",
+      "data.incident_count",
+      "data.limit",
+      "data.service when filtered"
+    ],
+    "human": [
+      "human-readable text",
+      "Slack channels, DMs, and permalinks may be OSC 8 terminal hyperlinks; do not parse human output"
+    ],
+    "json": [
+      "ok",
+      "meta.command",
+      "meta.workspace",
+      "meta.timestamp",
+      "meta.request_id",
+      "data",
+      "errors"
+    ],
+    "message.scheduled.list": [
+      "data.scheduled_messages[].id",
+      "data.scheduled_messages[].channel raw ID for delete targets",
+      "data.scheduled_messages[].channel_name/channel_hr/channel_url/channel_type/channel_user/is_dm best-effort metadata",
+      "human table columns ID/CHANNEL/DM/POST_AT/TEXT; human CHANNEL may be a friendly #channel or @user label"
+    ],
+    "output_flag": [
+      "--output (or -o) selects one of auto, human, json, compact",
+      "auto picks human in a TTY and json otherwise"
+    ]
+  },
+  "env": [
+    "SLACK_CLI_TOKEN_<PROFILE>",
+    "SLACK_CLI_TOKEN",
+    "SLICK_CONFIG",
+    "SLACK_CLI_CONFIG",
+    "XDG_CACHE_HOME",
+    "SLACK_CLI_BASE_URL",
+    "SLACK_CLI_CALLBACK_PORT",
+    "CLAUDE_CODE",
+    "CLAUDECODE",
+    "CURSOR_AGENT",
+    "CURSOR_TERMINAL",
+    "CODEX",
+    "OPENAI_CODEX",
+    "AIDER",
+    "CLINE",
+    "WINDSURF",
+    "WINDSURF_AGENT",
+    "GITHUB_COPILOT",
+    "COPILOT",
+    "CODEIUM",
+    "AMAZON_Q",
+    "AWS_Q_DEVELOPER",
+    "GEMINI_CODE_ASSIST",
+    "SRC_CODY",
+    "GITHUB_ACTIONS",
+    "BUILDKITE",
+    "JENKINS_URL",
+    "GITLAB_CI",
+    "CIRCLECI",
+    "TRAVIS",
+    "BITBUCKET_BUILD_NUMBER",
+    "TEAMCITY_VERSION",
+    "TF_BUILD",
+    "CI",
+    "CRON",
+    "CRON_JOB",
+    "SLACK_CLI_AGENT",
+    "FORCE_AGENT_MODE"
+  ],
+  "exit_codes": {
+    "auth_failure": 1,
+    "canceled": 6,
+    "io": 8,
+    "not_found": 2,
+    "rate_limit": 3,
+    "server_error": 5,
+    "timeout": 7,
+    "validation_error": 4
+  },
+  "examples": {
+    "auth": [
+      "slick auth login",
+      "printf '%s\\n' \"$SLACK_TOKEN\" | slick auth login --workspace default --method token --token-stdin",
+      "slick auth login --workspace default --method token --token-file ./slack-token.txt",
+      "slick auth login --workspace default --method token --token-env SLACK_CLI_TOKEN_DEFAULT"
+    ],
+    "cache": [
+      "slick cache users",
+      "slick cache channels",
+      "slick cache users --refresh",
+      "slick cache clear users"
+    ],
+    "file": [
+      "probationary, not promoted: tar czf - build/ | slick file upload --channel C123 --file - --filename build.tgz"
+    ],
+    "health": [
+      "slick health check",
+      "slick health current --service Messaging",
+      "slick health history --limit 10",
+      "slick health api-test --output=json"
+    ],
+    "history": [
+      "slick history list --channel C123 --max-items 50"
+    ],
+    "lookup": [
+      "slick lookup channel --max-items 20",
+      "slick lookup channel --types im",
+      "slick lookup user --presence",
+      "slick lookup user --user U123",
+      "slick lookup messages --query 'deploy failed' --max-items 10"
+    ],
+    "manifest": [
+      "slick manifest template --name example --format json > manifest.json",
+      "slick manifest template --name example --format yaml > manifest.yaml"
+    ],
+    "message": [
+      "echo 'Deploy complete' | slick message send --channel '#alerts' --file -",
+      "slick message send --user U123 --message 'Need review'",
+      "slick message send --user dev@example.com,ops@example.com --message 'PR is ready'",
+      "slick message send --channel C123 --blocks --file blocks.json",
+      "slick message send --channel C123 --message 'Deploy later' --schedule 90m",
+      "slick message send --user dev@example.com --message 'DM follow-up' --schedule 90m",
+      "slick message scheduled list --channel C123",
+      "slick message scheduled delete --channel C123 --scheduled-id Q123 --dry-run"
+    ],
+    "react": [
+      "slick react add --channel C123 --timestamp 1746284582.123456 --emoji eyes",
+      "slick react remove --channel C123 --timestamp 1746284582.123456 --emoji eyes",
+      "slick react list --channel C123 --timestamp 1746284582.123456"
+    ],
+    "reply": [
+      "slick reply --channel C123 --parent 1746284582.123456 --message 'Investigating'",
+      "echo 'details' | slick reply --channel C123 --parent 1746284582.123456 --file -"
+    ],
+    "schema": [
+      "slick agent schema",
+      "slick agent schema --output=compact"
+    ],
+    "status": [
+      "slick status set --text 'Heads down' --emoji :headphones: --expires-in 2h",
+      "slick status clear"
+    ]
+  },
+  "best_practices": [
+    "Prefer channel/user IDs over display names in automation.",
+    "Use --file - for multiline message bodies.",
+    "Use --blocks when message-like input is already Slack Block Kit JSON.",
+    "Use --dry-run before destructive or high-visibility mutations.",
+    "Use --output=compact when another tool expects command-specific JSON only.",
+    "Follow meta.pagination.next_cursor while meta.pagination.has_more is true.",
+    "Prime users and channels with cache commands before repeated lookup or completion-heavy work.",
+    "Load the workflow runbook with slick agent guide <workflow> before operating."
+  ],
+  "anti_patterns": [
+    "Do not store Slack tokens in TOML or source files.",
+    "Do not pass raw Slack tokens in argv.",
+    "Do not use --output to select raw Block Kit input; use command-local --blocks for that.",
+    "Do not disable agent attribution unless explicitly required.",
+    "Do not parse human-readable output in scripts; use JSON.",
+    "Do not assume one search page means there are no more matches.",
+    "Do not duplicate attribution text in the message body."
+  ],
+  "legacy_schema_version": "1.0",
+  "contract_version": "2"
+}

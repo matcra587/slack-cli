@@ -1,3 +1,7 @@
+---
+description: "Manage slick configuration, defaults, aliases, and credential references."
+---
+
 # slick config
 
 **Manage** local preferences. `config` does not handle auth — use

@@ -1,3 +1,7 @@
+---
+description: "Find Slack channels, users, and messages by ID, name, or search query."
+---
+
 # slick lookup
 
 **Look up** channels and users, and **search** messages.

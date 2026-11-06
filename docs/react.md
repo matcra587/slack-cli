@@ -1,3 +1,7 @@
+---
+description: "Add, remove, and inspect emoji reactions on Slack messages."
+---
+
 # slick react
 
 **Add**, **remove**, or **list** emoji reactions on a known message. Requires

@@ -1,3 +1,7 @@
+---
+description: "Upload files to Slack channels with slick’s probationary file upload command."
+---
+
 # slick file
 
 **Upload** a file to a Slack channel.

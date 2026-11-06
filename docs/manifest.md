@@ -1,3 +1,7 @@
+---
+description: "Generate Slack app manifests for slick’s required OAuth permissions."
+---
+
 # slick manifest
 
 **Print** a Slack app manifest you can import into a Slack workspace. slick

@@ -1,3 +1,7 @@
+---
+description: "Connect slick to Slack with OAuth, manage credentials, and check authentication."
+---
+
 # slick auth
 
 **Manage** Slack authentication. Login validates a token with the Slack API

@@ -252,6 +252,7 @@ var commandActionLabel = map[string]string{
 	"cache.users":              "User cache primed",
 	"cache.channels":           "Channel cache primed",
 	"cache.clear":              "Cache cleared",
+	"agent.export":             "Guides exported",
 	"agent.guide":              "Guide retrieved",
 	"agent.schema":             "Schema retrieved",
 	"version":                  "Version printed",

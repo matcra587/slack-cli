@@ -109,7 +109,7 @@ type Envelope struct {
 }
 
 type EnvelopeMeta struct {
-	ExitCode   int         `json:"exit_code,omitempty"`
+	ExitCode   int         `json:"exit_code"`
 	Command    string      `json:"command"`
 	Workspace  string      `json:"workspace"`
 	Timestamp  string      `json:"timestamp"`

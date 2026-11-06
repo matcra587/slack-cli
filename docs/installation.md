@@ -1,3 +1,7 @@
+---
+description: "Install, build, and upgrade slick on macOS, Linux, and Windows."
+---
+
 # Installation
 
 `slick` ships as a single static Go binary. Pick the tab for your platform in
@@ -21,14 +25,21 @@ build.
 | Linux · arm64 | ✓ | ✓ | ✓ | ✓ |
 | macOS · Apple Silicon (arm64) | ✓ | ✓ | ✓ | ✓ |
 | macOS · Intel (amd64) | — | — | ✓ | ✓ |
+| Windows · amd64/arm64 | — | — | See note | Build verified |
 
-!!! warning "Windows is not currently supported"
-    slick depends on [`gechr/clog`](https://github.com/gechr/clog), which
-    uses Unix-only signals (`syscall.SIGWINCH`) in its terminal-size logic.
-    `GOOS=windows` builds fail at the upstream import, so there is no
-    Homebrew bottle, pre-built archive, or working `go install` on Windows
-    today. WSL is the practical workaround until the upstream dependency
-    grows a Windows fallback.
+!!! note "Windows source builds"
+    The current source cross-compiles for Windows on amd64 and arm64. The pinned
+    `gechr/clog` dependency has a non-Unix terminal-resize fallback, so the former
+    `syscall.SIGWINCH` compilation blocker no longer applies.
+
+    Native Windows runtime behavior has not yet been verified. The release
+    pipeline does not publish Windows archives, and the POSIX installer and
+    Homebrew instructions below target Linux and macOS.
+
+    The latest tagged release, `v0.5.9`, still uses the older dependency.
+    `go install …@latest` selects that release; it does not include this fix.
+    Build an updated source checkout instead. WSL remains an alternative for
+    using the published Linux binaries.
 
 !!! note "No Intel-macOS binary"
     The release pipeline builds `linux/amd64`, `linux/arm64`, and
@@ -78,12 +89,21 @@ build.
 
 === "Windows"
 
-    Native Windows is not currently supported — slick's upstream `gechr/clog`
-    dependency uses Unix-only signals (`syscall.SIGWINCH`), so all four
-    install paths (`go install`, source build, Homebrew, pre-built tarball)
-    fail on `GOOS=windows`. Use [WSL](https://learn.microsoft.com/windows/wsl/)
-    and follow the [Linux](#quick-start) instructions for now. See
-    [Platform support](#platform-support) for the tracking note.
+    Build an updated source checkout with the toolchain selected by `go.mod`:
+
+    ```powershell
+    go build -o slick.exe ./cmd/slick
+    .\slick.exe version
+    ```
+
+    Cross-compilation has been verified for Windows amd64 and arm64; native
+    Windows runtime testing is still outstanding. No Windows release archive
+    is published, and `go install …@latest` still selects the older tagged
+    release. See [Platform support](#platform-support) for details.
+
+    To use the published Linux binaries on Windows, install
+    [WSL](https://learn.microsoft.com/windows/wsl/) and follow the Linux
+    instructions.
 
 ## Homebrew
 

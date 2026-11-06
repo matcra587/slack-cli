@@ -1,3 +1,7 @@
+---
+description: "Check Slack service health and test access to the Slack API."
+---
+
 # slick health
 
 **Check** Slack service health and Slack Web API reachability. These commands do

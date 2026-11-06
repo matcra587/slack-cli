@@ -31,7 +31,10 @@ func TestBareRootHonorsMachineOutputWithoutWorkspace(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if len(result["commands"]) == 0 {
+			if err := json.Unmarshal(result["schema"], &result); err != nil {
+				t.Fatal(err)
+			}
+			if len(result["children"]) == 0 {
 				t.Fatalf("root discovery omitted commands: %s", stdout)
 			}
 		})

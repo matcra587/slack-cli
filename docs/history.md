@@ -1,3 +1,7 @@
+---
+description: "Read Slack channel and thread history with pagination and structured output."
+---
+
 # slick history
 
 **Read** channel or thread history with bounded pagination. The default scope is

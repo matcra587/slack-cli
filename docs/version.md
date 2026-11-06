@@ -1,3 +1,7 @@
+---
+description: "Inspect the installed slick version, commit, branch, and build metadata."
+---
+
 # slick version
 
 **Print** version, commit, branch, build time, and builder identity for the

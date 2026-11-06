@@ -1,3 +1,7 @@
+---
+description: "Inspect, refresh, and clear slick metadata caches for channels and users."
+---
+
 # slick cache
 
 **Prime** and **inspect** local Slack metadata caches. Cached users and channels

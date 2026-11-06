@@ -1,111 +1,100 @@
+---
+description: "Discover slick’s command schema, read authoritative runbooks, and export agent skills."
+---
+
 # slick agent
 
-Agent tooling. `agent schema` emits the full command tree as JSON; `agent
-guide` emits Markdown runbooks scoped to specific workflows. Both are
-designed to be consumed by LLM agents rather than humans.
+The agent surface uses [docent](https://github.com/matcra587/docent) to serve
+embedded runbooks, command discovery, and exported skills without credentials.
+The embedded guides are the workflow authority.
 
-## agent schema
+## Documentation for agents
 
-Emit the command tree, flag inventory, output modes, and exit-code contract
-as JSON.
+The website's [llms.txt index](https://matcra587.github.io/slack-cli/llms.txt)
+links to Markdown copies of the public reference pages. The
+[full-text export](https://matcra587.github.io/slack-cli/llms-full.txt) combines
+those pages, and **Copy as Markdown** copies the current page's rendered content.
 
-```sh
-slick agent schema                          # full schema, full envelope
-slick agent schema --compact                # minimal schema (smaller records)
-slick agent schema --output=compact         # full schema, no envelope (data only)
-slick agent schema --compact -o compact     # minimal schema, no envelope
-```
-
-### Flags
-
-??? note "Flags"
-
-    | Flag | Value | Description |
-    |------|-------|-------------|
-    | `-c`, `--compact` | | Emit a minimal schema (smaller per-command records) |
-
-`--compact` here is the command-local schema-shape flag (short form `-c`).
-It is distinct from the global `--output=compact` (short form `-o compact`),
-which strips the JSON envelope. Both can be combined; use `-o compact` to
-toggle the envelope independently.
-
-The schema's top-level object includes:
-
-*   `version`, `description` — schema version and a human-readable summary.
-*   `auth` — supported auth shapes and required scopes.
-*   `output` — output modes (`--output=auto|human|json|compact`).
-*   `global_flags` — flags accepted on every command (workspace selection,
-    output mode, debug, color, timeout, throttle). Attribution toggles
-    (`--attribution`, `--no-attribution`, `--attribution-{label,emoji,message}`) are
-    command-local on the four mutating commands (`message send`,
-    `message edit`, `reply`, `file upload`) and appear under each command's
-    `flags` entry rather than `global_flags`.
-*   `commands` — the full command tree, with each entry carrying `name`,
-    `full_path`, `description`, `read_only`, optional `flags`, and a
-    recursive `subcommands` array.
-*   `input_shapes`, `output_schemas` — JSON-shape descriptors for the
-    structured inputs (e.g. Block Kit) and outputs each command emits.
-*   `env` — environment variables slick reads, including config overrides
-    and the agent-detection trigger set.
-*   `exit_codes` — the 1..8 mapping with `errors[0].type` names.
-*   `examples` — annotated invocation examples per command.
-*   `workflows` — pointers into the `agent guide` workflow catalogue.
-*   `best_practices`, `anti_patterns` — guidance an agent should follow or
-    avoid (e.g. "Slack timestamps are channel-scoped strings — keep them
-    as strings", "do not synthesise channel IDs from DM contexts").
-
-This file is the source of truth for agents that need to build a command
-plan without prompting the user.
-
-## agent guide
-
-Emit Markdown runbooks for specific workflows. Each runbook is a short
-preconditions / commands / parse / quirks sequence.
+These exports describe the website revision. Use the installed binary's schema
+and embedded guides for its exact contract and authoritative workflows; neither
+requires Slack credentials:
 
 ```sh
-slick agent guide --help          # list available workflows
-slick agent guide send_msg        # one specific workflow
-slick agent guide schedule_msg    # scheduled send/list/delete workflow
-slick agent guide                 # the full guide (every workflow)
+slick agent schema --output=json
+slick agent guide --output=human
+slick agent guide core-contract --output=human
+slick agent guide safe-mutation --output=human
+slick agent guide --all --output=human
 ```
 
-### Available workflows
+The website export does not include the complete embedded runbook collection.
+Retrieve runbooks from the binary rather than assuming the website matches an
+older installed release. For machine-readable guides, use `--output=json` and
+read `data.document`.
 
-```text
-auth_setup            Generate a manifest and authenticate a profile
-cache_metadata        Prime users and channels for repeated lookup and shell completion
-check_health          Check Slack service health and Web API reachability
-cleanup_msgs          Runbook for cleaning test messages found through paginated search
-config_prefs          Set profile preferences without touching auth
-core_contract         Understand output modes, stderr/stdout, and fixed exit codes
-delete_msg            Delete own messages with dry-run and force safeguards
-developer_review      Runbook for posting a review-style message with reactions and a thread
-discover_destination  Find channel and DM IDs before posting
-edit_msg              Edit own messages by exact channel and timestamp
-inspect_schema        Read the machine schema and workflow guide
-lookup_user           Find user IDs, presence, status, and timezone
-react                 Add, remove, and list emoji reactions by channel and timestamp
-read_history          Read channel history or thread replies with bounded pagination
-reply                 Reply to a message thread by parent timestamp
-safe_mutation         Preview high-impact changes and parse JSON results
-schedule_msg          Schedule, list, and delete future messages
-search_msgs           Workspace message search workflow
-send_dm               Send direct messages while handling token limits
-send_msg              Send a markdown message and read ts/permalink from JSON
-set_status            Set or clear the authenticated user's Slack status
-upload_file           Probationary hidden file upload workflow
+## Schema
+
+```sh
+slick agent schema --output=json
+slick agent schema --path 'message send' --output=json
+slick agent schema --shapes --output=compact
+slick agent schema --compact --output=json
 ```
 
-### Tone
+JSON uses the common `{ok,meta,data,errors}` envelope. The schema artifact lives
+at `data.schema`, or `schema` in compact mode. Local `$ref` values resolve
+against that extracted artifact. Human mode prints the JSON artifact directly.
 
-Each runbook is direct, command-shaped, and stateless. The intent is
-machine-parseable instructions an agent can follow without having to re-read
-the whole project. The runbooks track the same JSON shapes documented in the
-per-command pages of this site, including post-v0.4.0 renames (`ts`,
-`id`/`name`, dropped action-result bools, `ClearData` split).
+The docent tree uses `name`, `path`, `children`, `flags`, and `flag_groups`.
+Persistent flags are declared on their owning ancestor. Host contract metadata
+remains under `extensions`: auth, environment names, exit codes, output modes,
+examples, input/output descriptions, guide summaries, and operational guidance.
+`extensions.contract_version` is `2`.
 
-## See also
+| Flag | Meaning |
+| --- | --- |
+| `--path`, `-p` | Select one canonical command subtree, including schemas |
+| `--shapes`, `-s` | Embed schemas throughout the tree; repeated bodies pool under `$defs` |
+| `--compact`, `-c` | Retain routing facts while omitting verbose descriptions and metadata |
 
-*   [`README`](https://github.com/matcra587/slack-cli#readme) — onboarding.
-*   The in-repo skill at `.claude/skills/slack-cli/SKILL.md` wraps these
-    outputs into a Claude Code / agent skill.
+These flags are mutually exclusive. The local `--compact` changes schema
+content; global `--output=compact` selects the result format.
+
+## Guides
+
+```sh
+slick agent guide --output=human
+slick agent guide send-msg --output=human
+slick agent guide send_msg --section Run --output=human
+slick agent guide --all --output=json
+```
+
+No slug returns an index. A slug returns its runbook; old underscore names
+resolve as aliases. `--section`, `-s` selects one of Decide, Run, Save,
+Preconditions, Recover, or Next. `--all`, `-a` returns every guide in canonical
+order. JSON carries Markdown at `data.document`; compact at `document`.
+Human mode prints Markdown directly. All-guide documents use form-feed
+separators in their canonical machine representation.
+
+## Export
+
+```sh
+slick agent export --format agent-skill --dir ./slick-skills --output=json
+slick agent export --scope project --harness codex --output=json
+```
+
+`--dir`, `-d` requires an explicit `--format`, `-f`. Alternatively,
+`--scope`, `-s` selects `project` or `user`; `--harness`, `-H` selects the
+consumer, or docent detects it. Explicit directory and scope are exclusive.
+Built-in formats are `agent-skill` and `claude-skill`; exported skill names
+are qualified with `slick-`. JSON reports relative written paths in
+`data.paths`. Export writes files to the selected destination.
+
+## Compatibility
+
+Contract version 2 moves raw schema output into the common result envelope,
+replaces the bespoke schema walker with docent, and changes no-argument guide
+output from a full dump to an index. Use `agent guide --all` for the full set,
+`--output=human` for direct Markdown, and extract `data.schema` when a tool
+needs the schema artifact alone. Former top-level contract metadata is now
+under the artifact's `extensions` object.

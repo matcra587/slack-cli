@@ -27,6 +27,8 @@
     --ctp-latte-sky:      #04a5e5;
     --ctp-latte-lavender: #7287fd;
     --ctp-latte-mauve:    #8839ef;
+    --ctp-latte-pink:     #ea76cb;
+    --ctp-latte-peach:    #fe640b;
     --ctp-latte-red:      #d20f39;
     --ctp-latte-green:    #40a02b;
     --ctp-latte-yellow:   #df8e1d;
@@ -45,6 +47,8 @@
     --ctp-mocha-sky:      #89dceb;
     --ctp-mocha-lavender: #b4befe;
     --ctp-mocha-mauve:    #cba6f7;
+    --ctp-mocha-pink:     #f5c2e7;
+    --ctp-mocha-peach:    #fab387;
     --ctp-mocha-red:      #f38ba8;
     --ctp-mocha-green:    #a6e3a1;
     --ctp-mocha-yellow:   #f9e2af;
@@ -73,6 +77,21 @@
 
     --md-code-bg-color:                var(--ctp-latte-mantle);
     --md-code-fg-color:                var(--ctp-latte-text);
+
+    /* Syntax colors share the same palette as page surfaces. */
+    --md-code-hl-color: var(--ctp-latte-surface0);
+    --md-code-hl-number-color: var(--ctp-latte-peach);
+    --md-code-hl-special-color: var(--ctp-latte-pink);
+    --md-code-hl-function-color: var(--ctp-latte-mauve);
+    --md-code-hl-constant-color: var(--ctp-latte-peach);
+    --md-code-hl-keyword-color: var(--ctp-latte-mauve);
+    --md-code-hl-string-color: var(--ctp-latte-green);
+    --md-code-hl-name-color: var(--ctp-latte-text);
+    --md-code-hl-operator-color: var(--ctp-latte-sapphire);
+    --md-code-hl-punctuation-color: var(--ctp-latte-subtext0);
+    --md-code-hl-comment-color: var(--ctp-latte-subtext0);
+    --md-code-hl-generic-color: var(--ctp-latte-subtext0);
+    --md-code-hl-variable-color: var(--ctp-latte-blue);
 }
 
 /* Dark scheme (Material slate) -> Catppuccin Mocha */
@@ -98,4 +117,19 @@
 
     --md-code-bg-color:                var(--ctp-mocha-mantle);
     --md-code-fg-color:                var(--ctp-mocha-text);
+
+    /* Syntax colors share the same palette as page surfaces. */
+    --md-code-hl-color: var(--ctp-mocha-surface0);
+    --md-code-hl-number-color: var(--ctp-mocha-peach);
+    --md-code-hl-special-color: var(--ctp-mocha-pink);
+    --md-code-hl-function-color: var(--ctp-mocha-mauve);
+    --md-code-hl-constant-color: var(--ctp-mocha-peach);
+    --md-code-hl-keyword-color: var(--ctp-mocha-mauve);
+    --md-code-hl-string-color: var(--ctp-mocha-green);
+    --md-code-hl-name-color: var(--ctp-mocha-text);
+    --md-code-hl-operator-color: var(--ctp-mocha-sapphire);
+    --md-code-hl-punctuation-color: var(--ctp-mocha-subtext0);
+    --md-code-hl-comment-color: var(--ctp-mocha-subtext0);
+    --md-code-hl-generic-color: var(--ctp-mocha-subtext0);
+    --md-code-hl-variable-color: var(--ctp-mocha-blue);
 }

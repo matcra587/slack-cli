@@ -1,3 +1,7 @@
+---
+description: "Read, set, and clear your Slack profile status with slick."
+---
+
 # slick status
 
 **Set** or **clear** the authenticated user's Slack status.

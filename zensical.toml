@@ -13,7 +13,7 @@ Copyright &copy; 2026 Matt Craven &middot; MIT licence.<br>
 docs_dir = "docs"
 site_dir = "site"
 
-extra_css = ["stylesheets/github.css", "stylesheets/catppuccin.css"]
+extra_css = ["stylesheets/catppuccin.css"]
 
 nav = [
     { Overview = "index.md" },
@@ -52,7 +52,8 @@ nav = [
 ]
 
 # ----------------------------------------------------------------------------
-# Validation — fail the (--strict) build on broken links, anchors, and refs.
+# Link and anchor checks are supported. The reference and footnote checks
+# below are retained for this site, but deprecated upstream pending its parser.
 # ----------------------------------------------------------------------------
 [project.validation]
 unresolved_references = true
@@ -78,6 +79,8 @@ features = [
     "navigation.tracking",
     "navigation.tabs",
     "navigation.sections",
+    "navigation.path",
+    "toc.follow",
     "navigation.top",
     "navigation.footer",
     "header.autohide",
@@ -140,11 +143,14 @@ permalink = true
 [project.markdown_extensions.pymdownx.caret]
 [project.markdown_extensions.pymdownx.details]
 [project.markdown_extensions.pymdownx.emoji]
+emoji_index = "zensical.extensions.emoji.twemoji"
+emoji_generator = "zensical.extensions.emoji.to_svg"
 [project.markdown_extensions.pymdownx.inlinehilite]
 [project.markdown_extensions.pymdownx.keys]
 [project.markdown_extensions.pymdownx.mark]
 [project.markdown_extensions.pymdownx.snippets]
 auto_append = ["includes/abbreviations.md"]
+check_paths = true
 [project.markdown_extensions.pymdownx.tilde]
 
 # Mermaid renders through a SuperFences custom fence; zensical takes the
@@ -167,6 +173,25 @@ custom_checkbox = true
 # Keep the selected pages aligned with the public navigation above.
 [project.plugins.llmstxt]
 full_output = "llms-full.txt"
+markdown_description = """
+Use `slick agent schema --output=json` to discover the installed binary's command
+contract. The schema artifact is at `data.schema`.
+
+The embedded runbooks are the workflow authority: start with
+`slick agent guide --output=human`, then select a guide, or use
+`slick agent guide --all --output=human` for every runbook. Discovery and guides
+require no Slack credentials. This website export contains the public reference
+pages; it does not replace the installed binary's runbooks.
+
+For automation, use `--output=json`: both successes and failures are
+`{ok,meta,data,errors}` records on stdout. Inspect `ok` and the process exit code;
+stderr contains diagnostics. Compact successes contain only `data`, while compact
+failures retain the full envelope. Preserve Slack timestamps as strings.
+
+Preview supported mutations with `--dry-run`. Exit 8 means writing the result
+failed and the mutation may already have completed: inspect Slack state before
+retrying. Never put tokens in command arguments or documentation.
+"""
 
 [project.plugins.llmstxt.sections]
 "Getting started" = ["index.md", "installation.md", "auth.md", "agent.md"]
@@ -174,10 +199,23 @@ full_output = "llms-full.txt"
 "Discovery and health" = ["lookup.md", "cache.md", "status.md", "health.md"]
 "Configuration and reference" = ["config.md", "workspace.md", "manifest.md", "file.md", "version.md"]
 
-# Self-host the fonts and emoji used by this site without fetching optional
-# theme integrations such as video players and in-browser Python runtimes.
+# Self-host fonts, emoji, and the native Mermaid runtime without fetching
+# optional theme integrations such as video players and Python runtimes.
 [project.plugins.privacy]
-assets_include = ["fonts.googleapis.com/*", "fonts.gstatic.com/*", "cdnjs.cloudflare.com/ajax/libs/emojione/*"]
+assets_include = [
+    "fonts.googleapis.com/*",
+    "fonts.gstatic.com/*",
+    "cdn.jsdelivr.net/gh/jdecked/twemoji@*/*",
+    "unpkg.com/mermaid@12/*",
+]
 
 [project.plugins.minify]
 minify_html = true
+
+# Native page previews for links shared in Slack and other clients.
+[project.plugins.social]
+
+[project.plugins.social.cards_layout_options]
+background_color = "#1e1e2e"
+color = "#cdd6f4"
+font_family = "Geist"

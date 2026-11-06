@@ -6,10 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	agentpkg "github.com/matcra587/slack-cli/internal/agent"
-	"github.com/matcra587/slack-cli/internal/agenthelp"
-	cliagent "github.com/matcra587/slack-cli/internal/cli/agent"
 	"github.com/matcra587/slack-cli/internal/cli/clitheme"
+
+	"github.com/matcra587/docent"
+	agentpkg "github.com/matcra587/slack-cli/internal/agent"
+	cliagent "github.com/matcra587/slack-cli/internal/cli/agent"
 	"github.com/matcra587/slack-cli/internal/cli/runtime/runtimetest"
 	"github.com/matcra587/slack-cli/internal/config"
 )
@@ -21,20 +22,20 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestAgentSchemaCompactReturnsRawJSONWithoutEnvelope(t *testing.T) {
+func TestAgentSchemaCompactUsesSharedEnvelope(t *testing.T) {
 	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "schema", "--compact"})
 	if err != nil {
 		t.Fatalf("agent schema returned error: %v\nstderr=%s", err, stderr)
 	}
-	if strings.Contains(stdout, `"meta"`) {
-		t.Fatalf("stdout = %s, want direct agent schema without JSON envelope", stdout)
+	if !strings.Contains(stdout, `"meta"`) {
+		t.Fatalf("stdout = %s, want shared JSON envelope", stdout)
 	}
 
-	var schema agenthelp.CompactSchema
-	if err := json.Unmarshal([]byte(stdout), &schema); err != nil {
+	var schema docent.Command
+	if err := json.Unmarshal(schemaArtifact(t, stdout), &schema); err != nil {
 		t.Fatalf("unmarshal schema: %v\nstdout=%s", err, stdout)
 	}
-	if schema.Version == "" {
+	if schema.Extensions["contract_version"] == nil {
 		t.Fatal("schema version is empty")
 	}
 }
@@ -44,16 +45,22 @@ func TestAgentSchemaOutputsWorkflowsAlphabetically(t *testing.T) {
 	if err != nil {
 		t.Fatalf("agent schema returned error: %v\nstderr=%s", err, stderr)
 	}
-	var schema agenthelp.Schema
-	if err := json.Unmarshal([]byte(stdout), &schema); err != nil {
+	var schema docent.Command
+	if err := json.Unmarshal(schemaArtifact(t, stdout), &schema); err != nil {
 		t.Fatalf("unmarshal schema: %v\nstdout=%s", err, stdout)
 	}
+	guides, ok := schema.Extensions["guides"].([]any)
+	if !ok || len(guides) == 0 {
+		t.Fatal("schema omitted guide summaries")
+	}
 	var previous string
-	for _, workflow := range schema.Workflows {
-		if previous != "" && workflow.Name < previous {
-			t.Fatalf("workflows are not sorted: %q appeared after %q", workflow.Name, previous)
+	for _, v := range guides {
+		guide := v.(map[string]any)
+		name := guide["slug"].(string)
+		if previous != "" && name < previous {
+			t.Fatalf("guide order %q before %q", previous, name)
 		}
-		previous = workflow.Name
+		previous = name
 	}
 }
 
@@ -63,9 +70,10 @@ func TestAgentSchemaIncludesRootSchemaContract(t *testing.T) {
 		t.Fatalf("agent schema returned error: %v\nstderr=%s", err, stderr)
 	}
 	var payload map[string]any
-	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+	if err := json.Unmarshal(schemaArtifact(t, stdout), &payload); err != nil {
 		t.Fatalf("unmarshal schema: %v\nstdout=%s", err, stdout)
 	}
+	payload = payload["extensions"].(map[string]any)
 	for _, key := range []string{"input_shapes", "output_schemas", "env", "exit_codes", "examples"} {
 		if _, ok := payload[key]; !ok {
 			t.Fatalf("schema missing %s: %s", key, stdout)
@@ -105,8 +113,8 @@ func TestAgentSchemaDoesNotDocumentRawTokenArgv(t *testing.T) {
 	if strings.Contains(stdout, "--token <xox") || strings.Contains(stdout, "--token xox") {
 		t.Fatalf("schema documents raw token argv usage: %s", stdout)
 	}
-	var schema agenthelp.Schema
-	if err := json.Unmarshal([]byte(stdout), &schema); err != nil {
+	var schema docent.Command
+	if err := json.Unmarshal(schemaArtifact(t, stdout), &schema); err != nil {
 		t.Fatalf("unmarshal schema: %v\nstdout=%s", err, stdout)
 	}
 	for _, fragment := range []string{"--token-stdin", "--token-file", "--token-env"} {
@@ -115,21 +123,22 @@ func TestAgentSchemaDoesNotDocumentRawTokenArgv(t *testing.T) {
 		}
 	}
 	env := map[string]bool{}
-	for _, value := range schema.Env {
+	for _, raw := range schema.Extensions["env"].([]any) {
+		value := raw.(string)
 		env[value] = true
 	}
 	if !env["SLACK_CLI_TOKEN_<PROFILE>"] {
-		t.Fatalf("schema env = %#v, want profile-scoped runtime token env", schema.Env)
+		t.Fatalf("schema env = %#v, want profile-scoped runtime token env", schema.Extensions["env"])
 	}
 }
 
 func TestAgentGuideOutputsNamedWorkflowInstructions(t *testing.T) {
-	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "guide", "send_msg"})
+	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "guide", "--output=human", "send_msg"})
 	if err != nil {
 		t.Fatalf("agent guide returned error: %v\nstderr=%s", err, stderr)
 	}
 	for _, fragment := range []string{
-		"## send_msg",
+		"## Decide",
 		"slick message send",
 		"--channel",
 		"--file -",
@@ -150,12 +159,12 @@ func TestAgentGuideOutputsNamedWorkflowInstructions(t *testing.T) {
 }
 
 func TestAgentGuideOutputsReactionInstructions(t *testing.T) {
-	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "guide", "react"})
+	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "guide", "--output=human", "react"})
 	if err != nil {
 		t.Fatalf("agent guide returned error: %v\nstderr=%s", err, stderr)
 	}
 	for _, fragment := range []string{
-		"## react",
+		"## Decide",
 		"slick react add",
 		"--timestamp",
 		":thumbsup:",
@@ -167,7 +176,7 @@ func TestAgentGuideOutputsReactionInstructions(t *testing.T) {
 }
 
 func TestAgentGuideHelpShowsAvailableWorkflows(t *testing.T) {
-	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "guide", "--help"})
+	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "guide", "--output=human", "--help"})
 	if err != nil {
 		t.Fatalf("agent guide --help returned error: %v\nstderr=%s", err, stderr)
 	}
@@ -190,7 +199,7 @@ func TestAgentGuideHelpShowsAvailableWorkflows(t *testing.T) {
 }
 
 func TestAgentGuideHelpShowsWorkflowsAlphabetically(t *testing.T) {
-	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "guide", "--help"})
+	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "guide", "--output=human", "--help"})
 	if err != nil {
 		t.Fatalf("agent guide --help returned error: %v\nstderr=%s", err, stderr)
 	}
@@ -210,13 +219,13 @@ func TestAgentGuideHelpShowsWorkflowsAlphabetically(t *testing.T) {
 func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 	tests := map[string][]string{
 		"auth_setup": {
-			"## auth_setup",
+			"## Decide",
 			"PKCE",
 			"manifest template",
 			"keychain",
 		},
 		"config_prefs": {
-			"## config_prefs",
+			"## Decide",
 			"slick config init",
 			// R4 schema: the section's Goal line uses "preferences",
 			// and the Behavior block points back at the auth commands.
@@ -224,32 +233,32 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 			"slick auth login",
 		},
 		"core_contract": {
-			"## core_contract",
+			"## Decide",
 			"Machine success and failure are JSON records on stdout",
 			"stderr is diagnostics",
 			"--output",
 			"Exit codes",
 		},
 		"reply": {
-			"## reply",
+			"## Decide",
 			"slick reply",
 			"--parent",
 			"parent message timestamp",
 		},
 		"edit_msg": {
-			"## edit_msg",
+			"## Decide",
 			"slick message edit",
 			"--timestamp",
 			"own messages",
 		},
 		"delete_msg": {
-			"## delete_msg",
+			"## Decide",
 			"slick message delete",
 			"--force",
 			"--dry-run",
 		},
 		"discover_destination": {
-			"## discover_destination",
+			"## Decide",
 			"slick lookup channel",
 			"--types",
 			// R4 Behavior: "Prefer over display names" (covers the
@@ -259,25 +268,25 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 			"Plain mode",
 		},
 		"inspect_schema": {
-			"## inspect_schema",
+			"## Decide",
 			"slick agent schema",
 			"--compact",
 			"slick schema",
 		},
 		"lookup_user": {
-			"## lookup_user",
+			"## Decide",
 			"slick lookup user",
 			"--user",
 			"timezone",
 		},
 		"send_dm": {
-			"## send_dm",
+			"## Decide",
 			"slick message send --user",
 			"Slack decides",
 			"bot-token",
 		},
 		"safe_mutation": {
-			"## safe_mutation",
+			"## Decide",
 			"--dry-run",
 			// R4 Decide: "high-impact" replaces the old "destructive" framing
 			// while preserving the safety intent.
@@ -287,7 +296,7 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 	}
 	for section, fragments := range tests {
 		t.Run(section, func(t *testing.T) {
-			stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "guide", section})
+			stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"agent", "guide", "--output=human", section})
 			if err != nil {
 				t.Fatalf("agent guide returned error: %v\nstderr=%s", err, stderr)
 			}
@@ -323,4 +332,21 @@ func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, ar
 	root := runtimetest.NewRoot(runtime, stdout, stderr)
 	root.AddCommand(cliagent.NewCommand(runtime))
 	return runtimetest.Run(t, root, args, stdout, stderr)
+}
+
+func schemaArtifact(t *testing.T, stdout string) json.RawMessage {
+	t.Helper()
+	var frame struct {
+		OK   bool `json:"ok"`
+		Data struct {
+			Schema json.RawMessage `json:"schema"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &frame); err != nil {
+		t.Fatal(err)
+	}
+	if !frame.OK || len(frame.Data.Schema) == 0 {
+		t.Fatalf("missing schema envelope: %s", stdout)
+	}
+	return frame.Data.Schema
 }

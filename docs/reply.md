@@ -1,3 +1,7 @@
+---
+description: "Reply in Slack threads and preserve timestamps for follow-up operations."
+---
+
 # slick reply
 
 **Reply** to a Slack thread by parent timestamp. `reply` is a top-level command,

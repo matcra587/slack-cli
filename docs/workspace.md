@@ -1,3 +1,7 @@
+---
+description: "List configured Slack workspaces and identify the active profile."
+---
+
 # slick workspace
 
 List configured workspace profiles. Workspace identity is managed by

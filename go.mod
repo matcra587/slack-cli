@@ -13,6 +13,7 @@ require (
 	github.com/gechr/primer v0.2.12
 	github.com/gechr/x v0.6.5
 	github.com/google/uuid v1.6.0
+	github.com/matcra587/docent v0.4.1
 	github.com/slack-go/slack v0.35.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10

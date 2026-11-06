@@ -1,3 +1,7 @@
+---
+description: "Send, schedule, edit, and delete Slack messages with Markdown or Block Kit."
+---
+
 # slick message
 
 **Send**, **edit**, and **delete** Slack messages. Markdown input is converted to

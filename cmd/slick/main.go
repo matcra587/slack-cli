@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -218,7 +219,7 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 		if ctx.Mode == clioutput.RenderModePlain {
 			return cmd.Help()
 		}
-		return ctx.WriteResult("slick", agenthelp.GenerateSchema(cmd.Root()))
+		return writeDiscovery(ctx, "slick", cmd.Root())
 	}
 	root.SetIn(runtime.Stdin)
 	root.SetOut(runtime.Stdout)
@@ -319,10 +320,6 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	manifestCmd.GroupID = "admin"
 	root.AddCommand(manifestCmd)
 
-	agentCmd := cliagent.NewCommand(runtime)
-	agentCmd.GroupID = "meta"
-	root.AddCommand(agentCmd)
-
 	fileCmd := clifile.NewCommand(runtime)
 	fileCmd.GroupID = "meta"
 	root.AddCommand(fileCmd)
@@ -330,8 +327,12 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	versionCmd := newVersionCommand(runtime)
 	versionCmd.GroupID = "meta"
 	root.AddCommand(versionCmd)
+	agentCmd := cliagent.NewCommand(runtime)
+	agentCmd.GroupID = "meta"
+	root.AddCommand(agentCmd)
 	clicompletion.ExtendSlackMetadata(root)
 	clicompletion.AddCommand(root)
+	configureGroupDiscovery(root, runtime)
 
 	return root
 }
@@ -499,4 +500,42 @@ func failureOutputMode(root *cobra.Command, args []string) string {
 		}
 	}
 	return selected
+}
+
+// configureGroupDiscovery keeps explicit machine selection meaningful on groups.
+func configureGroupDiscovery(root *cobra.Command, runtime *RootRuntime) {
+	var visit func(*cobra.Command)
+	visit = func(parent *cobra.Command) {
+		for _, child := range parent.Commands() {
+			visit(child)
+			if !child.HasSubCommands() {
+				continue
+			}
+			fallback := child.RunE
+			if child.Args == nil {
+				child.Args = cobra.NoArgs
+			}
+			child.RunE = func(cmd *cobra.Command, args []string) error {
+				ctx := cliruntime.LocalContext(cmd, runtime, "default")
+				if ctx.Mode == clioutput.RenderModePlain {
+					if fallback != nil {
+						return fallback(cmd, args)
+					}
+					return cmd.Help()
+				}
+				command := strings.TrimPrefix(strings.ReplaceAll(cmd.CommandPath(), " ", "."), "slick.")
+				return writeDiscovery(ctx, command, cmd)
+			}
+		}
+	}
+	visit(root)
+}
+
+func writeDiscovery(ctx *CommandContext, command string, cmd *cobra.Command) error {
+	tree := agenthelp.GenerateSchema(cmd)
+	raw, err := json.Marshal(tree.StripShapes())
+	if err != nil {
+		return err
+	}
+	return ctx.WriteResult(command, cliagent.SchemaData{Schema: raw})
 }

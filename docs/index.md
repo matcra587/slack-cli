@@ -1,3 +1,7 @@
+---
+description: "Use slick to work with Slack from agents, scripts, and CI, with structured output and safe mutation workflows."
+---
+
 # Overview
 
 `slick` is a headless Slack CLI for agents, scripts, and CI jobs — anywhere
@@ -201,8 +205,8 @@ commands do not edit them.
 ## Further reading
 
 *   Per-command pages above for flags, examples, and JSON shapes.
-*   [`slick agent guide`](agent.md#agent-guide) for machine-readable runbooks designed for
+*   [`slick agent guide`](agent.md#guides) for machine-readable runbooks designed for
   agent consumption.
-*   [`slick agent schema`](agent.md#agent-schema) for the full command tree and exit-code
+*   [`slick agent schema`](agent.md#schema) for the full command tree and exit-code
   contract in JSON.
 *   [Repo source](https://github.com/matcra587/slack-cli)

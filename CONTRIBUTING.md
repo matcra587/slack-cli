@@ -23,6 +23,19 @@ actionlint -color .github/workflows/*.yml
 zizmor --persona pedantic --offline --no-progress --color never .github/
 ```
 
+## Documentation
+
+The docs tasks use the pinned uv and Zensical versions from this repository:
+
+```sh
+mise run docs:build
+mise run docs:serve
+```
+
+The build uses strict link validation. The preview runs at
+`http://localhost:4000/`. Stop the preview before running a clean build; both
+commands write to `site/`.
+
 ## Hooks
 
 ```bash
@@ -50,7 +63,12 @@ mise run deps:update
 | --- | --- |
 | `cmd/slick/` | Cobra root, persistent flags, runtime wiring |
 | `internal/agent/` | Agent/CI environment detection and attribution labels |
-| `internal/agenthelp/` | Runbooks served by `slick agent guide` and schema generation |
+| `auth/` | Public saved-workspace authentication for Go callers |
+| `api/` | Public Slack client and reusable API helpers |
+| `internal/agentguides/` | Embedded runbooks served by `slick agent guide` |
+| `internal/agenthelp/` | Command discovery and host contract metadata |
+| `internal/credentials/` | Credential resolution and OAuth refresh |
+| `internal/slackcatalog/` | Official method metadata and SDK coverage inventory |
 | `internal/blockkit/` | Block Kit types, Markdown conversion, validation |
 | `internal/cli/` | Per-command packages (`auth`, `message`, `reply`, `history`, `lookup`, `react`, `status`, `file`, `cache`, `config`, `workspace`, `manifest`, `agent`) plus shared `output`, `runtime`, `completion`, `slackclient` |
 | `internal/config/` | TOML profile loading, migrations, credential references, workspace resolution |

@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"sync"
 	"time"
 )
 
@@ -28,7 +29,10 @@ func (realClock) Sleep(ctx context.Context, d time.Duration) error {
 	}
 }
 
+// Throttler paces requests and is safe for concurrent Wait calls.
+// Configure it only through options passed to NewThrottler.
 type Throttler struct {
+	mu        sync.Mutex
 	clock     Clock
 	disabled  bool
 	intervals map[Tier]time.Duration
@@ -81,22 +85,29 @@ func (t *Throttler) Wait(ctx context.Context, tier Tier) error {
 		return nil
 	}
 
-	now := t.clock.Now()
-	interval := t.intervals[tier]
-	if interval <= 0 {
-		t.last[tier] = now
-		return nil
-	}
-
-	if last, ok := t.last[tier]; ok {
-		if remaining := interval - now.Sub(last); remaining > 0 {
-			if err := t.clock.Sleep(ctx, remaining); err != nil {
-				return err
-			}
-			now = t.clock.Now()
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
 		}
-	}
+		t.mu.Lock()
+		now := t.clock.Now()
+		interval := t.intervals[tier]
+		remaining := time.Duration(0)
+		if last, ok := t.last[tier]; ok {
+			remaining = interval - now.Sub(last)
+		}
+		if interval <= 0 || remaining <= 0 {
+			t.last[tier] = now
+			t.mu.Unlock()
+			return nil
+		}
+		t.mu.Unlock()
 
-	t.last[tier] = now
-	return nil
+		// Do not hold the state lock during a delay. Other methods and canceled
+		// callers must remain able to proceed while this caller waits.
+		if err := t.clock.Sleep(ctx, remaining); err != nil {
+			return err
+		}
+		// Another caller may have claimed the available slot while we slept.
+	}
 }

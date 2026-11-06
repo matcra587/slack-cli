@@ -1,14 +1,14 @@
 ---
 slug: react
-title: "Add, remove, and list emoji reactions by channel and timestamp"
-description: "Add, remove, and list emoji reactions by channel and timestamp"
+title: "Add, remove, list, and watch emoji reactions"
+description: "Add, remove, list, and watch emoji reactions"
 when_to_use: "Before following the react workflow in slick."
-commands: ["slick react add", "slick react remove", "slick react list"]
+commands: ["slick react add", "slick react remove", "slick react list", "slick react watch"]
 ---
 
 ## Decide
 
-Goal: Add, remove, or list emoji reactions on a known channel message.
+Goal: Add, remove, list, or watch emoji reactions on a known channel message.
 
 ### direction
 
@@ -34,6 +34,17 @@ Goal: Add, remove, or list emoji reactions on a known channel message.
 *   Read JSON response for data.mutations[] and data.target
 
 ## Run
+
+To wait for approval before continuing, run:
+
+```sh
+slick react watch --channel C1234567890 --timestamp 1746284582.123456 --emoji :+1: --timeout 10m --output=json
+```
+
+A reaction that already exists satisfies the watch. `--user U1234567890`
+requires that user to appear in Slack's returned user list, which can be
+incomplete. The watch only reads; it never adds or removes reactions. It emits
+one result on a match, exit 7 on timeout, or exit 6 on cancellation.
 
 *   Add: `slick react add --channel <id> --timestamp <ts> --emoji :thumbsup: --output=json`
 *   Add ordered batch: `slick react add --channel <id> --timestamp <ts> --emoji thumbsup,rocket --output=json`

@@ -26,6 +26,7 @@ nav = [
         { history = "history.md" },
     ] },
     { Discovery = [
+        { "Go client" = "api.md" },
         { lookup = "lookup.md" },
         { cache = "cache.md" },
     ] },
@@ -196,7 +197,7 @@ retrying. Never put tokens in command arguments or documentation.
 [project.plugins.llmstxt.sections]
 "Getting started" = ["index.md", "installation.md", "auth.md", "agent.md"]
 "Messaging" = ["message.md", "reply.md", "react.md", "history.md"]
-"Discovery and health" = ["lookup.md", "cache.md", "status.md", "health.md"]
+"Discovery and health" = ["api.md", "lookup.md", "cache.md", "status.md", "health.md"]
 "Configuration and reference" = ["config.md", "workspace.md", "manifest.md", "file.md", "version.md"]
 
 # Self-host fonts, emoji, and the native Mermaid runtime without fetching

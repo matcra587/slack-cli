@@ -2,9 +2,7 @@
 
 `slick` is a headless Slack CLI for agents, scripts, and CI jobs.
 
-I've been transitioning to doing less in apps and more in my terminal.
-I couldn't find a modern Slack CLI that really fit the bill, so I built
-one.
+I built slick to use Slack from my terminal and from agents.
 
 The name is a short play on `slack-cli`: the project is `slack-cli`, the
 installed binary is `slick`.
@@ -27,7 +25,7 @@ for the full flag list and any short forms.
 
 ```sh
 # 1. Generate a Slack app manifest and import it in Slack
-slick manifest template --preset messaging --type user --name slack-cli > manifest.json
+slick manifest template --preset messaging --type user --name slick --output=human > manifest.json
 
 # 2. Authenticate (OAuth recommended; token modes also supported)
 slick auth login
@@ -43,8 +41,8 @@ scope presets and bot-vs-user manifest shapes.
 
 ## Output
 
-slick emits human-friendly clog output on TTYs and switches to JSON
-automatically for non-TTY callers and detected agent environments. Pick a
+slick emits readable output in a terminal and switches to JSON
+automatically when piped or run by a detected agent. Pick a
 mode explicitly with `--output` (short `-o`); valid values are `auto`,
 `human`, `json`, and `compact`. Machine successes and failure envelopes go to stdout; human diagnostics
 go to stderr. Existing exit codes remain unchanged; output-write failures use exit 8.
@@ -72,6 +70,19 @@ They are stored via your OS keychain or a configured secret manager;
 | `config`, `workspace` | [config.md](docs/config.md), [workspace.md](docs/workspace.md) |
 | `manifest` | [manifest.md](docs/manifest.md) |
 | `agent`, `version` | [agent.md](docs/agent.md), [version.md](docs/version.md) |
+
+For authenticated Go clients, see [Use slick from Go](docs/api.md).
+
+## Wait for a reaction
+
+A script can wait for approval before continuing:
+
+```sh
+slick react watch --channel C1234567890 --timestamp 1746284582.123456 \
+  --emoji :+1: --timeout 10m --output=json && ./next-step.sh
+```
+
+See [reaction watches](docs/react.md#react-watch) for user filters and polling limits.
 
 ## Attribution
 

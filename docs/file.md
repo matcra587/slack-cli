@@ -7,10 +7,10 @@ description: "Upload files to Slack channels with slick’s probationary file up
 **Upload** a file to a Slack channel.
 
 !!! warning "Probationary"
-    the command is implemented and
-    covered by mock tests, but it's hidden from `slick --help` and shell
-    completion. Agent schema and workflow guidance mention it as probationary
-    and not promoted until live-Slack smoke evidence completes.
+    This command is hidden from `slick --help` and shell completion. It remains
+    experimental. Fixture and live upload checks have run, but those checks do
+    not cover every Slack plan, token type, or native platform. Read the
+    `upload-file` agent guide before using it.
 
 ## file upload
 

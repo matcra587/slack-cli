@@ -30,28 +30,31 @@ Also available via `go install` and pre-built binaries. See
 [Installation](installation.md) for go install, GitHub Releases, source
 builds, and upgrade paths.
 
-The examples below assume `slick` is on `PATH`. Every visible flag has a short
-form; run `slick <command> --help` for the current mapping.
+The examples below assume `slick` is on `PATH`. Run `slick <command> --help` for the current flags and short forms.
 
 ## First-time setup
 
-??? info "Prerequisite — Slack app with a user OAuth token"
-    slick acts as you, so it needs a Slack app installed in your workspace
-    with a **user token** (not a bot token). At minimum, that app needs
-    these three user-scope permissions:
+??? info "Prerequisite — an installed Slack app"
+    slick uses a user or bot token from a Slack app installed in your workspace.
+    Choose scopes for the commands you plan to run. Common scopes include:
 
     | Scope | Enables |
     |---|---|
     | `chat:write` | Send messages |
     | `channels:read` | Resolve public channels |
-    | `users:read` | `auth.test`, user lookup, identity |
+    | `users:read` | User lookup |
 
     Create the app at [api.slack.com/apps](https://api.slack.com/apps). See
     [manifest](manifest.md) for an optional `slick manifest template`
     shortcut that emits a ready-to-import manifest — and for broader scope
     sets (history, DMs, reactions, file uploads, search, status updates).
 
-With the app installed and a user token available:
+User tokens support actions such as search and personal status updates.
+Bot tokens support the bot’s permitted conversations and actions. The
+[manifest presets](manifest.md) list scopes for each token type. `auth.test`
+does not need a separate OAuth scope.
+
+With the app installed:
 
 ```sh
 slick auth login
@@ -70,7 +73,7 @@ slick has a single output flag, `--output` (short `-o`), with four values:
     output; everything else renders the JSON envelope.
 *   `human` — human-readable clog output.
 *   `json` — full envelope with `ok`, `meta`, `data`, and `errors[]`.
-*   `compact` — JSON `data` only; no envelope.
+*   `compact` — JSON `data` on success; the full envelope on failure.
 
 Under `auto`, JSON is selected when stdout is not a TTY or when slick detects
 an agent environment (e.g. `CLAUDE_CODE`, `CURSOR_TERMINAL`, `CODEX`,

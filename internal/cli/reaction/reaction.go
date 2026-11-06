@@ -112,6 +112,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	reactCmd.AddCommand(newReactionMutationCommand(runtime, "add"))
 	reactCmd.AddCommand(newReactionMutationCommand(runtime, "remove"))
 	reactCmd.AddCommand(newReactionListCommand(runtime))
+	reactCmd.AddCommand(newReactionWatchCommand(runtime))
 	return reactCmd
 }
 

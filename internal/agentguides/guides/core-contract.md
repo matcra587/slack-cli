@@ -12,7 +12,7 @@ aliases: ["core_contract"]
 Goal: Apply the cross-cutting output-mode, stdout/stderr, exit-code, and error-shape contract every other workflow inherits.
 
 *   TTY humans: `--output=human` (or omit; `auto` picks `human` on a TTY).
-*   Automation: `--output=json` for envelope (`json` mode), `--output=compact` for envelope-less `data` only (`compact` mode).
+*   Automation: `--output=json` for envelope (`json` mode), `--output=compact` (`compact` mode) for `data` on success. Both modes use the full envelope on failure.
 
 ### Workflow checkpoints
 
@@ -41,7 +41,7 @@ Goal: Apply the cross-cutting output-mode, stdout/stderr, exit-code, and error-s
 > Requires `--output=json`.
 *   `ok` [bool, required] reports command success. `meta.command`, `meta.workspace`, `meta.timestamp`, `meta.request_id` [string, required] — envelope identity.
 *   `meta.exit_code` [integer, required] is 0 on success and matches the process on failure.
-*   `data` [object, required] — command-specific payload.
+*   `data` [object or null, required] — command-specific payload on success; null on failure.
 *   `errors` [array, required] — empty on success.
 
 ## Preconditions

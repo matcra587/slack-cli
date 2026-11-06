@@ -46,7 +46,7 @@ func GenerateSchema(root *cobra.Command) docent.Command {
 			cmd.OutputSchema = clioutput.EnvelopeSchema()
 		}
 		switch cmd.Name {
-		case "list", "get", "path", "info", "schema", "guide", "version", "current", "check", "api-test":
+		case "list", "get", "path", "info", "schema", "guide", "version", "current", "check", "api-test", "watch":
 			cmd.ReadOnly = true
 		}
 		if cmd.Path == "slick auth status" {

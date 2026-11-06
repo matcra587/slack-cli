@@ -26,8 +26,13 @@ blind mutation retries.
 ## Repository Map
 
 - `cmd/slick/`: Cobra commands and CLI behavior.
+- `auth/`: Public saved-workspace authentication for Go programs.
+- `api/`: Public authenticated client, native SDK access, and reusable helpers.
 - `internal/agent/`: agent detection and attribution helpers.
-- `internal/agenthelp/`: runbooks for `slick agent guide`.
+- `internal/agentguides/`: embedded runbooks for `slick agent guide`.
+- `internal/agenthelp/`: command discovery and host contract metadata.
+- `internal/credentials/`: credential resolution and OAuth refresh.
+- `internal/slackcatalog/`: published method contracts and pinned SDK inventory.
 - `internal/config/`: TOML profiles, migrations, credential references, and
   workspace resolution.
 - `internal/ratelimit/`: Slack Web API method tiers, throttling, and 429 retry.
@@ -38,12 +43,13 @@ blind mutation retries.
 
 ## Implementation Notes
 
-- Slack Web API calls use `slack-go/slack` directly.
+- Task commands use `slack-go/slack`. Public `api` and `auth` packages let Go
+  applications reuse saved authentication and the native SDK.
 - Block Kit JSON is the canonical rich-content contract. Markdown input is
   converted through `internal/blockkit`; unsupported block-level Markdown preserves
   readable source text as fallback.
 - `--blocks` is command-local input for raw Slack Block Kit JSON arrays.
-  `--raw` remains an output mode.
+  Use `--output=json` for structured results.
 - Token values must not appear in argv, TOML, stdout, stderr, docs, or examples.
 - Config stores keychain or secret-manager references.
 - Workspace selection resolves exactly one active profile through `--workspace`

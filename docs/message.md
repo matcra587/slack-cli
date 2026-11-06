@@ -456,7 +456,7 @@ JSON output:
 | `user_not_found` | Email or alias did not resolve. | Use a known Slack user ID or verify via [`lookup user`](lookup.md#lookup-user). |
 | `cant_update_message` / `cant_delete_message` (`validation_error`, exit 4) | Slack disallows the edit/delete for this token identity. | Use the user token that originally sent the message. |
 | Schedule `validation_error` | `--schedule` was in the past, beyond 120 days, or not RFC3339/duration/Unix seconds. | Use a future RFC3339 timestamp, Go duration, or Unix seconds. |
-| Raw Block Kit `validation_error` with no stdout data | Malformed JSON, unsupported block types, missing required fields, or Slack limits. | Inspect the `--blocks` JSON; the error envelope describes the rule that failed. |
+| Raw Block Kit `validation_error` with `data=null` | Malformed JSON, unsupported block types, missing required fields, or Slack limits. | Inspect the `--blocks` JSON; the error envelope describes the rule that failed. |
 
 ## See also
 

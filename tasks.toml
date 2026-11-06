@@ -23,6 +23,9 @@ alias = "b"
 file = ".mise/tasks/build"
 sources = [
   "**/*.go",
+  "internal/agentguides/guides/*.md",
+  "internal/agenthelp/contract.json",
+  "internal/slackcatalog/methods.json",
   "go.mod",
   "go.sum",
   ".mise/tasks/build",

@@ -225,6 +225,7 @@ var commandActionLabel = map[string]string{
 	"react.add":                "Reaction added",
 	"react.remove":             "Reaction removed",
 	"react.list":               "Reactions retrieved",
+	"react.watch":              "Reaction observed",
 	"history.list":             "History retrieved",
 	"lookup.channel":           "Channel resolved",
 	"lookup.user":              "User resolved",

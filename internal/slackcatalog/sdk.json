@@ -1,0 +1,3816 @@
+{
+  "version": "v0.35.0",
+  "source_hash": "482ae618ed5704ee440031133143f7bc14c592a8e8642704cdd0b863bd22a37f",
+  "source": "https://github.com/slack-go/slack/tree/v0.35.0",
+  "note": "Static call-graph inventory of exported *Client methods. Endpoints are resolved from request-builder literals and reachable helpers; an empty list is not proof that a method makes no network calls.",
+  "methods": [
+    {
+      "name": "AddBookmark",
+      "file": "bookmarks.go",
+      "line": 60,
+      "endpoints": [
+        "bookmarks.add"
+      ]
+    },
+    {
+      "name": "AddBookmarkContext",
+      "file": "bookmarks.go",
+      "line": 66,
+      "endpoints": [
+        "bookmarks.add"
+      ]
+    },
+    {
+      "name": "AddCall",
+      "file": "calls.go",
+      "line": 67,
+      "endpoints": [
+        "calls.add"
+      ]
+    },
+    {
+      "name": "AddCallContext",
+      "file": "calls.go",
+      "line": 72,
+      "endpoints": [
+        "calls.add"
+      ]
+    },
+    {
+      "name": "AddChannelReminder",
+      "file": "reminders.go",
+      "line": 72,
+      "endpoints": [
+        "reminders.add"
+      ]
+    },
+    {
+      "name": "AddChannelReminderContext",
+      "file": "reminders.go",
+      "line": 81,
+      "endpoints": [
+        "reminders.add"
+      ]
+    },
+    {
+      "name": "AddPin",
+      "file": "pins.go",
+      "line": 17,
+      "endpoints": [
+        "pins.add"
+      ]
+    },
+    {
+      "name": "AddPinContext",
+      "file": "pins.go",
+      "line": 26,
+      "endpoints": [
+        "pins.add"
+      ]
+    },
+    {
+      "name": "AddReaction",
+      "file": "reactions.go",
+      "line": 115,
+      "endpoints": [
+        "reactions.add"
+      ]
+    },
+    {
+      "name": "AddReactionContext",
+      "file": "reactions.go",
+      "line": 124,
+      "endpoints": [
+        "reactions.add"
+      ]
+    },
+    {
+      "name": "AddRemoteFile",
+      "file": "remotefiles.go",
+      "line": 112,
+      "endpoints": [
+        "files.remote.add"
+      ]
+    },
+    {
+      "name": "AddRemoteFileContext",
+      "file": "remotefiles.go",
+      "line": 118,
+      "endpoints": [
+        "files.remote.add"
+      ]
+    },
+    {
+      "name": "AddSlackbotSkillToLibrary",
+      "file": "slackbot_skills.go",
+      "line": 290,
+      "endpoints": [
+        "slackbot.skills.library.add"
+      ]
+    },
+    {
+      "name": "AddSlackbotSkillToLibraryContext",
+      "file": "slackbot_skills.go",
+      "line": 296,
+      "endpoints": [
+        "slackbot.skills.library.add"
+      ]
+    },
+    {
+      "name": "AddStar",
+      "file": "stars.go",
+      "line": 39,
+      "endpoints": [
+        "stars.add"
+      ]
+    },
+    {
+      "name": "AddStarContext",
+      "file": "stars.go",
+      "line": 45,
+      "endpoints": [
+        "stars.add"
+      ]
+    },
+    {
+      "name": "AddUserReminder",
+      "file": "reminders.go",
+      "line": 93,
+      "endpoints": [
+        "reminders.add"
+      ]
+    },
+    {
+      "name": "AddUserReminderContext",
+      "file": "reminders.go",
+      "line": 102,
+      "endpoints": [
+        "reminders.add"
+      ]
+    },
+    {
+      "name": "AdminAppsApprovedList",
+      "file": "admin_apps.go",
+      "line": 145,
+      "endpoints": [
+        "admin.apps.approved.list"
+      ]
+    },
+    {
+      "name": "AdminAppsApprovedListContext",
+      "file": "admin_apps.go",
+      "line": 152,
+      "endpoints": [
+        "admin.apps.approved.list"
+      ]
+    },
+    {
+      "name": "AdminAppsRequestsList",
+      "file": "admin_apps_requests.go",
+      "line": 57,
+      "endpoints": [
+        "admin.apps.requests.list"
+      ]
+    },
+    {
+      "name": "AdminAppsRequestsListContext",
+      "file": "admin_apps_requests.go",
+      "line": 64,
+      "endpoints": [
+        "admin.apps.requests.list"
+      ]
+    },
+    {
+      "name": "AdminAppsRestrictedList",
+      "file": "admin_apps.go",
+      "line": 170,
+      "endpoints": [
+        "admin.apps.restricted.list"
+      ]
+    },
+    {
+      "name": "AdminAppsRestrictedListContext",
+      "file": "admin_apps.go",
+      "line": 177,
+      "endpoints": [
+        "admin.apps.restricted.list"
+      ]
+    },
+    {
+      "name": "AdminConversationsArchive",
+      "file": "admin_conversations.go",
+      "line": 39,
+      "endpoints": [
+        "admin.conversations.archive"
+      ]
+    },
+    {
+      "name": "AdminConversationsBulkArchive",
+      "file": "admin_conversations.go",
+      "line": 538,
+      "endpoints": [
+        "admin.conversations.bulkArchive"
+      ]
+    },
+    {
+      "name": "AdminConversationsBulkDelete",
+      "file": "admin_conversations.go",
+      "line": 556,
+      "endpoints": [
+        "admin.conversations.bulkDelete"
+      ]
+    },
+    {
+      "name": "AdminConversationsBulkMove",
+      "file": "admin_conversations.go",
+      "line": 580,
+      "endpoints": [
+        "admin.conversations.bulkMove"
+      ]
+    },
+    {
+      "name": "AdminConversationsConvertToPrivate",
+      "file": "admin_conversations.go",
+      "line": 775,
+      "endpoints": [
+        "admin.conversations.convertToPrivate"
+      ]
+    },
+    {
+      "name": "AdminConversationsConvertToPublic",
+      "file": "admin_conversations.go",
+      "line": 794,
+      "endpoints": [
+        "admin.conversations.convertToPublic"
+      ]
+    },
+    {
+      "name": "AdminConversationsCreate",
+      "file": "admin_conversations.go",
+      "line": 189,
+      "endpoints": [
+        "admin.conversations.create"
+      ]
+    },
+    {
+      "name": "AdminConversationsDelete",
+      "file": "admin_conversations.go",
+      "line": 94,
+      "endpoints": [
+        "admin.conversations.delete"
+      ]
+    },
+    {
+      "name": "AdminConversationsDisconnectShared",
+      "file": "admin_conversations.go",
+      "line": 126,
+      "endpoints": [
+        "admin.conversations.disconnectShared"
+      ]
+    },
+    {
+      "name": "AdminConversationsEKMListOriginalConnectedChannelInfo",
+      "file": "admin_conversations_ekm.go",
+      "line": 68,
+      "endpoints": [
+        "admin.conversations.ekm.listOriginalConnectedChannelInfo"
+      ]
+    },
+    {
+      "name": "AdminConversationsGetConversationPrefs",
+      "file": "admin_conversations.go",
+      "line": 625,
+      "endpoints": [
+        "admin.conversations.getConversationPrefs"
+      ]
+    },
+    {
+      "name": "AdminConversationsGetCustomRetention",
+      "file": "admin_conversations.go",
+      "line": 680,
+      "endpoints": [
+        "admin.conversations.getCustomRetention"
+      ]
+    },
+    {
+      "name": "AdminConversationsGetTeams",
+      "file": "admin_conversations.go",
+      "line": 238,
+      "endpoints": [
+        "admin.conversations.getTeams"
+      ]
+    },
+    {
+      "name": "AdminConversationsInvite",
+      "file": "admin_conversations.go",
+      "line": 20,
+      "endpoints": [
+        "admin.conversations.invite"
+      ]
+    },
+    {
+      "name": "AdminConversationsLookup",
+      "file": "admin_conversations.go",
+      "line": 502,
+      "endpoints": [
+        "admin.conversations.lookup"
+      ]
+    },
+    {
+      "name": "AdminConversationsRemoveCustomRetention",
+      "file": "admin_conversations.go",
+      "line": 717,
+      "endpoints": [
+        "admin.conversations.removeCustomRetention"
+      ]
+    },
+    {
+      "name": "AdminConversationsRename",
+      "file": "admin_conversations.go",
+      "line": 75,
+      "endpoints": [
+        "admin.conversations.rename"
+      ]
+    },
+    {
+      "name": "AdminConversationsRestrictAccessAddGroup",
+      "file": "admin_conversations_restrictAccess.go",
+      "line": 29,
+      "endpoints": [
+        "admin.conversations.restrictAccess.addGroup"
+      ]
+    },
+    {
+      "name": "AdminConversationsRestrictAccessListGroups",
+      "file": "admin_conversations_restrictAccess.go",
+      "line": 82,
+      "endpoints": [
+        "admin.conversations.restrictAccess.listGroups"
+      ]
+    },
+    {
+      "name": "AdminConversationsRestrictAccessRemoveGroup",
+      "file": "admin_conversations_restrictAccess.go",
+      "line": 127,
+      "endpoints": [
+        "admin.conversations.restrictAccess.removeGroup"
+      ]
+    },
+    {
+      "name": "AdminConversationsSearch",
+      "file": "admin_conversations.go",
+      "line": 408,
+      "endpoints": [
+        "admin.conversations.search"
+      ]
+    },
+    {
+      "name": "AdminConversationsSetConversationPrefs",
+      "file": "admin_conversations.go",
+      "line": 649,
+      "endpoints": [
+        "admin.conversations.setConversationPrefs"
+      ]
+    },
+    {
+      "name": "AdminConversationsSetCustomRetention",
+      "file": "admin_conversations.go",
+      "line": 698,
+      "endpoints": [
+        "admin.conversations.setCustomRetention"
+      ]
+    },
+    {
+      "name": "AdminConversationsSetTeams",
+      "file": "admin_conversations.go",
+      "line": 744,
+      "endpoints": [
+        "admin.conversations.setTeams"
+      ]
+    },
+    {
+      "name": "AdminConversationsUnarchive",
+      "file": "admin_conversations.go",
+      "line": 57,
+      "endpoints": [
+        "admin.conversations.unarchive"
+      ]
+    },
+    {
+      "name": "AdminRolesAddAssignments",
+      "file": "admin_roles.go",
+      "line": 39,
+      "endpoints": [
+        "admin.roles.addAssignments"
+      ]
+    },
+    {
+      "name": "AdminRolesListAssignments",
+      "file": "admin_roles.go",
+      "line": 127,
+      "endpoints": [
+        "admin.roles.listAssignments"
+      ]
+    },
+    {
+      "name": "AdminRolesRemoveAssignments",
+      "file": "admin_roles.go",
+      "line": 183,
+      "endpoints": [
+        "admin.roles.removeAssignments"
+      ]
+    },
+    {
+      "name": "AdminSlackbotSkillsList",
+      "file": "admin_slackbot_skills.go",
+      "line": 99,
+      "endpoints": [
+        "admin.slackbot.skills.list"
+      ]
+    },
+    {
+      "name": "AdminSlackbotSkillsListContext",
+      "file": "admin_slackbot_skills.go",
+      "line": 105,
+      "endpoints": [
+        "admin.slackbot.skills.list"
+      ]
+    },
+    {
+      "name": "AdminSlackbotSkillsPublish",
+      "file": "admin_slackbot_skills.go",
+      "line": 150,
+      "endpoints": [
+        "admin.slackbot.skills.publish"
+      ]
+    },
+    {
+      "name": "AdminSlackbotSkillsPublishContext",
+      "file": "admin_slackbot_skills.go",
+      "line": 155,
+      "endpoints": [
+        "admin.slackbot.skills.publish"
+      ]
+    },
+    {
+      "name": "AdminSlackbotSkillsSetAutoEnabled",
+      "file": "admin_slackbot_skills.go",
+      "line": 202,
+      "endpoints": [
+        "admin.slackbot.skills.setAutoEnabled"
+      ]
+    },
+    {
+      "name": "AdminSlackbotSkillsSetAutoEnabledContext",
+      "file": "admin_slackbot_skills.go",
+      "line": 208,
+      "endpoints": [
+        "admin.slackbot.skills.setAutoEnabled"
+      ]
+    },
+    {
+      "name": "AdminSlackbotSkillsUnpublish",
+      "file": "admin_slackbot_skills.go",
+      "line": 239,
+      "endpoints": [
+        "admin.slackbot.skills.unpublish"
+      ]
+    },
+    {
+      "name": "AdminSlackbotSkillsUnpublishContext",
+      "file": "admin_slackbot_skills.go",
+      "line": 244,
+      "endpoints": [
+        "admin.slackbot.skills.unpublish"
+      ]
+    },
+    {
+      "name": "AdminTeamsList",
+      "file": "admin_teams.go",
+      "line": 56,
+      "endpoints": [
+        "admin.teams.list"
+      ]
+    },
+    {
+      "name": "AdminTeamsSettingsInfo",
+      "file": "admin_teams.go",
+      "line": 128,
+      "endpoints": [
+        "admin.teams.settings.info"
+      ]
+    },
+    {
+      "name": "AdminTeamsSettingsSetDefaultChannels",
+      "file": "admin_teams.go",
+      "line": 145,
+      "endpoints": [
+        "admin.teams.settings.setDefaultChannels"
+      ]
+    },
+    {
+      "name": "AdminTeamsSettingsSetDescription",
+      "file": "admin_teams.go",
+      "line": 162,
+      "endpoints": [
+        "admin.teams.settings.setDescription"
+      ]
+    },
+    {
+      "name": "AdminTeamsSettingsSetDiscoverability",
+      "file": "admin_teams.go",
+      "line": 180,
+      "endpoints": [
+        "admin.teams.settings.setDiscoverability"
+      ]
+    },
+    {
+      "name": "AdminTeamsSettingsSetIcon",
+      "file": "admin_teams.go",
+      "line": 197,
+      "endpoints": [
+        "admin.teams.settings.setIcon"
+      ]
+    },
+    {
+      "name": "AdminTeamsSettingsSetName",
+      "file": "admin_teams.go",
+      "line": 214,
+      "endpoints": [
+        "admin.teams.settings.setName"
+      ]
+    },
+    {
+      "name": "AdminUsersList",
+      "file": "admin_users.go",
+      "line": 114,
+      "endpoints": [
+        "admin.users.list"
+      ]
+    },
+    {
+      "name": "AppendStream",
+      "file": "chat.go",
+      "line": 1191,
+      "endpoints": [
+        "chat.appendStream"
+      ]
+    },
+    {
+      "name": "AppendStreamContext",
+      "file": "chat.go",
+      "line": 1197,
+      "endpoints": [
+        "chat.appendStream"
+      ]
+    },
+    {
+      "name": "ArchiveAgentConversation",
+      "file": "agents.go",
+      "line": 130,
+      "endpoints": [
+        "agents.conversations.archive"
+      ]
+    },
+    {
+      "name": "ArchiveAgentConversationContext",
+      "file": "agents.go",
+      "line": 137,
+      "endpoints": [
+        "agents.conversations.archive"
+      ]
+    },
+    {
+      "name": "ArchiveConversation",
+      "file": "conversation.go",
+      "line": 216,
+      "endpoints": [
+        "conversations.archive"
+      ]
+    },
+    {
+      "name": "ArchiveConversationContext",
+      "file": "conversation.go",
+      "line": 222,
+      "endpoints": [
+        "conversations.archive"
+      ]
+    },
+    {
+      "name": "AuthTest",
+      "file": "slack.go",
+      "line": 207,
+      "endpoints": [
+        "auth.test"
+      ]
+    },
+    {
+      "name": "AuthTestContext",
+      "file": "slack.go",
+      "line": 212,
+      "endpoints": [
+        "auth.test"
+      ]
+    },
+    {
+      "name": "BulkUpdateUserConnections",
+      "file": "apps_user_connection.go",
+      "line": 106,
+      "endpoints": [
+        "apps.user.connection.bulkUpdate"
+      ]
+    },
+    {
+      "name": "BulkUpdateUserConnectionsContext",
+      "file": "apps_user_connection.go",
+      "line": 113,
+      "endpoints": [
+        "apps.user.connection.bulkUpdate"
+      ]
+    },
+    {
+      "name": "CallAddParticipants",
+      "file": "calls.go",
+      "line": 180,
+      "endpoints": [
+        "calls.participants.add"
+      ]
+    },
+    {
+      "name": "CallAddParticipantsContext",
+      "file": "calls.go",
+      "line": 185,
+      "endpoints": [
+        "calls.participants.add"
+      ]
+    },
+    {
+      "name": "CallRemoveParticipants",
+      "file": "calls.go",
+      "line": 190,
+      "endpoints": [
+        "calls.participants.remove"
+      ]
+    },
+    {
+      "name": "CallRemoveParticipantsContext",
+      "file": "calls.go",
+      "line": 195,
+      "endpoints": [
+        "calls.participants.remove"
+      ]
+    },
+    {
+      "name": "CloseConversation",
+      "file": "conversation.go",
+      "line": 513,
+      "endpoints": [
+        "conversations.close"
+      ]
+    },
+    {
+      "name": "CloseConversationContext",
+      "file": "conversation.go",
+      "line": 519,
+      "endpoints": [
+        "conversations.close"
+      ]
+    },
+    {
+      "name": "CompleteUploadExternalContext",
+      "file": "files.go",
+      "line": 606,
+      "endpoints": [
+        "files.completeUploadExternal"
+      ]
+    },
+    {
+      "name": "ConnectRTM",
+      "file": "rtm.go",
+      "line": 59,
+      "endpoints": [
+        "rtm.connect"
+      ]
+    },
+    {
+      "name": "ConnectRTMContext",
+      "file": "rtm.go",
+      "line": 70,
+      "endpoints": [
+        "rtm.connect"
+      ]
+    },
+    {
+      "name": "CreateAgentConversation",
+      "file": "agents.go",
+      "line": 68,
+      "endpoints": [
+        "agents.conversations.create"
+      ]
+    },
+    {
+      "name": "CreateAgentConversationContext",
+      "file": "agents.go",
+      "line": 78,
+      "endpoints": [
+        "agents.conversations.create"
+      ]
+    },
+    {
+      "name": "CreateCanvas",
+      "file": "canvas.go",
+      "line": 90,
+      "endpoints": [
+        "canvases.create"
+      ]
+    },
+    {
+      "name": "CreateCanvasContext",
+      "file": "canvas.go",
+      "line": 96,
+      "endpoints": [
+        "canvases.create"
+      ]
+    },
+    {
+      "name": "CreateChannelCanvas",
+      "file": "conversation.go",
+      "line": 1073,
+      "endpoints": [
+        "conversations.canvases.create"
+      ]
+    },
+    {
+      "name": "CreateChannelCanvasContext",
+      "file": "conversation.go",
+      "line": 1079,
+      "endpoints": [
+        "conversations.canvases.create"
+      ]
+    },
+    {
+      "name": "CreateConversation",
+      "file": "conversation.go",
+      "line": 546,
+      "endpoints": [
+        "conversations.create"
+      ]
+    },
+    {
+      "name": "CreateConversationContext",
+      "file": "conversation.go",
+      "line": 552,
+      "endpoints": [
+        "conversations.create"
+      ]
+    },
+    {
+      "name": "CreateList",
+      "file": "lists.go",
+      "line": 100,
+      "endpoints": [
+        "slackLists.create"
+      ]
+    },
+    {
+      "name": "CreateListContext",
+      "file": "lists.go",
+      "line": 107,
+      "endpoints": [
+        "slackLists.create"
+      ]
+    },
+    {
+      "name": "CreateListItem",
+      "file": "lists.go",
+      "line": 564,
+      "endpoints": [
+        "slackLists.items.create"
+      ]
+    },
+    {
+      "name": "CreateListItemContext",
+      "file": "lists.go",
+      "line": 571,
+      "endpoints": [
+        "slackLists.items.create"
+      ]
+    },
+    {
+      "name": "CreateManifest",
+      "file": "manifests.go",
+      "line": 38,
+      "endpoints": [
+        "apps.manifest.create"
+      ]
+    },
+    {
+      "name": "CreateManifestContext",
+      "file": "manifests.go",
+      "line": 45,
+      "endpoints": [
+        "apps.manifest.create"
+      ]
+    },
+    {
+      "name": "CreateManifestRaw",
+      "file": "manifests.go",
+      "line": 57,
+      "endpoints": [
+        "apps.manifest.create"
+      ]
+    },
+    {
+      "name": "CreateManifestRawContext",
+      "file": "manifests.go",
+      "line": 66,
+      "endpoints": [
+        "apps.manifest.create"
+      ]
+    },
+    {
+      "name": "CreateSlackbotSkill",
+      "file": "slackbot_skills.go",
+      "line": 102,
+      "endpoints": [
+        "slackbot.skills.create"
+      ]
+    },
+    {
+      "name": "CreateSlackbotSkillContext",
+      "file": "slackbot_skills.go",
+      "line": 108,
+      "endpoints": [
+        "slackbot.skills.create"
+      ]
+    },
+    {
+      "name": "CreateUserGroup",
+      "file": "usergroups.go",
+      "line": 100,
+      "endpoints": [
+        "usergroups.create"
+      ]
+    },
+    {
+      "name": "CreateUserGroupContext",
+      "file": "usergroups.go",
+      "line": 106,
+      "endpoints": [
+        "usergroups.create"
+      ]
+    },
+    {
+      "name": "Debug",
+      "file": "slack.go",
+      "line": 239
+    },
+    {
+      "name": "Debugf",
+      "file": "slack.go",
+      "line": 225
+    },
+    {
+      "name": "Debugln",
+      "file": "slack.go",
+      "line": 232
+    },
+    {
+      "name": "DeleteCanvas",
+      "file": "canvas.go",
+      "line": 165,
+      "endpoints": [
+        "canvases.delete"
+      ]
+    },
+    {
+      "name": "DeleteCanvasAccess",
+      "file": "canvas.go",
+      "line": 264,
+      "endpoints": [
+        "canvases.access.delete"
+      ]
+    },
+    {
+      "name": "DeleteCanvasAccessContext",
+      "file": "canvas.go",
+      "line": 270,
+      "endpoints": [
+        "canvases.access.delete"
+      ]
+    },
+    {
+      "name": "DeleteCanvasContext",
+      "file": "canvas.go",
+      "line": 171,
+      "endpoints": [
+        "canvases.delete"
+      ]
+    },
+    {
+      "name": "DeleteFile",
+      "file": "files.go",
+      "line": 495,
+      "endpoints": [
+        "files.delete"
+      ]
+    },
+    {
+      "name": "DeleteFileComment",
+      "file": "files.go",
+      "line": 466,
+      "endpoints": [
+        "files.comments.delete"
+      ]
+    },
+    {
+      "name": "DeleteFileCommentContext",
+      "file": "files.go",
+      "line": 473,
+      "endpoints": [
+        "files.comments.delete"
+      ]
+    },
+    {
+      "name": "DeleteFileContext",
+      "file": "files.go",
+      "line": 501,
+      "endpoints": [
+        "files.delete"
+      ]
+    },
+    {
+      "name": "DeleteListAccess",
+      "file": "lists.go",
+      "line": 328,
+      "endpoints": [
+        "slackLists.access.delete"
+      ]
+    },
+    {
+      "name": "DeleteListAccessContext",
+      "file": "lists.go",
+      "line": 335,
+      "endpoints": [
+        "slackLists.access.delete"
+      ]
+    },
+    {
+      "name": "DeleteListItem",
+      "file": "lists.go",
+      "line": 611,
+      "endpoints": [
+        "slackLists.items.delete"
+      ]
+    },
+    {
+      "name": "DeleteListItemContext",
+      "file": "lists.go",
+      "line": 618,
+      "endpoints": [
+        "slackLists.items.delete"
+      ]
+    },
+    {
+      "name": "DeleteListItems",
+      "file": "lists.go",
+      "line": 636,
+      "endpoints": [
+        "slackLists.items.deleteMultiple"
+      ]
+    },
+    {
+      "name": "DeleteListItemsContext",
+      "file": "lists.go",
+      "line": 643,
+      "endpoints": [
+        "slackLists.items.deleteMultiple"
+      ]
+    },
+    {
+      "name": "DeleteManifest",
+      "file": "manifests.go",
+      "line": 119,
+      "endpoints": [
+        "apps.manifest.delete"
+      ]
+    },
+    {
+      "name": "DeleteManifestContext",
+      "file": "manifests.go",
+      "line": 125,
+      "endpoints": [
+        "apps.manifest.delete"
+      ]
+    },
+    {
+      "name": "DeleteMessage",
+      "file": "chat.go",
+      "line": 97,
+      "endpoints": [
+        "chat.delete"
+      ]
+    },
+    {
+      "name": "DeleteMessageContext",
+      "file": "chat.go",
+      "line": 103,
+      "endpoints": [
+        "chat.delete"
+      ]
+    },
+    {
+      "name": "DeleteReminder",
+      "file": "reminders.go",
+      "line": 114,
+      "endpoints": [
+        "reminders.delete"
+      ]
+    },
+    {
+      "name": "DeleteReminderContext",
+      "file": "reminders.go",
+      "line": 122,
+      "endpoints": [
+        "reminders.delete"
+      ]
+    },
+    {
+      "name": "DeleteScheduledMessage",
+      "file": "chat.go",
+      "line": 1146,
+      "endpoints": [
+        "chat.deleteScheduledMessage"
+      ]
+    },
+    {
+      "name": "DeleteScheduledMessageContext",
+      "file": "chat.go",
+      "line": 1152,
+      "endpoints": [
+        "chat.deleteScheduledMessage"
+      ]
+    },
+    {
+      "name": "DeleteSlackbotSkill",
+      "file": "slackbot_skills.go",
+      "line": 331,
+      "endpoints": [
+        "slackbot.skills.delete"
+      ]
+    },
+    {
+      "name": "DeleteSlackbotSkillContext",
+      "file": "slackbot_skills.go",
+      "line": 336,
+      "endpoints": [
+        "slackbot.skills.delete"
+      ]
+    },
+    {
+      "name": "DeleteUserPhoto",
+      "file": "users.go",
+      "line": 556,
+      "endpoints": [
+        "users.deletePhoto"
+      ]
+    },
+    {
+      "name": "DeleteUserPhotoContext",
+      "file": "users.go",
+      "line": 562,
+      "endpoints": [
+        "users.deletePhoto"
+      ]
+    },
+    {
+      "name": "DisableUser",
+      "file": "admin.go",
+      "line": 21,
+      "endpoints": [
+        "users.admin.setInactive"
+      ]
+    },
+    {
+      "name": "DisableUserContext",
+      "file": "admin.go",
+      "line": 26,
+      "endpoints": [
+        "users.admin.setInactive"
+      ]
+    },
+    {
+      "name": "DisableUserGroup",
+      "file": "usergroups.go",
+      "line": 178,
+      "endpoints": [
+        "usergroups.disable"
+      ]
+    },
+    {
+      "name": "DisableUserGroupContext",
+      "file": "usergroups.go",
+      "line": 184,
+      "endpoints": [
+        "usergroups.disable"
+      ]
+    },
+    {
+      "name": "EditBookmark",
+      "file": "bookmarks.go",
+      "line": 141,
+      "endpoints": [
+        "bookmarks.edit"
+      ]
+    },
+    {
+      "name": "EditBookmarkContext",
+      "file": "bookmarks.go",
+      "line": 147,
+      "endpoints": [
+        "bookmarks.edit"
+      ]
+    },
+    {
+      "name": "EditCanvas",
+      "file": "canvas.go",
+      "line": 191,
+      "endpoints": [
+        "canvases.edit"
+      ]
+    },
+    {
+      "name": "EditCanvasContext",
+      "file": "canvas.go",
+      "line": 197,
+      "endpoints": [
+        "canvases.edit"
+      ]
+    },
+    {
+      "name": "EnableUserGroup",
+      "file": "usergroups.go",
+      "line": 236,
+      "endpoints": [
+        "usergroups.enable"
+      ]
+    },
+    {
+      "name": "EnableUserGroupContext",
+      "file": "usergroups.go",
+      "line": 242,
+      "endpoints": [
+        "usergroups.enable"
+      ]
+    },
+    {
+      "name": "EndCall",
+      "file": "calls.go",
+      "line": 157,
+      "endpoints": [
+        "calls.end"
+      ]
+    },
+    {
+      "name": "EndCallContext",
+      "file": "calls.go",
+      "line": 162,
+      "endpoints": [
+        "calls.end"
+      ]
+    },
+    {
+      "name": "EndDND",
+      "file": "dnd.go",
+      "line": 58,
+      "endpoints": [
+        "dnd.endDnd"
+      ]
+    },
+    {
+      "name": "EndDNDContext",
+      "file": "dnd.go",
+      "line": 64,
+      "endpoints": [
+        "dnd.endDnd"
+      ]
+    },
+    {
+      "name": "EndSnooze",
+      "file": "dnd.go",
+      "line": 80,
+      "endpoints": [
+        "dnd.endSnooze"
+      ]
+    },
+    {
+      "name": "EndSnoozeContext",
+      "file": "dnd.go",
+      "line": 86,
+      "endpoints": [
+        "dnd.endSnooze"
+      ]
+    },
+    {
+      "name": "EntityPresentDetails",
+      "file": "entity.go",
+      "line": 58,
+      "endpoints": [
+        "entity.presentDetails"
+      ]
+    },
+    {
+      "name": "EntityPresentDetailsContext",
+      "file": "entity.go",
+      "line": 64,
+      "endpoints": [
+        "entity.presentDetails"
+      ]
+    },
+    {
+      "name": "EntityPresentDetailsWithAuth",
+      "file": "entity.go",
+      "line": 125,
+      "endpoints": [
+        "entity.presentDetails"
+      ]
+    },
+    {
+      "name": "EntityPresentDetailsWithError",
+      "file": "entity.go",
+      "line": 117,
+      "endpoints": [
+        "entity.presentDetails"
+      ]
+    },
+    {
+      "name": "EntityPresentDetailsWithMetadata",
+      "file": "entity.go",
+      "line": 109,
+      "endpoints": [
+        "entity.presentDetails"
+      ]
+    },
+    {
+      "name": "ExportManifest",
+      "file": "manifests.go",
+      "line": 146,
+      "endpoints": [
+        "apps.manifest.export"
+      ]
+    },
+    {
+      "name": "ExportManifestContext",
+      "file": "manifests.go",
+      "line": 152,
+      "endpoints": [
+        "apps.manifest.export"
+      ]
+    },
+    {
+      "name": "ExportManifestRaw",
+      "file": "manifests.go",
+      "line": 173,
+      "endpoints": [
+        "apps.manifest.export"
+      ]
+    },
+    {
+      "name": "ExportManifestRawContext",
+      "file": "manifests.go",
+      "line": 183,
+      "endpoints": [
+        "apps.manifest.export"
+      ]
+    },
+    {
+      "name": "ForceInviteUsersToConversation",
+      "file": "conversation.go",
+      "line": 378,
+      "endpoints": [
+        "conversations.invite"
+      ]
+    },
+    {
+      "name": "ForceInviteUsersToConversationContext",
+      "file": "conversation.go",
+      "line": 386,
+      "endpoints": [
+        "conversations.invite"
+      ]
+    },
+    {
+      "name": "FunctionCompleteError",
+      "file": "function_execute.go",
+      "line": 66,
+      "endpoints": [
+        "functions.completeError"
+      ]
+    },
+    {
+      "name": "FunctionCompleteErrorContext",
+      "file": "function_execute.go",
+      "line": 71,
+      "endpoints": [
+        "functions.completeError"
+      ]
+    },
+    {
+      "name": "FunctionCompleteSuccess",
+      "file": "function_execute.go",
+      "line": 32,
+      "endpoints": [
+        "functions.completeSuccess"
+      ]
+    },
+    {
+      "name": "FunctionCompleteSuccessContext",
+      "file": "function_execute.go",
+      "line": 37,
+      "endpoints": [
+        "functions.completeSuccess"
+      ]
+    },
+    {
+      "name": "GetAccessLogs",
+      "file": "team.go",
+      "line": 203,
+      "endpoints": [
+        "team.accessLogs"
+      ]
+    },
+    {
+      "name": "GetAccessLogsContext",
+      "file": "team.go",
+      "line": 209,
+      "endpoints": [
+        "team.accessLogs"
+      ]
+    },
+    {
+      "name": "GetAgentConversationCanvas",
+      "file": "agents_canvas.go",
+      "line": 71,
+      "endpoints": [
+        "agents.conversations.getCanvas"
+      ]
+    },
+    {
+      "name": "GetAgentConversationCanvasContext",
+      "file": "agents_canvas.go",
+      "line": 79,
+      "endpoints": [
+        "agents.conversations.getCanvas"
+      ]
+    },
+    {
+      "name": "GetAllConversations",
+      "file": "conversation.go",
+      "line": 820,
+      "endpoints": [
+        "conversations.list"
+      ]
+    },
+    {
+      "name": "GetAllConversationsContext",
+      "file": "conversation.go",
+      "line": 825,
+      "endpoints": [
+        "conversations.list"
+      ]
+    },
+    {
+      "name": "GetAuditLogs",
+      "file": "audit.go",
+      "line": 119
+    },
+    {
+      "name": "GetAuditLogsContext",
+      "file": "audit.go",
+      "line": 124
+    },
+    {
+      "name": "GetBillableInfo",
+      "file": "team.go",
+      "line": 240,
+      "endpoints": [
+        "team.billableInfo"
+      ]
+    },
+    {
+      "name": "GetBillableInfoContext",
+      "file": "team.go",
+      "line": 246,
+      "endpoints": [
+        "team.billableInfo"
+      ]
+    },
+    {
+      "name": "GetBotInfo",
+      "file": "bots.go",
+      "line": 45,
+      "endpoints": [
+        "bots.info"
+      ]
+    },
+    {
+      "name": "GetBotInfoContext",
+      "file": "bots.go",
+      "line": 51,
+      "endpoints": [
+        "bots.info"
+      ]
+    },
+    {
+      "name": "GetCall",
+      "file": "calls.go",
+      "line": 110,
+      "endpoints": [
+        "calls.info"
+      ]
+    },
+    {
+      "name": "GetCallContext",
+      "file": "calls.go",
+      "line": 115,
+      "endpoints": [
+        "calls.info"
+      ]
+    },
+    {
+      "name": "GetCanvasContent",
+      "file": "canvas.go",
+      "line": 135,
+      "endpoints": [
+        "canvases.getContent"
+      ]
+    },
+    {
+      "name": "GetCanvasContentContext",
+      "file": "canvas.go",
+      "line": 142,
+      "endpoints": [
+        "canvases.getContent"
+      ]
+    },
+    {
+      "name": "GetConversationHistory",
+      "file": "conversation.go",
+      "line": 983,
+      "endpoints": [
+        "conversations.history"
+      ]
+    },
+    {
+      "name": "GetConversationHistoryContext",
+      "file": "conversation.go",
+      "line": 989,
+      "endpoints": [
+        "conversations.history"
+      ]
+    },
+    {
+      "name": "GetConversationInfo",
+      "file": "conversation.go",
+      "line": 578,
+      "endpoints": [
+        "conversations.info"
+      ]
+    },
+    {
+      "name": "GetConversationInfoContext",
+      "file": "conversation.go",
+      "line": 584,
+      "endpoints": [
+        "conversations.info"
+      ]
+    },
+    {
+      "name": "GetConversationReplies",
+      "file": "conversation.go",
+      "line": 642,
+      "endpoints": [
+        "conversations.replies"
+      ]
+    },
+    {
+      "name": "GetConversationRepliesContext",
+      "file": "conversation.go",
+      "line": 648,
+      "endpoints": [
+        "conversations.replies"
+      ]
+    },
+    {
+      "name": "GetConversations",
+      "file": "conversation.go",
+      "line": 847,
+      "endpoints": [
+        "conversations.list"
+      ]
+    },
+    {
+      "name": "GetConversationsContext",
+      "file": "conversation.go",
+      "line": 853,
+      "endpoints": [
+        "conversations.list"
+      ]
+    },
+    {
+      "name": "GetConversationsForUser",
+      "file": "conversation.go",
+      "line": 172,
+      "endpoints": [
+        "users.conversations"
+      ]
+    },
+    {
+      "name": "GetConversationsForUserContext",
+      "file": "conversation.go",
+      "line": 178,
+      "endpoints": [
+        "users.conversations"
+      ]
+    },
+    {
+      "name": "GetConversationsPaginated",
+      "file": "conversation.go",
+      "line": 815,
+      "endpoints": [
+        "conversations.list"
+      ]
+    },
+    {
+      "name": "GetDNDInfo",
+      "file": "dnd.go",
+      "line": 100,
+      "endpoints": [
+        "dnd.info"
+      ]
+    },
+    {
+      "name": "GetDNDInfoContext",
+      "file": "dnd.go",
+      "line": 106,
+      "endpoints": [
+        "dnd.info"
+      ]
+    },
+    {
+      "name": "GetDNDTeamInfo",
+      "file": "dnd.go",
+      "line": 126,
+      "endpoints": [
+        "dnd.teamInfo"
+      ]
+    },
+    {
+      "name": "GetDNDTeamInfoContext",
+      "file": "dnd.go",
+      "line": 132,
+      "endpoints": [
+        "dnd.teamInfo"
+      ]
+    },
+    {
+      "name": "GetEmoji",
+      "file": "emoji.go",
+      "line": 15,
+      "endpoints": [
+        "emoji.list"
+      ]
+    },
+    {
+      "name": "GetEmojiContext",
+      "file": "emoji.go",
+      "line": 21,
+      "endpoints": [
+        "emoji.list"
+      ]
+    },
+    {
+      "name": "GetFile",
+      "file": "files.go",
+      "line": 361
+    },
+    {
+      "name": "GetFileContext",
+      "file": "files.go",
+      "line": 367
+    },
+    {
+      "name": "GetFileInfo",
+      "file": "files.go",
+      "line": 334,
+      "endpoints": [
+        "files.info"
+      ]
+    },
+    {
+      "name": "GetFileInfoContext",
+      "file": "files.go",
+      "line": 340,
+      "endpoints": [
+        "files.info"
+      ]
+    },
+    {
+      "name": "GetFiles",
+      "file": "files.go",
+      "line": 373,
+      "endpoints": [
+        "files.list"
+      ]
+    },
+    {
+      "name": "GetFilesContext",
+      "file": "files.go",
+      "line": 379,
+      "endpoints": [
+        "files.list"
+      ]
+    },
+    {
+      "name": "GetListDownload",
+      "file": "lists.go",
+      "line": 490,
+      "endpoints": [
+        "slackLists.download.get"
+      ]
+    },
+    {
+      "name": "GetListDownloadContext",
+      "file": "lists.go",
+      "line": 497,
+      "endpoints": [
+        "slackLists.download.get"
+      ]
+    },
+    {
+      "name": "GetListItemInfo",
+      "file": "lists.go",
+      "line": 680,
+      "endpoints": [
+        "slackLists.items.info"
+      ]
+    },
+    {
+      "name": "GetListItemInfoContext",
+      "file": "lists.go",
+      "line": 687,
+      "endpoints": [
+        "slackLists.items.info"
+      ]
+    },
+    {
+      "name": "GetListItems",
+      "file": "lists.go",
+      "line": 754,
+      "endpoints": [
+        "slackLists.items.list"
+      ]
+    },
+    {
+      "name": "GetListItemsContext",
+      "file": "lists.go",
+      "line": 761,
+      "endpoints": [
+        "slackLists.items.list"
+      ]
+    },
+    {
+      "name": "GetOpenIDConnectUserInfo",
+      "file": "oauth.go",
+      "line": 274,
+      "endpoints": [
+        "openid.connect.userInfo"
+      ]
+    },
+    {
+      "name": "GetOpenIDConnectUserInfoContext",
+      "file": "oauth.go",
+      "line": 280,
+      "endpoints": [
+        "openid.connect.userInfo"
+      ]
+    },
+    {
+      "name": "GetOtherTeamInfo",
+      "file": "team.go",
+      "line": 168,
+      "endpoints": [
+        "team.info"
+      ]
+    },
+    {
+      "name": "GetOtherTeamInfoContext",
+      "file": "team.go",
+      "line": 143,
+      "endpoints": [
+        "team.info"
+      ]
+    },
+    {
+      "name": "GetPermalink",
+      "file": "chat.go",
+      "line": 1061,
+      "endpoints": [
+        "chat.getPermalink"
+      ]
+    },
+    {
+      "name": "GetPermalinkContext",
+      "file": "chat.go",
+      "line": 1067,
+      "endpoints": [
+        "chat.getPermalink"
+      ]
+    },
+    {
+      "name": "GetReactions",
+      "file": "reactions.go",
+      "line": 190,
+      "endpoints": [
+        "reactions.get"
+      ]
+    },
+    {
+      "name": "GetReactionsContext",
+      "file": "reactions.go",
+      "line": 196,
+      "endpoints": [
+        "reactions.get"
+      ]
+    },
+    {
+      "name": "GetRemoteFileInfo",
+      "file": "remotefiles.go",
+      "line": 192,
+      "endpoints": [
+        "files.remote.info"
+      ]
+    },
+    {
+      "name": "GetRemoteFileInfoContext",
+      "file": "remotefiles.go",
+      "line": 198,
+      "endpoints": [
+        "files.remote.info"
+      ]
+    },
+    {
+      "name": "GetScheduledMessages",
+      "file": "chat.go",
+      "line": 1096,
+      "endpoints": [
+        "chat.scheduledMessages.list"
+      ]
+    },
+    {
+      "name": "GetScheduledMessagesContext",
+      "file": "chat.go",
+      "line": 1102,
+      "endpoints": [
+        "chat.scheduledMessages.list"
+      ]
+    },
+    {
+      "name": "GetSlackbotSkillInfo",
+      "file": "slackbot_skills.go",
+      "line": 136,
+      "endpoints": [
+        "slackbot.skills.info"
+      ]
+    },
+    {
+      "name": "GetSlackbotSkillInfoContext",
+      "file": "slackbot_skills.go",
+      "line": 141,
+      "endpoints": [
+        "slackbot.skills.info"
+      ]
+    },
+    {
+      "name": "GetStarred",
+      "file": "stars.go",
+      "line": 152,
+      "endpoints": [
+        "stars.list"
+      ]
+    },
+    {
+      "name": "GetStarredContext",
+      "file": "stars.go",
+      "line": 158,
+      "endpoints": [
+        "stars.list"
+      ]
+    },
+    {
+      "name": "GetTeamInfo",
+      "file": "team.go",
+      "line": 137,
+      "endpoints": [
+        "team.info"
+      ]
+    },
+    {
+      "name": "GetTeamInfoContext",
+      "file": "team.go",
+      "line": 174,
+      "endpoints": [
+        "team.info"
+      ]
+    },
+    {
+      "name": "GetTeamProfile",
+      "file": "team.go",
+      "line": 180,
+      "endpoints": [
+        "team.profile.get"
+      ]
+    },
+    {
+      "name": "GetTeamProfileContext",
+      "file": "team.go",
+      "line": 186,
+      "endpoints": [
+        "team.profile.get"
+      ]
+    },
+    {
+      "name": "GetUploadURLExternalContext",
+      "file": "files.go",
+      "line": 555,
+      "endpoints": [
+        "files.getUploadURLExternal"
+      ]
+    },
+    {
+      "name": "GetUserByEmail",
+      "file": "users.go",
+      "line": 463,
+      "endpoints": [
+        "users.lookupByEmail"
+      ]
+    },
+    {
+      "name": "GetUserByEmailContext",
+      "file": "users.go",
+      "line": 469,
+      "endpoints": [
+        "users.lookupByEmail"
+      ]
+    },
+    {
+      "name": "GetUserGroupMembers",
+      "file": "usergroups.go",
+      "line": 506,
+      "endpoints": [
+        "usergroups.users.list"
+      ]
+    },
+    {
+      "name": "GetUserGroupMembersContext",
+      "file": "usergroups.go",
+      "line": 512,
+      "endpoints": [
+        "usergroups.users.list"
+      ]
+    },
+    {
+      "name": "GetUserGroups",
+      "file": "usergroups.go",
+      "line": 314,
+      "endpoints": [
+        "usergroups.list"
+      ]
+    },
+    {
+      "name": "GetUserGroupsContext",
+      "file": "usergroups.go",
+      "line": 320,
+      "endpoints": [
+        "usergroups.list"
+      ]
+    },
+    {
+      "name": "GetUserIdentity",
+      "file": "users.go",
+      "line": 501,
+      "endpoints": [
+        "users.identity"
+      ]
+    },
+    {
+      "name": "GetUserIdentityContext",
+      "file": "users.go",
+      "line": 507,
+      "endpoints": [
+        "users.identity"
+      ]
+    },
+    {
+      "name": "GetUserInfo",
+      "file": "users.go",
+      "line": 283,
+      "endpoints": [
+        "users.info"
+      ]
+    },
+    {
+      "name": "GetUserInfoContext",
+      "file": "users.go",
+      "line": 290,
+      "endpoints": [
+        "users.info"
+      ]
+    },
+    {
+      "name": "GetUserPrefs",
+      "file": "info.go",
+      "line": 328,
+      "endpoints": [
+        "users.prefs.get"
+      ]
+    },
+    {
+      "name": "GetUserPrefsContext",
+      "file": "info.go",
+      "line": 336,
+      "endpoints": [
+        "users.prefs.get"
+      ]
+    },
+    {
+      "name": "GetUserPresence",
+      "file": "users.go",
+      "line": 247,
+      "endpoints": [
+        "users.getPresence"
+      ]
+    },
+    {
+      "name": "GetUserPresenceContext",
+      "file": "users.go",
+      "line": 253,
+      "endpoints": [
+        "users.getPresence"
+      ]
+    },
+    {
+      "name": "GetUserProfile",
+      "file": "users.go",
+      "line": 803,
+      "endpoints": [
+        "users.profile.get"
+      ]
+    },
+    {
+      "name": "GetUserProfileContext",
+      "file": "users.go",
+      "line": 814,
+      "endpoints": [
+        "users.profile.get"
+      ]
+    },
+    {
+      "name": "GetUsers",
+      "file": "users.go",
+      "line": 437,
+      "endpoints": [
+        "users.list"
+      ]
+    },
+    {
+      "name": "GetUsersContext",
+      "file": "users.go",
+      "line": 442,
+      "endpoints": [
+        "users.list"
+      ]
+    },
+    {
+      "name": "GetUsersInConversation",
+      "file": "conversation.go",
+      "line": 135,
+      "endpoints": [
+        "conversations.members"
+      ]
+    },
+    {
+      "name": "GetUsersInConversationContext",
+      "file": "conversation.go",
+      "line": 141,
+      "endpoints": [
+        "conversations.members"
+      ]
+    },
+    {
+      "name": "GetUsersInfo",
+      "file": "users.go",
+      "line": 311,
+      "endpoints": [
+        "users.info"
+      ]
+    },
+    {
+      "name": "GetUsersInfoContext",
+      "file": "users.go",
+      "line": 317,
+      "endpoints": [
+        "users.info"
+      ]
+    },
+    {
+      "name": "GetUsersPaginated",
+      "file": "users.go",
+      "line": 432,
+      "endpoints": [
+        "users.list"
+      ]
+    },
+    {
+      "name": "InviteGuest",
+      "file": "admin.go",
+      "line": 42,
+      "endpoints": [
+        "users.admin.invite"
+      ]
+    },
+    {
+      "name": "InviteGuestContext",
+      "file": "admin.go",
+      "line": 47,
+      "endpoints": [
+        "users.admin.invite"
+      ]
+    },
+    {
+      "name": "InviteRestricted",
+      "file": "admin.go",
+      "line": 69,
+      "endpoints": [
+        "users.admin.invite"
+      ]
+    },
+    {
+      "name": "InviteRestrictedContext",
+      "file": "admin.go",
+      "line": 74,
+      "endpoints": [
+        "users.admin.invite"
+      ]
+    },
+    {
+      "name": "InviteSharedEmailsToConversation",
+      "file": "conversation.go",
+      "line": 408,
+      "endpoints": [
+        "conversations.inviteShared"
+      ]
+    },
+    {
+      "name": "InviteSharedEmailsToConversationContext",
+      "file": "conversation.go",
+      "line": 417,
+      "endpoints": [
+        "conversations.inviteShared"
+      ]
+    },
+    {
+      "name": "InviteSharedToConversation",
+      "file": "conversation.go",
+      "line": 452,
+      "endpoints": [
+        "conversations.inviteShared"
+      ]
+    },
+    {
+      "name": "InviteSharedToConversationContext",
+      "file": "conversation.go",
+      "line": 460,
+      "endpoints": [
+        "conversations.inviteShared"
+      ]
+    },
+    {
+      "name": "InviteSharedUserIDsToConversation",
+      "file": "conversation.go",
+      "line": 426,
+      "endpoints": [
+        "conversations.inviteShared"
+      ]
+    },
+    {
+      "name": "InviteSharedUserIDsToConversationContext",
+      "file": "conversation.go",
+      "line": 435,
+      "endpoints": [
+        "conversations.inviteShared"
+      ]
+    },
+    {
+      "name": "InviteToTeam",
+      "file": "admin.go",
+      "line": 96,
+      "endpoints": [
+        "users.admin.invite"
+      ]
+    },
+    {
+      "name": "InviteToTeamContext",
+      "file": "admin.go",
+      "line": 101,
+      "endpoints": [
+        "users.admin.invite"
+      ]
+    },
+    {
+      "name": "InviteUsersToConversation",
+      "file": "conversation.go",
+      "line": 341,
+      "endpoints": [
+        "conversations.invite"
+      ]
+    },
+    {
+      "name": "InviteUsersToConversationContext",
+      "file": "conversation.go",
+      "line": 347,
+      "endpoints": [
+        "conversations.invite"
+      ]
+    },
+    {
+      "name": "JoinConversation",
+      "file": "conversation.go",
+      "line": 929,
+      "endpoints": [
+        "conversations.join"
+      ]
+    },
+    {
+      "name": "JoinConversationContext",
+      "file": "conversation.go",
+      "line": 935,
+      "endpoints": [
+        "conversations.join"
+      ]
+    },
+    {
+      "name": "KickUserFromConversation",
+      "file": "conversation.go",
+      "line": 489,
+      "endpoints": [
+        "conversations.kick"
+      ]
+    },
+    {
+      "name": "KickUserFromConversationContext",
+      "file": "conversation.go",
+      "line": 495,
+      "endpoints": [
+        "conversations.kick"
+      ]
+    },
+    {
+      "name": "LeaveConversation",
+      "file": "conversation.go",
+      "line": 609,
+      "endpoints": [
+        "conversations.leave"
+      ]
+    },
+    {
+      "name": "LeaveConversationContext",
+      "file": "conversation.go",
+      "line": 615,
+      "endpoints": [
+        "conversations.leave"
+      ]
+    },
+    {
+      "name": "ListAgentConversationViews",
+      "file": "agents_views.go",
+      "line": 243,
+      "endpoints": [
+        "agents.conversations.listViews"
+      ]
+    },
+    {
+      "name": "ListAgentConversationViewsContext",
+      "file": "agents_views.go",
+      "line": 250,
+      "endpoints": [
+        "agents.conversations.listViews"
+      ]
+    },
+    {
+      "name": "ListAllStars",
+      "file": "stars.go",
+      "line": 188,
+      "endpoints": [
+        "stars.list"
+      ]
+    },
+    {
+      "name": "ListAllStarsContext",
+      "file": "stars.go",
+      "line": 193,
+      "endpoints": [
+        "stars.list"
+      ]
+    },
+    {
+      "name": "ListBookmarks",
+      "file": "bookmarks.go",
+      "line": 119,
+      "endpoints": [
+        "bookmarks.list"
+      ]
+    },
+    {
+      "name": "ListBookmarksContext",
+      "file": "bookmarks.go",
+      "line": 125,
+      "endpoints": [
+        "bookmarks.list"
+      ]
+    },
+    {
+      "name": "ListEventAuthorizations",
+      "file": "apps.go",
+      "line": 25,
+      "endpoints": [
+        "apps.event.authorizations.list"
+      ]
+    },
+    {
+      "name": "ListEventAuthorizationsContext",
+      "file": "apps.go",
+      "line": 31,
+      "endpoints": [
+        "apps.event.authorizations.list"
+      ]
+    },
+    {
+      "name": "ListFiles",
+      "file": "files.go",
+      "line": 421,
+      "endpoints": [
+        "files.list"
+      ]
+    },
+    {
+      "name": "ListFilesContext",
+      "file": "files.go",
+      "line": 430,
+      "endpoints": [
+        "files.list"
+      ]
+    },
+    {
+      "name": "ListPins",
+      "file": "pins.go",
+      "line": 82,
+      "endpoints": [
+        "pins.list"
+      ]
+    },
+    {
+      "name": "ListPinsContext",
+      "file": "pins.go",
+      "line": 88,
+      "endpoints": [
+        "pins.list"
+      ]
+    },
+    {
+      "name": "ListReactions",
+      "file": "reactions.go",
+      "line": 230,
+      "endpoints": [
+        "reactions.list"
+      ]
+    },
+    {
+      "name": "ListReactionsContext",
+      "file": "reactions.go",
+      "line": 236,
+      "endpoints": [
+        "reactions.list"
+      ]
+    },
+    {
+      "name": "ListReminders",
+      "file": "reminders.go",
+      "line": 55,
+      "endpoints": [
+        "reminders.list"
+      ]
+    },
+    {
+      "name": "ListRemindersContext",
+      "file": "reminders.go",
+      "line": 63,
+      "endpoints": [
+        "reminders.list"
+      ]
+    },
+    {
+      "name": "ListRemoteFiles",
+      "file": "remotefiles.go",
+      "line": 154,
+      "endpoints": [
+        "files.remote.list"
+      ]
+    },
+    {
+      "name": "ListRemoteFilesContext",
+      "file": "remotefiles.go",
+      "line": 160,
+      "endpoints": [
+        "files.remote.list"
+      ]
+    },
+    {
+      "name": "ListSlackbotSkills",
+      "file": "slackbot_skills.go",
+      "line": 264,
+      "endpoints": [
+        "slackbot.skills.list"
+      ]
+    },
+    {
+      "name": "ListSlackbotSkillsContext",
+      "file": "slackbot_skills.go",
+      "line": 269,
+      "endpoints": [
+        "slackbot.skills.list"
+      ]
+    },
+    {
+      "name": "ListStars",
+      "file": "stars.go",
+      "line": 101,
+      "endpoints": [
+        "stars.list"
+      ]
+    },
+    {
+      "name": "ListStarsContext",
+      "file": "stars.go",
+      "line": 107,
+      "endpoints": [
+        "stars.list"
+      ]
+    },
+    {
+      "name": "ListStarsPaginated",
+      "file": "stars.go",
+      "line": 213,
+      "endpoints": [
+        "stars.list"
+      ]
+    },
+    {
+      "name": "ListTeams",
+      "file": "auth.go",
+      "line": 58,
+      "endpoints": [
+        "auth.teams.list"
+      ]
+    },
+    {
+      "name": "ListTeamsContext",
+      "file": "auth.go",
+      "line": 64,
+      "endpoints": [
+        "auth.teams.list"
+      ]
+    },
+    {
+      "name": "LookupCanvasSections",
+      "file": "canvas.go",
+      "line": 304,
+      "endpoints": [
+        "canvases.sections.lookup"
+      ]
+    },
+    {
+      "name": "LookupCanvasSectionsContext",
+      "file": "canvas.go",
+      "line": 310,
+      "endpoints": [
+        "canvases.sections.lookup"
+      ]
+    },
+    {
+      "name": "MarkConversation",
+      "file": "conversation.go",
+      "line": 1026,
+      "endpoints": [
+        "conversations.mark"
+      ]
+    },
+    {
+      "name": "MarkConversationContext",
+      "file": "conversation.go",
+      "line": 1032,
+      "endpoints": [
+        "conversations.mark"
+      ]
+    },
+    {
+      "name": "MigrationExchange",
+      "file": "migration.go",
+      "line": 19,
+      "endpoints": [
+        "migration.exchange"
+      ]
+    },
+    {
+      "name": "MuteChat",
+      "file": "info.go",
+      "line": 351,
+      "endpoints": [
+        "users.prefs.get",
+        "users.prefs.set"
+      ]
+    },
+    {
+      "name": "NewRTM",
+      "file": "rtm.go",
+      "line": 139
+    },
+    {
+      "name": "OpenConversation",
+      "file": "conversation.go",
+      "line": 895,
+      "endpoints": [
+        "conversations.open"
+      ]
+    },
+    {
+      "name": "OpenConversationContext",
+      "file": "conversation.go",
+      "line": 901,
+      "endpoints": [
+        "conversations.open"
+      ]
+    },
+    {
+      "name": "OpenDialog",
+      "file": "dialog.go",
+      "line": 89,
+      "endpoints": [
+        "dialog.open"
+      ]
+    },
+    {
+      "name": "OpenDialogContext",
+      "file": "dialog.go",
+      "line": 95,
+      "endpoints": [
+        "dialog.open"
+      ]
+    },
+    {
+      "name": "OpenView",
+      "file": "views.go",
+      "line": 199,
+      "endpoints": [
+        "views.open"
+      ]
+    },
+    {
+      "name": "OpenViewContext",
+      "file": "views.go",
+      "line": 225,
+      "endpoints": [
+        "views.open"
+      ]
+    },
+    {
+      "name": "PostEphemeral",
+      "file": "chat.go",
+      "line": 183,
+      "endpoints": [
+        "chat.postEphemeral"
+      ]
+    },
+    {
+      "name": "PostEphemeralContext",
+      "file": "chat.go",
+      "line": 189,
+      "endpoints": [
+        "chat.postEphemeral"
+      ]
+    },
+    {
+      "name": "PostMessage",
+      "file": "chat.go",
+      "line": 136,
+      "endpoints": [
+        "chat.postMessage"
+      ]
+    },
+    {
+      "name": "PostMessageContext",
+      "file": "chat.go",
+      "line": 142,
+      "endpoints": [
+        "chat.postMessage"
+      ]
+    },
+    {
+      "name": "PostMessageWithResponse",
+      "file": "chat.go",
+      "line": 155,
+      "endpoints": [
+        "chat.postMessage"
+      ]
+    },
+    {
+      "name": "PostMessageWithResponseContext",
+      "file": "chat.go",
+      "line": 166,
+      "endpoints": [
+        "chat.postMessage"
+      ]
+    },
+    {
+      "name": "PublishView",
+      "file": "views.go",
+      "line": 256,
+      "endpoints": [
+        "views.publish"
+      ]
+    },
+    {
+      "name": "PublishViewContext",
+      "file": "views.go",
+      "line": 266,
+      "endpoints": [
+        "views.publish"
+      ]
+    },
+    {
+      "name": "PushView",
+      "file": "views.go",
+      "line": 287,
+      "endpoints": [
+        "views.push"
+      ]
+    },
+    {
+      "name": "PushViewContext",
+      "file": "views.go",
+      "line": 293,
+      "endpoints": [
+        "views.push"
+      ]
+    },
+    {
+      "name": "RemoveAgentConversationView",
+      "file": "agents_views.go",
+      "line": 297,
+      "endpoints": [
+        "agents.conversations.removeView"
+      ]
+    },
+    {
+      "name": "RemoveAgentConversationViewContext",
+      "file": "agents_views.go",
+      "line": 305,
+      "endpoints": [
+        "agents.conversations.removeView"
+      ]
+    },
+    {
+      "name": "RemoveBookmark",
+      "file": "bookmarks.go",
+      "line": 96,
+      "endpoints": [
+        "bookmarks.remove"
+      ]
+    },
+    {
+      "name": "RemoveBookmarkContext",
+      "file": "bookmarks.go",
+      "line": 102,
+      "endpoints": [
+        "bookmarks.remove"
+      ]
+    },
+    {
+      "name": "RemovePin",
+      "file": "pins.go",
+      "line": 51,
+      "endpoints": [
+        "pins.remove"
+      ]
+    },
+    {
+      "name": "RemovePinContext",
+      "file": "pins.go",
+      "line": 57,
+      "endpoints": [
+        "pins.remove"
+      ]
+    },
+    {
+      "name": "RemoveReaction",
+      "file": "reactions.go",
+      "line": 154,
+      "endpoints": [
+        "reactions.remove"
+      ]
+    },
+    {
+      "name": "RemoveReactionContext",
+      "file": "reactions.go",
+      "line": 160,
+      "endpoints": [
+        "reactions.remove"
+      ]
+    },
+    {
+      "name": "RemoveRemoteFile",
+      "file": "remotefiles.go",
+      "line": 302,
+      "endpoints": [
+        "files.remote.remove"
+      ]
+    },
+    {
+      "name": "RemoveRemoteFileContext",
+      "file": "remotefiles.go",
+      "line": 308,
+      "endpoints": [
+        "files.remote.remove"
+      ]
+    },
+    {
+      "name": "RemoveSlackbotSkillFromLibrary",
+      "file": "slackbot_skills.go",
+      "line": 311,
+      "endpoints": [
+        "slackbot.skills.library.remove"
+      ]
+    },
+    {
+      "name": "RemoveSlackbotSkillFromLibraryContext",
+      "file": "slackbot_skills.go",
+      "line": 316,
+      "endpoints": [
+        "slackbot.skills.library.remove"
+      ]
+    },
+    {
+      "name": "RemoveStar",
+      "file": "stars.go",
+      "line": 70,
+      "endpoints": [
+        "stars.remove"
+      ]
+    },
+    {
+      "name": "RemoveStarContext",
+      "file": "stars.go",
+      "line": 76,
+      "endpoints": [
+        "stars.remove"
+      ]
+    },
+    {
+      "name": "RenameAgentSession",
+      "file": "agents.go",
+      "line": 428,
+      "endpoints": [
+        "agents.sessions.rename"
+      ]
+    },
+    {
+      "name": "RenameAgentSessionContext",
+      "file": "agents.go",
+      "line": 435,
+      "endpoints": [
+        "agents.sessions.rename"
+      ]
+    },
+    {
+      "name": "RenameConversation",
+      "file": "conversation.go",
+      "line": 314,
+      "endpoints": [
+        "conversations.rename"
+      ]
+    },
+    {
+      "name": "RenameConversationContext",
+      "file": "conversation.go",
+      "line": 320,
+      "endpoints": [
+        "conversations.rename"
+      ]
+    },
+    {
+      "name": "RequestUserConnectionAuth",
+      "file": "apps_user_connection.go",
+      "line": 51,
+      "endpoints": [
+        "apps.user.connection.requestAuth"
+      ]
+    },
+    {
+      "name": "RequestUserConnectionAuthContext",
+      "file": "apps_user_connection.go",
+      "line": 60,
+      "endpoints": [
+        "apps.user.connection.requestAuth"
+      ]
+    },
+    {
+      "name": "RevokeFilePublicURL",
+      "file": "files.go",
+      "line": 513,
+      "endpoints": [
+        "files.revokePublicURL"
+      ]
+    },
+    {
+      "name": "RevokeFilePublicURLContext",
+      "file": "files.go",
+      "line": 519,
+      "endpoints": [
+        "files.revokePublicURL"
+      ]
+    },
+    {
+      "name": "RotateTokens",
+      "file": "tokens.go",
+      "line": 10,
+      "endpoints": [
+        "tooling.tokens.rotate"
+      ]
+    },
+    {
+      "name": "RotateTokensContext",
+      "file": "tokens.go",
+      "line": 16,
+      "endpoints": [
+        "tooling.tokens.rotate"
+      ]
+    },
+    {
+      "name": "ScheduleMessage",
+      "file": "chat.go",
+      "line": 116,
+      "endpoints": [
+        "chat.scheduleMessage"
+      ]
+    },
+    {
+      "name": "ScheduleMessageContext",
+      "file": "chat.go",
+      "line": 122,
+      "endpoints": [
+        "chat.scheduleMessage"
+      ]
+    },
+    {
+      "name": "Search",
+      "file": "search.go",
+      "line": 128,
+      "endpoints": [
+        "search.all"
+      ]
+    },
+    {
+      "name": "SearchAssistantContext",
+      "file": "assistant.go",
+      "line": 280,
+      "endpoints": [
+        "assistant.search.context"
+      ]
+    },
+    {
+      "name": "SearchAssistantContextContext",
+      "file": "assistant.go",
+      "line": 286,
+      "endpoints": [
+        "assistant.search.context"
+      ]
+    },
+    {
+      "name": "SearchContext",
+      "file": "search.go",
+      "line": 138,
+      "endpoints": [
+        "search.all"
+      ]
+    },
+    {
+      "name": "SearchFiles",
+      "file": "search.go",
+      "line": 148,
+      "endpoints": [
+        "search.files"
+      ]
+    },
+    {
+      "name": "SearchFilesContext",
+      "file": "search.go",
+      "line": 158,
+      "endpoints": [
+        "search.files"
+      ]
+    },
+    {
+      "name": "SearchMessages",
+      "file": "search.go",
+      "line": 168,
+      "endpoints": [
+        "search.messages"
+      ]
+    },
+    {
+      "name": "SearchMessagesContext",
+      "file": "search.go",
+      "line": 178,
+      "endpoints": [
+        "search.messages"
+      ]
+    },
+    {
+      "name": "SendAuthRevoke",
+      "file": "auth.go",
+      "line": 28,
+      "endpoints": [
+        "auth.revoke"
+      ]
+    },
+    {
+      "name": "SendAuthRevokeContext",
+      "file": "auth.go",
+      "line": 34,
+      "endpoints": [
+        "auth.revoke"
+      ]
+    },
+    {
+      "name": "SendMessage",
+      "file": "chat.go",
+      "line": 269
+    },
+    {
+      "name": "SendMessageContext",
+      "file": "chat.go",
+      "line": 275
+    },
+    {
+      "name": "SendSSOBindingEmail",
+      "file": "admin.go",
+      "line": 142,
+      "endpoints": [
+        "users.admin.sendSSOBind"
+      ]
+    },
+    {
+      "name": "SendSSOBindingEmailContext",
+      "file": "admin.go",
+      "line": 147,
+      "endpoints": [
+        "users.admin.sendSSOBind"
+      ]
+    },
+    {
+      "name": "SetAgentConversationCanvasContent",
+      "file": "agents_canvas.go",
+      "line": 117,
+      "endpoints": [
+        "agents.conversations.setCanvasContent"
+      ]
+    },
+    {
+      "name": "SetAgentConversationCanvasContentContext",
+      "file": "agents_canvas.go",
+      "line": 125,
+      "endpoints": [
+        "agents.conversations.setCanvasContent"
+      ]
+    },
+    {
+      "name": "SetAgentConversationCommands",
+      "file": "agents.go",
+      "line": 180,
+      "endpoints": [
+        "agents.conversations.setCommands"
+      ]
+    },
+    {
+      "name": "SetAgentConversationCommandsContext",
+      "file": "agents.go",
+      "line": 189,
+      "endpoints": [
+        "agents.conversations.setCommands"
+      ]
+    },
+    {
+      "name": "SetAgentConversationProperties",
+      "file": "agents.go",
+      "line": 282,
+      "endpoints": [
+        "agents.conversations.setProperties"
+      ]
+    },
+    {
+      "name": "SetAgentConversationPropertiesContext",
+      "file": "agents.go",
+      "line": 290,
+      "endpoints": [
+        "agents.conversations.setProperties"
+      ]
+    },
+    {
+      "name": "SetAgentConversationView",
+      "file": "agents_views.go",
+      "line": 156,
+      "endpoints": [
+        "agents.conversations.setView"
+      ]
+    },
+    {
+      "name": "SetAgentConversationViewContext",
+      "file": "agents_views.go",
+      "line": 164,
+      "endpoints": [
+        "agents.conversations.setView"
+      ]
+    },
+    {
+      "name": "SetAgentSessionStatus",
+      "file": "agents.go",
+      "line": 374,
+      "endpoints": [
+        "agents.sessions.setStatus"
+      ]
+    },
+    {
+      "name": "SetAgentSessionStatusContext",
+      "file": "agents.go",
+      "line": 381,
+      "endpoints": [
+        "agents.sessions.setStatus"
+      ]
+    },
+    {
+      "name": "SetAppIcon",
+      "file": "apps_icon.go",
+      "line": 21,
+      "endpoints": [
+        "apps.icon.set"
+      ]
+    },
+    {
+      "name": "SetAppIconContext",
+      "file": "apps_icon.go",
+      "line": 29,
+      "endpoints": [
+        "apps.icon.set"
+      ]
+    },
+    {
+      "name": "SetAssistantThreadsStatus",
+      "file": "assistant.go",
+      "line": 188,
+      "endpoints": [
+        "assistant.threads.setStatus"
+      ]
+    },
+    {
+      "name": "SetAssistantThreadsStatusContext",
+      "file": "assistant.go",
+      "line": 196,
+      "endpoints": [
+        "assistant.threads.setStatus"
+      ]
+    },
+    {
+      "name": "SetAssistantThreadsSuggestedPrompts",
+      "file": "assistant.go",
+      "line": 142,
+      "endpoints": [
+        "assistant.threads.setSuggestedPrompts"
+      ]
+    },
+    {
+      "name": "SetAssistantThreadsSuggestedPromptsContext",
+      "file": "assistant.go",
+      "line": 148,
+      "endpoints": [
+        "assistant.threads.setSuggestedPrompts"
+      ]
+    },
+    {
+      "name": "SetAssistantThreadsTitle",
+      "file": "assistant.go",
+      "line": 241,
+      "endpoints": [
+        "assistant.threads.setTitle"
+      ]
+    },
+    {
+      "name": "SetAssistantThreadsTitleContext",
+      "file": "assistant.go",
+      "line": 247,
+      "endpoints": [
+        "assistant.threads.setTitle"
+      ]
+    },
+    {
+      "name": "SetCanvasAccess",
+      "file": "canvas.go",
+      "line": 223,
+      "endpoints": [
+        "canvases.access.set"
+      ]
+    },
+    {
+      "name": "SetCanvasAccessContext",
+      "file": "canvas.go",
+      "line": 229,
+      "endpoints": [
+        "canvases.access.set"
+      ]
+    },
+    {
+      "name": "SetListAccess",
+      "file": "lists.go",
+      "line": 258,
+      "endpoints": [
+        "slackLists.access.set"
+      ]
+    },
+    {
+      "name": "SetListAccessContext",
+      "file": "lists.go",
+      "line": 265,
+      "endpoints": [
+        "slackLists.access.set"
+      ]
+    },
+    {
+      "name": "SetPurposeOfConversation",
+      "file": "conversation.go",
+      "line": 287,
+      "endpoints": [
+        "conversations.setPurpose"
+      ]
+    },
+    {
+      "name": "SetPurposeOfConversationContext",
+      "file": "conversation.go",
+      "line": 293,
+      "endpoints": [
+        "conversations.setPurpose"
+      ]
+    },
+    {
+      "name": "SetRegular",
+      "file": "admin.go",
+      "line": 120,
+      "endpoints": [
+        "users.admin.setRegular"
+      ]
+    },
+    {
+      "name": "SetRegularContext",
+      "file": "admin.go",
+      "line": 125,
+      "endpoints": [
+        "users.admin.setRegular"
+      ]
+    },
+    {
+      "name": "SetRestricted",
+      "file": "admin.go",
+      "line": 187,
+      "endpoints": [
+        "users.admin.setRestricted"
+      ]
+    },
+    {
+      "name": "SetRestrictedContext",
+      "file": "admin.go",
+      "line": 192,
+      "endpoints": [
+        "users.admin.setRestricted"
+      ]
+    },
+    {
+      "name": "SetSnooze",
+      "file": "dnd.go",
+      "line": 155,
+      "endpoints": [
+        "dnd.setSnooze"
+      ]
+    },
+    {
+      "name": "SetSnoozeContext",
+      "file": "dnd.go",
+      "line": 163,
+      "endpoints": [
+        "dnd.setSnooze"
+      ]
+    },
+    {
+      "name": "SetTopicOfConversation",
+      "file": "conversation.go",
+      "line": 261,
+      "endpoints": [
+        "conversations.setTopic"
+      ]
+    },
+    {
+      "name": "SetTopicOfConversationContext",
+      "file": "conversation.go",
+      "line": 267,
+      "endpoints": [
+        "conversations.setTopic"
+      ]
+    },
+    {
+      "name": "SetUltraRestricted",
+      "file": "admin.go",
+      "line": 164,
+      "endpoints": [
+        "users.admin.setUltraRestricted"
+      ]
+    },
+    {
+      "name": "SetUltraRestrictedContext",
+      "file": "admin.go",
+      "line": 169,
+      "endpoints": [
+        "users.admin.setUltraRestricted"
+      ]
+    },
+    {
+      "name": "SetUserCustomFields",
+      "file": "users.go",
+      "line": 665,
+      "endpoints": [
+        "users.profile.set"
+      ]
+    },
+    {
+      "name": "SetUserCustomFieldsContext",
+      "file": "users.go",
+      "line": 679,
+      "endpoints": [
+        "users.profile.set"
+      ]
+    },
+    {
+      "name": "SetUserCustomStatus",
+      "file": "users.go",
+      "line": 716,
+      "endpoints": [
+        "users.profile.set"
+      ]
+    },
+    {
+      "name": "SetUserCustomStatusContext",
+      "file": "users.go",
+      "line": 722,
+      "endpoints": [
+        "users.profile.set"
+      ]
+    },
+    {
+      "name": "SetUserCustomStatusContextWithUser",
+      "file": "users.go",
+      "line": 738,
+      "endpoints": [
+        "users.profile.set"
+      ]
+    },
+    {
+      "name": "SetUserCustomStatusWithUser",
+      "file": "users.go",
+      "line": 728,
+      "endpoints": [
+        "users.profile.set"
+      ]
+    },
+    {
+      "name": "SetUserPhoto",
+      "file": "users.go",
+      "line": 527,
+      "endpoints": [
+        "users.setPhoto"
+      ]
+    },
+    {
+      "name": "SetUserPhotoContext",
+      "file": "users.go",
+      "line": 533,
+      "endpoints": [
+        "users.setPhoto"
+      ]
+    },
+    {
+      "name": "SetUserPresence",
+      "file": "users.go",
+      "line": 483,
+      "endpoints": [
+        "users.setPresence"
+      ]
+    },
+    {
+      "name": "SetUserPresenceContext",
+      "file": "users.go",
+      "line": 489,
+      "endpoints": [
+        "users.setPresence"
+      ]
+    },
+    {
+      "name": "SetUserProfile",
+      "file": "users.go",
+      "line": 617,
+      "endpoints": [
+        "users.profile.set"
+      ]
+    },
+    {
+      "name": "SetUserProfileContext",
+      "file": "users.go",
+      "line": 639,
+      "endpoints": [
+        "users.profile.set"
+      ]
+    },
+    {
+      "name": "SetUserRealName",
+      "file": "users.go",
+      "line": 578,
+      "endpoints": [
+        "users.profile.set"
+      ]
+    },
+    {
+      "name": "SetUserRealNameContextWithUser",
+      "file": "users.go",
+      "line": 584,
+      "endpoints": [
+        "users.profile.set"
+      ]
+    },
+    {
+      "name": "ShareFilePublicURL",
+      "file": "files.go",
+      "line": 534,
+      "endpoints": [
+        "files.sharedPublicURL"
+      ]
+    },
+    {
+      "name": "ShareFilePublicURLContext",
+      "file": "files.go",
+      "line": 540,
+      "endpoints": [
+        "files.sharedPublicURL"
+      ]
+    },
+    {
+      "name": "ShareRemoteFile",
+      "file": "remotefiles.go",
+      "line": 223,
+      "endpoints": [
+        "files.remote.share"
+      ]
+    },
+    {
+      "name": "ShareRemoteFileContext",
+      "file": "remotefiles.go",
+      "line": 229,
+      "endpoints": [
+        "files.remote.share"
+      ]
+    },
+    {
+      "name": "StartListDownload",
+      "file": "lists.go",
+      "line": 413,
+      "endpoints": [
+        "slackLists.download.start"
+      ]
+    },
+    {
+      "name": "StartListDownloadContext",
+      "file": "lists.go",
+      "line": 420,
+      "endpoints": [
+        "slackLists.download.start"
+      ]
+    },
+    {
+      "name": "StartRTM",
+      "file": "rtm.go",
+      "line": 32,
+      "endpoints": [
+        "rtm.start"
+      ]
+    },
+    {
+      "name": "StartRTMContext",
+      "file": "rtm.go",
+      "line": 45,
+      "endpoints": [
+        "rtm.start"
+      ]
+    },
+    {
+      "name": "StartSocketModeContext",
+      "file": "socket_mode.go",
+      "line": 25,
+      "endpoints": [
+        "apps.connections.open"
+      ]
+    },
+    {
+      "name": "StartStream",
+      "file": "chat.go",
+      "line": 1173,
+      "endpoints": [
+        "chat.startStream"
+      ]
+    },
+    {
+      "name": "StartStreamContext",
+      "file": "chat.go",
+      "line": 1179,
+      "endpoints": [
+        "chat.startStream"
+      ]
+    },
+    {
+      "name": "StopStream",
+      "file": "chat.go",
+      "line": 1209,
+      "endpoints": [
+        "chat.stopStream"
+      ]
+    },
+    {
+      "name": "StopStreamContext",
+      "file": "chat.go",
+      "line": 1215,
+      "endpoints": [
+        "chat.stopStream"
+      ]
+    },
+    {
+      "name": "UnArchiveConversation",
+      "file": "conversation.go",
+      "line": 239,
+      "endpoints": [
+        "conversations.unarchive"
+      ]
+    },
+    {
+      "name": "UnArchiveConversationContext",
+      "file": "conversation.go",
+      "line": 245,
+      "endpoints": [
+        "conversations.unarchive"
+      ]
+    },
+    {
+      "name": "UnMuteChat",
+      "file": "info.go",
+      "line": 378,
+      "endpoints": [
+        "users.prefs.get",
+        "users.prefs.set"
+      ]
+    },
+    {
+      "name": "UnfurlMessage",
+      "file": "chat.go",
+      "line": 218,
+      "endpoints": [
+        "chat.unfurl"
+      ]
+    },
+    {
+      "name": "UnfurlMessageByID",
+      "file": "chat.go",
+      "line": 256,
+      "endpoints": [
+        "chat.unfurl"
+      ]
+    },
+    {
+      "name": "UnfurlMessageByIDContext",
+      "file": "chat.go",
+      "line": 263,
+      "endpoints": [
+        "chat.unfurl"
+      ]
+    },
+    {
+      "name": "UnfurlMessageContext",
+      "file": "chat.go",
+      "line": 224,
+      "endpoints": [
+        "chat.unfurl"
+      ]
+    },
+    {
+      "name": "UnfurlMessageWithAuthURL",
+      "file": "chat.go",
+      "line": 230,
+      "endpoints": [
+        "chat.unfurl"
+      ]
+    },
+    {
+      "name": "UnfurlMessageWithAuthURLContext",
+      "file": "chat.go",
+      "line": 236,
+      "endpoints": [
+        "chat.unfurl"
+      ]
+    },
+    {
+      "name": "UnfurlMessageWorkObject",
+      "file": "chat.go",
+      "line": 242,
+      "endpoints": [
+        "chat.unfurl"
+      ]
+    },
+    {
+      "name": "UnfurlMessageWorkObjectContext",
+      "file": "chat.go",
+      "line": 249,
+      "endpoints": [
+        "chat.unfurl"
+      ]
+    },
+    {
+      "name": "UninstallApp",
+      "file": "apps.go",
+      "line": 52,
+      "endpoints": [
+        "apps.uninstall"
+      ]
+    },
+    {
+      "name": "UninstallAppContext",
+      "file": "apps.go",
+      "line": 58,
+      "endpoints": [
+        "apps.uninstall"
+      ]
+    },
+    {
+      "name": "UnsetUserCustomStatus",
+      "file": "users.go",
+      "line": 785,
+      "endpoints": [
+        "users.profile.set"
+      ]
+    },
+    {
+      "name": "UnsetUserCustomStatusContext",
+      "file": "users.go",
+      "line": 791,
+      "endpoints": [
+        "users.profile.set"
+      ]
+    },
+    {
+      "name": "UpdateCall",
+      "file": "calls.go",
+      "line": 128,
+      "endpoints": [
+        "calls.update"
+      ]
+    },
+    {
+      "name": "UpdateCallContext",
+      "file": "calls.go",
+      "line": 133,
+      "endpoints": [
+        "calls.update"
+      ]
+    },
+    {
+      "name": "UpdateConfigTokens",
+      "file": "tokens.go",
+      "line": 40
+    },
+    {
+      "name": "UpdateList",
+      "file": "lists.go",
+      "line": 189,
+      "endpoints": [
+        "slackLists.update"
+      ]
+    },
+    {
+      "name": "UpdateListContext",
+      "file": "lists.go",
+      "line": 196,
+      "endpoints": [
+        "slackLists.update"
+      ]
+    },
+    {
+      "name": "UpdateListItems",
+      "file": "lists.go",
+      "line": 801,
+      "endpoints": [
+        "slackLists.items.update"
+      ]
+    },
+    {
+      "name": "UpdateListItemsContext",
+      "file": "lists.go",
+      "line": 808,
+      "endpoints": [
+        "slackLists.items.update"
+      ]
+    },
+    {
+      "name": "UpdateManifest",
+      "file": "manifests.go",
+      "line": 204,
+      "endpoints": [
+        "apps.manifest.update"
+      ]
+    },
+    {
+      "name": "UpdateManifestContext",
+      "file": "manifests.go",
+      "line": 210,
+      "endpoints": [
+        "apps.manifest.update"
+      ]
+    },
+    {
+      "name": "UpdateManifestRaw",
+      "file": "manifests.go",
+      "line": 222,
+      "endpoints": [
+        "apps.manifest.update"
+      ]
+    },
+    {
+      "name": "UpdateManifestRawContext",
+      "file": "manifests.go",
+      "line": 231,
+      "endpoints": [
+        "apps.manifest.update"
+      ]
+    },
+    {
+      "name": "UpdateMessage",
+      "file": "chat.go",
+      "line": 201,
+      "endpoints": [
+        "chat.update"
+      ]
+    },
+    {
+      "name": "UpdateMessageContext",
+      "file": "chat.go",
+      "line": 207,
+      "endpoints": [
+        "chat.update"
+      ]
+    },
+    {
+      "name": "UpdateRemoteFile",
+      "file": "remotefiles.go",
+      "line": 255,
+      "endpoints": [
+        "files.remote.update"
+      ]
+    },
+    {
+      "name": "UpdateRemoteFileContext",
+      "file": "remotefiles.go",
+      "line": 261,
+      "endpoints": [
+        "files.remote.update"
+      ]
+    },
+    {
+      "name": "UpdateSlackbotSkill",
+      "file": "slackbot_skills.go",
+      "line": 198,
+      "endpoints": [
+        "slackbot.skills.update"
+      ]
+    },
+    {
+      "name": "UpdateSlackbotSkillContext",
+      "file": "slackbot_skills.go",
+      "line": 203,
+      "endpoints": [
+        "slackbot.skills.update"
+      ]
+    },
+    {
+      "name": "UpdateUserGroup",
+      "file": "usergroups.go",
+      "line": 424,
+      "endpoints": [
+        "usergroups.update"
+      ]
+    },
+    {
+      "name": "UpdateUserGroupContext",
+      "file": "usergroups.go",
+      "line": 430,
+      "endpoints": [
+        "usergroups.update"
+      ]
+    },
+    {
+      "name": "UpdateUserGroupMembers",
+      "file": "usergroups.go",
+      "line": 580,
+      "endpoints": [
+        "usergroups.users.update"
+      ]
+    },
+    {
+      "name": "UpdateUserGroupMembersContext",
+      "file": "usergroups.go",
+      "line": 586,
+      "endpoints": [
+        "usergroups.users.update"
+      ]
+    },
+    {
+      "name": "UpdateUserGroupMembersList",
+      "file": "usergroups.go",
+      "line": 626,
+      "endpoints": [
+        "usergroups.users.update"
+      ]
+    },
+    {
+      "name": "UpdateUserGroupMembersListContext",
+      "file": "usergroups.go",
+      "line": 632,
+      "endpoints": [
+        "usergroups.users.update"
+      ]
+    },
+    {
+      "name": "UpdateView",
+      "file": "views.go",
+      "line": 319,
+      "endpoints": [
+        "views.update"
+      ]
+    },
+    {
+      "name": "UpdateViewContext",
+      "file": "views.go",
+      "line": 325,
+      "endpoints": [
+        "views.update"
+      ]
+    },
+    {
+      "name": "UploadFile",
+      "file": "files.go",
+      "line": 649,
+      "endpoints": [
+        "files.completeUploadExternal",
+        "files.getUploadURLExternal"
+      ]
+    },
+    {
+      "name": "UploadFileContext",
+      "file": "files.go",
+      "line": 659,
+      "endpoints": [
+        "files.completeUploadExternal",
+        "files.getUploadURLExternal"
+      ]
+    },
+    {
+      "name": "UploadToURL",
+      "file": "files.go",
+      "line": 587
+    },
+    {
+      "name": "ValidateManifest",
+      "file": "manifests.go",
+      "line": 254,
+      "endpoints": [
+        "apps.manifest.validate"
+      ]
+    },
+    {
+      "name": "ValidateManifestContext",
+      "file": "manifests.go",
+      "line": 262,
+      "endpoints": [
+        "apps.manifest.validate"
+      ]
+    },
+    {
+      "name": "ValidateManifestRaw",
+      "file": "manifests.go",
+      "line": 274,
+      "endpoints": [
+        "apps.manifest.validate"
+      ]
+    },
+    {
+      "name": "ValidateManifestRawContext",
+      "file": "manifests.go",
+      "line": 284,
+      "endpoints": [
+        "apps.manifest.validate"
+      ]
+    },
+    {
+      "name": "WorkflowsFeaturedAdd",
+      "file": "workflows_featured.go",
+      "line": 47,
+      "endpoints": [
+        "workflows.featured.add"
+      ]
+    },
+    {
+      "name": "WorkflowsFeaturedList",
+      "file": "workflows_featured.go",
+      "line": 72,
+      "endpoints": [
+        "workflows.featured.list"
+      ]
+    },
+    {
+      "name": "WorkflowsFeaturedRemove",
+      "file": "workflows_featured.go",
+      "line": 98,
+      "endpoints": [
+        "workflows.featured.remove"
+      ]
+    },
+    {
+      "name": "WorkflowsFeaturedSet",
+      "file": "workflows_featured.go",
+      "line": 123,
+      "endpoints": [
+        "workflows.featured.set"
+      ]
+    },
+    {
+      "name": "WorkflowsTriggersPermissionsAdd",
+      "file": "workflows_triggers.go",
+      "line": 76,
+      "endpoints": [
+        "workflows.triggers.permissions.add"
+      ]
+    },
+    {
+      "name": "WorkflowsTriggersPermissionsList",
+      "file": "workflows_triggers.go",
+      "line": 103,
+      "endpoints": [
+        "workflows.triggers.permissions.list"
+      ]
+    },
+    {
+      "name": "WorkflowsTriggersPermissionsRemove",
+      "file": "workflows_triggers.go",
+      "line": 130,
+      "endpoints": [
+        "workflows.triggers.permissions.remove"
+      ]
+    },
+    {
+      "name": "WorkflowsTriggersPermissionsSet",
+      "file": "workflows_triggers.go",
+      "line": 156,
+      "endpoints": [
+        "workflows.triggers.permissions.set"
+      ]
+    }
+  ]
+}

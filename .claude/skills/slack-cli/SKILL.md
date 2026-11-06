@@ -12,18 +12,18 @@ this skill; update the embedded `slick agent guide` source when details change.
 
 The repository is `matcra587/slack-cli` but the installed binary is `slick`.
 
-## First Step
+## First step
 
 Run the matching guide command:
 
 ```sh
-slick agent guide <workflow>
+slick agent guide <workflow> --output=human
 ```
 
 Use the schema only when you need command inventory or flag details:
 
 ```sh
-slick agent schema --compact
+slick agent schema --compact --output=json
 ```
 
 ## Workflow Map
@@ -34,7 +34,7 @@ slick agent schema --compact
 | Schedule, list, or cancel future messages | `slick agent guide schedule_msg` |
 | Post a realistic PR review, incident update, release note, reactions, and thread | `slick agent guide developer_review` |
 | Reply in a thread | `slick agent guide reply` |
-| Add, remove, or list reactions (single or ordered multi-emoji) | `slick agent guide react` |
+| Add, remove, list, or watch reactions | `slick agent guide react` |
 | Read channel history or thread replies | `slick agent guide read_history` |
 | Search messages, especially by run ID | `slick agent guide search_msgs` |
 | Clean up live-test messages | `slick agent guide cleanup_msgs` |
@@ -55,12 +55,14 @@ slick agent schema --compact
 
 ## Non-Negotiables
 
-*   Run `slick agent guide <workflow>` before taking action. The guide is the
+*   Run `slick agent guide <workflow> --output=human` before taking action. The guide is the
   runbook; the schema is only command inventory.
 *   Keep automation on JSON output. Do not parse `--plain`.
-*   Treat stdout as command data and stderr as diagnostics or structured errors.
-*   Parse failures from stderr JSON: `errors[0].type`, `errors[0].message`, and
+*   Read machine successes and failures from stdout. Use stderr for diagnostics.
+*   Parse failures from stdout JSON: `errors[0].type`, `errors[0].message`, and
   `errors[0].exit_code`.
+*   Result-write failures use exit 8. A mutation may already have completed;
+  inspect Slack before retrying.
 *   Keep Slack timestamps as strings. They are scoped to a channel.
 *   Use exact `channel` + `ts` for replies, reactions, edits, and deletes.
 *   Never pass Slack tokens in argv. Use stdin, file, env-name, keychain, or a
@@ -90,8 +92,8 @@ slick agent schema --compact
   returns `users_not_found`, resolve the Slack-side address or use the user ID.
 *   There is no `slick thread` command. Use `slick reply`.
 *   There is no `slick reaction` command. Use `slick react`.
-*   `--raw` is an output mode. Use `--blocks` only when the input is raw Block Kit
-  JSON.
+*   Use `--output=json` for structured results. Use `--blocks` when the input is
+  a raw Block Kit JSON array.
 *   `slick react add` accepts one or more emoji: comma-separate (`--emoji a,b,c`)
   or repeat the flag to apply multiple in input order. Halts on first failure.
 *   File upload remains probationary. Use `slick agent guide upload_file` before

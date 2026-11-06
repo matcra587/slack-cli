@@ -1,11 +1,11 @@
 ---
-description: "Add, remove, and inspect emoji reactions on Slack messages."
+description: "Add, remove, inspect, or wait for emoji reactions on Slack messages."
 ---
 
 # slick react
 
-**Add**, **remove**, or **list** emoji reactions on a known message. Requires
-`reactions:write` for mutating commands and `reactions:read` for `list`.
+Add, remove, list, or watch emoji reactions on a known message. Mutations need
+`reactions:write`; list and watch need `reactions:read`.
 
 ## react add / react remove
 
@@ -147,6 +147,38 @@ slick react list --channel C1234567890 --timestamp 1746284582.123456
       }
     }
     ```
+
+## react watch
+
+Wait for an emoji reaction, then continue a script:
+
+```sh
+slick react watch --channel C1234567890 --timestamp 1746284582.123456 \
+  --emoji :+1: --timeout 10m --output=json && ./next-step.sh
+```
+
+The command only reads reactions. A matching reaction that already exists
+satisfies the watch immediately. `:+1:` and `:thumbsup:` match the same reaction.
+Use `--user U1234567890` to wait until Slack explicitly reports that user.
+
+| Flag | Meaning |
+| --- | --- |
+| `--channel`, `-c` | Channel containing the message |
+| `--timestamp`, `-t` | Message timestamp, kept as a string |
+| `--emoji`, `-e` | One emoji name, with or without colons |
+| `--user`, `-U` | Optional reacting user ID |
+| `--interval`, `-i` | Polling interval; default 5 seconds, minimum 1 second |
+| `--timeout`, `-I` | Total command deadline; default 30 seconds |
+
+Successful watches write one result containing `data.target` and `data.reactions`.
+Compact output contains those fields directly. A deadline returns exit 7; a
+canceled command returns exit 6. Both use the common machine failure envelope.
+Progress and diagnostics belong on stderr, so stdout can feed another command.
+
+Slack can omit reacting users even when it returns the correct reaction count.
+A user-filtered watch may therefore time out without proving that user has not
+reacted. Polling can also miss a reaction added and removed between requests.
+The token needs `reactions:read` and access to the message.
 
 ## Common errors
 

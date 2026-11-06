@@ -20,10 +20,13 @@ Goal: Set or clear the authenticated user's Slack profile status (text, emoji, o
 
 *   Flagged: `--text <text> --emoji :headphones: --expires-in 2h`
 *   Positional shorthand: `slick status set "In a meeting" :calendar:`
+*   Provide text or emoji. Nonempty flags take priority over matching positional values.
+*   Each set sends all three status fields. Omitted text becomes empty, omitted emoji requests Slack's default, and omitted expiration becomes zero (no expiry).
+*   `--until` accepts Unix seconds, RFC3339, `+duration`, or local `HH:MM[:SS]`. Local clocks use today if still future, otherwise the next calendar date.
 
 ### guard
 
-*   `--dry-run` previews the status payload without calling Slack.
+*   `--dry-run` previews the status payload without resolving credentials, checking scopes, or calling Slack.
 
 ### Workflow checkpoints
 
@@ -42,8 +45,9 @@ Goal: Set or clear the authenticated user's Slack profile status (text, emoji, o
 ## Save
 
 > Requires `--output=json`.
-*   `data.text`, `data.emoji` [string, optional] — echo of what was set; absent on clear.
-*   `data.expiration` [int64, optional] — Unix seconds when present.
+*   `data.text`, `data.emoji` [string, optional] — requested values, not a fresh profile read. Empty values are omitted; Slack can supply a default emoji.
+*   `data.expiration` [int64, optional] — Unix seconds; zero is omitted.
+*   `data.dry_run` [bool, optional] — present and true for a preview.
 *   `meta.command` is `status.set` or `status.clear` — branch on this, not on data fields.
 
 ## Preconditions
@@ -54,7 +58,10 @@ Goal: Set or clear the authenticated user's Slack profile status (text, emoji, o
 
 | Symptom | Cause | Next |
 |---|---|---|
-| `auth_failure: missing_scope` (`users.profile:write`) | Bot-token profile or missing scope | → `auth_setup` with a user-token profile |
+| User-token requirement (`auth_failure`) | Bot-token profile selected | → `auth_setup` with a user-token profile |
+| `missing_scope` (`auth_failure`) | Token lacks `users.profile:write` | → `auth_setup` with the required scope |
+| Invalid acknowledgement (`server_error`, exit 5) | Slack did not confirm the update | Check your status before retrying; the update may already have happened |
+| Result write failed (exit 8) | Output could not be delivered | Check your status before retrying; a successful update is not undone |
 
 ## Next
 

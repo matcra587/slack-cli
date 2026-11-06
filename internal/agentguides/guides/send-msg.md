@@ -59,9 +59,15 @@ Immediate: `data.message.ts`, `data.message.thread_ts` (when threaded), `data.pe
 
 Scheduled: `data.channel` (raw ID), `data.scheduled_message_id` (→ `schedule_msg` to cancel); `data.message.ts` absent until Slack posts.
 
-Dry run: `data.message.ts == "dry-run"` or `data.scheduled_message_id == "dry-run"`.
+Dry run: `data.message.ts == "dry-run"` or `data.scheduled_message_id == "Q-dry-run"`.
 
 ## Preconditions
+
+*   Empty or whitespace-only bodies reject locally, including file/stdin sources. Use raw `[]` only for an explicit existing-message block clear.
+
+*   Raw Block Kit supplies `blocks` without literal JSON notification text. Raw previews expose validated blocks, omitting unknown fields. Scheduled raw receipts include the submitted `data.blocks` plan with empty `data.text`. Markdown keeps readable source fallback; removing `--blocks` restores it.
+
+*   Channel and recipient inputs and stored alias values trim surrounding whitespace. Blank alias targets fail locally; they never fall back to another destination. Recipient order is preserved.
 
 *   `--channel` and `--user` are mutually exclusive; scheduled sends ignore `default_channel` and need an explicit target. Email targeting needs `users:read.email`.
 
@@ -69,6 +75,7 @@ Dry run: `data.message.ts == "dry-run"` or `data.scheduled_message_id == "dry-ru
 
 | Symptom | Cause | Next |
 |---|---|---|
+| Invalid Slack acknowledgement (`server_error`, exit 5) | The response did not confirm a usable result | Inspect Slack before retrying; a mutation may already have happened. Slick does not replay it automatically. |
 | `validation_error: --channel or --user is required` | No target, no `default_channel` | Retry with explicit target |
 | `not_found: not_in_channel` | Token identity not in channel | Invite, or → `auth_setup` for user-token profile |
 | `not_found: users_not_found` | Email not a Slack profile here | → `lookup_user`, retry with `--user U…` |

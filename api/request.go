@@ -95,6 +95,9 @@ func (c *Client) CallWithContext(ctx context.Context, method string, params map[
 	if err := decodeResponse(raw, &envelope); err != nil || envelope.OK == nil {
 		return callError(contract.Name, "invalid_response", resp.StatusCode, err)
 	}
+	if *envelope.OK && envelope.Error != "" {
+		return callError(contract.Name, "invalid_response", resp.StatusCode, nil)
+	}
 	if !*envelope.OK {
 		if envelope.Error == "" {
 			return callError(contract.Name, "invalid_response", resp.StatusCode, nil)

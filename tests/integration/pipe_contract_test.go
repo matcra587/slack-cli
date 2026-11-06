@@ -4,8 +4,10 @@ package integration_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +17,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPipeContractForMessageEditFileUploadAndHistory(t *testing.T) {
@@ -104,7 +107,9 @@ func TestPipeContractPermissionFailuresUseStdoutEnvelope(t *testing.T) {
 		case "/api/chat.postMessage":
 			writeJSON(w, `{"ok":false,"error":"not_in_channel"}`)
 		default:
-			t.Fatalf("unexpected path %s", r.URL.Path)
+			t.Errorf("unexpected path %s", r.URL.Path)
+			http.Error(w, "unexpected fixture request", http.StatusInternalServerError)
+			return
 		}
 	}))
 	defer server.Close()
@@ -136,11 +141,19 @@ func TestBinaryBrokenOutputPipeUsesExitCode8(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = writer.Close() })
-	cmd := exec.Command(binary, "version", "--output=json")
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binary, "version", "--output=json")
+	cmd.WaitDelay = time.Second
+	cmd.Env = isolatedRuntimeEnv(t)
 	cmd.Stdout = writer
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	if err := cmd.Run(); exitCode(err) != 8 {
+	runErr := cmd.Run()
+	if ctx.Err() != nil {
+		t.Fatalf("broken-pipe child exceeded its outer deadline: %v", ctx.Err())
+	}
+	if err := runErr; exitCode(err) != 8 {
 		t.Fatalf("error=%v exit=%d stderr=%q; want output failure exit 8", err, exitCode(err), stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "output_write_failed") {
@@ -151,20 +164,39 @@ func TestBinaryBrokenOutputPipeUsesExitCode8(t *testing.T) {
 func buildSlackBinary(t *testing.T) string {
 	t.Helper()
 	root := repoRoot(t)
-	binary := filepath.Join(t.TempDir(), "slick")
-	cmd := exec.Command("go", "build", "-o", binary, "./cmd/slick")
-	cmd.Dir = root
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("go build failed: %v\n%s", err, string(out))
+	sharedBinary.once.Do(func() {
+		sharedBinary.directory, sharedBinary.err = os.MkdirTemp("", "slick-integration-")
+		if sharedBinary.err != nil {
+			return
+		}
+		sharedBinary.path = filepath.Join(sharedBinary.directory, "slick")
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		args := []string{"build", "-o", sharedBinary.path, "./cmd/slick"}
+		if os.Getenv("SLICK_TEST_RACE_BINARY") == "1" {
+			args = append([]string{"build", "-race"}, args[1:]...)
+		}
+		cmd := exec.CommandContext(ctx, "go", args...)
+		cmd.Dir = root
+		cmd.WaitDelay = 2 * time.Second
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			sharedBinary.err = fmt.Errorf("build integration binary: %w\n%s", err, out)
+		}
+	})
+	if sharedBinary.err != nil {
+		t.Fatal(sharedBinary.err)
 	}
-	return binary
+	return sharedBinary.path
 }
 
 func runSlackBinary(t *testing.T, binary, configPath, baseURL, stdin string, args ...string) (stdoutText, stderrText string, runErr error) {
 	t.Helper()
-	cmd := exec.Command(binary, args...)
-	cmd.Env = append(os.Environ(),
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binary, args...)
+	cmd.WaitDelay = time.Second
+	cmd.Env = append(isolatedRuntimeEnv(t),
 		"SLACK_CLI_CONFIG="+configPath,
 		"SLACK_CLI_BASE_URL="+baseURL,
 		"SLACK_TEST_TOKEN=xoxb-test",
@@ -225,7 +257,9 @@ func pipeMockSlackServer(t *testing.T) *httptest.Server {
 		case "/api/conversations.history":
 			writeJSON(w, `{"ok":true,"messages":[{"type":"message","user":"U123","text":"hello","ts":"1746284582.123456"}]}`)
 		default:
-			t.Fatalf("unexpected path %s", r.URL.Path)
+			t.Errorf("unexpected path %s", r.URL.Path)
+			http.Error(w, "unexpected fixture request", http.StatusInternalServerError)
+			return
 		}
 	}))
 	t.Cleanup(s.Close)

@@ -40,7 +40,8 @@ type SecretReader interface {
 
 // Options selects a saved workspace and the services used to resolve its token.
 // Empty ConfigPath follows SLICK_CONFIG, SLACK_CLI_CONFIG, then XDG config home.
-// Empty Workspace selects the config's default workspace.
+// Workspace overrides SLACK_CLI_DEFAULT_WORKSPACE. When both are empty,
+// resolution selects the config's saved default workspace.
 type Options struct {
 	Workspace       string
 	ConfigPath      string

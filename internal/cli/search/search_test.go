@@ -31,11 +31,53 @@ func TestSearchMessagesCommandWritesPaginatedEnvelope(t *testing.T) {
 	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
 		t.Fatalf("stdout is not JSON: %v\n%s", err, stdout)
 	}
-	if envelope["meta"].(map[string]any)["command"] != "search.messages" {
-		t.Fatalf("meta.command = %q, want search.messages", envelope["meta"].(map[string]any)["command"])
+	if envelope["meta"].(map[string]any)["command"] != "lookup.messages" {
+		t.Fatalf("meta.command = %q, want lookup.messages", envelope["meta"].(map[string]any)["command"])
 	}
 	if !strings.Contains(stdout, "deploy failed in prod") {
 		t.Fatalf("stdout = %s, want full message text", stdout)
+	}
+}
+
+func TestSearchUsesSDKDefaultsAndExplicitPageArguments(t *testing.T) {
+	for _, explicit := range []bool{false, true} {
+		t.Run(map[bool]string{false: "defaults", true: "explicit"}[explicit], func(t *testing.T) {
+			server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+				"search.messages": func(req testutil.SlackRequest) testutil.SlackResponse {
+					if req.Form.Get("query") != "release check" {
+						t.Error("search query changed")
+					}
+					if explicit {
+						if req.Form.Get("count") != "5" || req.Form.Get("page") != "2" {
+							t.Error("explicit count or page was ignored")
+						}
+					} else {
+						for _, key := range []string{"count", "page", "sort", "sort_dir"} {
+							if _, exists := req.Form[key]; exists {
+								t.Errorf("default search unexpectedly sent %s=%q", key, req.Form.Get(key))
+							}
+						}
+					}
+					page := "1"
+					if explicit {
+						page = "2"
+					}
+					return testutil.JSONResponse(`{"ok":true,"messages":{"matches":[],"pagination":{"page":` + page + `,"page_count":3}}}`)
+				},
+			})
+			args := []string{"lookup", "messages", "--query", "release check"}
+			if explicit {
+				args = append(args, "--max-items", "5", "--cursor", "2")
+			}
+			stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(), "", args)
+			next := `"next_cursor":"2"`
+			if explicit {
+				next = `"next_cursor":"3"`
+			}
+			if err != nil || stderr != "" || !strings.Contains(stdout, next) {
+				t.Fatalf("search failed or lost next page: err=%v stdout=%s stderr=%s", err, stdout, stderr)
+			}
+		})
 	}
 }
 
@@ -121,6 +163,8 @@ func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, ar
 	lookupCmd := &cobra.Command{Use: "lookup", Short: "Look up Slack channels and users"}
 	lookupCmd.AddCommand(clisearch.NewLookupMessagesCommand(runtime))
 	root.AddCommand(lookupCmd)
+	// These fixtures assert requests/results; dedicated SDK and binary tests own pacing.
+	args = append([]string{"--no-throttle"}, args...)
 	return runtimetest.Run(t, root, args, stdout, stderr)
 }
 

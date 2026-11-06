@@ -25,7 +25,7 @@ func newReactionWatchCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			if err != nil {
 				return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 			}
-			target, err := reactionTargetFromFlags(cmd)
+			target, err := reactionTargetFromFlags(cmd, profile)
 			if err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 			}
@@ -37,7 +37,7 @@ func newReactionWatchCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			}
 			client, err := slackclient.Client(cmd, profile, runtime)
 			if err != nil {
-				return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+				return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 			}
 			if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("reactions:read")); err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
@@ -54,7 +54,7 @@ func newReactionWatchCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringP("channel", "c", "", "Channel ID containing the message")
+	cmd.Flags().StringP("channel", "c", "", "Channel ID or configured alias")
 	cmd.Flags().StringP("timestamp", "t", "", "Message timestamp")
 	cmd.Flags().StringVarP(&emoji, "emoji", "e", "", "Emoji to wait for, such as :+1:")
 	cmd.Flags().StringVarP(&user, "user", "U", "", "Require this reacting Slack user ID")

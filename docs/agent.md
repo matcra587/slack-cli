@@ -8,6 +8,12 @@ The agent surface uses [docent](https://github.com/matcra587/docent) to serve
 embedded runbooks, command discovery, and exported skills without credentials.
 The embedded guides are the workflow authority.
 
+`agent guide`, `agent schema`, and `agent export` results and failures use
+`agent` as the workspace label, including invalid arguments and flag
+combinations. They do not select a configured workspace.
+Automatic output stays JSON in a terminal; pass `--output=human` for Markdown
+and human diagnostics.
+
 ## Documentation for agents
 
 The website's [llms.txt index](https://matcra587.github.io/slack-cli/llms.txt)
@@ -51,6 +57,13 @@ remains under `extensions`: auth, environment names, exit codes, output modes,
 examples, input/output descriptions, guide summaries, and operational guidance.
 `extensions.contract_version` is `2`.
 
+`read_only: true` identifies Slack reads, local discovery, and manifest or
+completion-script generation. Explicit mutations of Slack, credentials,
+configuration, caches, or exported files keep this field false or omitted.
+Routing parents also keep the conservative default; inspect the leaf command's
+classification when choosing an operation. The classification is retained in
+compact and selected-subtree schemas.
+
 | Flag | Meaning |
 | --- | --- |
 | `--path`, `-p` | Select one canonical command subtree, including schemas |
@@ -88,7 +101,19 @@ slick agent export --scope project --harness codex --output=json
 consumer, or docent detects it. Explicit directory and scope are exclusive.
 Built-in formats are `agent-skill` and `claude-skill`; exported skill names
 are qualified with `slick-`. JSON reports relative written paths in
-`data.paths`. Export writes files to the selected destination.
+`data.paths`. Export writes files to the selected destination and updates existing
+slick skill files. Other files remain in place. `--dir` expands `~` and environment
+variables.
+
+Add `--dry-run` to preview the relative paths without creating or changing files.
+Machine previews include `dry_run: true`; human previews say that no files were
+written. A preview does not check whether the destination is writable.
+
+If a filesystem operation fails, export exits with code 5. Machine errors include
+`details.completed_paths`, listing files already written relative to the export
+root. Export does not roll back those files. Resolve the failure and rerun to
+finish the export. A failure to write the result uses exit 8; inspect the files
+before rerunning because the export may already have finished.
 
 ## Compatibility
 

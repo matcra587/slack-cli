@@ -74,7 +74,9 @@ List:
 ## Preconditions
 
 *   Slack timestamps are strings (`1746284582.123456`); never cast to float.
-*   Ordered multi-emoji is atomic-per-emoji: a failure aborts the rest. On an error envelope `data.mutations[]` is absent — re-derive remaining work from a fresh `react list` instead of assuming partial state.
+*   Surrounding whitespace is trimmed from channel inputs, stored alias values, and timestamps. Timestamp digits are preserved in requests, results, and previews.
+*   Ordered multi-emoji stops on the first failure and leaves earlier successes in place. Failure envelopes keep `data=null`; `errors[].details` identifies `completed_emojis`, `attempted_emoji`, `unattempted_emojis`, and the exact `channel`/`ts`. Completed means Slack acknowledged the request. An HTTP or server failure can leave the attempted emoji's outcome uncertain: inspect `react list` before retrying it.
+*   `react list` requests the full reaction list and returns `data.reactions=[]` when empty. Reacting `users` can still be incomplete; `count` is the total.
 
 ## Recover
 

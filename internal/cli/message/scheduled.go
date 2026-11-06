@@ -29,6 +29,7 @@ type ScheduledSendData struct {
 	PostAt                            int64                          `json:"post_at"`
 	PostAtISO                         string                         `json:"post_at_iso"`
 	Text                              string                         `json:"text"`
+	Blocks                            *slackgo.Blocks                `json:"blocks,omitempty"`
 	Attribution                       AttributionData                `json:"attribution"`
 	DryRun                            bool                           `json:"dry_run,omitempty"`
 	ChannelRef                        clioutput.SlackConversationRef `json:"-"`
@@ -152,7 +153,7 @@ func newScheduledCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	}
 	listCmd.Flags().StringVarP(&listOpts.Channel, "channel", "c", "", "Channel ID, name, or alias")
 	listCmd.Flags().StringVarP(&listOpts.Cursor, "cursor", "C", "", "Pagination cursor")
-	listCmd.Flags().IntVarP(&listOpts.Limit, "limit", "L", 0, "Maximum scheduled messages to return")
+	listCmd.Flags().IntVarP(&listOpts.Limit, "limit", "L", 0, "Scheduled messages per page (0 uses Slack’s default)")
 	scheduledCmd.AddCommand(listCmd)
 
 	var channel string
@@ -197,6 +198,9 @@ func runScheduledMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
+	if src.Blocks && len(blocks) == 0 {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("new messages require at least one block"))
+	}
 	postAt, err := parseScheduleWhen(scheduleWhen, ctx.Now())
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
@@ -211,6 +215,10 @@ func runScheduledMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime
 		Attribution:        AttributionData{Enabled: attribution.Enabled, Label: attribution.Label},
 		DryRun:             dryRun,
 	}
+	if src.Blocks {
+		data.Text = ""
+		data.Blocks = &slackgo.Blocks{BlockSet: blocks}
+	}
 	data.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), nil, profile.Name, data.Channel)
 	if dryRun {
 		return ctx.WriteResult("message.send", data)
@@ -218,7 +226,7 @@ func runScheduledMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime
 
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	if len(target.Users) > 0 {
 		target.Channel, err = openMessageUserChannel(cmd.Context(), client, target.Users)
@@ -228,7 +236,7 @@ func runScheduledMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime
 	} else if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("chat:write")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), fmt.Errorf("check scheduled message scopes: %w", err), ""))
 	}
-	respChannel, scheduledID, err := client.ScheduleMessageContext(cmd.Context(), target.Channel, strconv.FormatInt(postAt.Unix(), 10), MessageOptions(content, blocks, attribution)...)
+	respChannel, scheduledID, err := client.ScheduleMessageContext(cmd.Context(), target.Channel, strconv.FormatInt(postAt.Unix(), 10), MessageOptions(content, blocks, src.Blocks)...)
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), fmt.Errorf("schedule message: %w", err), ""))
 	}
@@ -244,13 +252,14 @@ func runScheduledList(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts 
 		return writeRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 
+	if opts.Limit < 0 {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("limit must be 0 (Slack’s default) or a positive number"))
+	}
+
 	channel := resolveAlias(profile, strings.TrimSpace(opts.Channel))
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
-	}
-	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("chat:write")); err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), fmt.Errorf("check scheduled message scopes: %w", err), ""))
+		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	messages, nextCursor, err := client.GetScheduledMessagesContext(cmd.Context(), &slackgo.GetScheduledMessagesParameters{
 		Channel: channel,
@@ -267,7 +276,7 @@ func runScheduledList(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts 
 		NextCursor:    cliutil.StringPtr(nextCursor),
 		HasMore:       nextCursor != "",
 		MaxItems:      cliutil.IntPtr(opts.Limit),
-		ItemsReturned: cliutil.IntPtr(len(rows)),
+		ItemsReturned: new(len(rows)),
 	}
 	data := ScheduledListData{ScheduledMessages: rows}
 	return clioutput.WriteList(ctx, "message.scheduled.list", data, rows, pagination, writeScheduledListPlain)
@@ -300,7 +309,7 @@ func runScheduledDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, cha
 
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("chat:write")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), fmt.Errorf("check scheduled message scopes: %w", err), ""))

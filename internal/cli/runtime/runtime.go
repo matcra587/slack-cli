@@ -19,6 +19,7 @@ import (
 type RootRuntime struct {
 	OutputMode         string
 	CommandName        string
+	WorkspaceName      string
 	Config             *config.Config
 	ConfigLoadError    error
 	ConfigExplicit     bool
@@ -41,6 +42,7 @@ type RootRuntime struct {
 	RequestID          func() string
 	Theme              *theme.Theme
 	HelpRenderer       *help.Renderer
+	HelpOutputError    error // captured by Cobra's void help callback
 }
 
 type RootOption func(*RootRuntime)

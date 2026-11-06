@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -127,12 +126,15 @@ func TestCompletionGeneratorAnnotatesCommonSlackFlags(t *testing.T) {
 
 	healthCheck := completionSub(t, gen.Subs, "health", "check")
 	assertCompletionSpec(t, healthCheck.Specs, "service", func(spec complete.Spec) bool {
-		return completionSpecContainsValueDesc(spec, "Messaging") &&
+		return completionSpecContainsValueDesc(spec, "Huddles") &&
+			completionSpecContainsValueDesc(spec, "Messaging") &&
 			completionSpecContainsValueDesc(spec, "Workspace/Org Administration")
 	})
+	healthCurrent := completionSub(t, gen.Subs, "health", "current")
+	assertCompletionSpec(t, healthCurrent.Specs, "service", func(spec complete.Spec) bool { return completionSpecContainsValueDesc(spec, "Huddles") })
 	healthHistory := completionSub(t, gen.Subs, "health", "history")
 	assertCompletionSpec(t, healthHistory.Specs, "service", func(spec complete.Spec) bool {
-		return completionSpecContainsValueDesc(spec, "Apps/Integrations/APIs")
+		return completionSpecContainsValueDesc(spec, "Apps/Integrations/APIs") && completionSpecContainsValueDesc(spec, "Huddles")
 	})
 
 	configSet := completionSub(t, gen.Subs, "config", "set")
@@ -224,26 +226,17 @@ func completionSpecContainsValueDesc(spec complete.Spec, value string) bool {
 
 func captureRootStdout(t *testing.T, args []string) []string {
 	t.Helper()
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-
-	orig := os.Stdout
-	os.Stdout = w
 	stdout := &strings.Builder{}
 	stderr := &strings.Builder{}
 	cmd := NewRootCommand(WithIO(strings.NewReader(""), stdout, stderr), WithTTY(false))
 	cmd.SetArgs(args)
-	err = cmd.Execute()
-	os.Stdout = orig
-	_ = w.Close()
+	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("root completion returned error: %v\nstderr=%s", err, stderr.String())
 	}
 
 	var lines []string
-	scanner := bufio.NewScanner(r)
+	scanner := bufio.NewScanner(strings.NewReader(stdout.String()))
 	for scanner.Scan() {
 		lines = append(lines, scanner.Text())
 	}

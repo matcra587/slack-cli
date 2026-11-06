@@ -1,5 +1,5 @@
 // Package status implements the `slick status` cobra command tree for
-// reading and writing the authenticated user's Slack custom status.
+// setting and clearing the authenticated user's Slack custom status.
 package status
 
 import (
@@ -102,7 +102,11 @@ func runStatusSet(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts stat
 	if text == "" && emoji == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("status text or emoji is required"))
 	}
-	expiration, err := parseStatusExpiration(ctx.Now(), opts.ExpiresIn, opts.Until)
+	now := ctx.Now()
+	if runtime.Now == nil {
+		now = now.In(time.Local)
+	}
+	expiration, err := parseStatusExpiration(now, opts.ExpiresIn, opts.Until)
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
@@ -127,7 +131,7 @@ func mutateSlackStatus(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ctx 
 	}
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("users.profile:write")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
@@ -180,7 +184,7 @@ func parseStatusExpiration(now time.Time, expiresIn time.Duration, until string)
 		}
 		parsed := time.Date(now.Year(), now.Month(), now.Day(), clock.Hour(), clock.Minute(), clock.Second(), 0, now.Location())
 		if !parsed.After(now) {
-			parsed = parsed.Add(24 * time.Hour)
+			parsed = parsed.AddDate(0, 0, 1)
 		}
 		return parsed.Unix(), nil
 	}

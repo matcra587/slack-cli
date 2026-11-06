@@ -1,6 +1,7 @@
 package output
 
 import (
+	"bytes"
 	"io"
 	"maps"
 	"strings"
@@ -114,24 +115,28 @@ func (c *CommandContext) EnrichResult(data any) any {
 func WriteList[T any](c *CommandContext, command string, data any, items []T, pagination *Pagination, plain ListPlainWriter[T]) error {
 	data = c.EnrichResult(data)
 	if c.Mode == RenderModePlain {
-		if plain != nil {
-			return plain(c, command, items, pagination)
-		}
-		event := c.ResultEvent(command)
-		c.FinishResult(event, command, pagination)
-		return nil
+		return c.withPlainOutput(func(render *CommandContext) error {
+			if plain != nil {
+				return plain(render, command, items, pagination)
+			}
+			event := render.ResultEvent(command)
+			render.FinishResult(event, command, pagination)
+			return nil
+		})
 	}
 	return c.WriteResultWithPagination(command, data, pagination)
 }
 
 func (c *CommandContext) WritePlainResult(command string, data any, pagination *Pagination) error {
-	if r, ok := data.(PlainRenderer); ok {
-		return r.WritePlain(c, command, pagination)
-	}
-	event := c.ResultEvent(command).Any("data", data)
-	AddPaginationFields(event, pagination)
-	event.Msg(ActionLabel(command))
-	return nil
+	return c.withPlainOutput(func(render *CommandContext) error {
+		if r, ok := data.(PlainRenderer); ok {
+			return r.WritePlain(render, command, pagination)
+		}
+		event := render.ResultEvent(command).Any("data", data)
+		AddPaginationFields(event, pagination)
+		event.Msg(ActionLabel(command))
+		return nil
+	})
 }
 
 func (c *CommandContext) ResultEvent(command string) *clog.Event {
@@ -192,10 +197,8 @@ func (c *CommandContext) FinishResult(event *clog.Event, command string, paginat
 }
 
 // commandActionLabel maps command ids to past-tense action labels. Keys
-// are the runtime command ids passed to ResultEvent / WriteResult — usually
-// the same as the dotted cobra path, except where slick uses a Slack API
-// method name (e.g. "search.messages" for the cobra path "lookup.messages").
-// Both forms appear here when they differ.
+// are the runtime command ids passed to ResultEvent / WriteResult, matching
+// the dotted cobra path. Legacy ids remain as display aliases for Go callers.
 //
 // Adding a new command? Add an entry. The TestCommandActionLabelCoverage
 // regression test in cmd/slick walks the cobra tree and fails if any leaf
@@ -229,8 +232,8 @@ var commandActionLabel = map[string]string{
 	"history.list":             "History retrieved",
 	"lookup.channel":           "Channel resolved",
 	"lookup.user":              "User resolved",
-	"lookup.messages":          "Messages searched", // cobra-path form (test asserts this)
-	"search.messages":          "Messages searched", // runtime form emitted by search.go
+	"lookup.messages":          "Messages searched",
+	"search.messages":          "Messages searched", // Legacy display alias.
 	"file.upload":              "File uploaded",
 	"health.current":           "Slack status retrieved",
 	"health.history":           "Slack incidents retrieved",
@@ -261,7 +264,10 @@ var commandActionLabel = map[string]string{
 
 func (c *CommandContext) WriteMessages(command string, messages []Message, pagination *Pagination) error {
 	if len(messages) > 0 {
-		return c.WriteMessageTable(messages)
+		if err := c.WriteMessageTable(messages); err != nil {
+			return err
+		}
+		return c.writePaginationFooter(command, pagination)
 	}
 	event := c.ResultEvent(command)
 	c.FinishResult(event, command, pagination)
@@ -270,7 +276,10 @@ func (c *CommandContext) WriteMessages(command string, messages []Message, pagin
 
 func (c *CommandContext) WriteSearch(command string, matches []SearchMessage, full bool, pagination *Pagination) error {
 	if len(matches) > 0 {
-		return c.WriteSearchTable(matches, full)
+		if err := c.WriteSearchTable(matches, full); err != nil {
+			return err
+		}
+		return c.writePaginationFooter(command, pagination)
 	}
 	event := c.ResultEvent(command)
 	c.FinishResult(event, command, pagination)
@@ -279,7 +288,10 @@ func (c *CommandContext) WriteSearch(command string, matches []SearchMessage, fu
 
 func (c *CommandContext) WriteChannels(command string, channels []Channel, pagination *Pagination) error {
 	if len(channels) > 0 {
-		return c.WriteChannelTable(command, channels)
+		if err := c.WriteChannelTable(command, channels); err != nil {
+			return err
+		}
+		return c.writePaginationFooter(command, pagination)
 	}
 	event := c.ResultEvent(command)
 	c.FinishResult(event, command, pagination)
@@ -288,7 +300,10 @@ func (c *CommandContext) WriteChannels(command string, channels []Channel, pagin
 
 func (c *CommandContext) WriteUsers(command string, users []User, pagination *Pagination) error {
 	if len(users) > 0 {
-		return c.WriteUserTable(users)
+		if err := c.WriteUserTable(users); err != nil {
+			return err
+		}
+		return c.writePaginationFooter(command, pagination)
 	}
 	event := c.ResultEvent(command)
 	c.FinishResult(event, command, pagination)
@@ -297,13 +312,34 @@ func (c *CommandContext) WriteUsers(command string, users []User, pagination *Pa
 
 func (c *CommandContext) WriteScheduledMessages(command string, messages []ScheduledMessage, pagination *Pagination) error {
 	if len(messages) > 0 {
-		return c.WriteScheduledMessageTable(messages)
+		if err := c.WriteScheduledMessageTable(messages); err != nil {
+			return err
+		}
+		return c.writePaginationFooter(command, pagination)
 	}
 	ApplyNumberKeyStyle(c.StdoutLogger(), "count")
 	event := c.ResultEvent(command)
 	event = event.Str("count", "0")
 	c.FinishResult(event, command, pagination)
 	return nil
+}
+
+// writePaginationFooter buffers the log rendering so destination failures are
+// reported through the same exit-8 path as the table itself.
+func (c *CommandContext) writePaginationFooter(command string, pagination *Pagination) error {
+	if pagination == nil {
+		return nil
+	}
+	var buffer bytes.Buffer
+	logger := c.StdoutLogger().With().Logger()
+	mode := c.ColorMode
+	if mode == clog.ColorAuto && c.IsTTY {
+		mode = clog.ColorAlways
+	}
+	logger.SetOutput(clog.NewOutput(&buffer, mode))
+	event := resultEvent(logger, command)
+	c.FinishResult(event, command, pagination)
+	return c.writeBytes(c.OutWriter(), buffer.Bytes())
 }
 
 func (c *CommandContext) WriteHealthIncidents(command string, incidents []HealthIncident, pagination *Pagination) error {
@@ -335,11 +371,7 @@ func (c *CommandContext) WriteString(message string) error {
 
 func (c *CommandContext) WriteError(err CLIError) int {
 	if c.Mode == RenderModePlain {
-		event := c.StderrLogger().Error().
-			Str("type", err.Type).
-			Int("exit_code", err.ExitCode)
-		event = AddCLIErrorDetails(event, err.Details)
-		event.Msg(err.Message)
+		return c.writePlainError(err)
 	} else {
 		command := c.Command
 		if command == "" {

@@ -49,7 +49,11 @@ func GenerateSchema(root *cobra.Command) docent.Command {
 		case "list", "get", "path", "info", "schema", "guide", "version", "current", "check", "api-test", "watch":
 			cmd.ReadOnly = true
 		}
-		if cmd.Path == "slick auth status" {
+		switch cmd.Path {
+		case "slick auth status", "slick help", "slick health history",
+			"slick lookup channel", "slick lookup messages", "slick lookup user", "slick manifest template",
+			"slick completion bash", "slick completion elvish", "slick completion fish",
+			"slick completion nu", "slick completion pwsh", "slick completion zsh":
 			cmd.ReadOnly = true
 		}
 		for i := range cmd.Children {

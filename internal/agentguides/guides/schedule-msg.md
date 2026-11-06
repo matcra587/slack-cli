@@ -20,7 +20,7 @@ Goal: Create, list, or cancel scheduled messages.
 ### when (create only)
 
 *   Format: RFC3339 (`2026-06-01T15:00:00-04:00`), Go duration (`90m`, `2h30m`), or Unix seconds. Never natural language.
-*   Range: future, within 120 days.
+*   Range: future, within 120 days. Fractional inputs round down to whole Unix seconds before validation; if that second is not in the future, previews and real sends fail locally.
 
 ### Workflow checkpoints
 
@@ -42,7 +42,9 @@ Goal: Create, list, or cancel scheduled messages.
 
 ### Behavior
 
-*   Delete supports `--dry-run` but does NOT require `--force` (Slack treats cancellation as cheap).
+*   Delete supports `--dry-run` and does not require `--force`. Slack cannot cancel a message within 60 seconds of its scheduled send time.
+*   List returns pending messages scheduled by the same token through the API; it excludes messages scheduled in the Slack UI. Listing needs authentication but has no required OAuth scope.
+*   List `--limit` is a page size: 0 uses Slack’s default, positive values go to Slack, and negative values fail locally.
 *   Friendly metadata (`channel_name`, `channel_hr`, `channel_url`, `is_dm`, `channel_type`, `channel_user`) is best-effort and may be absent in error envelopes.
 
 ## Save
@@ -63,6 +65,12 @@ Delete:
 
 ## Preconditions
 
+*   Empty or whitespace-only bodies reject locally, including file/stdin sources. Use raw `[]` only for an explicit existing-message block clear.
+
+*   Raw Block Kit supplies `blocks` without literal JSON notification text. Raw previews expose validated blocks, omitting unknown fields. Scheduled raw receipts include the submitted `data.blocks` plan with empty `data.text`. Markdown keeps readable source fallback; removing `--blocks` restores it.
+
+*   Channel and recipient inputs and stored alias values trim surrounding whitespace. Blank alias targets fail locally; they never fall back to another destination. Recipient order is preserved.
+
 *   Delete needs raw channel/DM/MPIM IDs — friendly `#channel` or `@user` labels in human output are display-only.
 *   Pending sends have no `ts` until Slack posts them; correlate on `scheduled_message_id`.
 
@@ -70,8 +78,9 @@ Delete:
 
 | Symptom | Cause | Next |
 |---|---|---|
+| Invalid Slack acknowledgement (`server_error`, exit 5) | The response did not confirm a usable result | Inspect Slack before retrying; a mutation may already have happened. Slick does not replay it automatically. |
 | `not_found` on delete | Wrong `--channel` (used DM alias instead of raw ID) | Re-list, copy `data.scheduled_messages[].channel` verbatim |
-| `auth_failure: missing_scope` | Manifest lacks `chat:write` (delete) or scheduled-message read scope | → `auth_setup` to widen manifest |
+| `auth_failure: missing_scope` | Slack rejected the token’s permissions; cancellation requires `chat:write` | Check the reported scopes; use → `auth_setup` if the app needs them |
 
 ## Next
 

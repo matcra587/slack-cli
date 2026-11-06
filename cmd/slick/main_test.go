@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,8 +50,39 @@ func TestTruncateText(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
+	fixtureHome, err := os.MkdirTemp("", "slick-unit-")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "creating isolated test home failed")
+		os.Exit(1)
+	}
+	for _, entry := range os.Environ() {
+		envKey, _, _ := strings.Cut(entry, "=")
+		key := strings.ToUpper(envKey)
+		if key == "SLICK_CONFIG" || key == "SLACK_CLI_CONFIG" || key == "SLACK_CLI_DEFAULT_WORKSPACE" || key == "SLACK_CLI_TOKEN" || strings.HasPrefix(key, "SLACK_CLI_TOKEN_") {
+			_ = os.Unsetenv(envKey)
+		}
+	}
+	for key, value := range map[string]string{
+		"HOME": fixtureHome, "USERPROFILE": fixtureHome,
+		"XDG_CONFIG_HOME":    filepath.Join(fixtureHome, "config"),
+		"XDG_CACHE_HOME":     filepath.Join(fixtureHome, "cache"),
+		"XDG_DATA_HOME":      filepath.Join(fixtureHome, "data"),
+		"XDG_STATE_HOME":     filepath.Join(fixtureHome, "state"),
+		"SLACK_CLI_BASE_URL": "http://127.0.0.1:1",
+	} {
+		if err := os.Setenv(key, value); err != nil {
+			fmt.Fprintln(os.Stderr, "isolating test environment failed")
+			_ = os.RemoveAll(fixtureHome)
+			os.Exit(1)
+		}
+	}
 	clearAmbientAgentEnvironment()
-	os.Exit(m.Run())
+	code := m.Run()
+	if err := os.RemoveAll(fixtureHome); err != nil {
+		fmt.Fprintln(os.Stderr, "removing isolated test home failed")
+		code = 1
+	}
+	os.Exit(code)
 }
 
 func clearAmbientAgentEnvironment() {

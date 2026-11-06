@@ -3,8 +3,9 @@
 The `auth` package resolves the workspace credentials saved by `slick auth login`.
 It does not start a login flow or read credentials when you import it.
 
-Call `auth.Resolve(ctx, auth.Options{})` to select the saved default workspace.
-Set `Options.Workspace` to select another saved profile. Each call reads the current
+Set `Options.Workspace` to select a saved profile explicitly. Otherwise,
+`auth.Resolve(ctx, auth.Options{})` uses `SLACK_CLI_DEFAULT_WORKSPACE` when set,
+then the saved default workspace. Each call reads the current
 configuration and resolves the current credential, so switching profiles or
 replacing a credential takes effect on the next call.
 

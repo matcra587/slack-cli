@@ -44,7 +44,7 @@ This is not a command — it's the discipline that wraps the mutating workflows.
 
 ### Behavior
 
-*   Rate limits map to exit code `3` + structured `rate_limit` errors with `errors[0].retry_after_seconds`. Sleep before retrying that target.
+*   Rate limits map to exit code `3` + structured `rate_limit` errors. When `errors[0].retry_after_seconds` is present, wait at least that long. When it is absent, stop or use a bounded backoff policy; keep retry attempts bounded.
 *   `chat.postMessage` has same-channel limits. Separate CLI processes do NOT share proactive throttle state, so shell fanout can still hit `rate_limit` even with conservative single-process pacing.
 
 ## Save
@@ -58,7 +58,7 @@ This is not a command — it's the discipline that wraps the mutating workflows.
 
 | Symptom | Cause | Next |
 |---|---|---|
-| `rate_limit` (exit `3`) | Same-channel or workspace fanout exceeded Slack budget | Sleep `errors[0].retry_after_seconds`, retry. Reduce parallelism. |
+| `rate_limit` (exit `3`) | Same-channel or workspace fanout exceeded Slack budget | Wait for the supplied delay when present. Otherwise stop or use bounded backoff. Keep retries bounded and reduce parallelism. |
 | `validation_error` requesting `--force` | Real write to `delete_msg` without the confirm flag | Add `--force` (delete is the only workflow that requires it). |
 | Unexpected `validation_error` after dry-run was clean | Real Slack state diverged (channel archived, user deactivated) between dry-run and write | Re-preflight, then retry |
 | Exit `6` (canceled) mid-flight | Caller (agent or user) interrupted the command | Treat as unfinished — re-preflight before any retry; do not assume Slack state matches your last dry-run. |

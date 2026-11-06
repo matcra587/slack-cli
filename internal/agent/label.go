@@ -54,7 +54,7 @@ func defaultsForCategory(category Category) (string, string) {
 }
 
 func defaultMessageForCategory(category Category, label string) string {
-	if category == CategoryCLI {
+	if category == CategoryCLI && label == "slick" {
 		return "Sent via slick"
 	}
 	return "Sent via slick (" + label + ")"

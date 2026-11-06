@@ -2,6 +2,8 @@ package output
 
 import (
 	"context"
+	"errors"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -22,13 +24,19 @@ func TestCliErrorFromSlackMissingScopeIncludesNeeded(t *testing.T) {
 			name:        "structured scope without metadata",
 			err:         slackgo.SlackErrorResponse{Err: "missing_scope", Needed: "chat:write,users:read"},
 			wantMessage: "missing_scope: missing required Slack scope: chat:write,users:read",
-			wantNeeded:  "chat:write,users:read",
+			wantNeeded:  []string{"chat:write", "users:read"},
 		},
 		{
 			name:        "structured scope takes precedence",
 			err:         slackgo.SlackErrorResponse{Err: "missing_scope", Needed: " files:write ", ResponseMetadata: slackgo.ResponseMetadata{Messages: []string{"[ERROR] missing required scope: chat:write"}}},
 			wantMessage: "missing_scope: missing required Slack scope: files:write",
-			wantNeeded:  "files:write",
+			wantNeeded:  []string{"files:write"},
+		},
+		{
+			name:        "known legacy standalone scopes",
+			err:         slackgo.SlackErrorResponse{Err: "missing_scope", Needed: "bot, incoming-webhook"},
+			wantMessage: "missing_scope: missing required Slack scope: bot,incoming-webhook",
+			wantNeeded:  []string{"bot", "incoming-webhook"},
 		},
 		{
 			name: "slack response metadata message",
@@ -39,7 +47,7 @@ func TestCliErrorFromSlackMissingScopeIncludesNeeded(t *testing.T) {
 				},
 			},
 			wantMessage: "missing_scope: missing required Slack scope: chat:write",
-			wantNeeded:  "chat:write",
+			wantNeeded:  []string{"chat:write"},
 		},
 		{
 			name:        "local scope preflight",
@@ -67,5 +75,17 @@ func TestCliErrorFromSlackMissingScopeIncludesNeeded(t *testing.T) {
 				t.Fatalf("message = %q, want actionable scope text", got.Message)
 			}
 		})
+	}
+}
+
+func TestSlackTransportDiagnosticsHideUnreviewedProviderText(t *testing.T) {
+	for _, err := range []error{
+		&url.Error{Op: "Post", URL: "https://example.invalid/?signature=synthetic-private-link", Err: errors.New("provider xox-test")},
+		errors.New("refusing to send token to https://example.invalid/?signature=synthetic-private-link"),
+	} {
+		got := CliErrorFromSlack(context.Background(), err, "")
+		if got.Type != ErrorTypeServer || got.ExitCode != ExitCodeServer || strings.Contains(got.Message, "synthetic-private-link") || strings.Contains(got.Message, "xox-test") {
+			t.Fatal("transport/provider failure leaked an unreviewed credential or changed class")
+		}
 	}
 }

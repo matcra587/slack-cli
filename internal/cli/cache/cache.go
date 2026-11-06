@@ -29,6 +29,7 @@ const (
 	metadataTTLMinutes = 24 * 60
 	defaultPageSize    = 200
 	defaultMaxPages    = 20
+	maxTTLMinutes      = int((1<<63 - 1) / time.Minute)
 )
 
 // Resources lists the cacheable resource names.
@@ -95,6 +96,24 @@ type ClearResourceData struct {
 type ClearProfileData struct {
 	Profile   string   `json:"profile"`
 	Resources []string `json:"resources,omitempty"`
+}
+
+// PreviewData describes a cache operation without fetching, writing or deleting.
+type PreviewData struct {
+	Profile  string `json:"profile"`
+	Resource string `json:"resource"`
+	DryRun   bool   `json:"dry_run"`
+}
+
+var _ clioutput.PlainRenderer = PreviewData{}
+
+func (d PreviewData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
+	c.ResultEvent(command).
+		Str("profile", d.Profile).
+		Str("resource", d.Resource).
+		Bool("dry_run", d.DryRun).
+		Msg("Cache preview")
+	return nil
 }
 
 var _ clioutput.PlainRenderer = UsersData{}
@@ -261,15 +280,21 @@ func defaultOptions() Options {
 
 func addFlags(cmd *cobra.Command, opts *Options) {
 	cmd.Flags().BoolVarP(&opts.Refresh, "refresh", "r", false, "Force a fetch even when the cache is fresh")
-	cmd.Flags().IntVarP(&opts.TTLMinutes, "ttl-minutes", "T", metadataTTLMinutes, "Freshness window before automatic refresh")
-	cmd.Flags().IntVarP(&opts.PageSize, "page-size", "s", defaultPageSize, "Slack page size while priming")
-	cmd.Flags().IntVarP(&opts.MaxPages, "max-pages", "N", defaultMaxPages, "Maximum Slack pages to fetch")
+	cmd.Flags().IntVarP(&opts.TTLMinutes, "ttl-minutes", "T", metadataTTLMinutes, "Freshness in minutes (maximum 153722867; nonpositive uses 1440)")
+	cmd.Flags().IntVarP(&opts.PageSize, "page-size", "s", defaultPageSize, "Slack page size while priming (maximum 200; nonpositive uses 200)")
+	cmd.Flags().IntVarP(&opts.MaxPages, "max-pages", "N", defaultMaxPages, "Maximum Slack pages to fetch (nonpositive uses 20)")
 }
 
 func runUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Options) error {
 	ctx, profile, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
+	}
+	if opts.TTLMinutes > maxTTLMinutes {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("--ttl-minutes must not exceed 153722867"))
+	}
+	if cliruntime.DryRun(cmd) {
+		return ctx.WriteResult("cache.users", PreviewData{Profile: profile.Name, Resource: "users", DryRun: true})
 	}
 	data, fromCache, fetchedAt, err := readOrFetch(profile.Name, "users", opts.TTL(), opts.Refresh, func() (json.RawMessage, error) {
 		return fetchUsers(cmd, runtime, profile, opts)
@@ -296,6 +321,12 @@ func runChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Optio
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
+	if opts.TTLMinutes > maxTTLMinutes {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("--ttl-minutes must not exceed 153722867"))
+	}
+	if cliruntime.DryRun(cmd) {
+		return ctx.WriteResult("cache.channels", PreviewData{Profile: profile.Name, Resource: "channels", DryRun: true})
+	}
 	data, fromCache, fetchedAt, err := readOrFetch(profile.Name, "channels", opts.TTL(), opts.Refresh, func() (json.RawMessage, error) {
 		return fetchChannels(cmd, runtime, profile, opts)
 	})
@@ -321,6 +352,13 @@ func runClear(cmd *cobra.Command, runtime *cliruntime.RootRuntime, args []string
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
+	if cliruntime.DryRun(cmd) {
+		resource := "all"
+		if len(args) != 0 {
+			resource = args[0]
+		}
+		return ctx.WriteResult("cache.clear", PreviewData{Profile: profile.Name, Resource: resource, DryRun: true})
+	}
 	if len(args) == 0 {
 		resources, err := slackcache.ClearProfile(profile.Name)
 		if err != nil {
@@ -345,7 +383,7 @@ func runClear(cmd *cobra.Command, runtime *cliruntime.RootRuntime, args []string
 
 func readOrFetch(profile, resource string, ttl time.Duration, refresh bool, fetch func() (json.RawMessage, error)) (json.RawMessage, bool, time.Time, error) {
 	if !refresh {
-		if entry, ok, stale, err := slackcache.Read(profile, resource, ttl); err == nil && ok && !stale {
+		if entry, ok, stale, err := slackcache.Read(profile, resource, ttl); err == nil && ok && !stale && validCachedPayload(resource, entry.Data) {
 			return entry.Data, true, entry.FetchedAt, nil
 		}
 	}
@@ -360,10 +398,23 @@ func readOrFetch(profile, resource string, ttl time.Duration, refresh bool, fetc
 	return entry.Data, false, entry.FetchedAt, nil
 }
 
+func validCachedPayload(resource string, data json.RawMessage) bool {
+	var target any
+	switch resource {
+	case "users":
+		target = &usersPayload{}
+	case "channels":
+		target = &channelsPayload{}
+	default:
+		return false
+	}
+	return json.Unmarshal(data, target) == nil
+}
+
 func fetchUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile config.WorkspaceProfile, opts Options) (json.RawMessage, error) {
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return nil, fetchError{err: clioutput.AuthCLIError(err.Error())}
+		return nil, fetchError{err: slackclient.CLIError(cmd.Context(), err)}
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("users:read")); err != nil {
 		return nil, fetchError{err: clioutput.CliErrorFromSlack(cmd.Context(), err, "")}
@@ -378,7 +429,7 @@ func fetchUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile con
 func fetchChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile config.WorkspaceProfile, opts Options) (json.RawMessage, error) {
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return nil, fetchError{err: clioutput.AuthCLIError(err.Error())}
+		return nil, fetchError{err: slackclient.CLIError(cmd.Context(), err)}
 	}
 	types := []string{"public_channel", "private_channel", "im", "mpim"}
 	if err := cliscope.Require(cmd.Context(), client, clichannel.ConversationReadScopeRequirement(types)); err != nil {

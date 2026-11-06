@@ -71,6 +71,46 @@ func TestHistoryListCommandReadsThreadWhenThreadFlagIsSet(t *testing.T) {
 	}
 }
 
+func TestThreadHistoryHonorsTimeWindowUserAndCursor(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"conversations.replies": func(req testutil.SlackRequest) testutil.SlackResponse {
+			for key, want := range map[string]string{"channel": "C123", "ts": "1746284582.123456", "oldest": "1746284600.000001", "latest": "1746290000.000001", "limit": "10", "cursor": "thread-cursor"} {
+				if got := req.Form.Get(key); got != want {
+					t.Errorf("replies %s=%q, want %q", key, got, want)
+				}
+			}
+			return testutil.JSONResponse(`{"ok":true,"messages":[{"type":"message","user":"UOTHER","text":"Other author's reply","ts":"1746284610.000001"},{"type":"message","user":"USELECTED","text":"Selected author's reply","ts":"1746284620.000001"}],"response_metadata":{"next_cursor":"next-thread-cursor"}}`)
+		},
+	})
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeUser), server.BaseURL(), "", []string{
+		"history", "list", "--channel", "C123", "--thread", "1746284582.123456", "--since", "1746284600.000001", "--until", "1746290000.000001", "--user", "USELECTED", "--cursor", "thread-cursor", "--max-items", "10",
+	})
+	if err != nil || stderr != "" {
+		t.Fatalf("thread request failed: err=%v stderr=%s", err, stderr)
+	}
+	var frame struct {
+		Data struct {
+			Messages []struct {
+				User string `json:"user"`
+				TS   string `json:"ts"`
+			} `json:"messages"`
+			Pagination struct {
+				NextCursor    string `json:"next_cursor"`
+				ItemsReturned int    `json:"items_returned"`
+			} `json:"pagination"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &frame); err != nil {
+		t.Fatal(err)
+	}
+	if len(frame.Data.Messages) != 1 || frame.Data.Messages[0].User != "USELECTED" || frame.Data.Messages[0].TS != "1746284620.000001" {
+		t.Fatalf("thread did not filter the requested author: %s", stdout)
+	}
+	if frame.Data.Pagination.NextCursor != "next-thread-cursor" || frame.Data.Pagination.ItemsReturned != 1 {
+		t.Fatalf("thread filtering lost pagination: %s", stdout)
+	}
+}
+
 func TestHistoryListCommandSurfacesBlocksFieldForMessageWithBlocks(t *testing.T) {
 	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
 		"conversations.history": func(testutil.SlackRequest) testutil.SlackResponse {
@@ -148,6 +188,8 @@ func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, ar
 	})
 	root := runtimetest.NewRoot(runtime, stdout, stderr)
 	root.AddCommand(clihistory.NewCommand(runtime))
+	// These fixtures assert requests/results; dedicated SDK and binary tests own pacing.
+	args = append([]string{"--no-throttle"}, args...)
 	return runtimetest.Run(t, root, args, stdout, stderr)
 }
 

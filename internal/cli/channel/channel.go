@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"errors"
 	"strings"
 
 	xslices "github.com/gechr/x/slices"
@@ -125,25 +126,32 @@ func newLookupChannelCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			if strings.TrimSpace(channel) != "" {
 				return runChannelInfoValue(cmd, runtime, "lookup.channel", channel)
 			}
-			return runChannelListWithTypes(cmd, runtime, "lookup.channel", maxItems, cursor, filter, parseConversationTypes(types))
+			return runChannelListWithTypes(cmd, runtime, "lookup.channel", maxItems, cursor, filter, types)
 		},
 	}
-	channelCmd.Flags().StringP("channel", "c", "", "Channel or conversation ID, name, or alias")
-	channelCmd.Flags().IntVarP(&maxItems, "max-items", "M", 0, "Maximum conversations to return")
-	channelCmd.Flags().StringVarP(&cursor, "cursor", "C", "", "Pagination cursor")
-	channelCmd.Flags().StringVarP(&filter, "filter", "f", "", "Filter by ID or name")
+	channelCmd.Flags().StringP("channel", "c", "", "Channel or conversation ID, or configured alias")
+	channelCmd.Flags().IntVarP(&maxItems, "max-items", "M", 0, "Maximum conversations in one list page (0-999; 0 uses the default page size)")
+	channelCmd.Flags().StringVarP(&cursor, "cursor", "C", "", "List pagination cursor")
+	channelCmd.Flags().StringVarP(&filter, "filter", "f", "", "Filter the list by ID or name")
 	channelCmd.Flags().StringVarP(&types, "types", "t", "public_channel,private_channel", "Conversation types: public_channel, private_channel, im, mpim, dm, or all")
 	return channelCmd
 }
 
-func runChannelListWithTypes(cmd *cobra.Command, runtime *cliruntime.RootRuntime, command string, maxItems int, cursor, filter string, types []string) error {
+func runChannelListWithTypes(cmd *cobra.Command, runtime *cliruntime.RootRuntime, command string, maxItems int, cursor, filter, typeInput string) error {
 	ctx, profile, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
+	if maxItems < 0 || maxItems >= 1000 {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("--max-items must be between 0 and 999"))
+	}
+	types, err := parseConversationTypes(typeInput)
+	if err != nil {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+	}
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	if err := cliscope.Require(cmd.Context(), client, conversationReadScopeRequirement(types)); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
@@ -163,7 +171,7 @@ func runChannelListWithTypes(cmd *cobra.Command, runtime *cliruntime.RootRuntime
 		NextCursor:    cliutil.StringPtr(nextCursor),
 		HasMore:       nextCursor != "",
 		MaxItems:      cliutil.IntPtr(maxItems),
-		ItemsReturned: cliutil.IntPtr(len(result.Channels)),
+		ItemsReturned: new(len(result.Channels)),
 	})
 }
 
@@ -172,13 +180,18 @@ func runChannelInfoValue(cmd *cobra.Command, runtime *cliruntime.RootRuntime, co
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
-	if strings.TrimSpace(channel) == "" {
+	for _, flag := range []string{"max-items", "cursor", "filter", "types"} {
+		if cmd.Flags().Changed(flag) {
+			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("--"+flag+" is only supported when listing channels; omit --channel"))
+		}
+	}
+	channel = strings.TrimSpace(climessage.ResolveAlias(profile, strings.TrimSpace(channel)))
+	if channel == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("channel is required"))
 	}
-	channel = climessage.ResolveAlias(profile, strings.TrimSpace(channel))
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AnyOf("channels:read", "groups:read", "im:read", "mpim:read")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
@@ -215,26 +228,30 @@ func filterChannels(channels []clioutput.Channel, filter string) []clioutput.Cha
 	return out
 }
 
-func parseConversationTypes(value string) []string {
-	if strings.TrimSpace(value) == "" {
-		return []string{"public_channel", "private_channel"}
-	}
+func parseConversationTypes(value string) ([]string, error) {
 	parts := xstrings.SplitCSV(value)
 	out := make([]string, 0, len(parts))
+	all := false
 	for _, part := range parts {
 		normalized := normalizeConversationType(part)
-		if normalized == "" {
+		switch normalized {
+		case "":
 			continue
+		case "all":
+			all = true
+		case "public_channel", "private_channel", "im", "mpim":
+			out = append(out, normalized)
+		default:
+			return nil, errors.New("--types contains an unsupported conversation type; use public_channel, private_channel, im, mpim, dm, or all")
 		}
-		if normalized == "all" {
-			return []string{"public_channel", "private_channel", "im", "mpim"}
-		}
-		out = append(out, normalized)
+	}
+	if all {
+		return []string{"public_channel", "private_channel", "im", "mpim"}, nil
 	}
 	if len(out) == 0 {
-		return []string{"public_channel", "private_channel"}
+		return []string{"public_channel", "private_channel"}, nil
 	}
-	return xslices.Unique(out)
+	return xslices.Unique(out), nil
 }
 
 func normalizeConversationType(value string) string {
@@ -254,27 +271,13 @@ func normalizeConversationType(value string) string {
 	}
 }
 
-// ConversationReadScopeRequirement builds a scope requirement for the given conversation types.
+// ConversationReadScopeRequirement returns the alternative scopes accepted by
+// conversations.list. Slack filters the results by token access and requested types.
 func ConversationReadScopeRequirement(types []string) cliscope.Requirement {
 	return conversationReadScopeRequirement(types)
 }
 
-func conversationReadScopeRequirement(types []string) cliscope.Requirement {
-	scopes := make([]string, 0, len(types))
-	for _, typ := range types {
-		switch typ {
-		case "public_channel":
-			scopes = append(scopes, "channels:read")
-		case "private_channel":
-			scopes = append(scopes, "groups:read")
-		case "im":
-			scopes = append(scopes, "im:read")
-		case "mpim":
-			scopes = append(scopes, "mpim:read")
-		}
-	}
-	if len(scopes) == 0 {
-		return cliscope.AllOf("channels:read", "groups:read")
-	}
-	return cliscope.AllOf(scopes...)
+func conversationReadScopeRequirement(_ []string) cliscope.Requirement {
+	// Types narrow results; they do not require granting every listed scope.
+	return cliscope.AnyOf("channels:read", "groups:read", "im:read", "mpim:read")
 }

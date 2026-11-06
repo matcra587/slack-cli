@@ -12,6 +12,8 @@ import (
 
 var ErrCredentialNotFound = errors.New("credential not found")
 
+var ErrLegacyCredential = errors.New("legacy plaintext credential found; structured credential payload is required; run slick auth login to replace it")
+
 type CredentialPayload struct {
 	AccessToken  string     `json:"access_token"`
 	RefreshToken string     `json:"refresh_token,omitempty"`
@@ -37,7 +39,7 @@ func DecodeCredential(secret string) (CredentialPayload, error) {
 	}
 	if !strings.HasPrefix(secret, "{") {
 		if strings.HasPrefix(secret, "xox") {
-			return CredentialPayload{}, errors.New("legacy plaintext credential found; structured credential payload is required; run slick auth login to replace it")
+			return CredentialPayload{}, ErrLegacyCredential
 		}
 		return CredentialPayload{}, errors.New("structured credential payload is required")
 	}

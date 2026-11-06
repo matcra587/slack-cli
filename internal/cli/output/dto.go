@@ -8,20 +8,25 @@ import (
 )
 
 type Message struct {
-	Type                    string            `json:"type,omitempty"`
-	Subtype                 *string           `json:"subtype,omitempty"`
-	User                    *string           `json:"user,omitempty"`
-	BotID                   *string           `json:"bot_id,omitempty"`
-	Text                    *string           `json:"text,omitempty"`
-	TS                      string            `json:"ts,omitempty"`
-	ThreadTS                *string           `json:"thread_ts,omitempty"`
-	Channel                 *string           `json:"channel,omitempty"`
-	SlackConversationFields                   // channel_name, channel_hr, channel_url
-	Permalink               *string           `json:"permalink,omitempty"`
-	ReplyCount              *int              `json:"reply_count,omitempty"`
-	Replies                 []Message         `json:"replies,omitempty"`
-	Reactions               []ReactionSummary `json:"reactions,omitempty"`
-	Blocks                  *slackgo.Blocks   `json:"blocks,omitempty"`
+	ClientMsgID             string               `json:"client_msg_id,omitempty"`
+	Type                    string               `json:"type,omitempty"`
+	Subtype                 *string              `json:"subtype,omitempty"`
+	User                    *string              `json:"user,omitempty"`
+	BotID                   *string              `json:"bot_id,omitempty"`
+	Text                    *string              `json:"text,omitempty"`
+	TS                      string               `json:"ts,omitempty"`
+	ThreadTS                *string              `json:"thread_ts,omitempty"`
+	Channel                 *string              `json:"channel,omitempty"`
+	SlackConversationFields                      // channel_name, channel_hr, channel_url
+	Permalink               *string              `json:"permalink,omitempty"`
+	ReplyCount              *int                 `json:"reply_count,omitempty"`
+	Replies                 []Message            `json:"replies,omitempty"`
+	RepliesPagination       *Pagination          `json:"replies_pagination,omitempty"`
+	Reactions               []ReactionSummary    `json:"reactions,omitempty"`
+	Blocks                  *slackgo.Blocks      `json:"blocks,omitempty"`
+	Attachments             []slackgo.Attachment `json:"attachments,omitempty"`
+	Files                   []slackgo.File       `json:"files,omitempty"`
+	Edited                  *slackgo.Edited      `json:"edited,omitempty"`
 }
 
 type ReactionSummary struct {
@@ -83,22 +88,33 @@ type ScheduledMessage struct {
 	TextPreview string  `json:"text_preview,omitempty"`
 }
 
+// HealthNote preserves a Slack Status incident update.
+type HealthNote struct {
+	Body        string `json:"body"`
+	DateCreated string `json:"date_created"`
+}
+
 type HealthIncident struct {
-	ID          string   `json:"id,omitempty"`
-	Title       string   `json:"title,omitempty"`
-	Type        string   `json:"type,omitempty"`
-	Status      string   `json:"status,omitempty"`
-	URL         string   `json:"url,omitempty"`
-	DateCreated string   `json:"date_created,omitempty"`
-	DateUpdated string   `json:"date_updated,omitempty"`
-	Services    []string `json:"services,omitempty"`
-	NoteCount   int      `json:"note_count,omitempty"`
+	ID          string       `json:"id,omitempty"`
+	Title       string       `json:"title,omitempty"`
+	Type        string       `json:"type,omitempty"`
+	Status      string       `json:"status,omitempty"`
+	URL         string       `json:"url,omitempty"`
+	DateCreated string       `json:"date_created,omitempty"`
+	DateUpdated string       `json:"date_updated,omitempty"`
+	Services    []string     `json:"services,omitempty"`
+	Notes       []HealthNote `json:"notes"`
+	NoteCount   int          `json:"note_count"`
 }
 
 func MessageFromSlack(message slackgo.Message, fallbackChannel string) Message {
 	out := Message{
-		Type: message.Type,
-		TS:   message.Timestamp,
+		ClientMsgID: message.ClientMsgID,
+		Type:        message.Type,
+		TS:          message.Timestamp,
+		Attachments: message.Attachments,
+		Files:       message.Files,
+		Edited:      message.Edited,
 	}
 	if message.SubType != "" {
 		out.Subtype = new(message.SubType)

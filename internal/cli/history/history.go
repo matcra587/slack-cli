@@ -2,9 +2,12 @@ package history
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/matcra587/slack-cli/internal/cli/cliutil"
+	climessage "github.com/matcra587/slack-cli/internal/cli/message"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
@@ -59,7 +62,7 @@ type ListOptions struct {
 
 type result struct {
 	Messages   []clioutput.Message
-	NextCursor *string
+	Pagination *clioutput.Pagination
 }
 
 // NewCommand returns the "history" cobra command tree.
@@ -97,15 +100,15 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			})
 		},
 	}
-	listCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
-	listCmd.Flags().IntVarP(&maxItems, "max-items", "M", 0, "Maximum messages to return")
+	listCmd.Flags().StringP("channel", "c", "", "Channel ID or configured alias")
+	listCmd.Flags().IntVarP(&maxItems, "max-items", "M", 0, "Maximum messages on one page (1-999; 1-1000 with --thread; 0 uses Slack's default)")
 	listCmd.Flags().StringVarP(&since, "since", "s", "", "Oldest Slack timestamp")
 	listCmd.Flags().StringVarP(&until, "until", "u", "", "Latest Slack timestamp")
 	listCmd.Flags().StringVarP(&user, "user", "U", "", "Filter by user ID")
 	listCmd.Flags().StringVarP(&thread, "thread", "t", "", "Read replies for parent timestamp")
 	listCmd.Flags().StringVarP(&cursor, "cursor", "C", "", "Pagination cursor")
 	listCmd.Flags().BoolVarP(&includeReplies, "include-replies", "R", false, "Include bounded thread replies")
-	listCmd.Flags().IntVarP(&replyLimit, "reply-limit", "L", 0, "Maximum replies per parent")
+	listCmd.Flags().IntVarP(&replyLimit, "reply-limit", "L", 0, "Maximum replies per parent with --include-replies (1-999; 0 uses Slack's page default)")
 	historyCmd.AddCommand(listCmd)
 
 	return historyCmd
@@ -118,20 +121,41 @@ func runHistoryList(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Li
 	}
 
 	channel, _ := cmd.Flags().GetString("channel")
+	channel = strings.TrimSpace(climessage.ResolveAlias(profile, strings.TrimSpace(channel)))
 	if strings.TrimSpace(channel) == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("channel is required"))
+	}
+	opts.Since = strings.TrimSpace(opts.Since)
+	opts.Until = strings.TrimSpace(opts.Until)
+	opts.User = strings.TrimSpace(opts.User)
+	opts.Thread = strings.TrimSpace(opts.Thread)
+	maxPage := 999
+	if opts.Thread != "" {
+		maxPage = 1000
+	}
+	if opts.MaxItems < 0 || opts.MaxItems > maxPage {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(fmt.Sprintf("max-items must be 0 (Slack's default) or between 1 and %d", maxPage)))
+	}
+	if opts.ReplyLimit < 0 || opts.ReplyLimit > 999 {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("reply-limit must be 0 (Slack's default) or between 1 and 999"))
+	}
+	if opts.Thread != "" && opts.IncludeReplies {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("include-replies cannot be combined with thread; thread already reads replies"))
+	}
+	if cmd.Flags().Changed("reply-limit") && !opts.IncludeReplies {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("reply-limit requires include-replies"))
 	}
 
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AnyOf("channels:history", "groups:history", "im:history", "mpim:history")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	var res result
 	if opts.Thread != "" {
-		res, err = threadHistory(cmd.Context(), client, channel, opts.Thread, opts.MaxItems, opts.Cursor)
+		res, err = threadHistory(cmd.Context(), client, channel, opts)
 	} else {
 		res, err = channelHistory(cmd.Context(), client, channel, opts)
 	}
@@ -140,13 +164,7 @@ func runHistoryList(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Li
 	}
 
 	channelRef := slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, channel)
-	return ctx.WriteResultWithPagination("history.list", Data{Messages: res.Messages, ChannelRef: channelRef}, &clioutput.Pagination{
-		Cursor:        cliutil.StringPtr(opts.Cursor),
-		NextCursor:    res.NextCursor,
-		HasMore:       res.NextCursor != nil,
-		MaxItems:      cliutil.IntPtr(opts.MaxItems),
-		ItemsReturned: cliutil.IntPtr(len(res.Messages)),
-	})
+	return ctx.WriteResultWithPagination("history.list", Data{Messages: res.Messages, ChannelRef: channelRef}, res.Pagination)
 }
 
 func channelHistory(ctx context.Context, client *slackgo.Client, channel string, opts ListOptions) (result, error) {
@@ -160,8 +178,14 @@ func channelHistory(ctx context.Context, client *slackgo.Client, channel string,
 	if err != nil {
 		return result{}, err
 	}
-	messages := cliMessagesFromSlack(resp.Messages, channel)
-	messages = filterMessagesByUser(messages, opts.User)
+	if !resp.Ok {
+		return result{}, errors.New("slack history response did not report success")
+	}
+	page, err := historyPage(resp.Messages, resp.HasMore, resp.ResponseMetaData.NextCursor, channel, opts)
+	if err != nil {
+		return result{}, err
+	}
+	messages := page.Messages
 	for i := range messages {
 		messages[i].Permalink = permalink(ctx, client, channel, messages[i].TS)
 	}
@@ -174,27 +198,62 @@ func channelHistory(ctx context.Context, client *slackgo.Client, channel string,
 			if opts.ReplyLimit > 0 {
 				replyLimitVal = opts.ReplyLimit + 1
 			}
-			thread, err := threadHistory(ctx, client, channel, messages[i].TS, replyLimitVal, "")
+			thread, err := threadHistory(ctx, client, channel, ListOptions{Thread: messages[i].TS, MaxItems: replyLimitVal})
 			if err != nil {
 				return result{}, err
 			}
 			messages[i].Replies = repliesOnly(messages[i].TS, thread.Messages)
+			thread.Pagination.ItemsReturned = new(len(messages[i].Replies))
+			thread.Pagination.MaxItems = cliutil.IntPtr(opts.ReplyLimit)
+			messages[i].RepliesPagination = thread.Pagination
 		}
 	}
-	return result{Messages: messages, NextCursor: cliutil.StringPtr(resp.ResponseMetaData.NextCursor)}, nil
+	return page, nil
 }
 
-func threadHistory(ctx context.Context, client *slackgo.Client, channel, threadTS string, maxItems int, cursor string) (result, error) {
-	messages, _, nextCursor, err := client.GetConversationRepliesContext(ctx, &slackgo.GetConversationRepliesParameters{
+func threadHistory(ctx context.Context, client *slackgo.Client, channel string, opts ListOptions) (result, error) {
+	messages, hasMore, nextCursor, err := client.GetConversationRepliesContext(ctx, &slackgo.GetConversationRepliesParameters{
 		ChannelID: channel,
-		Timestamp: threadTS,
-		Cursor:    cursor,
-		Limit:     maxItems,
+		Timestamp: opts.Thread,
+		Cursor:    opts.Cursor,
+		Limit:     opts.MaxItems,
+		Oldest:    opts.Since,
+		Latest:    opts.Until,
 	})
 	if err != nil {
 		return result{}, err
 	}
-	return result{Messages: cliMessagesFromSlack(messages, channel), NextCursor: cliutil.StringPtr(nextCursor)}, nil
+	return historyPage(messages, hasMore, nextCursor, channel, opts)
+}
+
+func historyPage(raw []slackgo.Message, hasMore bool, nextCursor, channel string, opts ListOptions) (result, error) {
+	if raw == nil {
+		return result{}, errors.New("slack history response is missing its messages array")
+	}
+	messages := filterMessagesByUser(cliMessagesFromSlack(raw, channel), opts.User)
+	pagination := &clioutput.Pagination{
+		Cursor: cliutil.StringPtr(opts.Cursor), NextCursor: cliutil.StringPtr(nextCursor),
+		HasMore: hasMore || nextCursor != "", MaxItems: cliutil.IntPtr(opts.MaxItems),
+		ItemsReturned: new(len(messages)),
+	}
+	if hasMore && nextCursor == "" {
+		if len(raw) == 0 || raw[len(raw)-1].Timestamp == "" {
+			return result{}, errors.New("slack history response has more messages without a continuation boundary")
+		}
+		boundary := raw[len(raw)-1].Timestamp
+		if opts.Thread != "" {
+			if boundary == opts.Since {
+				return result{}, errors.New("slack thread history did not advance its time boundary")
+			}
+			pagination.NextSince = new(boundary)
+		} else {
+			if boundary == opts.Until {
+				return result{}, errors.New("slack channel history did not advance its time boundary")
+			}
+			pagination.NextUntil = new(boundary)
+		}
+	}
+	return result{Messages: messages, Pagination: pagination}, nil
 }
 
 func cliMessagesFromSlack(messages []slackgo.Message, channel string) []clioutput.Message {

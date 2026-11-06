@@ -27,7 +27,7 @@
       "Markdown uses source-preserving Markdown fallback sections for unsupported block-level constructs",
       "--blocks validates Slack Block Kit JSON rules before Slack mutation",
       "Slack errors such as missing_scope, not_in_channel, and no_permission map to fixed exit codes",
-      "Explicit JSON output always uses {ok,meta,data,errors}; meta.exit_code is present on success and failure. Discovery schema is data.schema; guides are data.document. Compact success is bare data."
+      "JSON results use {ok,meta,data,errors}; help and shell completion artifacts keep their raw text format. meta.exit_code is present on success and failure. Discovery schema is data.schema; guides are data.document. Compact success is bare data."
     ]
   },
   "input_shapes": {
@@ -276,7 +276,7 @@
       "slick cache clear users"
     ],
     "file": [
-      "probationary, not promoted: tar czf - build/ | slick file upload --channel C123 --file - --filename build.tgz"
+      "tar czf - build/ | slick file upload --channel C123 --file - --filename build.tgz"
     ],
     "health": [
       "slick health check",
@@ -290,13 +290,13 @@
     "lookup": [
       "slick lookup channel --max-items 20",
       "slick lookup channel --types im",
-      "slick lookup user --presence",
+      "slick lookup user --user U123 --presence",
       "slick lookup user --user U123",
       "slick lookup messages --query 'deploy failed' --max-items 10"
     ],
     "manifest": [
-      "slick manifest template --name example --format json > manifest.json",
-      "slick manifest template --name example --format yaml > manifest.yaml"
+      "slick manifest template --name example --format json --output=human > manifest.json",
+      "slick manifest template --name example --format yaml --output=human > manifest.yaml"
     ],
     "message": [
       "echo 'Deploy complete' | slick message send --channel '#alerts' --file -",

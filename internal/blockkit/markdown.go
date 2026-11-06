@@ -15,26 +15,17 @@ import (
 )
 
 var defaultParser = sync.OnceValue(func() parser.Parser {
-	return goldmark.New(goldmark.WithExtensions(extension.Table)).Parser()
+	return goldmark.New(goldmark.WithExtensions(extension.Table, extension.Strikethrough)).Parser()
 })
 
-// FromMarkdown parses user-supplied Markdown into Block Kit blocks. Section
-// block content is escaped through slack-go's slackutilsx.EscapeMessage
-// (`&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`) so that user content cannot
-// inject Slack mention/link sentinels like `<!channel>`, `<@U…>`, `<#C…>`,
-// or the `<url|label>` phishing pattern. This matches slack-go's
-// `DEFAULT_MESSAGE_ESCAPE_TEXT = true` behavior for the top-level message
-// text field.
+// FromMarkdown parses Markdown into Block Kit blocks. Literal user text is
+// escaped with slackutilsx.EscapeMessage before inline formatting is translated
+// to Slack mrkdwn. Explicit Markdown links generate Slack links with validated
+// HTTP, HTTPS or mailto destinations; raw Slack mention/link sentinels remain
+// escaped. Existing single-delimiter Slack formatting is preserved.
 //
-// Slack decodes `&gt;` before mrkdwn blockquote detection, so a user piping
-// `> quoted` through `slick message send` still renders as a Slack
-// blockquote (verified live 2026-05-26 against homeassistant587.slack.com).
-// Bare URLs still auto-link because Slack's URL detector runs on the
-// decoded text.
-//
-// `--blocks` raw Block Kit JSON bypasses this path entirely; the caller
-// owns escaping there. See
-// https://docs.slack.dev/reference/surfaces/formatting#escaping.
+// Unsupported block-level Markdown preserves readable escaped source. Raw
+// --blocks JSON bypasses this conversion; its caller owns formatting/escaping.
 func FromMarkdown(markdown string) ([]Block, error) {
 	source := []byte(markdown)
 	doc := defaultParser().Parse(text.NewReader(source))
@@ -43,15 +34,17 @@ func FromMarkdown(markdown string) ([]Block, error) {
 	for node := doc.FirstChild(); node != nil; node = node.NextSibling() {
 		switch node.Kind() {
 		case ast.KindParagraph:
-			content := strings.TrimSpace(sourceFromNode(node, source))
+			content := strings.TrimSpace(markdownInline(node, source))
 			if content != "" {
-				blocks = append(blocks, slackgo.NewSectionBlock(MarkdownText(slackutilsx.EscapeMessage(content)), nil, nil))
+				blocks = append(blocks, slackgo.NewSectionBlock(MarkdownText(content), nil, nil))
 			}
 		case ast.KindHeading:
-			content := strings.TrimSpace(textFromNode(node, source))
+			content := strings.TrimSpace(markdownInline(node, source))
 			if content != "" {
-				blocks = append(blocks, slackgo.NewSectionBlock(MarkdownText(slackutilsx.EscapeMessage(content)), nil, nil))
+				blocks = append(blocks, slackgo.NewSectionBlock(MarkdownText(content), nil, nil))
 			}
+		case ast.KindLinkReferenceDefinition:
+			continue
 		case extast.KindTable:
 			table := tableFromNode(node, source)
 			if len(table.Rows) > 0 {

@@ -40,6 +40,8 @@ Goal: Post a threaded reply to a parent message, returning the new `ts` and the 
 
 ### Behavior
 
+*   Configured channel aliases resolve in previews and real requests. Pass an explicit channel; `default_channel` is not used. Surrounding target whitespace is removed; timestamps stay exact strings.
+
 *   Markdown is escaped on the wire (`&`, `<`, `>` → HTML entities). Sentinels like `<!channel>`, `<@U123>`, `<#C123>`, `<url|label>` in `--message` render as literal text — they do NOT fire mentions. Use `--blocks` to send real mentions or explicit linked text.
 *   Attribution auto-attaches (toggle / override): see → `core_contract`.
 
@@ -48,9 +50,13 @@ Goal: Post a threaded reply to a parent message, returning the new `ts` and the 
 > Requires `--output=json`.
 *   `data.message.ts` [string, required] — the reply's own ts (use for `react` / `edit_msg` on the reply).
 *   `data.message.thread_ts` [string, optional] — actual thread anchor returned by Slack. If the parent was deleted and Slack posted outside the thread, this field is absent. Inspect it before treating the send as threaded.
-*   `data.permalink` [string, required] — Slack URL.
+*   `data.permalink` [string, optional] — best-effort Slack URL. Save the channel ID and `data.message.ts` as the receipt identity.
 
 ## Preconditions
+
+*   Empty or whitespace-only bodies reject locally, including file/stdin sources. Use raw `[]` only for an explicit existing-message block clear.
+
+*   Raw Block Kit supplies `blocks` without literal JSON notification text. Raw previews expose validated blocks, omitting unknown fields. Scheduled raw receipts include the submitted `data.blocks` plan with empty `data.text`. Markdown keeps readable source fallback; removing `--blocks` restores it.
 
 *   `--parent` is the parent message timestamp, not a permalink or a search-result index.
 *   The parent must still exist; a deleted parent breaks the thread.
@@ -59,6 +65,7 @@ Goal: Post a threaded reply to a parent message, returning the new `ts` and the 
 
 | Symptom | Cause | Next |
 |---|---|---|
+| Invalid Slack acknowledgement (`server_error`, exit 5) | The response did not confirm a usable result | Inspect Slack before retrying; a mutation may already have happened. Slick does not replay it automatically. |
 | `not_found: message_not_found` | Parent ts wrong or parent deleted | → `read_history` to re-find the parent |
 | `thread_not_found` | Parent isn't in this channel | Verify `--channel` matches the parent's channel |
 

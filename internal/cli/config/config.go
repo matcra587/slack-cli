@@ -5,9 +5,11 @@ package config
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"charm.land/huh/v2"
 	clib "github.com/gechr/clib/cli/cobra"
@@ -39,6 +41,7 @@ type InitData struct {
 	Path      string `json:"path"`
 	Profile   string `json:"profile"`
 	Workspace string `json:"workspace"`
+	DryRun    bool   `json:"dry_run,omitempty"`
 }
 
 var _ clioutput.PlainRenderer = InitData{}
@@ -52,6 +55,7 @@ func (d InitData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 		Link("path", d.Path, c.HyperlinkText(human.ContractHome(d.Path))).
 		Str("profile", d.Profile).
 		Str("workspace", d.Workspace).
+		Bool("dry_run", d.DryRun).
 		Msg(clioutput.ActionLabel(command))
 	return nil
 }
@@ -67,6 +71,7 @@ var _ clioutput.PlainRenderer = PathData{}
 func (d PathData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	clioutput.ApplyBoolValueStyle(c.StdoutLogger(), c.Theme, "exists", d.Exists)
 	c.ResultEvent(command).
+		OmitZero(false).
 		Link("path", d.Path, c.HyperlinkText(human.ContractHome(d.Path))).
 		Bool("exists", d.Exists).
 		Msg(clioutput.ActionLabel(command))
@@ -137,9 +142,10 @@ func (d GetData) WritePlain(c *clioutput.CommandContext, command string, _ *clio
 
 // MutationData is the result returned by `slick config set`/`unset`.
 type MutationData struct {
-	Path  string `json:"path"`
-	Key   string `json:"key"`
-	Value string `json:"value,omitempty"`
+	Path   string `json:"path"`
+	Key    string `json:"key"`
+	Value  string `json:"value,omitempty"`
+	DryRun bool   `json:"dry_run,omitempty"`
 }
 
 var _ clioutput.PlainRenderer = MutationData{}
@@ -152,7 +158,8 @@ func (d MutationData) WritePlain(c *clioutput.CommandContext, command string, _ 
 	clioutput.ApplyConfigValueStyle(c.StdoutLogger(), c.Theme, "value", d.Value)
 	event := c.ResultEvent(command).
 		Link("path", d.Path, c.HyperlinkText(human.ContractHome(d.Path))).
-		Str("key", d.Key)
+		Str("key", d.Key).
+		Bool("dry_run", d.DryRun)
 	if d.Value != "" {
 		event = event.Str("value", d.Value)
 	}
@@ -208,6 +215,7 @@ func newInitCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "init",
 		Short:        "First-run config setup",
+		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runInit(cmd, runtime, opts)
@@ -226,6 +234,7 @@ func newInitCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 
 func runInit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts InitOptions) error {
 	ctx := cliruntime.LocalContext(cmd, runtime, "config")
+	preview := cliruntime.DryRun(cmd)
 	path := runtime.ConfigPath
 	if strings.TrimSpace(path) == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("config path is unavailable"))
@@ -235,7 +244,7 @@ func runInit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts InitOptio
 		return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 	}
 	if exists && !opts.Force {
-		if !runtime.IsTTY {
+		if !runtime.IsTTY || preview {
 			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("config already exists; rerun with --force to overwrite"))
 		}
 		overwrite, err := confirmOverwrite(runtime, path)
@@ -247,7 +256,7 @@ func runInit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts InitOptio
 		}
 	}
 
-	if runtime.IsTTY && shouldPromptInit(cmd) {
+	if runtime.IsTTY && !preview && shouldPromptInit(cmd) {
 		if err := runInitForm(runtime, &opts); err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 		}
@@ -263,11 +272,19 @@ func runInit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts InitOptio
 			profile.Name: profile,
 		},
 	}
-	if err := config.SaveFile(path, cfg); err != nil {
+	if err := cfg.Validate(); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 	}
-	runtime.Config = cfg
-	return ctx.WriteResult("config.init", InitData{Path: path, Profile: profile.Name, Workspace: profile.Name})
+	if !preview {
+		if err := config.SaveFile(path, cfg); err != nil {
+			if config.SaveWasPublished(err) {
+				runtime.Config = cfg
+			}
+			return clioutput.WriteCommandError(ctx, clioutput.ConfigSaveCLIError(err, err.Error()))
+		}
+		runtime.Config = cfg
+	}
+	return ctx.WriteResult("config.init", InitData{Path: path, Profile: profile.Name, Workspace: profile.Name, DryRun: preview})
 }
 
 func shouldPromptInit(cmd *cobra.Command) bool {
@@ -352,6 +369,11 @@ func initFieldHelp() map[string]string {
 }
 
 func profileFromInitOptions(opts InitOptions) (config.WorkspaceProfile, error) {
+	for _, value := range []string{opts.Profile, opts.DefaultChannel, opts.AgentLabel, opts.AgentEmoji, opts.AgentMessage} {
+		if !utf8.ValidString(value) {
+			return config.WorkspaceProfile{}, errors.New("configuration text must be valid UTF-8")
+		}
+	}
 	name := strings.TrimSpace(opts.Profile)
 	if name == "" {
 		return config.WorkspaceProfile{}, errors.New("profile is required")
@@ -378,7 +400,10 @@ func newPathCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cliruntime.LocalContext(cmd, runtime, "config")
 			exists, err := xos.Exists(runtime.ConfigPath)
-			return ctx.WriteResult("config.path", PathData{Path: runtime.ConfigPath, Exists: err == nil && exists})
+			if err != nil {
+				return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
+			}
+			return ctx.WriteResult("config.path", PathData{Path: runtime.ConfigPath, Exists: exists})
 		},
 	}
 }
@@ -434,18 +459,36 @@ func newSetCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cliruntime.LocalContext(cmd, runtime, "config")
-			cfg, err := loadConfig(runtime)
+			cfg, err := loadConfigForUpdate(runtime)
 			if err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 			}
 			if err := setValue(cfg, args[0], args[1]); err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 			}
-			if err := config.SaveFile(runtime.ConfigPath, cfg); err != nil {
-				return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
+			preview := cliruntime.DryRun(cmd)
+			if !preview {
+				if err := config.SaveFile(runtime.ConfigPath, cfg); err != nil {
+					if config.SaveWasPublished(err) {
+						if runtime.Config == nil {
+							runtime.Config = cfg
+						} else {
+							*runtime.Config = *cfg
+						}
+					}
+					return clioutput.WriteCommandError(ctx, clioutput.ConfigSaveCLIError(err, err.Error()))
+				}
+				if runtime.Config != nil {
+					*runtime.Config = *cfg
+				} else {
+					runtime.Config = cfg
+				}
 			}
-			runtime.Config = cfg
-			return ctx.WriteResult("config.set", MutationData{Path: runtime.ConfigPath, Key: args[0], Value: args[1]})
+			value := args[1]
+			if args[0] == "default_workspace" {
+				value = cfg.DefaultWorkspace
+			}
+			return ctx.WriteResult("config.set", MutationData{Path: runtime.ConfigPath, Key: args[0], Value: value, DryRun: preview})
 		},
 	}
 }
@@ -459,20 +502,46 @@ func newUnsetCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cliruntime.LocalContext(cmd, runtime, "config")
-			cfg, err := loadConfig(runtime)
+			cfg, err := loadConfigForUpdate(runtime)
 			if err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 			}
 			if err := unsetValue(cfg, args[0]); err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 			}
-			if err := config.SaveFile(runtime.ConfigPath, cfg); err != nil {
-				return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
+			preview := cliruntime.DryRun(cmd)
+			if !preview {
+				if err := config.SaveFile(runtime.ConfigPath, cfg); err != nil {
+					if config.SaveWasPublished(err) {
+						if runtime.Config == nil {
+							runtime.Config = cfg
+						} else {
+							*runtime.Config = *cfg
+						}
+					}
+					return clioutput.WriteCommandError(ctx, clioutput.ConfigSaveCLIError(err, err.Error()))
+				}
+				if runtime.Config != nil {
+					*runtime.Config = *cfg
+				} else {
+					runtime.Config = cfg
+				}
 			}
-			runtime.Config = cfg
-			return ctx.WriteResult("config.unset", MutationData{Path: runtime.ConfigPath, Key: args[0]})
+			return ctx.WriteResult("config.unset", MutationData{Path: runtime.ConfigPath, Key: args[0], DryRun: preview})
 		},
 	}
+}
+
+// Mutators replace profile values and attribution pointers, so cloning the
+// profile map isolates their candidate state without copying read-only aliases.
+func loadConfigForUpdate(runtime *cliruntime.RootRuntime) (*config.Config, error) {
+	cfg, err := loadConfig(runtime)
+	if err != nil {
+		return nil, err
+	}
+	staged := *cfg
+	staged.Workspaces = maps.Clone(cfg.Workspaces)
+	return &staged, nil
 }
 
 func loadConfig(runtime *cliruntime.RootRuntime) (*config.Config, error) {
@@ -498,9 +567,9 @@ func entries(cfg *config.Config) []Entry {
 		out = append(out,
 			Entry{Key: prefix + "default_channel", Value: workspace.DefaultChannel, Description: Descriptions["workspaces.<profile>.default_channel"]},
 			Entry{Key: prefix + "attribution.enabled", Value: boolPtrString(attributionEnabled(workspace)), Description: Descriptions["workspaces.<profile>.attribution.enabled"]},
-			Entry{Key: prefix + "attribution.label", Value: workspace.Attribution.Label, Description: Descriptions["workspaces.<profile>.attribution.label"]},
-			Entry{Key: prefix + "attribution.emoji", Value: workspace.Attribution.Emoji, Description: Descriptions["workspaces.<profile>.attribution.emoji"]},
-			Entry{Key: prefix + "attribution.message", Value: workspace.Attribution.Message, Description: Descriptions["workspaces.<profile>.attribution.message"]},
+			Entry{Key: prefix + "attribution.label", Value: cliutil.FirstNonEmpty(workspace.Attribution.Label, workspace.AgentLabel), Description: Descriptions["workspaces.<profile>.attribution.label"]},
+			Entry{Key: prefix + "attribution.emoji", Value: cliutil.FirstNonEmpty(workspace.Attribution.Emoji, workspace.AgentEmoji), Description: Descriptions["workspaces.<profile>.attribution.emoji"]},
+			Entry{Key: prefix + "attribution.message", Value: cliutil.FirstNonEmpty(workspace.Attribution.Message, workspace.AgentMessage), Description: Descriptions["workspaces.<profile>.attribution.message"]},
 		)
 	}
 	return out
@@ -546,20 +615,14 @@ func getValue(cfg *config.Config, key string) (string, error) {
 		return workspace.DefaultChannel, nil
 	case "agent_attribution":
 		return boolPtrString(attributionEnabled(workspace)), nil
-	case "agent_label":
+	case "agent_label", "attribution.label":
 		return cliutil.FirstNonEmpty(workspace.Attribution.Label, workspace.AgentLabel), nil
-	case "agent_emoji":
+	case "agent_emoji", "attribution.emoji":
 		return cliutil.FirstNonEmpty(workspace.Attribution.Emoji, workspace.AgentEmoji), nil
-	case "agent_message":
+	case "agent_message", "attribution.message":
 		return cliutil.FirstNonEmpty(workspace.Attribution.Message, workspace.AgentMessage), nil
 	case "attribution.enabled":
 		return boolPtrString(attributionEnabled(workspace)), nil
-	case "attribution.label":
-		return workspace.Attribution.Label, nil
-	case "attribution.emoji":
-		return workspace.Attribution.Emoji, nil
-	case "attribution.message":
-		return workspace.Attribution.Message, nil
 	default:
 		if authOwnedField(field) {
 			return "", authOwnedKey(field)
@@ -569,11 +632,19 @@ func getValue(cfg *config.Config, key string) (string, error) {
 }
 
 func setValue(cfg *config.Config, key, value string) error {
+	if !utf8.ValidString(key) || !utf8.ValidString(value) {
+		return errors.New("configuration text must be valid UTF-8")
+	}
 	if key == "default_workspace" {
-		if _, ok := cfg.Workspaces[value]; !ok {
-			return fmt.Errorf("workspace %q not found", value)
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return errors.New("workspace is required")
 		}
-		cfg.DefaultWorkspace = value
+		name, err := cfg.ResolveWorkspaceName(value)
+		if err != nil {
+			return err
+		}
+		cfg.DefaultWorkspace = name
 		return nil
 	}
 	workspaceName, field, err := parseWorkspaceKey(key)
@@ -596,21 +667,15 @@ func setValue(cfg *config.Config, key, value string) error {
 		}
 		workspace.Attribution.Enabled = &parsed
 		workspace.AgentAttribution = nil
-	case "agent_label":
+	case "agent_label", "attribution.label":
 		workspace.Attribution.Label = value
 		workspace.AgentLabel = ""
-	case "agent_emoji":
+	case "agent_emoji", "attribution.emoji":
 		workspace.Attribution.Emoji = value
 		workspace.AgentEmoji = ""
-	case "agent_message":
+	case "agent_message", "attribution.message":
 		workspace.Attribution.Message = value
 		workspace.AgentMessage = ""
-	case "attribution.label":
-		workspace.Attribution.Label = value
-	case "attribution.emoji":
-		workspace.Attribution.Emoji = value
-	case "attribution.message":
-		workspace.Attribution.Message = value
 	default:
 		if authOwnedField(field) {
 			return authOwnedKey(field)
@@ -641,20 +706,14 @@ func unsetValue(cfg *config.Config, key string) error {
 	case "attribution.enabled":
 		workspace.AgentAttribution = nil
 		workspace.Attribution.Enabled = nil
-	case "agent_label":
+	case "agent_label", "attribution.label":
 		workspace.AgentLabel = ""
 		workspace.Attribution.Label = ""
-	case "agent_emoji":
+	case "agent_emoji", "attribution.emoji":
 		workspace.AgentEmoji = ""
 		workspace.Attribution.Emoji = ""
-	case "agent_message":
+	case "agent_message", "attribution.message":
 		workspace.AgentMessage = ""
-		workspace.Attribution.Message = ""
-	case "attribution.label":
-		workspace.Attribution.Label = ""
-	case "attribution.emoji":
-		workspace.Attribution.Emoji = ""
-	case "attribution.message":
 		workspace.Attribution.Message = ""
 	default:
 		if authOwnedField(field) {
@@ -670,6 +729,18 @@ func parseWorkspaceKey(key string) (string, string, error) {
 	parts := strings.Split(key, ".")
 	if len(parts) < 3 || parts[0] != "workspaces" {
 		return "", "", unknownKey(key)
+	}
+	// Match the supported field suffix so dots in a profile name remain part
+	// of the name. In particular, a profile ending in "attribution" must not
+	// shadow a different profile's nested attribution settings.
+	for _, field := range []string{
+		"default_channel", "agent_attribution", "agent_label", "agent_emoji", "agent_message",
+		"attribution.enabled", "attribution.label", "attribution.emoji", "attribution.message",
+		"team_id", "team_name", "token_type", "token", "token_ref",
+	} {
+		if workspace, found := strings.CutSuffix(strings.TrimPrefix(key, "workspaces."), "."+field); found && workspace != "" {
+			return workspace, field, nil
+		}
 	}
 	workspace := parts[1]
 	field := strings.Join(parts[2:], ".")

@@ -1,5 +1,5 @@
 ---
-description: "Read, set, and clear your Slack profile status with slick."
+description: "Set and clear your Slack profile status with slick."
 ---
 
 # slick status
@@ -20,7 +20,11 @@ label conveys the outcome.
 ## status set
 
 Set the user's Slack status. Text and emoji may be passed as flags or as
-positional arguments.
+positional arguments. The first positional argument supplies text and the second
+supplies emoji. A nonempty `--text` or `--emoji` value takes priority over its
+matching positional argument.
+
+Status text is plain text; Slack does not render Markdown or mentions in it.
 
 === "Flags"
 
@@ -43,12 +47,12 @@ positional arguments.
     Expire at an absolute RFC3339 time:
 
     ```sh
-    slick status set --text "Vacation" --until 2026-06-01T00:00:00Z
+    slick status set --text "Vacation" --until 2027-06-01T00:00:00Z
     ```
 
 === "Dry run"
 
-    Preview without mutating:
+    Preview without mutating. Dry runs do not resolve credentials or check scopes:
 
     ```sh
     slick status set "PR review" :eyes: --dry-run
@@ -66,10 +70,29 @@ positional arguments.
     | `-U`, `--until` | `<TIME>` | Status expiration time |
     | `-n`, `--dry-run` | | Preview without mutating |
 
-`--expires-in` accepts Go duration strings (`30m`, `2h`, `8h30m`).
-`--until` accepts an RFC3339 timestamp.
+`--expires-in` accepts Go duration strings (`30m`, `2h`, `8h30m`). A positive
+value expires that duration from now; `0` leaves the status without an expiry.
+Negative values are rejected.
+
+`--until` accepts a Unix timestamp in seconds, an RFC3339 timestamp, a relative
+value such as `+2h`, or a local clock time (`HH:MM` or `HH:MM:SS`). A clock time
+uses the process's local timezone (`TZ` when supported): today when it is
+still in the future, otherwise tomorrow. Clock times use calendar dates, including days with daylight-saving changes. Relative durations
+measure elapsed time, so `+24h` can end at a different local clock time tomorrow.
+A positive `--expires-in` value cannot be combined with a nonempty `--until`.
+Zero duration and an empty `--until` are treated as unset when choosing a format.
+With neither option, the status does not expire.
 
 ### Output
+
+Results contain the requested status values, rather than a fresh read of your
+profile. Slack can choose a default emoji when text is supplied without one.
+Only the three custom-status fields are sent; other profile settings are left
+alone.
+
+If Slack returns a missing or invalid acknowledgement, slick exits with
+`server_error` (exit 5). The update may already have happened. Slick does not
+replay it automatically; check your status before deciding whether to try again.
 
 === "Human"
 
@@ -87,8 +110,7 @@ positional arguments.
 
 === "JSON"
 
-    JSON envelope (no expiration). `expiration` uses `omitempty`, so it is
-    absent in the envelope when unset:
+    JSON data excerpt. `expiration` is absent when unset:
 
     ```json
     {
@@ -96,7 +118,7 @@ positional arguments.
     }
     ```
 
-    JSON envelope with expiration. The value is a Unix timestamp (seconds since
+    Result data with expiration. The value is a Unix timestamp (seconds since
     epoch) at which the Slack API will clear the status:
 
     ```json
@@ -132,8 +154,8 @@ slick status clear --dry-run
 
 === "JSON"
 
-    JSON envelope. All fields use `omitempty`, so `status clear` carries only
-    `dry_run` in the dry-run case and an empty `data` object on a real clear:
+    JSON data excerpt. Empty fields are omitted, so a preview carries only `dry_run`.
+    A real clear returns an empty `data` object:
 
     ```json
     {"data": {"dry_run": true}}

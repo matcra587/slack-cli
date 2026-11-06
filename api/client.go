@@ -69,7 +69,8 @@ type Client struct {
 	noThrottle       bool
 }
 
-// DefaultClient resolves the saved default workspace and creates a client.
+// DefaultClient selects SLACK_CLI_DEFAULT_WORKSPACE when set, otherwise the
+// saved default workspace, and creates an authenticated client.
 func DefaultClient() (*Client, error) { return NewClient(ClientOptions{}) }
 
 // NewClient creates a client using background context for credential resolution.

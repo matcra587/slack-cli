@@ -609,7 +609,18 @@ func TestScheduledSendMissingScopeIncludesNeeded(t *testing.T) {
 	if stderr != "" {
 		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stdout, "missing_scope") || !strings.Contains(stdout, "chat:write") || !strings.Contains(stdout, `"needed":"chat:write"`) {
+	var frame struct {
+		Errors []struct {
+			Details struct {
+				Needed []string `json:"needed"`
+				Match  string   `json:"needed_match"`
+			} `json:"details"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &frame); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout, "missing_scope") || len(frame.Errors) != 1 || len(frame.Errors[0].Details.Needed) != 1 || frame.Errors[0].Details.Needed[0] != "chat:write" || frame.Errors[0].Details.Match != "reported" {
 		t.Fatalf("stdout = %s, want missing_scope with needed chat:write", stdout)
 	}
 }

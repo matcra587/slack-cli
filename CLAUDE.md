@@ -58,7 +58,9 @@ blind mutation retries.
   default is `~/.config/slick/config.toml`. `SLACK_CLI_CONFIG` remains as a
   legacy override.
 - Metadata cache paths come from XDG cache home; default is
-  `~/.cache/slick/<profile>/`.
+  `~/.cache/slick/<profile>/` for short portable names. Other names use stable,
+  bounded folder identifiers. Do not reuse legacy underscore-mapped folders for
+  affected profiles when reading, writing, or clearing caches.
 - Path inputs use `gechr/x` expansion for `~` and environment variables.
 - Mutations support `--dry-run`; `message delete` also requires `--force`.
 - `message send --user` accepts repeated, comma-separated, and email-address

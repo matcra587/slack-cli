@@ -120,6 +120,8 @@ type EnvelopeMeta struct {
 type Pagination struct {
 	Cursor        *string `json:"cursor,omitempty"`
 	NextCursor    *string `json:"next_cursor,omitempty"`
+	NextSince     *string `json:"next_since,omitempty"`
+	NextUntil     *string `json:"next_until,omitempty"`
 	HasMore       bool    `json:"has_more"`
 	MaxItems      *int    `json:"max_items,omitempty"`
 	ItemsReturned *int    `json:"items_returned,omitempty"`
@@ -427,12 +429,18 @@ func AddPaginationFields(event *clog.Event, pagination *Pagination) *clog.Event 
 	if pagination == nil {
 		return event
 	}
-	return event.
+	return event.OmitZero(false).
 		When(pagination.Cursor != nil, func(e *clog.Event) {
 			e.Str("cursor", *pagination.Cursor)
 		}).
 		When(pagination.NextCursor != nil, func(e *clog.Event) {
 			e.Str("next_cursor", *pagination.NextCursor)
+		}).
+		When(pagination.NextSince != nil, func(e *clog.Event) {
+			e.Str("next_since", *pagination.NextSince)
+		}).
+		When(pagination.NextUntil != nil, func(e *clog.Event) {
+			e.Str("next_until", *pagination.NextUntil)
 		}).
 		Bool("has_more", pagination.HasMore).
 		When(pagination.MaxItems != nil, func(e *clog.Event) {

@@ -89,7 +89,7 @@ func TestValidateRejectsInvalidWorkspaceReferences(t *testing.T) {
 					}(),
 				},
 			},
-			want: "keychain",
+			want: "credential reference",
 		},
 	}
 
@@ -124,6 +124,7 @@ func TestValidateAllowsPreferencesOnlyWorkspace(t *testing.T) {
 }
 
 func TestResolveWorkspaceUsesExplicitNameOrDefault(t *testing.T) {
+	t.Setenv("SLACK_CLI_DEFAULT_WORKSPACE", "")
 	cfg := &config.Config{
 		SchemaVersion:    "1",
 		DefaultWorkspace: "default",

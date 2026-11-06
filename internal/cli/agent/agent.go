@@ -28,10 +28,6 @@ type GuideData struct {
 	Document        string `json:"document"`
 }
 
-type ExportData struct {
-	Paths []string `json:"paths"`
-}
-
 // NewCommand mounts docent's guide/schema/export surface without credentials.
 func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	guides, loadErr := agentguides.Load()
@@ -85,6 +81,16 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			continue
 		}
 		configureDocentFlags(child)
+		if child.Name() == "export" {
+			child.RunE = func(c *cobra.Command, _ []string) error {
+				ctx := cliruntime.LocalContextForceAgent(c, runtime, "agent")
+				if loadErr != nil {
+					return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(loadErr.Error()))
+				}
+				return runExport(c, ctx, guides)
+			}
+			continue
+		}
 		if child.Name() == "guide" {
 			child.Long += "\n\nAvailable workflows: " + strings.Join(agentguides.Names(), ", ")
 		}
@@ -103,15 +109,6 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			}
 			if ctx.Mode == clioutput.RenderModePlain {
 				return ctx.WriteString(buf.String())
-			}
-			if c.Name() == "export" {
-				paths := []string{}
-				for line := range strings.SplitSeq(strings.TrimSpace(buf.String()), "\n") {
-					if line != "" && !strings.HasPrefix(line, "#") {
-						paths = append(paths, line)
-					}
-				}
-				return ctx.WriteResult("agent.export", ExportData{Paths: paths})
 			}
 			kind := "index"
 			if len(args) > 0 {

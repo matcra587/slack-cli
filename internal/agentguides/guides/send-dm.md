@@ -18,6 +18,7 @@ This is → `send_msg` with `--user` instead of `--channel`. Same body shapes, s
 *   One user by ID (preferred): `--user U123...`
 *   One user by Slack-profile email: `--user alice@example.com` (needs `users:read.email`)
 *   Group DM: repeat `--user` or comma-separate values
+*   Supply 1–8 recipient IDs and omit the authenticated user; Slack adds that user automatically. Recipient argument errors exit 4 before posting or scheduling. Correct the recipients before explicitly rerunning.
 
 ### unsure of the ID?
 
@@ -62,6 +63,10 @@ This is → `send_msg` with `--user` instead of `--channel`. Same body shapes, s
 
 ## Preconditions
 
+*   Channel and recipient inputs and stored alias values trim surrounding whitespace. Blank alias targets fail locally; they never fall back to another destination. Recipient order is preserved.
+
+*   Sending needs `chat:write` plus `im:write` for one recipient or `mpim:write` for a group. Email recipients also need `users:read.email`. The same scopes apply to scheduled sends.
+
 *   Slack decides whether the active token (bot vs user) may open the DM at all.
 *   For "DM anyone as me", a user-token profile is the normal choice; bot-token profiles depend on app install + conversation access.
 *   `--dry-run` verifies composition but cannot prove Slack will open the DM.
@@ -70,6 +75,7 @@ This is → `send_msg` with `--user` instead of `--channel`. Same body shapes, s
 
 | Symptom | Cause | Next |
 |---|---|---|
+| Invalid Slack acknowledgement (`server_error`, exit 5) | The response did not confirm a usable result | Inspect Slack before retrying; a mutation may already have happened. Slick does not replay it automatically. |
 | `not_found: users_not_found` | Email doesn't match a Slack profile here | → `lookup_user` with filter, then retry with the ID |
 | `auth_failure: missing_scope` (`users:read.email`) | Email targeting without the scope | → `auth_setup` |
 | `auth_failure: no_permission` (open DM) | Bot can't DM this person | Switch to user-token profile or invite into a shared channel first |

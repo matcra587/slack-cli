@@ -258,16 +258,23 @@ func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
+	if src.Blocks && len(blocks) == 0 {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("new messages require at least one block"))
+	}
 
 	result := SendData{Attribution: attribution.Enabled}
 	if dryRun {
 		result.Message = clioutput.Message{Type: "message", TS: "dry-run", Channel: cliutil.StringPtr(target.previewChannel()), Text: cliutil.StringPtr(strings.TrimSpace(content))}
+		if src.Blocks {
+			result.Message.Text = nil
+			result.Message.Blocks = &slackgo.Blocks{BlockSet: blocks}
+		}
 		result.DryRun = true
 		result.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), nil, profile.Name, target.previewChannel())
 	} else {
 		client, err := slackclient.Client(cmd, profile, runtime)
 		if err != nil {
-			return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+			return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 		}
 		if len(target.Users) > 0 {
 			target.Channel, err = openMessageUserChannel(cmd.Context(), client, target.Users)
@@ -277,7 +284,7 @@ func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 		} else if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("chat:write")); err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 		}
-		channel, ts, sent, err := client.PostMessageWithResponseContext(cmd.Context(), target.Channel, MessageOptions(content, blocks, attribution)...)
+		channel, ts, sent, err := client.PostMessageWithResponseContext(cmd.Context(), target.Channel, MessageOptions(content, blocks, src.Blocks)...)
 		if err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 		}
@@ -297,11 +304,13 @@ func runMessageEdit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 		return writeRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 	channel, _ := cmd.Flags().GetString("channel")
-	if strings.TrimSpace(channel) == "" {
+	channel = strings.TrimSpace(resolveAlias(profile, strings.TrimSpace(channel)))
+	if channel == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("channel is required"))
 	}
 	timestamp, _ := cmd.Flags().GetString("timestamp")
-	if strings.TrimSpace(timestamp) == "" {
+	timestamp = strings.TrimSpace(timestamp)
+	if timestamp == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("timestamp is required"))
 	}
 	content, err := ReadMessageSource(runtime.Stdin, src)
@@ -312,20 +321,28 @@ func runMessageEdit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
+	fallbackText := strings.TrimSpace(content)
+	if src.Blocks && len(blocks) == 0 {
+		fallbackText = ""
+	}
 	result := SendData{Attribution: attribution.Enabled}
 	if dryRun {
-		result.Message = clioutput.Message{Type: "message", TS: timestamp, Channel: cliutil.StringPtr(channel), Text: cliutil.StringPtr(strings.TrimSpace(content))}
+		result.Message = clioutput.Message{Type: "message", TS: timestamp, Channel: cliutil.StringPtr(channel), Text: cliutil.StringPtr(fallbackText)}
+		if src.Blocks {
+			result.Message.Text = nil
+			result.Message.Blocks = &slackgo.Blocks{BlockSet: blocks}
+		}
 		result.DryRun = true
 		result.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), nil, profile.Name, channel)
 	} else {
 		client, err := slackclient.Client(cmd, profile, runtime)
 		if err != nil {
-			return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+			return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 		}
 		if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("chat:write")); err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 		}
-		respChannel, respTS, respText, err := client.UpdateMessageContext(cmd.Context(), channel, timestamp, MessageOptions(content, blocks, attribution)...)
+		respChannel, respTS, respText, err := client.UpdateMessageContext(cmd.Context(), channel, timestamp, MessageOptions(content, blocks, src.Blocks)...)
 		if err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 		}
@@ -333,7 +350,7 @@ func runMessageEdit(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 			Type:    "message",
 			TS:      cliutil.FirstNonEmpty(respTS, timestamp),
 			Channel: cliutil.StringPtr(cliutil.FirstNonEmpty(respChannel, channel)),
-			Text:    cliutil.StringPtr(cliutil.FirstNonEmpty(respText, strings.TrimSpace(content))),
+			Text:    &respText,
 		}
 		result.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, *result.Message.Channel)
 	}
@@ -346,11 +363,13 @@ func runMessageDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRu
 		return writeRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 	channel, _ := cmd.Flags().GetString("channel")
-	if strings.TrimSpace(channel) == "" {
+	channel = strings.TrimSpace(resolveAlias(profile, strings.TrimSpace(channel)))
+	if channel == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("channel is required"))
 	}
 	timestamp, _ := cmd.Flags().GetString("timestamp")
-	if strings.TrimSpace(timestamp) == "" {
+	timestamp = strings.TrimSpace(timestamp)
+	if timestamp == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("timestamp is required"))
 	}
 	if !dryRun && !force {
@@ -363,7 +382,7 @@ func runMessageDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRu
 	}
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("chat:write")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
@@ -381,11 +400,18 @@ func runMessageDelete(cmd *cobra.Command, runtime *cliruntime.RootRuntime, dryRu
 }
 
 func resolveMessageSendTarget(profile config.WorkspaceProfile, channel string, users []string) (sendTarget, error) {
-	channel = resolveAlias(profile, strings.TrimSpace(channel))
-	resolvedUsers := resolveUserTargets(profile, users)
+	channelInput := strings.TrimSpace(channel)
+	channel = strings.TrimSpace(resolveAlias(profile, channelInput))
+	if channelInput != "" && channel == "" {
+		return sendTarget{}, errors.New("channel alias resolves to an empty target")
+	}
+	resolvedUsers, err := resolveUserTargets(profile, users)
+	if err != nil {
+		return sendTarget{}, err
+	}
 	switch {
 	case channel == "" && len(resolvedUsers) == 0:
-		channel = resolveAlias(profile, strings.TrimSpace(profile.DefaultChannel))
+		channel = strings.TrimSpace(resolveAlias(profile, strings.TrimSpace(profile.DefaultChannel)))
 		if channel == "" {
 			return sendTarget{}, errors.New("--channel or --user is required")
 		}
@@ -399,8 +425,15 @@ func resolveMessageSendTarget(profile config.WorkspaceProfile, channel string, u
 }
 
 func resolveExplicitMessageSendTarget(profile config.WorkspaceProfile, channel string, users []string) (sendTarget, error) {
-	channel = resolveAlias(profile, strings.TrimSpace(channel))
-	resolvedUsers := resolveUserTargets(profile, users)
+	channelInput := strings.TrimSpace(channel)
+	channel = strings.TrimSpace(resolveAlias(profile, channelInput))
+	if channelInput != "" && channel == "" {
+		return sendTarget{}, errors.New("channel alias resolves to an empty target")
+	}
+	resolvedUsers, err := resolveUserTargets(profile, users)
+	if err != nil {
+		return sendTarget{}, err
+	}
 	switch {
 	case channel == "" && len(resolvedUsers) == 0:
 		return sendTarget{}, errors.New("--channel or --user is required")
@@ -412,22 +445,26 @@ func resolveExplicitMessageSendTarget(profile config.WorkspaceProfile, channel s
 	return sendTarget{Channel: strings.Join(resolvedUsers, ","), Users: resolvedUsers}, nil
 }
 
-func resolveUserTargets(profile config.WorkspaceProfile, values []string) []string {
+func resolveUserTargets(profile config.WorkspaceProfile, values []string) ([]string, error) {
 	out := make([]string, 0, len(values))
 	for _, value := range values {
 		for _, part := range xstrings.SplitCSV(value) {
-			out = append(out, resolveAlias(profile, part))
+			user := strings.TrimSpace(resolveAlias(profile, part))
+			if user == "" {
+				return nil, errors.New("user alias resolves to an empty target")
+			}
+			out = append(out, user)
 		}
 	}
-	return out
+	return out, nil
 }
 
 func messageUserTargetScopes(users []string) cliscope.Requirement {
 	if len(users) > 1 {
 		if messageTargetsNeedEmailLookup(users) {
-			return cliscope.AllOf("chat:write", "im:write", "mpim:write", "users:read.email")
+			return cliscope.AllOf("chat:write", "mpim:write", "users:read.email")
 		}
-		return cliscope.AllOf("chat:write", "im:write", "mpim:write")
+		return cliscope.AllOf("chat:write", "mpim:write")
 	}
 	if messageTargetsNeedEmailLookup(users) {
 		return cliscope.AllOf("chat:write", "im:write", "users:read.email")
@@ -506,7 +543,7 @@ func ReadMessageSource(stdin io.Reader, src Source) (string, error) {
 		return "", errors.New("exactly one message source is required")
 	}
 	if src.Message != "" {
-		return src.Message, nil
+		return validateMessageSource(src.Message)
 	}
 	if src.File == "-" {
 		if stdin == nil {
@@ -516,27 +553,41 @@ func ReadMessageSource(stdin io.Reader, src Source) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return string(raw), nil
+		return validateMessageSource(string(raw))
 	}
 	raw, err := os.ReadFile(xfilepath.Expand(src.File))
 	if err != nil {
 		return "", err
 	}
-	return string(raw), nil
+	return validateMessageSource(string(raw))
+}
+
+func validateMessageSource(content string) (string, error) {
+	if strings.TrimSpace(content) == "" {
+		return "", errors.New("message source must not be empty")
+	}
+	return content, nil
 }
 
 // ComposeBlocks converts message content into Slack Block Kit blocks.
 func ComposeBlocks(content string, raw bool, attribution agent.Attribution) ([]slackgo.Block, error) {
 	if raw {
+		if !strings.HasPrefix(strings.TrimSpace(content), "[") {
+			return nil, errors.New("blocks must be a JSON array")
+		}
 		var parsed slackgo.Blocks
 		if err := json.Unmarshal([]byte(content), &parsed); err != nil {
-			return nil, err
+			// SDK decode errors can quote unreviewed input fields.
+			return nil, errors.New("blocks contain invalid or unsupported Block Kit JSON")
 		}
 		if attribution.Enabled {
 			parsed.BlockSet = append(parsed.BlockSet, blockkit.AttributionBlockWithMessage(attribution.Emoji, attribution.Message))
 		}
 		if err := blockkit.ValidateBlocks(parsed.BlockSet); err != nil {
 			return nil, err
+		}
+		if parsed.BlockSet == nil {
+			parsed.BlockSet = []slackgo.Block{}
 		}
 		return parsed.BlockSet, nil
 	}
@@ -555,10 +606,14 @@ func ComposeBlocks(content string, raw bool, attribution agent.Attribution) ([]s
 }
 
 // MessageOptions builds the Slack message options for sending or updating.
-func MessageOptions(content string, blocks []slackgo.Block, attribution ...agent.Attribution) []slackgo.MsgOption {
-	_ = attribution
-	options := []slackgo.MsgOption{slackgo.MsgOptionText(strings.TrimSpace(content), false)}
-	if len(blocks) > 0 {
+// Raw Block Kit omits text so its JSON source never becomes notification text.
+func MessageOptions(content string, blocks []slackgo.Block, raw bool) []slackgo.MsgOption {
+	var options []slackgo.MsgOption
+	// An explicit empty array clears blocks without replacing existing text.
+	if !raw && (blocks == nil || len(blocks) > 0) {
+		options = append(options, slackgo.MsgOptionText(strings.TrimSpace(content), false))
+	}
+	if blocks != nil {
 		options = append(options, slackgo.MsgOptionBlocks(blocks...))
 	}
 	return options

@@ -65,7 +65,7 @@ var canonicalCategory = map[string]int{
 	"channel": 1, "user": 1, "path": 1, "service": 1,
 	// 2. what
 	"ts": 2, "id": 2, "scheduled_message_id": 2, "name": 2, "type": 2,
-	"token_type": 2, "resource": 2, "key": 2, "query": 2,
+	"token_type": 2, "resource": 2, "key": 2, "query": 2, "action": 2, "shell": 2,
 	// 3. when
 	"age": 3, "time": 3, "fetched_at": 3, "post_at": 3, "post_at_iso": 3,
 	"expiration": 3, "updated": 3,
@@ -74,7 +74,7 @@ var canonicalCategory = map[string]int{
 	"is_im": 4, "deleted": 4, "removed": 4, "cleared": 4, "written": 4,
 	"exists": 4, "dry_run": 4, "from_cache": 4, "truncated": 4,
 	"attribution": 4, "command": 4, "healthy": 4, "status": 4, "api_ok": 4,
-	"ok": 4,
+	"ok": 4, "changed": 4, "would_change": 4,
 	// 5. detail
 	"text": 5, "topic": 5, "emoji": 5, "presence": 5, "status_text": 5,
 	"timezone": 5, "permalink": 5, "description": 5, "value": 5,
@@ -86,7 +86,7 @@ var canonicalCategory = map[string]int{
 	// 7. diagnostics
 	"validation_error": 7, "exit_code": 7,
 	// 8. pagination
-	"cursor": 8, "next_cursor": 8, "has_more": 8, "max_items": 8,
+	"cursor": 8, "next_cursor": 8, "next_since": 8, "next_until": 8, "has_more": 8, "max_items": 8,
 	"items_returned": 8,
 }
 

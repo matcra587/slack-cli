@@ -237,18 +237,22 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	flags := root.PersistentFlags()
 	flags.StringP("workspace", "w", "", "Workspace profile")
 	flags.StringP("output", "o", clioutput.OutputAuto, "Output format: auto, human, json, compact")
-	flags.BoolP("dry-run", "n", false, "Preview mutating commands without changing Slack")
+	flags.BoolP("dry-run", "n", false, "Preview mutations without changing Slack or local state")
 	flags.BoolP("no-throttle", "Q", false, "Disable proactive Slack API throttling")
 	flags.BoolP("debug", "D", false, "Enable debug-level output")
 	flags.DurationP("timeout", "I", 30*time.Second, "Slack API call timeout")
 	flags.TextVarP(&runtime.ColorMode, "color", "V", clog.ColorAuto, "Color mode (auto, always, never)")
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		runtime.OutputMode, _ = cmd.Root().PersistentFlags().GetString("output")
+		runtime.WorkspaceName, _ = cmd.Root().PersistentFlags().GetString("workspace")
 		runtime.CommandName = strings.TrimPrefix(strings.ReplaceAll(cmd.CommandPath(), " ", "."), "slick.")
 		if output, _ := cmd.Root().PersistentFlags().GetString("output"); output != "" {
 			if err := clioutput.ValidateOutputMode(output); err != nil {
 				return cliruntime.WriteRuntimeError(runtime, validationCLIError(err.Error()))
 			}
+		}
+		if err := validateCompletionPlacement(cmd); err != nil {
+			return cliruntime.WriteRuntimeError(runtime, validationCLIError(err.Error()))
 		}
 		if debug, _ := cmd.Root().PersistentFlags().GetBool("debug"); debug {
 			clog.SetVerbose(true)
@@ -331,8 +335,9 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	agentCmd.GroupID = "meta"
 	root.AddCommand(agentCmd)
 	clicompletion.ExtendSlackMetadata(root)
-	clicompletion.AddCommand(root)
+	clicompletion.AddCommand(root, runtime)
 	configureGroupDiscovery(root, runtime)
+	protectHelpOutput(root, runtime)
 
 	return root
 }
@@ -442,9 +447,14 @@ func main() {
 	}()
 	root.SetContext(ctx)
 	runtime.OutputMode = failureOutputMode(root, os.Args[1:])
-	if err := root.ExecuteContext(ctx); err != nil {
+	runtime.WorkspaceName = failureStringFlag(root, os.Args[1:], "workspace", "w", "")
+	command, err := executeRoot(ctx, root, runtime)
+	if err != nil {
 		if commandErr, ok := errors.AsType[CommandError](err); ok {
 			os.Exit(commandErr.CLIError.ExitCode)
+		}
+		if command != nil {
+			runtime.CommandName = strings.TrimPrefix(strings.ReplaceAll(command.CommandPath(), " ", "."), "slick.")
 		}
 		commandErr := cliruntime.WriteRuntimeError(runtime, validationCLIError(err.Error()))
 		if classified, ok := errors.AsType[CommandError](commandErr); ok {
@@ -458,44 +468,62 @@ func main() {
 // Known value-taking flags consume their next token so message text is not
 // mistaken for an output selector. A literal -- terminates flag processing.
 func failureOutputMode(root *cobra.Command, args []string) string {
+	return failureStringFlag(root, args, "output", "o", clioutput.OutputAuto)
+}
+
+func failureStringFlag(root *cobra.Command, args []string, longName, shortName, defaultValue string) string {
 	command, _, _ := root.Find(args)
 	if command == nil {
 		command = root
 	}
-	selected := clioutput.OutputAuto
+	selected := defaultValue
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--" {
 			break
 		}
-		name, value, attached := strings.Cut(strings.TrimPrefix(arg, "--"), "=")
-		if strings.HasPrefix(arg, "--") {
+		if flagArg, long := strings.CutPrefix(arg, "--"); long {
+			name, value, attached := strings.Cut(flagArg, "=")
 			flag := command.Flags().Lookup(name)
 			if flag == nil {
 				flag = root.PersistentFlags().Lookup(name)
 			}
-			if flag != nil && !attached && flag.NoOptDefVal == "" && i+1 < len(args) {
+			if flag != nil && !attached && flag.NoOptDefVal == "" {
+				if i+1 >= len(args) {
+					continue
+				}
 				i++
 				value = args[i]
 			}
-			if name == "output" {
+			if name == longName {
 				selected = value
 			}
 		} else if strings.HasPrefix(arg, "-") && len(arg) > 1 {
-			short := arg[1:2]
-			flag := command.Flags().ShorthandLookup(short)
-			if flag == nil {
-				flag = root.PersistentFlags().ShorthandLookup(short)
-			}
-			if flag != nil && flag.NoOptDefVal == "" {
-				value = strings.TrimPrefix(arg[2:], "=")
-				if value == "" && i+1 < len(args) {
+			for j := 1; j < len(arg); j++ {
+				short := arg[j : j+1]
+				flag := command.Flags().ShorthandLookup(short)
+				if flag == nil {
+					flag = root.PersistentFlags().ShorthandLookup(short)
+				}
+				if flag == nil {
+					break
+				}
+				if flag.NoOptDefVal != "" {
+					continue
+				}
+				tail := arg[j+1:]
+				value := strings.TrimPrefix(tail, "=")
+				if tail == "" {
+					if i+1 >= len(args) {
+						break
+					}
 					i++
 					value = args[i]
 				}
-				if short == "o" {
+				if short == shortName {
 					selected = value
 				}
+				break
 			}
 		}
 	}

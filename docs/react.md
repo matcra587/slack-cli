@@ -7,6 +7,12 @@ description: "Add, remove, inspect, or wait for emoji reactions on Slack message
 Add, remove, list, or watch emoji reactions on a known message. Mutations need
 `reactions:write`; list and watch need `reactions:read`.
 
+Use a Slack channel ID or an alias configured in the selected workspace profile.
+Aliases resolve locally before the Slack request and in dry-run previews.
+Surrounding whitespace is removed from channel inputs, stored alias values,
+and timestamps. Timestamp digits, including fractional seconds, are preserved
+in API requests, results, and previews.
+
 ## react add / react remove
 
 === "Single emoji"
@@ -42,7 +48,7 @@ Add, remove, list, or watch emoji reactions on a known message. Mutations need
 
     | Flag | Value | Description |
     |------|-------|-------------|
-    | `-c`, `--channel` | `<CHANNEL>` | Channel ID, name, or alias |
+    | `-c`, `--channel` | `<CHANNEL>` | Channel ID or configured alias |
     | `-t`, `--timestamp` | `<TS>` | Message timestamp |
     | `-e`, `--emoji` | `<NAME>…` | Emoji name; repeat or comma-separate to apply multiple in order |
     | `-n`, `--dry-run` | | Preview without mutating |
@@ -51,8 +57,12 @@ Emoji names accept both `thumbsup` and `:thumbsup:` forms.
 
 !!! warning "Ordered multi-emoji"
     Ordered multi-emoji halts on the first failure; `data.mutations[]` is
-    absent on the error envelope, so retry the remaining emojis from a
-    known-good state rather than assuming partial success.
+    absent on the error envelope. `errors[].details.completed_emojis` lists
+    requests Slack acknowledged. `attempted_emoji` identifies the request that
+    returned an error; `unattempted_emojis` lists work that never started.
+    Earlier successes remain in Slack. If an HTTP or server failure leaves the
+    attempted emoji's outcome uncertain, inspect `react list` before retrying.
+    Error details also retain the exact channel and timestamp.
 
 ### Output
 
@@ -85,7 +95,7 @@ Emoji names accept both `thumbsup` and `:thumbsup:` forms.
 
 === "JSON"
 
-    JSON envelope:
+    JSON data excerpt:
 
     ```json
     {
@@ -108,13 +118,24 @@ The `removed` action-result bool was dropped in v0.4.0; the action label and
 slick react list --channel C1234567890 --timestamp 1746284582.123456
 ```
 
+List requests Slack's complete reaction list. An empty result includes
+`reactions: []` in JSON and compact output. Slack can still omit some reacting
+users: use each reaction's `count` for its total, rather than the length of
+`users`. All reaction commands reject positional arguments.
+
+Missing acknowledgements, conflicting success/error fields, or missing reaction
+items return a server error (exit 5). Watch does not accept a match from a
+conflicting response. The failed request is not automatically replayed. A mutation
+may have reached Slack before an invalid response arrived; inspect the message
+before retrying it.
+
 ### Flags
 
 ??? note "Flags"
 
     | Flag | Value | Description |
     |------|-------|-------------|
-    | `-c`, `--channel` | `<CHANNEL>` | Channel ID, name, or alias |
+    | `-c`, `--channel` | `<CHANNEL>` | Channel ID or configured alias |
     | `-t`, `--timestamp` | `<TS>` | Message timestamp |
 
 ### Output
@@ -131,7 +152,7 @@ slick react list --channel C1234567890 --timestamp 1746284582.123456
 
 === "JSON"
 
-    JSON envelope. The Slack API normalises some emoji aliases to their
+    JSON data excerpt. The Slack API normalises some emoji aliases to their
     canonical names in the response (e.g. `thumbsup` → `+1`, `thumbsdown` → `-1`);
     the `name` field reflects the canonical Slack form, not necessarily the alias
     you passed to `react add`:
@@ -187,7 +208,11 @@ The token needs `reactions:read` and access to the message.
 | `invalid_name: Slack does not recognize that emoji name` (validation, exit 4) | The emoji name is not a custom workspace emoji and not a recognised Slack default. | Check spelling; try with/without colons; verify in the Slack composer. |
 | `already_reacted` (validation, exit 4) | This emoji is already on the message from the same user. | Skip; treat as idempotent success at the caller. |
 | `no_reaction` (`not_found`, exit 2) | `react remove` cannot find that emoji on the message. | Confirm with `react list` before removing. |
-| `too_many_reactions` (validation, exit 4) | Slack message reaction limit reached. | Cannot work around; surface to user. |
+| `too_many_emoji` (validation, exit 4) | The message has reached its limit for distinct emoji. | Inspect existing reactions before choosing another action. |
+| `too_many_reactions` (validation, exit 4) | The authenticated person has reached their reaction limit on this message. | Inspect that person's existing reactions. |
+| `thread_locked` / `is_archived` (validation, exit 4) | Reactions are disabled for the target thread or channel. | Choose an available target. |
+| `bad_timestamp` (validation, exit 4) | Slack rejected the timestamp. | Copy the exact string from history. |
+| `no_access` / `access_denied` (auth, exit 1) | The authenticated identity cannot access the target. | Check the workspace profile and target access. |
 | `not_in_channel` (`not_found`, exit 2) | App/user is not a member of the target channel. | Add the bot, or use a user-token profile. |
 
 ## See also

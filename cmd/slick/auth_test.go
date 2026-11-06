@@ -190,7 +190,7 @@ func TestAuthLoginTokenSourcesAreMutuallyExclusive(t *testing.T) {
 		t.Fatalf("write token file: %v", err)
 	}
 
-	stdout, stderr, err := executeAuthRootWithInput(t, nil, filepath.Join(t.TempDir(), "config.toml"), config.NewMemoryCredentialStore(), "http://example.invalid",
+	stdout, stderr, err := executeAuthRootWithInput(t, nil, filepath.Join(t.TempDir(), "config.toml"), config.NewMemoryCredentialStore(), "http://127.0.0.1:1",
 		strings.NewReader("xoxb-stdin-secret\n"),
 		false,
 		[]string{"--workspace", "default", "auth", "login", "--method", "token", "--token-stdin", "--token-file", tokenPath},
@@ -458,7 +458,7 @@ func TestAuthLoginOAuthLocalFlowUsesPKCEAndStoresUserToken(t *testing.T) {
 			if got := req.Form.Get("code"); got != "oauth-code" {
 				t.Fatalf("code = %q, want oauth-code", got)
 			}
-			if got := req.Form.Get("redirect_uri"); got != redirectURL {
+			if got := req.Form.Get("redirect_uri"); !oauthTestRedirectMatches(got, redirectURL) {
 				t.Fatalf("redirect_uri = %q, want %q", got, redirectURL)
 			}
 			if got := req.Form.Get("code_verifier"); got == "" {
@@ -555,31 +555,22 @@ func TestAuthLoginOAuthPortZeroUsesAssignedListenerPort(t *testing.T) {
 }
 
 func TestAuthLoginOAuthDefaultRedirectHonorsCallbackPortEnv(t *testing.T) {
-	port := localOAuthTestPort(t)
-	t.Setenv("SLACK_CLI_CALLBACK_PORT", port)
-	wantRedirect := "http://localhost:" + port + "/callback"
-	var exchangedRedirect string
-	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
-		"oauth.v2.access": func(req testutil.SlackRequest) testutil.SlackResponse {
-			exchangedRedirect = req.Form.Get("redirect_uri")
-			return testutil.JSONResponse(`{"ok":true,"authed_user":{"id":"U123","access_token":"xoxe.xoxp-oauth","token_type":"user","scope":"chat:write"},"team":{"id":"TOAUTH","name":"OAuth Workspace"}}`)
-		},
-	})
-
-	configPath := filepath.Join(t.TempDir(), "config.toml")
-	store := config.NewMemoryCredentialStore()
-	_, stderr, err := executeAuthRootWithOptions(t, nil, configPath, store, server.BaseURL(),
-		strings.NewReader(""),
-		false,
-		[]string{"auth", "login", "--workspace-name", "oauth-profile", "--auth-method", "oauth", "--client-id", "C123"},
-		WithOAuthTimeout(2*time.Second),
-		WithURLOpener(oauthTestCallbackOpener(t, "oauth-code")),
-	)
+	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		t.Fatalf("auth login returned error: %v\nstderr=%s", err, stderr)
+		t.Fatal(err)
 	}
-	if exchangedRedirect != wantRedirect {
-		t.Fatalf("redirect_uri = %q, want %q", exchangedRedirect, wantRedirect)
+	defer func() { _ = listener.Close() }()
+	_, port, err := net.SplitHostPort(listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SLACK_CLI_CALLBACK_PORT", port)
+	opened := false
+	stdout, stderr, err := executeAuthRootWithOptions(t, nil, filepath.Join(t.TempDir(), "config.toml"), config.NewMemoryCredentialStore(), "http://127.0.0.1:1", strings.NewReader(""), false,
+		[]string{"auth", "login", "--workspace-name", "oauth-profile", "--auth-method", "oauth", "--client-id", "C123"},
+		WithOAuthTimeout(2*time.Second), WithURLOpener(func(string) error { opened = true; return nil }))
+	if err == nil || opened || !strings.Contains(stdout, "localhost:"+port) || !strings.Contains(stdout, "oauth redirect listener failed") || stderr != "" {
+		t.Fatalf("configured occupied callback port was ignored: err=%v stdout=%s stderr=%s", err, stdout, stderr)
 	}
 }
 
@@ -626,7 +617,7 @@ func TestAuthLoginOAuthLocalFlowStoresRefreshableCredential(t *testing.T) {
 			if got := req.Form.Get("code"); got != "oauth-code" {
 				t.Fatalf("code = %q, want oauth-code", got)
 			}
-			if got := req.Form.Get("redirect_uri"); got != redirectURL {
+			if got := req.Form.Get("redirect_uri"); !oauthTestRedirectMatches(got, redirectURL) {
 				t.Fatalf("redirect_uri = %q, want callback %q", got, redirectURL)
 			}
 			return testutil.JSONResponse(`{"ok":true,"authed_user":{"id":"U123","access_token":"xoxp-oauth","refresh_token":"refresh-1","expires_in":3600,"token_type":"user","scope":"chat:write"},"team":{"id":"TOAUTH","name":"OAuth Workspace"}}`)
@@ -680,7 +671,7 @@ func TestAuthLoginInteractiveOAuthStartsLocalCallbackAndStoresCredential(t *test
 			if got := req.Form.Get("code"); got != "oauth-code" {
 				t.Fatalf("code = %q, want oauth-code", got)
 			}
-			if got := req.Form.Get("redirect_uri"); got != redirectURL {
+			if got := req.Form.Get("redirect_uri"); !oauthTestRedirectMatches(got, redirectURL) {
 				t.Fatalf("redirect_uri = %q, want %q", got, redirectURL)
 			}
 			return testutil.JSONResponse(`{"ok":true,"authed_user":{"id":"U123","access_token":"xoxp-oauth","refresh_token":"refresh-1","expires_in":3600,"token_type":"user","scope":"chat:write"},"team":{"id":"TOAUTH","name":"OAuth Workspace"}}`)
@@ -703,7 +694,11 @@ func TestAuthLoginInteractiveOAuthStartsLocalCallbackAndStoresCredential(t *test
 	if err != nil {
 		t.Fatalf("auth login returned error: %v\nstderr=%s", err, stderr)
 	}
-	if !strings.Contains(openedURL, "/oauth/v2/authorize?") || !strings.Contains(openedURL, url.QueryEscape(redirectURL)) {
+	parsedAuthorize, parseErr := url.Parse(openedURL)
+	if parseErr != nil {
+		t.Fatal(parseErr)
+	}
+	if !strings.Contains(openedURL, "/oauth/v2/authorize?") || !oauthTestRedirectMatches(parsedAuthorize.Query().Get("redirect_uri"), redirectURL) {
 		t.Fatalf("openedURL = %q, want Slack authorize URL with configured redirect", openedURL)
 	}
 	if strings.Contains(stderr, "OAuth callback URL") {
@@ -759,35 +754,51 @@ func TestAuthLoginOAuthBadClientSecretExplainsPKCESetup(t *testing.T) {
 }
 
 func TestAuthLoginOAuthTimeoutReportsRedirectURLAsField(t *testing.T) {
-	redirectURL := localOAuthTestRedirectURL(t)
-	configPath := filepath.Join(t.TempDir(), "config.toml")
-	store := config.NewMemoryCredentialStore()
-
-	stdout, stderr, err := executeAuthRootWithOptions(t, nil, configPath, store, "http://example.invalid",
-		strings.NewReader(""),
-		true,
-		[]string{"auth", "login", "--workspace-name", "oauth-profile", "--auth-method", "oauth", "--client-id", "C123", "--oauth-redirect-url", redirectURL},
-		WithOAuthTimeout(time.Millisecond),
-		WithURLOpener(func(string) error { return nil }),
-	)
-	if err == nil {
-		t.Fatal("auth login returned nil error, want oauth timeout")
-	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
-	}
-	for _, fragment := range []string{
-		"oauth flow timed out waiting",
-		"redirect_url=" + redirectURL,
-		"type=auth_failure",
-		"exit_code=1",
+	for _, tc := range []struct {
+		name    string
+		timeout time.Duration
+	}{
+		{"already expired browser wait", time.Nanosecond},
+		{"short browser wait", time.Millisecond},
 	} {
-		if !strings.Contains(stderr, fragment) {
-			t.Fatalf("stderr = %q, want fragment %q", stderr, fragment)
-		}
-	}
-	if strings.Contains(stderr, "waiting for "+redirectURL) {
-		t.Fatalf("stderr = %q, redirect URL should be a structured field, not message text", stderr)
+		t.Run(tc.name, func(t *testing.T) {
+			redirectURL := localOAuthTestRedirectURL(t)
+			configPath := filepath.Join(t.TempDir(), "config.toml")
+			store := config.NewMemoryCredentialStore()
+			stdout, stderr, err := executeAuthRootWithOptions(t, nil, configPath, store, "http://127.0.0.1:1",
+				strings.NewReader(""), true,
+				[]string{"auth", "login", "--workspace-name", "oauth-profile", "--auth-method", "oauth", "--client-id", "C123", "--oauth-redirect-url", redirectURL},
+				WithOAuthTimeout(tc.timeout),
+				WithURLOpener(func(string) error { return nil }),
+			)
+			if err == nil {
+				t.Fatal("auth login returned nil error, want oauth timeout")
+			}
+			// A deadline can expire before the browser worker is scheduled. The
+			// failure must still identify the effective callback, even in that case.
+			var reportedRedirect string
+			for field := range strings.FieldsSeq(stderr) {
+				if value, ok := strings.CutPrefix(field, "redirect_url="); ok {
+					reportedRedirect = strings.Trim(value, `"`)
+				}
+			}
+			if !oauthTestRedirectMatches(reportedRedirect, redirectURL) {
+				t.Fatal("timeout failure lost effective callback URL")
+			}
+			if stdout != "" {
+				t.Fatalf("stdout = %q, want empty", stdout)
+			}
+			for _, fragment := range []string{
+				"oauth flow timed out waiting", "redirect_url=" + reportedRedirect, "type=auth_failure", "exit_code=1",
+			} {
+				if !strings.Contains(stderr, fragment) {
+					t.Fatalf("stderr = %q, want fragment %q", stderr, fragment)
+				}
+			}
+			if strings.Contains(stderr, "waiting for "+reportedRedirect) {
+				t.Fatalf("stderr = %q, redirect URL should be a structured field, not message text", stderr)
+			}
+		})
 	}
 }
 
@@ -795,7 +806,7 @@ func TestAuthLoginOAuthRequiresClientIDBeforeOpeningBrowser(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
 	opened := false
-	stdout, stderr, err := executeAuthRootWithOptions(t, nil, configPath, store, "http://example.invalid",
+	stdout, stderr, err := executeAuthRootWithOptions(t, nil, configPath, store, "http://127.0.0.1:1",
 		strings.NewReader(""),
 		false,
 		[]string{"auth", "login", "--workspace-name", "oauth-profile", "--auth-method", "oauth"},
@@ -952,6 +963,11 @@ func TestAuthStatusSwitchAndLogout(t *testing.T) {
 }
 
 func TestAuthLogoutPreservesConfigManagedProfilePreferences(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"auth.revoke": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"revoked":true}`)
+		},
+	})
 	attribution := false
 	cfg := &config.Config{
 		SchemaVersion:    config.SchemaVersion,
@@ -982,7 +998,7 @@ func TestAuthLogoutPreservesConfigManagedProfilePreferences(t *testing.T) {
 		t.Fatalf("store token: %v", err)
 	}
 
-	_, stderr, err := executeAuthRoot(t, cfg, configPath, store, "http://example.invalid",
+	_, stderr, err := executeAuthRoot(t, cfg, configPath, store, server.BaseURL(),
 		[]string{"auth", "logout", "default"},
 	)
 	if err != nil {
@@ -1015,7 +1031,7 @@ func TestMessageCommandReportsUnauthenticatedWorkspaceProfile(t *testing.T) {
 		},
 	}
 
-	stdout, stderr, err := executeAuthRoot(t, cfg, filepath.Join(t.TempDir(), "config.toml"), config.NewMemoryCredentialStore(), "http://example.invalid",
+	stdout, stderr, err := executeAuthRoot(t, cfg, filepath.Join(t.TempDir(), "config.toml"), config.NewMemoryCredentialStore(), "http://127.0.0.1:1",
 		[]string{"message", "send", "--channel", "C7N2Q8L4P", "--message", "hello"},
 	)
 	if stderr != "" {
@@ -1043,7 +1059,7 @@ func TestAuthStatusTreatsLegacyRawCredentialAsUnauthenticated(t *testing.T) {
 		t.Fatalf("store legacy token: %v", err)
 	}
 
-	stdout, stderr, err := executeAuthRoot(t, cfg, configPath, store, "http://example.invalid",
+	stdout, stderr, err := executeAuthRoot(t, cfg, configPath, store, "http://127.0.0.1:1",
 		[]string{"auth", "status"},
 	)
 	if err != nil {
@@ -1097,23 +1113,25 @@ func TestAuthStatusUsesRuntimeEnvTokenOverride(t *testing.T) {
 
 func localOAuthTestRedirectURL(t *testing.T) string {
 	t.Helper()
-	return "http://127.0.0.1:" + localOAuthTestPort(t) + "/callback"
+	return "http://127.0.0.1:0/callback"
 }
 
-func localOAuthTestPort(t *testing.T) string {
-	t.Helper()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+func oauthTestRedirectMatches(actual, requested string) bool {
+	got, err := url.Parse(actual)
 	if err != nil {
-		t.Fatalf("allocate local OAuth port: %v", err)
+		return false
 	}
-	_, port, err := net.SplitHostPort(listener.Addr().String())
+	want, err := url.Parse(requested)
 	if err != nil {
-		t.Fatalf("split local OAuth port: %v", err)
+		return false
 	}
-	if err := listener.Close(); err != nil {
-		t.Fatalf("close local OAuth port probe: %v", err)
+	if want.Port() == "0" {
+		if got.Port() == "" || got.Port() == "0" {
+			return false
+		}
+		want.Host = net.JoinHostPort(want.Hostname(), got.Port())
 	}
-	return port
+	return got.String() == want.String()
 }
 
 func oauthTestCallbackOpener(t *testing.T, code string) func(string) error {
@@ -1265,7 +1283,7 @@ func TestAuthLogoutPersistsRemovalOfLastProfile(t *testing.T) {
 	if err := config.SaveFile(path, cfg); err != nil {
 		t.Fatal(err)
 	}
-	_, stderr, err := executeAuthRoot(t, cfg, path, config.NewMemoryCredentialStore(), "http://example.invalid", []string{"auth", "logout", "default", "--keep-token"})
+	_, stderr, err := executeAuthRoot(t, cfg, path, config.NewMemoryCredentialStore(), "http://127.0.0.1:1", []string{"auth", "logout", "default", "--keep-token"})
 	if err != nil {
 		t.Fatalf("logout: %v; stderr=%s", err, stderr)
 	}

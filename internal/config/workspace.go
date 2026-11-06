@@ -1,9 +1,14 @@
 package config
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"os"
+	"slices"
 	"strings"
+
+	xstrings "github.com/gechr/x/strings"
 )
 
 const SchemaVersion = "1"
@@ -64,14 +69,21 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("default workspace %q is not configured", c.DefaultWorkspace)
 		}
 	}
-	seen := make(map[string]string, len(c.Workspaces))
-	for key, workspace := range c.Workspaces {
-		normalized := strings.ToLower(key)
-		if previous, ok := seen[normalized]; ok {
-			return fmt.Errorf("duplicate workspace profile %q conflicts with %q; profile names are case-insensitive", key, previous)
+	names := make([]string, 0, len(c.Workspaces))
+	for name := range c.Workspaces {
+		names = append(names, name)
+	}
+	// Lowercasing misses members of Unicode fold orbits, such as long s and
+	// final sigma. Group names by the resolver's equivalence, then use their
+	// original spelling to keep collision diagnostics deterministic.
+	slices.SortFunc(names, func(a, b string) int {
+		return cmp.Or(xstrings.CompareFold(a, b), strings.Compare(a, b))
+	})
+	for i, key := range names {
+		if i > 0 && strings.EqualFold(names[i-1], key) {
+			return fmt.Errorf("duplicate workspace profile %q conflicts with %q; profile names are case-insensitive", key, names[i-1])
 		}
-		seen[normalized] = key
-		if err := workspace.validate(key); err != nil {
+		if err := c.Workspaces[key].validate(key); err != nil {
 			return err
 		}
 	}
@@ -87,7 +99,10 @@ func (c *Config) ResolveWorkspace(name string) (WorkspaceProfile, error) {
 		return WorkspaceProfile{}, err
 	}
 	if name == "" {
-		name = c.DefaultWorkspace
+		name = os.Getenv("SLACK_CLI_DEFAULT_WORKSPACE")
+		if name == "" {
+			name = c.DefaultWorkspace
+		}
 	}
 	_, workspace, ok := c.resolveWorkspaceCaseInsensitive(name)
 	if !ok {
@@ -101,7 +116,10 @@ func (c *Config) ResolveWorkspaceName(name string) (string, error) {
 		return "", err
 	}
 	if name == "" {
-		name = c.DefaultWorkspace
+		name = os.Getenv("SLACK_CLI_DEFAULT_WORKSPACE")
+		if name == "" {
+			name = c.DefaultWorkspace
+		}
 	}
 	if key, _, ok := c.resolveWorkspaceCaseInsensitive(name); ok {
 		return key, nil
@@ -150,8 +168,9 @@ func (w WorkspaceProfile) validate(key string) error {
 	if w.TokenRef == "" {
 		return fmt.Errorf("workspace %q token keychain reference is required", key)
 	}
-	if strings.HasPrefix(w.TokenRef, "xoxb-") || strings.HasPrefix(w.TokenRef, "xoxp-") {
-		return fmt.Errorf("workspace %q token must be a keychain reference, not a Slack token value", key)
+	tokenRef := strings.TrimSpace(w.TokenRef)
+	if strings.HasPrefix(tokenRef, "xox") || strings.HasPrefix(tokenRef, "xapp-") || strings.HasPrefix(tokenRef, "xwfp-") {
+		return fmt.Errorf("workspace %q token must be a credential reference, not a Slack token value", key)
 	}
 	return nil
 }

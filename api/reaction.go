@@ -18,7 +18,9 @@ type ReactionWatchOptions struct {
 	Timestamp string
 	Emoji     string
 	User      string
-	Interval  time.Duration
+	// Interval is the delay after an unmatched response. Zero uses five seconds.
+	// Negative intervals are invalid; the CLI enforces a one-second minimum.
+	Interval time.Duration
 }
 
 // ReactionMatch describes an observed match. Slack may omit some reacting users;

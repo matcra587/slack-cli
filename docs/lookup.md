@@ -15,6 +15,12 @@ description: "Find Slack channels, users, and messages by ID, name, or search qu
 Find channel and conversation metadata. With `--channel`, fetch one
 conversation; without, list conversations of the requested types.
 
+Slack filters results to conversations the token can read. A token with only
+`channels:read` can list public channels without `groups:read`.
+`--types all` requests every type; it does not grant access to more conversations.
+Any one of `channels:read`, `groups:read`, `im:read`, or `mpim:read` permits the
+list request. Slack still decides which conversations to return.
+
 === "List"
 
     List conversations, capped by `--max-items`:
@@ -34,7 +40,7 @@ conversation; without, list conversations of the requested types.
 
 === "Single channel"
 
-    Fetch metadata for one conversation by ID, name, or alias:
+    Fetch metadata for one conversation by ID or configured alias:
 
     ```sh
     slick lookup channel --channel C1234567890
@@ -54,7 +60,7 @@ conversation; without, list conversations of the requested types.
 
     | Flag | Value | Description |
     |------|-------|-------------|
-    | `-c`, `--channel` | `<CHANNEL>` | Channel or conversation ID, name, or alias |
+    | `-c`, `--channel` | `<CHANNEL>` | Channel or conversation ID, or configured alias |
     | `-M`, `--max-items` | `<N>` | Maximum conversations to return |
     | `-C`, `--cursor` | `<CURSOR>` | Pagination cursor |
     | `-f`, `--filter` | `<TEXT>` | Filter by ID or name |
@@ -91,7 +97,7 @@ conversation; without, list conversations of the requested types.
 
 === "JSON"
 
-    JSON envelope (list). Slack's conversation type is `channel` for public
+    JSON data excerpt (list). Slack's conversation type is `channel` for public
     channels and `private_channel` for private; `is_im` distinguishes DM
     conversations even when other types coexist in the list. `hr` and `url` are
     best-effort display metadata; `id` remains the raw Slack conversation ID:
@@ -116,9 +122,19 @@ conversation; without, list conversations of the requested types.
     }
     ```
 
+`--channel` does not resolve Slack display names. To find a channel by name,
+list with `--filter`, inspect the returned names, and use the matching ID.
+The filter applies to one page, so follow `next_cursor` when more pages remain.
+Configured aliases map directly to IDs. Lookup trims whitespace around the
+argument and the stored alias value.
+An alias that resolves to an empty value fails locally with exit 4, before
+credentials are read or Slack is called.
+
 ## lookup user
 
-Find user metadata. With `--user`, fetch one; without, list active users.
+Find user metadata. With `--user`, fetch one by ID or configured alias;
+without, list active users. Lookup trims whitespace around the argument and
+the stored alias value.
 
 === "List"
 
@@ -206,6 +222,8 @@ List mode excludes deleted and deactivated users by default. Add
 
 === "JSON"
 
+    JSON data excerpt:
+
     ```json
     {
       "data": {
@@ -219,8 +237,23 @@ populated only when `--presence` is passed (otherwise the field is absent).
 
 ## lookup messages
 
+Search uses Slack’s documented defaults: 20 results per page, sorted by score
+in descending order. Its `--cursor` is a page number, while channel and user
+lookup cursors are opaque tokens.
+
+Slack limits this search method to 100 pages. If more results remain at page
+100, slick keeps that page’s matches and reports `data.truncated=true` and
+`pagination.has_more=true`, with no `next_cursor`. Narrow the query before
+continuing; slick never suggests an unsupported page 101. Search results can
+change between pages.
+
 Search Slack workspace messages with the Web API `search.messages` method.
-Requires a user token with `search:read`.
+Requires a user token with `search:read`. Slack labels this method as legacy;
+slick retains its existing query, scope, and page-number contract. See the
+[method reference](https://docs.slack.dev/reference/methods/search.messages/).
+
+Search result envelopes use `meta.command="lookup.messages"` for both success
+and failure. Earlier builds used `search.messages` for successful results only.
 
 === "Search"
 
@@ -261,8 +294,8 @@ Requires a user token with `search:read`.
     | Flag | Value | Description |
     |------|-------|-------------|
     | `-q`, `--query` | `<QUERY>` | Search query |
-    | `-M`, `--max-items` | `<N>` | Maximum matches to return |
-    | `-C`, `--cursor` | `<CURSOR>` | Pagination cursor |
+    | `-M`, `--max-items` | `<N>` | Matches per page: 1–100; 0 uses Slack’s default 20 |
+    | `-C`, `--cursor` | `<CURSOR>` | Search page number: 1–100 |
     | `-F`, `--full` | | Show full text in human mode |
 
 When Slack returns empty message text, slick extracts readable text from the
@@ -292,21 +325,16 @@ Query syntax follows Slack's search modifiers (`from:`, `in:`, `before:`,
     :robot_face: _Sent via slick (agent mode)_
     ```
 
-    The attribution context block (when present) renders on its own line below
-    the body, joined by a newline. That's how Slack's `search.messages`
-    returns [Block Kit](https://docs.slack.dev/block-kit/) messages — the body
-    lives in `blocks[]`, not in the
-    top-level `text` field, and slick reconstructs the readable text by
-    flattening section / header / context / rich_text blocks.
+    When Slack returns empty text for a [Block Kit](https://docs.slack.dev/block-kit/)
+    message, slick extracts readable text from its blocks. An attribution context
+    block, when present, follows the body on its own line. Nonempty text returned
+    by Slack takes precedence over block text.
 
 === "JSON"
 
-    JSON envelope. For Block Kit messages (which is every message slick
-    sends — attribution adds a context block), Slack returns `text=""` in
-    the raw response and the body lives inside `blocks[]`. slick flattens
-    section / context / rich_text blocks back into the `text` field so
-    consumers get something readable; the attribution context line appears
-    on its own line after the body:
+    JSON data excerpt. When Slack returns empty `text`, slick extracts readable
+    text from `blocks[]`. A supplied attribution context line follows the body.
+    Machine output always retains the full text; `--full` affects human output:
 
     ```json
     {
@@ -334,7 +362,7 @@ Query syntax follows Slack's search modifiers (`from:`, `in:`, `before:`,
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `not_allowed_token_type` (validation, exit 4) | `lookup messages` invoked under a bot-token profile. | Use a user-token profile; `search:read` is user-scope only. |
+| `auth_failure` (exit 1) | `lookup messages` invoked under a bot-token profile. Slick rejects it before calling Slack. | Use a user-token profile with `search:read`. |
 | `missing_scope` (`auth_failure`, exit 1) | Token lacks `users:read`, `channels:read`, or `search:read`. | Update the manifest, regenerate, re-auth. |
 | Empty list with `--filter` | Filter is client-side; Slack list API returned nothing first. | Drop the filter or widen `--max-items`. |
 
@@ -349,3 +377,46 @@ Query syntax follows Slack's search modifiers (`from:`, `in:`, `before:`,
   [`users.list`](https://docs.slack.dev/reference/methods/users.list/),
   [`users.info`](https://docs.slack.dev/reference/methods/users.info/),
   [`search.messages`](https://docs.slack.dev/reference/methods/search.messages/).
+
+Channel, user, and message-search lists show pagination below human-readable
+tables, including any next cursor, `has_more`, and `items_returned`. Empty
+pages retain their continuation and an explicit zero count in all output modes.
+
+## Incomplete Slack responses
+
+A successful lookup must include the requested channel, user, list, or presence
+value. Slick reports malformed or incomplete responses as `server_error`
+(exit 5). A valid empty list is still a success; a missing list is an error.
+Permission failures retain their normal class and scope details.
+
+If email lookup fails while preparing a message, slick stops before opening a
+DM or sending. It does not replay the lookup. Fix the response or permission
+problem before starting another attempt. Optional metadata lookups can fall
+back to known IDs instead of using malformed data.
+
+## List and single-item flags
+
+`--channel` and `--user` select a single-item lookup. List-only options are
+rejected in that mode, including explicitly supplied empty or default values:
+
+*   Channels: `--max-items`, `--cursor`, `--filter`, and `--types`.
+*   Users: `--max-items`, `--cursor`, `--filter`, and `--include-deleted`.
+
+Omit the item selector to use those list options. `--presence` remains available
+with an explicit `--user`. A negative `--max-items` fails locally with exit 4;
+zero uses the default page size. The limit applies to one Slack page before local
+filtering, so a filtered page can contain fewer results while still having a
+next cursor.
+
+Channel lists accept `--max-items` from 0 through 999. Slack requires a page
+limit below 1,000; zero omits the limit and uses Slack's default. See
+[`conversations.list`](https://docs.slack.dev/reference/methods/conversations.list/). User lists
+have a separate API contract and do not share this upper bound.
+
+`--types` accepts the four Slack types (`public_channel`, `private_channel`,
+`im`, and `mpim`) and slick's aliases (`channel`, `channels`, `public`,
+`private`, `group`, `groups`, `dm`, `dms`, `group_dm`, and `group-dm`). Values
+are case-insensitive and duplicates are removed. `all` expands to the four
+types, but every other supplied value must still be valid. An unknown type
+fails locally with exit 4, even alongside `all`. Empty input uses the default
+public/private selection.

@@ -3,7 +3,6 @@ package output
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 )
 
@@ -17,7 +16,7 @@ func (c *CommandContext) writeJSON(dst io.Writer, value any) error {
 	encoder := json.NewEncoder(&buf)
 	encoder.SetEscapeHTML(false)
 	if err := encoder.Encode(value); err != nil {
-		return c.outputFailure(fmt.Errorf("encode result: %w", err))
+		return c.outputFailure()
 	}
 	return c.writeBytes(dst, buf.Bytes())
 }
@@ -28,13 +27,13 @@ func (c *CommandContext) writeBytes(dst io.Writer, data []byte) error {
 		err = io.ErrShortWrite
 	}
 	if err != nil {
-		return c.outputFailure(err)
+		return c.outputFailure()
 	}
 	return nil
 }
 
-func (c *CommandContext) outputFailure(err error) error {
-	cliErr := CLIError{Type: ErrorTypeIO, Message: "output_write_failed: " + err.Error(), ExitCode: ExitCodeIO}
+func (c *CommandContext) outputFailure() error {
+	cliErr := CLIError{Type: ErrorTypeIO, Message: "output_write_failed", ExitCode: ExitCodeIO}
 	// A mutation may already have completed. Do not retry the failed destination
 	// or emit a second result; diagnostics are best-effort on the other stream.
 	if c.StderrLog != nil {

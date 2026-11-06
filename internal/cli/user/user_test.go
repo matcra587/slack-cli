@@ -73,7 +73,7 @@ func TestLookupUserHidesEmptyPresence(t *testing.T) {
 
 	stdout, stderr, err = executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"lookup", "user", "--user", "U123", "--presence"},
+		[]string{"lookup", "user", "--user", "U123"},
 	)
 	if err != nil {
 		t.Fatalf("lookup user info returned error: %v\nstderr=%s", err, stderr)

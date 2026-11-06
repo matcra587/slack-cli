@@ -29,7 +29,7 @@ Goal: Workspace-wide message search — the only way to find content without alr
 
 ### Behavior
 
-*   Search is slower and more strictly rate-limited than channel history; backoff is automatic on structured `rate_limit` errors.
+*   Search uses `search.messages` with a user token and `search:read`. The SDK retries HTTP 429 only with usable timing and within its retry limit. On a structured `rate_limit` error, wait for `retry_after_seconds` when supplied. If it is absent, stop or use bounded backoff before another read.
 *   Result snippets in plain output are display-only; for automation parse JSON fields.
 
 ## Save
@@ -38,9 +38,12 @@ Goal: Workspace-wide message search — the only way to find content without alr
 *   `data.matches[].channel.id` [string, required] — pass verbatim as `--channel` for downstream operations.
 *   `data.matches[].ts` [string, required] — message ts for `react` / `edit_msg` / `delete_msg`.
 *   `data.matches[].text` [string] — full text in JSON; plain output truncates and `--full` only affects human plain.
-*   `meta.pagination.has_more` / `.next_cursor` [bool / string] — paginate until `has_more=false`.
+*   `data.pagination.has_more` / `.next_cursor` [bool / string] — continue while a next cursor is available; JSON also mirrors paging in `meta.pagination`.
+*   `data.truncated=true` means Slack’s 100-page limit was reached with more matches remaining. There is no next cursor; narrow the query. Current-page matches remain in the result.
 
 ## Preconditions
+
+*   `--max-items` accepts 1–100, or 0 for the default 20. `--cursor` is a page number from 1–100 for this command.
 
 *   Needs a user-token profile with `search:read`. Bot-token profiles cannot call Slack Web API `search.messages` at all.
 *   For mixed manifests, `search:read` belongs under user scopes only (`--type user` or `--type both`).

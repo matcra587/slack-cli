@@ -5,7 +5,8 @@ description: "Check Slack service health and test access to the Slack API."
 # slick health
 
 **Check** Slack service health and Slack Web API reachability. These commands do
-not use the configured workspace, token, or scopes.
+not use the configured workspace, token, or scopes. JSON examples below show
+the `data` portion of the standard result envelope.
 
 `health current` and `health history` call Slack Status API v2:
 
@@ -13,6 +14,12 @@ not use the configured workspace, token, or scopes.
 *   `https://slack-status.com/api/v2.0.0/history`
 
 `health api-test` calls Slack Web API `api.test` without a token.
+
+Malformed, incomplete, or oversized responses (over 5 MiB) fail with a structured error.
+An API probe succeeds only when Slack returns `ok: true`. Empty status lists
+are valid; missing or `null` responses are errors. A valid status response that
+reports an incident remains a successful read; inspect `healthy` from
+`health check` to decide whether the selected service is healthy.
 
 ## health check
 
@@ -32,13 +39,17 @@ slick health check --output=json
     |------|-------|-------------|
     | `-s`, `--service` | `<SERVICE>` | Filter active incidents by Slack service |
 
-`--service` supports shell completion for common Slack Status services:
+`--service` trims surrounding whitespace and matches service names without
+regard to case. An empty value removes the filter. Filtering happens locally;
+unknown names return no matching incidents. `--service` supports shell
+completion for common Slack Status services:
 
 ```text
 Apps/Integrations/APIs
 Canvases
 Connectivity
 Files
+Huddles
 Login/SSO
 Messaging
 Notifications
@@ -57,7 +68,7 @@ Workspace/Org Administration
 
 === "JSON"
 
-    JSON envelope:
+    JSON data excerpt:
 
     ```json
     {
@@ -115,12 +126,27 @@ slick health current --service "Apps/Integrations/APIs"
 
 === "JSON"
 
-    !!! warning "TODO"
-        TODO: Gather output for `health current`
+    JSON data excerpt with no active incidents:
+
+    ```json
+    {
+      "data": {
+        "status": "ok",
+        "active_incidents": [],
+        "active_incident_count": 0,
+        "total_active_incident_count": 0
+      }
+    }
+    ```
+
+    Dates are included when Slack supplies them.
 
 ## health history
 
-List recent Slack service incidents. The default limit is 20.
+List recent Slack service incidents. The default limit is 20. Filtering happens
+before the limit is applied. Use `--limit 0` for all matching incidents; negative
+limits are rejected before any request. Slack returns the history in one list,
+so the limit changes the output size rather than the API request.
 
 ```sh
 slick health history
@@ -143,7 +169,7 @@ slick health history --service Search --limit 5
 
 === "JSON"
 
-    JSON output includes incident fields that may be hidden in a narrow human table:
+    JSON data excerpt with incident fields that may be hidden in a narrow human table:
 
     ```json
     {
@@ -159,7 +185,8 @@ slick health history --service Search --limit 5
             "date_created": "2026-05-08T11:31:22-07:00",
             "date_updated": "2026-05-11T14:48:12-07:00",
             "services": ["Messaging", "Files", "Notifications", "Apps/Integrations/APIs"],
-            "note_count": 15
+            "notes": [{"body": "Messaging has recovered. We are monitoring.", "date_created": "2026-05-11T14:48:12-07:00"}],
+            "note_count": 1
           }
         ],
         "incident_count": 1
@@ -186,7 +213,7 @@ slick health api-test --output=json
 
 === "JSON"
 
-    JSON envelope:
+    JSON data excerpt:
 
     ```json
     {
@@ -195,6 +222,11 @@ slick health api-test --output=json
     ```
 
 ## Incident fields
+
+JSON and compact results preserve each incident note's `body` and `date_created`
+from the [Slack Status API](https://docs.slack.dev/reference/slack-status-api/).
+Notes keep their original text, timestamps, and order. Incidents without notes
+include `notes: []` and `note_count: 0`. The human table shows the count.
 
 Incident rows use this shape in JSON:
 
@@ -208,16 +240,24 @@ Incident rows use this shape in JSON:
   "date_created": "2026-05-11T13:00:00-07:00",
   "date_updated": "2026-05-11T14:48:12-07:00",
   "services": ["Messaging", "Apps/Integrations/APIs"],
+  "notes": [{"body": "We are investigating delivery delays.", "date_created": "2026-05-11T13:00:00-07:00"}],
   "note_count": 1
 }
 ```
+
+Health probes send each request once. HTTP `429` returns `rate_limit` (exit 3).
+When one `Retry-After` header contains valid whole seconds, the error includes
+`retry_after_seconds`, including zero. Missing, malformed, or conflicting
+headers leave that field out. Wait for the reported delay before starting a
+new probe; slick does not sleep or retry a health request automatically. See
+[Slack's rate-limit guidance](https://docs.slack.dev/apis/web-api/rate-limits/).
 
 ## Common errors
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `server_error: http status 503` | Slack Status or Slack Web API returned a non-2xx response. | Retry later or inspect Slack Status in a browser. |
-| `server_error: decode response` | The endpoint returned malformed JSON. | Retry; if persistent, capture the response for debugging. |
+| `rate_limit` (exit 3) | The endpoint returned HTTP 429. | Wait for `retry_after_seconds` when supplied, then start a new probe. |
+| `server_error` (exit 5) | A request failed, or the endpoint returned another non-2xx, malformed, incomplete, or oversized response. HTTP failures include the numeric status and its standard name. | Check Slack Status and retry later. |
 | `timeout` (exit 7) | `--timeout` expired before the endpoint responded. | Increase `--timeout` or retry after checking network connectivity. |
 | Slack Web API errors such as `invalid_auth`, `access_denied`, or `ratelimited` | `api.test` returned a documented Slack error response. | Read the stdout failure envelope; `type`, `message`, and `exit_code` follow the normal slick error contract. |
 

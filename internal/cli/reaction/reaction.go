@@ -4,11 +4,13 @@ import (
 	"strings"
 
 	"github.com/gechr/clog"
+	climessage "github.com/matcra587/slack-cli/internal/cli/message"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	cliscope "github.com/matcra587/slack-cli/internal/cli/scope"
 	slackclient "github.com/matcra587/slack-cli/internal/cli/slackclient"
 	"github.com/matcra587/slack-cli/internal/cli/slackmeta"
+	"github.com/matcra587/slack-cli/internal/config"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
 )
@@ -37,7 +39,7 @@ type Result struct {
 // the existing-reaction summary for `react list`.
 type Data struct {
 	Mutations []Result                    `json:"mutations,omitempty"`
-	Reactions []clioutput.ReactionSummary `json:"reactions,omitempty"`
+	Reactions []clioutput.ReactionSummary `json:"reactions,omitzero"`
 	Target    Target                      `json:"target"`
 }
 
@@ -126,7 +128,7 @@ func newReactionMutationCommand(runtime *cliruntime.RootRuntime, action string) 
 			return runReactionMutation(cmd, runtime, action, cliruntime.DryRun(cmd))
 		},
 	}
-	cmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
+	cmd.Flags().StringP("channel", "c", "", "Channel ID or configured alias")
 	cmd.Flags().StringP("timestamp", "t", "", "Message timestamp")
 	cmd.Flags().StringSliceP("emoji", "e", nil, "Emoji name; repeat or comma-separate to apply multiple in order")
 	return cmd
@@ -136,12 +138,13 @@ func newReactionListCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "list",
 		Short:        "List Slack reactions",
+		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runReactionList(cmd, runtime)
 		},
 	}
-	cmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
+	cmd.Flags().StringP("channel", "c", "", "Channel ID or configured alias")
 	cmd.Flags().StringP("timestamp", "t", "", "Message timestamp")
 	return cmd
 }
@@ -152,7 +155,7 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 
-	target, err := reactionTargetFromFlags(cmd)
+	target, err := reactionTargetFromFlags(cmd, profile)
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
@@ -180,7 +183,7 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("reactions:write")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
@@ -188,7 +191,7 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 	channelRef := slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, target.Channel)
 	target.ChannelRef = channelRef
 	mutations := make([]Result, 0, len(emojis))
-	for _, emoji := range emojis {
+	for index, emoji := range emojis {
 		ref := slackgo.NewRefToMessage(target.Channel, target.TS)
 		var apiErr error
 		if action == "remove" {
@@ -197,7 +200,13 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 			apiErr = client.AddReactionContext(cmd.Context(), emoji, ref)
 		}
 		if apiErr != nil {
-			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), apiErr, "emoji"))
+			cliErr := clioutput.CliErrorFromSlack(cmd.Context(), apiErr, "emoji").WithDetails(map[string]any{
+				"channel": target.Channel, "ts": target.TS,
+				"completed_emojis":   append([]string{}, emojis[:index]...),
+				"attempted_emoji":    emoji,
+				"unattempted_emojis": append([]string{}, emojis[index+1:]...),
+			})
+			return clioutput.WriteCommandError(ctx, cliErr)
 		}
 		mutations = append(mutations, Result{
 			Channel:    target.Channel,
@@ -214,33 +223,39 @@ func runReactionList(cmd *cobra.Command, runtime *cliruntime.RootRuntime) error 
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
-	target, err := reactionTargetFromFlags(cmd)
+	target, err := reactionTargetFromFlags(cmd, profile)
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
 
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("reactions:read")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
 	target.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, target.Channel)
-	item, err := client.GetReactionsContext(cmd.Context(), slackgo.NewRefToMessage(target.Channel, target.TS), slackgo.GetReactionsParameters{})
+	item, err := client.GetReactionsContext(cmd.Context(), slackgo.NewRefToMessage(target.Channel, target.TS), slackgo.GetReactionsParameters{Full: true})
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
-	return ctx.WriteResult("react.list", Data{Reactions: clioutput.ReactionsFromSlack(item.Reactions), Target: target})
+	reactions := clioutput.ReactionsFromSlack(item.Reactions)
+	if reactions == nil {
+		reactions = []clioutput.ReactionSummary{}
+	}
+	return ctx.WriteResult("react.list", Data{Reactions: reactions, Target: target})
 }
 
-func reactionTargetFromFlags(cmd *cobra.Command) (Target, error) {
+func reactionTargetFromFlags(cmd *cobra.Command, profile config.WorkspaceProfile) (Target, error) {
 	channel, _ := cmd.Flags().GetString("channel")
+	channel = strings.TrimSpace(climessage.ResolveAlias(profile, strings.TrimSpace(channel)))
 	if strings.TrimSpace(channel) == "" {
 		return Target{}, errString("channel is required")
 	}
 	timestamp, _ := cmd.Flags().GetString("timestamp")
-	if strings.TrimSpace(timestamp) == "" {
+	timestamp = strings.TrimSpace(timestamp)
+	if timestamp == "" {
 		return Target{}, errString("timestamp is required")
 	}
 	return Target{Channel: channel, TS: timestamp}, nil

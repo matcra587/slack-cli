@@ -47,8 +47,12 @@ func (d InfoData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 	}
 	event = clioutput.AddBoolField(event, "deleted", user.Deleted)
 	if user.Timezone != nil {
-		clioutput.ApplyPreStyledKey(c.StdoutLogger(), "timezone")
-		event = event.Str("timezone", clioutput.RenderTimezone(c.Theme, *user.Timezone))
+		timezone := *user.Timezone
+		if !c.StdoutLogger().Output().ColorsDisabled() {
+			clioutput.ApplyPreStyledKey(c.StdoutLogger(), "timezone")
+			timezone = clioutput.RenderTimezone(c.Theme, timezone)
+		}
+		event = event.Str("timezone", timezone)
 	}
 	if user.Presence != nil {
 		event = event.Str("presence", *user.Presence)
@@ -85,11 +89,11 @@ func NewLookupUserCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		},
 	}
 	userCmd.Flags().StringP("user", "u", "", "Slack user ID")
-	userCmd.Flags().IntVarP(&opts.MaxItems, "max-items", "M", 0, "Maximum users to return")
-	userCmd.Flags().StringVarP(&opts.Cursor, "cursor", "C", "", "Pagination cursor")
-	userCmd.Flags().StringVarP(&opts.Filter, "filter", "f", "", "Filter by ID or name")
+	userCmd.Flags().IntVarP(&opts.MaxItems, "max-items", "M", 0, "Maximum users in one list page (0 uses the default page size)")
+	userCmd.Flags().StringVarP(&opts.Cursor, "cursor", "C", "", "List pagination cursor")
+	userCmd.Flags().StringVarP(&opts.Filter, "filter", "f", "", "Filter the list by ID or name")
 	userCmd.Flags().BoolVarP(&opts.Presence, "presence", "p", false, "Fetch presence for an explicit --user")
-	userCmd.Flags().BoolVarP(&opts.IncludeDeleted, "include-deleted", "d", false, "Include deleted or deactivated users")
+	userCmd.Flags().BoolVarP(&opts.IncludeDeleted, "include-deleted", "d", false, "Include deleted or deactivated users in the list")
 	return userCmd
 }
 
@@ -101,9 +105,12 @@ func runUserListWithCommand(cmd *cobra.Command, runtime *cliruntime.RootRuntime,
 	if opts.Presence {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("--presence requires --user; Slack no longer supports presence in user lists"))
 	}
+	if opts.MaxItems < 0 {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("--max-items must be zero or greater"))
+	}
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("users:read")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
@@ -128,7 +135,7 @@ func runUserListWithCommand(cmd *cobra.Command, runtime *cliruntime.RootRuntime,
 		NextCursor:    cliutil.StringPtr(page.Cursor),
 		HasMore:       page.Cursor != "",
 		MaxItems:      cliutil.IntPtr(opts.MaxItems),
-		ItemsReturned: cliutil.IntPtr(len(users)),
+		ItemsReturned: new(len(users)),
 	})
 }
 
@@ -137,13 +144,18 @@ func runUserInfoValue(cmd *cobra.Command, runtime *cliruntime.RootRuntime, comma
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
-	if strings.TrimSpace(userID) == "" {
+	for _, flag := range []string{"max-items", "cursor", "filter", "include-deleted"} {
+		if cmd.Flags().Changed(flag) {
+			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("--"+flag+" is only supported when listing users; omit --user"))
+		}
+	}
+	userID = strings.TrimSpace(climessage.ResolveAlias(profile, strings.TrimSpace(userID)))
+	if userID == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("user is required"))
 	}
-	userID = climessage.ResolveAlias(profile, strings.TrimSpace(userID))
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("users:read")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))

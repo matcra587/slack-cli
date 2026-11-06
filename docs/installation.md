@@ -17,7 +17,8 @@ description: "Install, build, and upgrade slick on macOS, Linux, and Windows."
 
 Pre-built archives and the Homebrew formula cover Linux (amd64/arm64) and
 Apple Silicon macOS. Intel macOS installs through `go install` or a source
-build.
+build. macOS requires version 13 (Ventura) or later, matching the
+[Go 1.27 minimum](https://go.dev/doc/go1.27#darwin).
 
 | Platform | Homebrew | Pre-built tarball | `go install` | From source |
 |----------|:--------:|:-----------------:|:------------:|:-----------:|
@@ -36,10 +37,10 @@ build.
     pipeline does not publish Windows archives, and the POSIX installer and
     Homebrew instructions below target Linux and macOS.
 
-    The latest tagged release, `v0.5.9`, still uses the older dependency.
-    `go install …@latest` selects that release; it does not include this fix.
-    Build an updated source checkout instead. WSL remains an alternative for
-    using the published Linux binaries.
+    Source-build verification applies to this checkout. Tagged releases may use
+    older dependencies: `go install …@latest` selects a published release, not
+    unreleased changes. Build an updated source checkout for these fixes. WSL
+    remains an alternative for using the published Linux binaries.
 
 !!! note "No Intel-macOS binary"
     The release pipeline builds `linux/amd64`, `linux/arm64`, and
@@ -171,7 +172,7 @@ already on your shell's `PATH`.
 
     ```sh
     # Pin a version
-    SLICK_VERSION=v0.5.9 curl -fsSL https://matcra587.github.io/slack-cli/install.sh | sh
+    curl -fsSL https://matcra587.github.io/slack-cli/install.sh | SLICK_VERSION=v0.5.9 sh
 
     # System-wide install
     curl -fsSL https://matcra587.github.io/slack-cli/install.sh | SLICK_INSTALL_DIR=/usr/local/bin sudo -E sh

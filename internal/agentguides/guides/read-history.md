@@ -23,7 +23,8 @@ Goal: Discover message timestamps in a channel or thread so other workflows (`re
 
 ### bound
 
-*   Always pass `--max-items <n>` in automation — Slack will keep paging until exhausted otherwise.
+*   Each invocation fetches one page. Pass `--max-items <n>` to set its size: 1–999 for channel history or 1–1000 with `--thread`. Omitted or zero uses Slack's default.
+*   To include replies alongside channel messages, pass `--include-replies`. Add `--reply-limit <n>` to request 1–999 replies per parent. Omitted or zero uses Slack's page default. Do not combine `--include-replies` with `--thread`.
 
 ### Workflow checkpoints
 
@@ -31,7 +32,7 @@ Goal: Discover message timestamps in a channel or thread so other workflows (`re
 *   Use --thread for replies
 *   Bound output with --max-items and time filters
 *   Parse next cursors from meta.pagination
-*   Use JSON for full metadata and plain only for humans
+*   Use JSON for structured message data and plain output for humans
 
 ## Run
 
@@ -50,10 +51,16 @@ Goal: Discover message timestamps in a channel or thread so other workflows (`re
 > Requires `--output=json`.
 *   `data.messages[].ts` [string, required] — feed to `react --timestamp`, `reply --parent` (when it's a parent), `message edit/delete --timestamp`.
 *   `data.messages[].text` [string] and `data.messages[].blocks` [array, optional] — text may flatten display formatting; check `blocks` when Slack-native structure matters.
+*   `data.messages[].attachments` / `.files` [arrays, optional] — preserve SDK-decoded attachment content, forwarded files, and file metadata. Empty or missing arrays are omitted. slick does not fetch file URLs; `file_access` can describe restricted metadata.
+*   `data.messages[].client_msg_id` [string, optional] and `.edited` [object, optional] — retain the client identifier and editing user/timestamp when Slack returns them. Keep timestamp strings exact.
 *   `data.messages[].permalink` [string, optional] — present when fetched.
 *   `meta.pagination.next_cursor` / `.has_more` [string / bool] — paginate until `has_more=false`.
+*   When `has_more=true` without a cursor, use `data.pagination.next_until` as `--until` for channel history, or `next_since` as `--since` for a thread. Keep other filters and omit the old cursor. A filtered empty page can still have a continuation.
+*   With `--include-replies`, inspect each parent's `replies_pagination` separately. To continue it, use `--thread <parent-ts>` and that object's next cursor or time boundary.
 
 ## Preconditions
+
+*   Channel inputs, stored aliases, thread/time bounds, and user IDs trim surrounding whitespace. Empty optional values clear that filter; an empty thread value selects channel history. Keep timestamp digits unchanged and pass opaque cursors verbatim.
 
 ## Recover
 

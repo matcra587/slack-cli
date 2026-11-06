@@ -7,11 +7,15 @@ description: "Send, schedule, edit, and delete Slack messages with Markdown or B
 **Send**, **edit**, and **delete** Slack messages. Markdown input is converted to
 [Block Kit](https://docs.slack.dev/block-kit/) by default; `--blocks` accepts
 raw Block Kit JSON. Slack-side message
-operations require `chat:write` (and matching channel scopes); user-token
+mutations require `chat:write` and permission to act in the destination; user-token
 profiles can edit and delete only their own messages.
 
 For thread replies, see [`reply`](reply.md). For reactions, see
 [`react`](react.md).
+
+Opening a one-to-one DM needs `im:write`; opening a group DM needs
+`mpim:write`. Both need `chat:write` to send. Resolving an email recipient
+also needs `users:read.email`. These requirements apply to scheduled sends too.
 
 ## message send
 
@@ -44,10 +48,10 @@ For thread replies, see [`reply`](reply.md). For reactions, see
 
 === "Schedule"
 
-    Schedule a future send with RFC3339, a Go duration, or Unix seconds (no natural-language times):
+    Schedule a future send with RFC3339, a Go duration, or Unix seconds (no natural-language times). For an absolute time, set `send_at` to an RFC3339 timestamp within the next 120 days:
 
     ```sh
-    slick message send --channel C1234567890 --message "Deploy tomorrow" --schedule 2026-06-01T15:00:00-04:00
+    slick message send --channel C1234567890 --message "Deploy at the chosen time" --schedule "$send_at"
     slick message send --channel C1234567890 --message "Deploy in 90 minutes" --schedule 90m
     slick message send --user dev@example.com --message "DM follow-up" --schedule 90m
     ```
@@ -80,16 +84,58 @@ addresses resolved via `users.lookupByEmail`. Repeat the flag or comma-separate
 values to open a group DM. If Slack returns `users_not_found` for an email,
 that address did not match a Slack user in the active workspace.
 
+Slick trims surrounding whitespace from channel and recipient inputs and stored
+alias values, including email aliases. Blank alias targets fail locally before
+authentication or Slack requests. They do not select the default channel.
+Removing both target flags restores the default for immediate sends; scheduled
+sends still require an explicit target. Recipient order is preserved.
+
+Slack accepts 1–8 recipient IDs when opening a DM or group DM. Leave out the
+authenticated user; Slack includes that user automatically. Slack recipient
+argument errors (`too_many_users`, `not_enough_users`, and
+`users_list_not_supplied`) return `validation_error` with exit 4. Slick stops
+before posting or scheduling and does not retry the failed open. Check the
+recipients before running the command again. See
+[Slack’s recipient rules](https://docs.slack.dev/reference/methods/conversations.open/).
+
 !!! note "Accepted `--schedule` formats"
     `--schedule` accepts only RFC3339 timestamps, Go durations such as `90m`
     or `2h30m`, and Unix seconds. It rejects every other format, including
     natural-language strings such as `tomorrow at 9am`.
+
+Slack schedules in whole Unix seconds. Fractional durations and RFC3339 times
+are rounded down to that precision before the future and 120-day checks. A
+value that rounds to the current or an earlier second fails locally, including
+in dry runs.
 
 Scheduled sends accept either `--channel` or `--user`; scheduled DMs
 resolve/open the DM before calling the Slack scheduled-message API. Real
 scheduled `--user` sends return the raw DM or MPIM conversation ID in
 `data.channel`. Scheduled sends return `scheduled_message_id`, not `ts`,
 because the Slack API does not assign a message timestamp until the message fires.
+
+### Message sources and raw Block Kit
+
+Use exactly one body source: `--message` for an argument, or `--file` for a
+file path. `--file -` reads stdin. Paths support `~` and environment variables.
+Removing `--blocks`, or passing `--blocks=false`, restores Markdown input.
+Empty or whitespace-only bodies fail locally, including file and stdin input.
+They do not clear an existing message. Use an explicit raw `[]` to clear blocks.
+
+Raw Block Kit is sent as `blocks` without copying the JSON into Slack's `text`
+field. Slack can build notification and screen-reader text from supported blocks;
+see [Slack's accessibility guidance](https://docs.slack.dev/reference/methods/chat.postMessage/).
+Markdown input keeps its readable source as fallback text.
+
+Raw dry runs show the validated plan in `data.message.blocks`, with no invented
+`data.message.text`. Scheduled raw sends and previews show submitted blocks in
+`data.blocks` and leave `data.text` empty; these are planned content, not a copy
+returned by Slack. Unknown JSON fields are omitted from that plan. A scheduled
+preview keeps `scheduled_message_id` equal to `Q-dry-run`.
+
+An empty raw array clears an existing message's blocks without replacing its
+fallback text. It cannot create a new message without any blocks. Invalid input
+and missing files fail before authentication or Slack requests.
 
 ### Markdown handling
 
@@ -99,6 +145,12 @@ Markdown converts to Block Kit before posting:
     text. (Headings do not become Slack `header` blocks — slick treats them
     as section text so Slack renders them inline with the rest of the
     message.)
+*   **Inline links and styles** in paragraphs and headings convert to Slack's
+    syntax: `[label](https://example.com)` becomes a clickable named link,
+    `**bold**` becomes `*bold*`, and `~~old~~` becomes `~old~`. Existing
+    Slack markers such as `*bold*` and `_italic_` stay unchanged. Inline code
+    stays literal. Named links accept HTTP, HTTPS and mailto destinations;
+    unsupported or relative targets stay readable text.
 *   **Tables** render as native Block Kit `table` blocks. Slack rejects
     messages containing more than one table block, so slick errors out
     rather than truncating.
@@ -157,12 +209,15 @@ referenced message must be in a channel the reader can access.
 ### Output
 
 For real sends, `data.message` uses the message Slack returns, including its
-stored text, author, and blocks when present. Slick does not replace Slack's text
-with the submitted input. Dry runs describe the planned message instead.
+stored text, author, and blocks when present. SDK-decoded attachments and files
+are also preserved when Slack returns them, along with `client_msg_id` and
+`edited` metadata; slick does not fetch file URLs. Slick does not replace
+Slack's text with the submitted input. Dry runs describe the planned message
+instead.
 
 === "Human"
 
-    Real send:
+    Human output (real send):
 
     ```text
     Message sent channel=C7N2Q8L4P ts=1746284582.123456 permalink=p1746284582123456
@@ -182,11 +237,18 @@ with the submitted input. Dry runs describe the planned message instead.
 
 === "JSON"
 
-    Real send:
+    JSON envelope (real send):
 
     ```json
     {
-      "meta": {"command": "message.send", "workspace": "default", "timestamp": "2026-05-26T03:00:56Z", "request_id": "337f5bd1-a5f2-4bb8-8da5-510cb801f62d"},
+      "ok": true,
+      "meta": {
+        "command": "message.send",
+        "workspace": "default",
+        "timestamp": "2026-05-26T03:00:56Z",
+        "request_id": "337f5bd1-a5f2-4bb8-8da5-510cb801f62d",
+        "exit_code": 0
+      },
       "data": {
         "message": {
           "type": "message",
@@ -204,7 +266,7 @@ with the submitted input. Dry runs describe the planned message instead.
     }
     ```
 
-    `--dry-run` — no Slack call is made, so `ts` is the literal string
+    JSON data excerpt (`--dry-run`) — no Slack call is made, so `ts` is the literal string
     `"dry-run"`, `permalink` is absent, and `dry_run: true` joins the data
     record:
 
@@ -224,7 +286,7 @@ with the submitted input. Dry runs describe the planned message instead.
     }
     ```
 
-    `--schedule` — scheduled messages have no `ts` until Slack posts them, so
+    JSON data excerpt (`--schedule`) — scheduled messages have no `ts` until Slack posts them, so
     `scheduled_message_id` is the reference for list/delete:
 
     ```json
@@ -235,10 +297,13 @@ with the submitted input. Dry runs describe the planned message instead.
         "channel_hr": "#deployments",
         "channel_url": "https://app.slack.com/client/T8KQ42P9D/C1234567890",
         "scheduled_message_id": "Q123",
-        "post_at": 1780335600,
+        "post_at": 1780340400,
         "post_at_iso": "2026-06-01T19:00:00Z",
         "text": "Deploy tomorrow",
-        "attribution": {"enabled": true, "label": "slick"}
+        "attribution": {
+          "enabled": true,
+          "label": "slick"
+        }
       }
     }
     ```
@@ -249,8 +314,16 @@ supporting terminals.
 
 ## message edit
 
+JSON and compact edit results use the SDK-returned text, including an empty
+string. They do
+not substitute the requested text. The SDK represents an omitted response text
+field as empty too. JSON and compact dry runs show the requested text instead.
+
 Edit your own message. The Slack API permits edits only to messages your token
-identity sent.
+identity sent. Configured channel aliases resolve in previews and real edits.
+Surrounding whitespace is removed from the channel and timestamp; the timestamp
+otherwise stays an exact string. Pass `--channel` explicitly; edits never use
+`default_channel`.
 
 ```sh
 slick message edit --channel C1234567890 --timestamp 1746284582.123456 --message "Corrected text"
@@ -274,6 +347,23 @@ slick message edit --channel C1234567890 --timestamp 1746284582.123456 --message
 
 ### Output
 
+Raw `--blocks` input must be a JSON array. Objects, `null`, and blank input
+fail locally before credentials or Slack requests. New messages, replies, and
+scheduled messages require at least one block after attribution is applied.
+
+To remove an existing message's blocks while keeping its fallback text, use:
+
+```sh
+slick message edit --channel C1234567890 --timestamp 1746284582.123456 \
+  --blocks --message '[]' --no-attribution
+```
+
+The edit sends an explicit empty blocks array and leaves text, attachments,
+and metadata out of the request. `--no-attribution` prevents an attribution
+block from being added. A dry-run JSON or compact preview shows `blocks: []`
+without inventing replacement text. Removing `--blocks` returns to Markdown
+input.
+
 === "Human"
 
     `--dry-run`:
@@ -284,7 +374,7 @@ slick message edit --channel C1234567890 --timestamp 1746284582.123456 --message
 
 === "JSON"
 
-    Real edit. Slack's `chat.update` does not return a permalink, and slick
+    JSON data excerpt (real edit). Slack's `chat.update` does not return a permalink, and slick
     suppresses `data.message.blocks` even when the edit re-renders Block Kit —
     verify rendered output via [`history list`](history.md#history-list) or the
     Slack UI when needed. The `attribution` field is still present:
@@ -306,6 +396,10 @@ slick message edit --channel C1234567890 --timestamp 1746284582.123456 --message
 ## message delete
 
 Delete your own message. Requires `--force` unless you also pass `--dry-run`.
+Configured channel aliases resolve before both previews and real requests.
+Surrounding whitespace is removed from the channel and timestamp; the timestamp
+otherwise stays an exact string. A default channel never supplies a deletion
+target: pass `--channel` explicitly.
 
 ```sh
 slick message delete --channel C1234567890 --timestamp 1746284582.123456 --dry-run
@@ -331,7 +425,7 @@ slick message delete --channel C1234567890 --timestamp 1746284582.123456 --force
 
 === "JSON"
 
-    The envelope keeps `ts` (formerly `timestamp` before v0.4.0):
+    JSON data excerpt. The timestamp field is `ts`:
 
     ```json
     {
@@ -345,8 +439,10 @@ and `errors[]` conveys failure.
 ## message scheduled list
 
 List pending scheduled messages. Pass `--channel` to narrow the result to one
-conversation, or omit it to ask the Slack API for the workspace-visible
-scheduled messages for the active token.
+conversation, or omit it to list across conversations. Slack returns pending
+messages scheduled through `chat.scheduleMessage` with the same token. Messages
+scheduled in the Slack UI are not included. This authenticated list method has
+no required OAuth scope; slick does not require `chat:write` to read the list.
 
 ```sh
 slick message scheduled list --channel C1234567890 --limit 20 --output=json
@@ -359,7 +455,7 @@ slick message scheduled list --cursor <next-cursor> --output=json
 |------|-------|-------------|
 | `-c`, `--channel` | `<CHANNEL>` | Channel ID, name, or alias |
 | `-C`, `--cursor` | `<CURSOR>` | Pagination cursor |
-| `-L`, `--limit` | `<N>` | Maximum scheduled messages to return |
+| `-L`, `--limit` | `<N>` | Messages per page; 0 uses Slack’s default; negative values are rejected |
 
 ### Output
 
@@ -388,9 +484,19 @@ slick message scheduled list --cursor <next-cursor> --output=json
 
     ```json
     {
+      "ok": true,
       "meta": {
         "command": "message.scheduled.list",
-        "pagination": {"next_cursor": "cur-2", "has_more": true, "max_items": 20, "items_returned": 1}
+        "pagination": {
+          "next_cursor": "cur-2",
+          "has_more": true,
+          "max_items": 20,
+          "items_returned": 1
+        },
+        "exit_code": 0,
+        "workspace": "default",
+        "timestamp": "2026-05-26T03:00:56Z",
+        "request_id": "337f5bd1-a5f2-4bb8-8da5-510cb801f62d"
       },
       "data": {
         "scheduled_messages": [
@@ -402,12 +508,19 @@ slick message scheduled list --cursor <next-cursor> --output=json
             "channel_url": "https://app.slack.com/client/T8KQ42P9D/C1234567890",
             "channel_type": "channel",
             "is_dm": false,
-            "post_at": 1780335600,
+            "post_at": 1780340400,
             "post_at_iso": "2026-06-01T19:00:00Z",
             "text_preview": "Deploy tomorrow"
           }
-        ]
-      }
+        ],
+        "pagination": {
+          "next_cursor": "cur-2",
+          "has_more": true,
+          "max_items": 20,
+          "items_returned": 1
+        }
+      },
+      "errors": []
     }
     ```
 
@@ -438,7 +551,7 @@ slick message scheduled delete --channel C1234567890 --scheduled-id Q123 --outpu
 | `--scheduled-id` | `<QID>` | Scheduled message ID returned by scheduled send/list |
 | `-n`, `--dry-run` | | Preview without mutating |
 
-JSON output:
+JSON data excerpt:
 
 ```json
 {
@@ -447,6 +560,12 @@ JSON output:
 ```
 
 ## Common errors
+
+`message scheduled delete` returns `not_found` (exit 2) for
+`invalid_scheduled_message_id`. Slack uses that code for an invalid ID and for
+a message that has already been sent or deleted. Slack also rejects cancellation
+within 60 seconds of the scheduled send time. Refresh the scheduled list
+before choosing another target.
 
 | Error | Cause | Fix |
 |-------|-------|-----|
@@ -471,3 +590,8 @@ JSON output:
   [`chat.scheduleMessage`](https://docs.slack.dev/reference/methods/chat.scheduleMessage/),
   [`chat.scheduledMessages.list`](https://docs.slack.dev/reference/methods/chat.scheduledMessages.list/),
   [`chat.deleteScheduledMessage`](https://docs.slack.dev/reference/methods/chat.deleteScheduledMessage/).
+
+A missing or invalid Slack acknowledgement returns `server_error` (exit 5).
+The mutation may already have happened. Slick does not replay it automatically;
+inspect Slack before deciding whether to try again. Sends require the returned
+message identifiers, and scheduled sends require the assigned scheduling ID.

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/matcra587/slack-cli/internal/agent"
@@ -95,6 +96,7 @@ func CommandContext(cmd *cobra.Command, runtime *RootRuntime) (*clioutput.Comman
 	// auth.go's command handlers log via TrimInputName when they take
 	// the same kind of input through their own flags/args.
 	workspace := clioutput.TrimInputName(nil, "workspace", flagWorkspace)
+	runtime.WorkspaceName = workspace
 	output, _ := rootFlags.GetString("output")
 	attrFlags := readAttributionFlags(cmd)
 
@@ -106,7 +108,7 @@ func CommandContext(cmd *cobra.Command, runtime *RootRuntime) (*clioutput.Comman
 		clioutput.ApplyRenderMode(sl, mode)
 		ctx := &clioutput.CommandContext{
 			Command:       strings.TrimPrefix(strings.ReplaceAll(cmd.CommandPath(), " ", "."), "slick."),
-			Workspace:     "default",
+			Workspace:     errorWorkspace(runtime),
 			Mode:          mode,
 			Stdout:        runtime.Stdout,
 			Stderr:        runtime.Stderr,
@@ -269,12 +271,12 @@ func buildLocalContext(runtime *RootRuntime, workspace string, mode clioutput.Re
 // WriteRuntimeError emits a structured CLI error using a minimal context built
 // from the runtime (before a full CommandContext is available).
 func WriteRuntimeError(runtime *RootRuntime, err clioutput.CLIError) error {
-	mode := clioutput.OutputFlags{Output: runtime.OutputMode}.Resolve(runtime.IsTTY, detectAgentOutputMode())
+	mode := clioutput.OutputFlags{Output: runtime.OutputMode}.Resolve(runtime.IsTTY, isAgentDiscoveryLeaf(runtime.CommandName) || detectAgentOutputMode())
 	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
 	clioutput.ApplyRenderMode(sl, mode)
 	ctx := &clioutput.CommandContext{
 		Command:       runtime.CommandName,
-		Workspace:     "default",
+		Workspace:     errorWorkspace(runtime),
 		Mode:          mode,
 		Stdout:        runtime.Stdout,
 		Stderr:        runtime.Stderr,
@@ -313,4 +315,32 @@ func detectAttribution(flags AttributionFlags) agent.Attribution {
 		Emoji:   flags.Emoji,
 		Message: flags.Message,
 	})
+}
+
+// errorWorkspace labels early failures using only already-loaded profile data.
+// Error formatting must not resolve credentials or replace the original error.
+func errorWorkspace(runtime *RootRuntime) string {
+	if isAgentDiscoveryLeaf(runtime.CommandName) {
+		return "agent"
+	}
+	workspace := strings.TrimSpace(runtime.WorkspaceName)
+	if runtime.Config != nil {
+		if profile, err := runtime.Config.ResolveWorkspace(workspace); err == nil {
+			return profile.Name
+		}
+		if workspace == "" {
+			workspace = strings.TrimSpace(os.Getenv("SLACK_CLI_DEFAULT_WORKSPACE"))
+			if workspace == "" {
+				workspace = strings.TrimSpace(runtime.Config.DefaultWorkspace)
+			}
+		}
+	}
+	if workspace == "" {
+		return "default"
+	}
+	return workspace
+}
+
+func isAgentDiscoveryLeaf(command string) bool {
+	return strings.HasPrefix(command, "agent.")
 }

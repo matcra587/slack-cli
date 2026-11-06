@@ -30,6 +30,7 @@ Goal: Permanently delete one of the authenticated identity's own messages by exa
 ### Behavior
 
 *   Deletion is irreversible. There is no undo.
+*   Configured channel aliases resolve in previews and real deletes. Pass an explicit channel; deletion never uses `default_channel`. Keep the timestamp as a string.
 *   Slack returns `message_not_found` for already-deleted messages — bulk callers should treat that as "already clean".
 
 ## Save
@@ -48,9 +49,10 @@ Goal: Permanently delete one of the authenticated identity's own messages by exa
 
 | Symptom | Cause | Next |
 |---|---|---|
+| Invalid Slack acknowledgement (`server_error`, exit 5) | The response did not confirm a usable result | Inspect Slack before retrying; a mutation may already have happened. Slick does not replay it automatically. |
 | `message_not_found` | Already deleted (race with another worker) | Treat as success in cleanup loops |
 | `cant_delete_message` | Wrong owner identity | Switch profile via → `auth_setup` or accept that this message stays |
-| `rate_limit` | Bulk pressure | Sleep `errors[0].retry_after_seconds`, retry same target |
+| `rate_limit` | Bulk pressure | Wait for the delay when supplied. Otherwise stop or use bounded backoff; keep attempts bounded. |
 
 ## Next
 

@@ -294,6 +294,8 @@ func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, ar
 	root := runtimetest.NewRoot(runtime, stdout, stderr)
 	root.AddCommand(climessage.NewCommand(runtime))
 	root.AddCommand(clithread.NewCommand(runtime))
+	// These fixtures assert requests/results; dedicated SDK and binary tests own pacing.
+	args = append([]string{"--no-throttle"}, args...)
 	return runtimetest.Run(t, root, args, stdout, stderr)
 }
 

@@ -22,8 +22,9 @@ Import `github.com/matcra587/slack-cli/api` and `encoding/json`. The example
 expects a context, a channel ID, and an enclosing function that returns errors.
 Handle pagination through Slack's `response_metadata.next_cursor` when needed.
 
-Set `Workspace` to select another saved profile, or `ConfigPath` to use another
-config file. Each constructor resolves credentials afresh and refreshes a saved
+Set `Workspace` to select a saved profile explicitly. When it is empty,
+`SLACK_CLI_DEFAULT_WORKSPACE` takes precedence over the saved default. Set
+`ConfigPath` to use another config file. Each constructor resolves credentials afresh and refreshes a saved
 OAuth token when required. Existing scopes still apply; constructing a client
 never grants additional permissions. Use a context deadline for credential
 resolution. Operating-system keychain calls cannot always be canceled.
@@ -36,6 +37,13 @@ session formatting expose reviewed metadata only.
 The embedded `slack.Client`, also available through `client.SDK()`, provides the
 typed methods supported by the pinned Slack SDK. `Methods` and `LookupMethod`
 expose the method catalog without authentication or network access.
+
+For a custom native SDK endpoint, prefer `SDKOptions.APIURL` when calling
+`NewSDKClient`. It keeps endpoint-aware pacing for multipart API methods.
+A native `slack.OptionAPIURL` override is opaque: form, JSON, and GET API calls
+retain pacing, while multipart pacing requires canonical `/api/<method>` paths.
+File transfers keep their separate byte-stream contract. Explicit
+`slack.OptionHTTPClient` overrides retain the native SDK's precedence.
 
 ## Generic requests
 

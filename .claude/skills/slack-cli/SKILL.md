@@ -57,7 +57,7 @@ slick agent schema --compact --output=json
 
 *   Run `slick agent guide <workflow> --output=human` before taking action. The guide is the
   runbook; the schema is only command inventory.
-*   Keep automation on JSON output. Do not parse `--plain`.
+*   Keep automation on JSON output. Do not parse `--output=human`.
 *   Read machine successes and failures from stdout. Use stderr for diagnostics.
 *   Parse failures from stdout JSON: `errors[0].type`, `errors[0].message`, and
   `errors[0].exit_code`.

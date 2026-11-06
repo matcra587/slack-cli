@@ -7,8 +7,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/BurntSushi/toml"
+	xfilepath "github.com/gechr/x/filepath"
 )
 
 func LoadFile(path string) (*Config, error) {
@@ -18,7 +20,6 @@ func LoadFile(path string) (*Config, error) {
 	}
 
 	migrateTokenRefs(cfg)
-	applyEnv(cfg)
 	if err := Migrate(cfg); err != nil {
 		return nil, err
 	}
@@ -64,19 +65,98 @@ func SaveFile(path string, cfg *Config) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
+	body, err := encodeConfigTOML(cfg)
+	if err != nil {
+		return fmt.Errorf("encoding config file: %w", err)
+	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
 
-	if err := os.WriteFile(path, []byte(encodeConfigTOML(cfg)), 0o600); err != nil {
+	writePath, err := configWritePath(path)
+	if err != nil {
+		return fmt.Errorf("resolving config destination: %w", err)
+	}
+	if err := writeConfigFile(writePath, []byte(body)); err != nil {
 		return fmt.Errorf("writing config file: %w", err)
 	}
 	return nil
 }
 
-func encodeConfigTOML(cfg *Config) string {
-	var b strings.Builder
+// configWritePath follows leaf symlinks without replacing them. Unlike strict
+// path resolution, it accepts a missing final target, as os.WriteFile did.
+func configWritePath(path string) (string, error) {
+	for range 255 {
+		info, err := os.Lstat(path)
+		if os.IsNotExist(err) {
+			return path, nil
+		}
+		if err != nil {
+			return "", err
+		}
+		if info.Mode()&os.ModeSymlink == 0 {
+			if !info.Mode().IsRegular() {
+				return "", fmt.Errorf("config destination is not a regular file")
+			}
+			// Keep the existing file's write-access requirement even though
+			// replacing its directory entry would bypass its read-only mode.
+			file, err := os.OpenFile(path, os.O_WRONLY, 0) //nolint:gosec // Probe write access to the caller-selected config without truncating it.
+			if err != nil {
+				return "", err
+			}
+			if err := file.Close(); err != nil {
+				return "", err
+			}
+			return path, nil
+		}
+		target, err := os.Readlink(path)
+		if err != nil {
+			return "", err
+		}
+		if !filepath.IsAbs(target) {
+			parent, err := xfilepath.Resolve(filepath.Dir(path))
+			if err != nil {
+				return "", err
+			}
+			target = filepath.Join(parent, target)
+		}
+		path = target
+	}
+	return "", fmt.Errorf("too many configuration symlinks")
+}
+
+// configTOMLWriter keeps the explicit persisted-field allowlist and layout,
+// while delegating quoted literals to the same codec used to read the file.
+type configTOMLWriter struct {
+	strings.Builder
+	err error
+}
+
+func (b *configTOMLWriter) quoted(value string) string {
+	if b.err != nil {
+		return ""
+	}
+	if !utf8.ValidString(value) {
+		b.err = fmt.Errorf("config strings must be valid UTF-8")
+		return ""
+	}
+	var literal strings.Builder
+	if err := toml.NewEncoder(&literal).Encode(map[string]string{"value": value}); err != nil {
+		b.err = err
+		return ""
+	}
+	quoted, prefix := strings.CutPrefix(literal.String(), "value = ")
+	quoted, suffix := strings.CutSuffix(quoted, "\n")
+	if !prefix || !suffix || !strings.HasPrefix(quoted, `"`) || !strings.HasSuffix(quoted, `"`) {
+		b.err = fmt.Errorf("unexpected TOML string encoding")
+		return ""
+	}
+	return quoted
+}
+
+func encodeConfigTOML(cfg *Config) (string, error) {
+	var b configTOMLWriter
 	writeTOMLString(&b, "schema_version", cfg.SchemaVersion)
 	writeTOMLString(&b, "default_workspace", cfg.DefaultWorkspace)
 
@@ -119,11 +199,11 @@ func encodeConfigTOML(cfg *Config) string {
 			}
 			sort.Strings(aliases)
 			for _, alias := range aliases {
-				writeTOMLString(&b, tomlKey(alias), workspace.Aliases[alias])
+				writeTOMLString(&b, tomlKey(&b, alias), workspace.Aliases[alias])
 			}
 		}
 	}
-	return b.String()
+	return b.String(), b.err
 }
 
 func canonicalAttributionConfig(workspace WorkspaceProfile) AttributionConfig {
@@ -144,53 +224,47 @@ func canonicalAttributionConfig(workspace WorkspaceProfile) AttributionConfig {
 	return attribution
 }
 
-func writeTOMLTable(b *strings.Builder, path ...string) {
+func writeTOMLTable(b *configTOMLWriter, path ...string) {
 	b.WriteString("[")
 	for i, part := range path {
 		if i > 0 {
 			b.WriteString(".")
 		}
-		b.WriteString(tomlKey(part))
+		b.WriteString(tomlKey(b, part))
 	}
 	b.WriteString("]\n")
 }
 
-func writeTOMLString(b *strings.Builder, key, value string) {
+func writeTOMLString(b *configTOMLWriter, key, value string) {
 	b.WriteString(key)
 	b.WriteString(" = ")
-	b.WriteString(strconv.Quote(value))
+	b.WriteString(b.quoted(value))
 	b.WriteString("\n")
 }
 
-func writeOptionalTOMLString(b *strings.Builder, key, value string) {
+func writeOptionalTOMLString(b *configTOMLWriter, key, value string) {
 	if value == "" {
 		return
 	}
 	writeTOMLString(b, key, value)
 }
 
-func writeTOMLBool(b *strings.Builder, key string, value bool) {
+func writeTOMLBool(b *configTOMLWriter, key string, value bool) {
 	b.WriteString(key)
 	b.WriteString(" = ")
 	b.WriteString(strconv.FormatBool(value))
 	b.WriteString("\n")
 }
 
-func tomlKey(value string) string {
+func tomlKey(b *configTOMLWriter, value string) string {
 	if value == "" {
-		return strconv.Quote(value)
+		return b.quoted(value)
 	}
 	for _, r := range value {
 		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-' {
 			continue
 		}
-		return strconv.Quote(value)
+		return b.quoted(value)
 	}
 	return value
-}
-
-func applyEnv(cfg *Config) {
-	if v := os.Getenv("SLACK_CLI_DEFAULT_WORKSPACE"); v != "" {
-		cfg.DefaultWorkspace = v
-	}
 }

@@ -10,6 +10,7 @@ import (
 )
 
 func TestLoadFileReadsWorkspaceProfilesAndAliases(t *testing.T) {
+	t.Setenv("SLACK_CLI_DEFAULT_WORKSPACE", "")
 	path := writeConfig(t, `
 schema_version = "1"
 default_workspace = "default"
@@ -255,6 +256,7 @@ token = "keychain:slack-cli/default"
 }
 
 func TestLoadFileAcceptsLegacyTokenKeyAndMigratesToTokenRef(t *testing.T) {
+	t.Setenv("SLACK_CLI_DEFAULT_WORKSPACE", "")
 	path := writeConfig(t, `
 schema_version = "1"
 default_workspace = "default"
@@ -281,6 +283,7 @@ token = "keychain:slack-cli/default"
 }
 
 func TestLoadFilePreferTokenRefOverLegacyToken(t *testing.T) {
+	t.Setenv("SLACK_CLI_DEFAULT_WORKSPACE", "")
 	path := writeConfig(t, `
 schema_version = "1"
 default_workspace = "default"

@@ -87,7 +87,8 @@ func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, ar
 			return "test-request"
 		}),
 	)
-	cmd.SetArgs(args)
+	// Functional fixtures avoid real pacing; explicit later flags still override this.
+	cmd.SetArgs(append([]string{"--no-throttle"}, args...))
 	err := cmd.Execute()
 	return stdout.String(), stderr.String(), err
 }

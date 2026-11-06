@@ -45,6 +45,16 @@ Goal: Wire a Slack workspace profile with a valid token before any other workflo
 
 ### Behavior
 
+*   Login accepts exactly one token source in token mode. OAuth-only options require `--method oauth`, which rejects token source flags. Choose a redirect URL or a callback port, not both. Login `--dry-run` validates option shape and returns a profile plan without reading credentials, opening a listener/browser, calling Slack or changing files; it does not authenticate.
+
+*   Login snapshots the previous keychain credential even with `--force`. Failed writes or config saves restore it, or remove a new entry. If restoring the credential fails, the error includes `details.credential_restore_failed: true`; inspect the keychain before retrying. Config is published only after saving, and malformed existing config is preserved.
+
+*   `auth logout <profile>` preserves profile preferences and saves the config before revoking or deleting credentials. A failed save leaves prior state intact. `--dry-run` previews without credential access or changes; `--keep-token` skips revocation and keychain deletion. Cleanup failures warn on stderr and may leave an active token or stored credential.
+
+*   `auth switch <profile>` changes the local default without calling Slack or reading credentials. Names match without regard to case and results use the stored spelling. `--dry-run` previews the target; failed saves preserve the previous default and profile settings.
+
+*   `auth status` checks all profiles in name order. Missing or invalid credentials are per-profile results with exit 0; cancellation and timeouts stop the command with exit 6 or 7 and no partial success result. An empty profile list is `[]`. Provider and transport details are redacted; safe Slack error codes remain visible.
+
 *   Credentials live in OS keychain or a configured secret backend (e.g. `op://...`). Never put plaintext `xox*` tokens in TOML, argv, stdout, stderr, or logs.
 *   Runtime override: `SLACK_CLI_TOKEN_<PROFILE>` beats `SLACK_CLI_TOKEN` and the configured secret reference for that profile. Profile-suffix uppercased with non-alphanumeric → `_`.
 
@@ -56,7 +66,7 @@ Goal: Wire a Slack workspace profile with a valid token before any other workflo
 
 ## Preconditions
 
-*   Profile names are case-insensitive (`Default` and `default` collide).
+*   Profile names use Unicode case matching (`Default`/`default`, `s`/`ſ`, and `σ`/`ς` collide). A config with matching names is rejected before credentials are read or Slack is called. Rename one conflicting profile; config is not changed automatically.
 *   `--token-env` takes an environment-variable name, not the token value itself.
 
 ## Recover

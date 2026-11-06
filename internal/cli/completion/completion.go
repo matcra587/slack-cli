@@ -5,13 +5,13 @@ package completion
 
 import (
 	"context"
-	"os"
 	"sort"
 	"strings"
 	"time"
 
 	cobracli "github.com/gechr/clib/cli/cobra"
 	"github.com/gechr/clib/complete"
+	"github.com/gechr/x/shell"
 	"github.com/matcra587/slack-cli/internal/agenthelp"
 	clicache "github.com/matcra587/slack-cli/internal/cli/cache"
 	cliconfig "github.com/matcra587/slack-cli/internal/cli/config"
@@ -32,11 +32,34 @@ func Setup(root *cobra.Command, runtime *cliruntime.RootRuntime) {
 	fallback := root.RunE
 	completion := cobracli.NewCompletion(root)
 	root.RunE = func(cmd *cobra.Command, args []string) error {
+		output := &completionOutput{runtime: runtime}
+		flags := root.PersistentFlags()
+		// Preserve clib's action order: suggestions, install, uninstall, print.
+		install := flags.Lookup(complete.FlagInstallCompletion).Value.String() == "true"
+		print := flags.Lookup(complete.FlagPrintCompletion).Value.String() == "true"
+		uninstall := flags.Lookup(complete.FlagUninstallCompletion).Value.String() == "true"
+		if flags.Lookup(complete.FlagComplete).Value.String() == "" && (install || uninstall || print) {
+			sh := flags.Lookup(complete.FlagShell).Value.String()
+			if sh == "" {
+				sh = shell.Detect()
+			}
+			if install {
+				return installScript(cmd, runtime, sh)
+			}
+			if uninstall {
+				return uninstallScript(cmd, runtime, sh)
+			}
+			return printScript(root, runtime, sh)
+		}
+
 		handled, err := completion.Handle(
 			Generator(root),
-			HandlerForRuntime(runtime),
+			handlerForRuntime(cmd.Context(), cmd, runtime, output),
 			cobracli.WithArgs(args),
 		)
+		if output.err != nil {
+			return output.err
+		}
 		if err != nil || handled {
 			return err
 		}
@@ -48,10 +71,14 @@ func Setup(root *cobra.Command, runtime *cliruntime.RootRuntime) {
 }
 
 // AddCommand registers the `slick completion` subcommand on the root.
-func AddCommand(root *cobra.Command) {
-	root.AddCommand(cobracli.CompletionCommand(root, func() *complete.Generator {
-		return Generator(root)
-	}))
+func AddCommand(root *cobra.Command, runtime *cliruntime.RootRuntime) {
+	cmd := cobracli.CompletionCommand(root, func() *complete.Generator { return Generator(root) })
+	for _, child := range cmd.Commands() {
+		child.RunE = func(cmd *cobra.Command, _ []string) error {
+			return printScript(root, runtime, cmd.Name())
+		}
+	}
+	root.AddCommand(cmd)
 }
 
 // Generator returns a clib completion generator for the supplied root command.
@@ -64,22 +91,30 @@ func Generator(root *cobra.Command) *complete.Generator {
 
 // HandlerForRuntime returns a dynamic-completion handler bound to the runtime.
 func HandlerForRuntime(runtime *cliruntime.RootRuntime) complete.Handler {
+	return handlerForRuntime(context.Background(), nil, runtime, &completionOutput{runtime: runtime})
+}
+
+func handlerForRuntime(ctx context.Context, cmd *cobra.Command, runtime *cliruntime.RootRuntime, output *completionOutput) complete.Handler {
 	cfg := runtime.Config
 	if runtime.ConfigLoadError != nil {
 		cfg = nil
 	}
-	token := tokenFor(runtime, cfg)
-	return Handler(token, cfg, runtime)
+	return completionHandler(ctx, cmd, func(ctx context.Context, profile string) string {
+		return tokenFor(ctx, runtime, cfg, profile)
+	}, cfg, runtime, output)
 }
 
-func tokenFor(runtime *cliruntime.RootRuntime, cfg *config.Config) string {
+func tokenFor(ctx context.Context, runtime *cliruntime.RootRuntime, cfg *config.Config, name string) string {
+	if ctx.Err() != nil {
+		return ""
+	}
 	if cfg == nil {
 		if token, ok := clitoken.RuntimeEnvToken(""); ok {
 			return token
 		}
 		return ""
 	}
-	profile, err := cfg.ResolveWorkspace("")
+	profile, err := cfg.ResolveWorkspace(name)
 	if err != nil {
 		return ""
 	}
@@ -95,7 +130,7 @@ func tokenFor(runtime *cliruntime.RootRuntime, cfg *config.Config) string {
 			Now:          runtime.Now,
 		}
 	}
-	token, err := resolver.ResolveToken(context.Background(), profile)
+	token, err := resolver.ResolveToken(ctx, profile)
 	if err != nil {
 		return ""
 	}
@@ -105,18 +140,34 @@ func tokenFor(runtime *cliruntime.RootRuntime, cfg *config.Config) string {
 // Handler returns a dynamic completion handler that uses the supplied token,
 // config, and runtime to resolve channel, user, workspace, and config keys.
 func Handler(token string, cfg *config.Config, runtime *cliruntime.RootRuntime) complete.Handler {
-	profileName := profileNameFromConfig(cfg)
+	return completionHandler(context.Background(), nil, func(context.Context, string) string { return token }, cfg, runtime, &completionOutput{runtime: runtime})
+}
+
+func completionHandler(
+	parent context.Context,
+	cmd *cobra.Command,
+	resolveToken func(context.Context, string) string,
+	cfg *config.Config,
+	runtime *cliruntime.RootRuntime,
+	output *completionOutput,
+) complete.Handler {
 	return func(shell, kind string, args []string) {
+		output.reset()
+		requested := ""
+		if runtime != nil {
+			requested = runtime.WorkspaceName
+		}
+		profileName, profileOK := profileNameFromConfig(cfg, requested)
 		switch kind {
 		case "workspace":
 			for _, name := range cliconfig.WorkspaceNames(cfg) {
-				printCompletion(shell, name, "")
+				output.print(shell, name, "")
 			}
 			return
 		case "config_key":
 			for _, candidate := range cliconfig.KeyCompletions(cfg) {
 				value, desc, _ := strings.Cut(candidate, "\t")
-				printCompletion(shell, value, desc)
+				output.print(shell, value, desc)
 			}
 			return
 		case "config_value":
@@ -124,69 +175,83 @@ func Handler(token string, cfg *config.Config, runtime *cliruntime.RootRuntime) 
 				return
 			}
 			if strings.HasSuffix(args[0], ".default_channel") {
-				if completeCachedChannels(shell, profileName) {
-					return
+				profileName, profileOK = profileNameFromKey(cfg, args[0])
+				kind = "channel"
+			} else {
+				for _, value := range cliconfig.ValueCompletions(args[0], cfg) {
+					output.print(shell, value, "")
 				}
-				if token == "" {
-					return
-				}
-				completeSlackChannels(shell, completionClient(token, runtime))
 				return
 			}
-			for _, value := range cliconfig.ValueCompletions(args[0], cfg) {
-				printCompletion(shell, value, "")
-			}
-			return
 		case "guide_workflow":
 			for _, workflow := range agenthelp.WorkflowNames() {
-				printCompletion(shell, workflow, "")
+				output.print(shell, workflow, "")
 			}
 			return
 		case "cache_resource":
 			for _, resource := range clicache.Resources {
-				printCompletion(shell, resource, "")
+				output.print(shell, resource, "")
 			}
 			return
-		case "channel":
-			if completeCachedChannels(shell, profileName) {
-				return
-			}
-		case "user":
-			if completeCachedUsers(shell, profileName) {
-				return
-			}
+		case "channel", "user":
+		default:
+			return
+		}
+		if !profileOK {
+			return
+		}
+		if kind == "channel" && completeCachedChannels(shell, profileName, output.print) {
+			return
+		}
+		if kind == "user" && completeCachedUsers(shell, profileName, output.print) {
+			return
 		}
 
-		if token == "" {
-			return
-		}
-		client := completionClient(token, runtime)
-		ctx, cancel := context.WithTimeout(context.Background(), completionTimeout)
+		ctx, cancel := context.WithTimeout(parent, completionTimeout)
 		defer cancel()
-
+		if ctx.Err() != nil {
+			return
+		}
+		token := resolveToken(ctx, profileName)
+		if strings.TrimSpace(token) == "" || ctx.Err() != nil {
+			return
+		}
+		client := completionClient(ctx, cmd, token, runtime)
 		switch kind {
 		case "channel":
-			completeSlackChannels(shell, client)
+			completeSlackChannels(ctx, shell, client, output.print)
 		case "user":
-			completeSlackUsers(ctx, shell, client)
+			completeSlackUsers(ctx, shell, client, output.print)
 		}
 	}
 }
 
-func profileNameFromConfig(cfg *config.Config) string {
+func profileNameFromConfig(cfg *config.Config, name string) (string, bool) {
+	name = strings.TrimSpace(name)
 	if cfg == nil {
-		return "default"
+		return "default", name == ""
 	}
-	profile, err := cfg.ResolveWorkspace("")
-	if err != nil {
-		return "default"
-	}
-	return profile.Name
+	profile, err := cfg.ResolveWorkspaceName(name)
+	return profile, err == nil
 }
 
-func completeSlackChannels(shell string, client *slackgo.Client) {
-	ctx, cancel := context.WithTimeout(context.Background(), completionTimeout)
-	defer cancel()
+func profileNameFromKey(cfg *config.Config, key string) (string, bool) {
+	if cfg == nil || cfg.Validate() != nil {
+		return "", false
+	}
+	name, ok := strings.CutPrefix(key, "workspaces.")
+	if !ok {
+		return "", false
+	}
+	name, ok = strings.CutSuffix(name, ".default_channel")
+	if !ok {
+		return "", false
+	}
+	_, exists := cfg.Workspaces[name]
+	return name, exists
+}
+
+func completeSlackChannels(ctx context.Context, shell string, client *slackgo.Client, printCompletion func(string, string, string)) {
 	channels, _, err := client.GetConversationsContext(ctx, &slackgo.GetConversationsParameters{
 		Types: []string{"public_channel", "private_channel", "im", "mpim"},
 		Limit: 100,
@@ -199,7 +264,7 @@ func completeSlackChannels(shell string, client *slackgo.Client) {
 	}
 }
 
-func completeSlackUsers(ctx context.Context, shell string, client *slackgo.Client) {
+func completeSlackUsers(ctx context.Context, shell string, client *slackgo.Client, printCompletion func(string, string, string)) {
 	users, err := client.GetUsersContext(ctx, slackgo.GetUsersOptionLimit(100))
 	if err != nil {
 		return
@@ -212,23 +277,21 @@ func completeSlackUsers(ctx context.Context, shell string, client *slackgo.Clien
 	}
 }
 
-func completeCachedUsers(shell, profile string) bool {
+func completeCachedUsers(shell, profile string, printCompletion func(string, string, string)) bool {
 	users, ok := clicache.LoadCachedUsers(profile)
 	if !ok {
 		return false
 	}
-	printed := false
 	for _, user := range users {
 		if !cachedUserActive(user) {
 			continue
 		}
 		printCompletion(shell, user.ID, user.Name)
-		printed = true
 	}
-	return printed
+	return true
 }
 
-func completeCachedChannels(shell, profile string) bool {
+func completeCachedChannels(shell, profile string, printCompletion func(string, string, string)) bool {
 	channels, ok := clicache.LoadCachedChannels(profile)
 	if !ok {
 		return false
@@ -243,8 +306,8 @@ func cachedUserActive(user clioutput.User) bool {
 	return user.Deleted == nil || !*user.Deleted
 }
 
-func completionClient(token string, runtime *cliruntime.RootRuntime) *slackgo.Client {
-	return slackclient.New(context.Background(), nil, runtime, token)
+func completionClient(ctx context.Context, cmd *cobra.Command, token string, runtime *cliruntime.RootRuntime) *slackgo.Client {
+	return slackclient.New(ctx, cmd, runtime, token)
 }
 
 // WorkspaceNames returns the sorted workspace profile names for the supplied
@@ -280,17 +343,6 @@ func cachedChannelDescription(channel clioutput.Channel) string {
 		return *channel.User
 	}
 	return ""
-}
-
-func printCompletion(shell, value, desc string) {
-	if value == "" {
-		return
-	}
-	line := value
-	if shell == "fish" && desc != "" {
-		line += "\t" + desc
-	}
-	_, _ = os.Stdout.WriteString(line + "\n")
 }
 
 // ExtendSlackMetadata attaches clib completion metadata to the per-command
@@ -501,6 +553,7 @@ func slackStatusServices() []string {
 		"Canvases",
 		"Connectivity",
 		"Files",
+		"Huddles",
 		"Login/SSO",
 		"Messaging",
 		"Notifications",
@@ -516,6 +569,7 @@ func slackStatusServiceDescriptions() []string {
 		"canvases",
 		"connectivity",
 		"files",
+		"huddles",
 		"login and SSO",
 		"messaging",
 		"notifications",

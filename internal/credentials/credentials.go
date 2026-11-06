@@ -170,10 +170,7 @@ func (r CredentialTokenResolver) now() time.Time {
 }
 
 func (r CredentialTokenResolver) oauthHTTPClient() *http.Client {
-	if r.HTTPClient != nil {
-		return r.HTTPClient
-	}
-	return &http.Client{}
+	return NewOAuthHTTPClient(r.HTTPClient)
 }
 
 func credentialPayloadFromOAuthRefresh(clientID string, now time.Time, response *slackgo.OAuthV2Response) config.CredentialPayload {

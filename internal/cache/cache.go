@@ -2,6 +2,7 @@
 package cache
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -61,10 +62,33 @@ func Read(profile, resource string, ttl time.Duration) (entry Entry, ok, stale b
 	if err := json.Unmarshal(body, &entry); err != nil {
 		return Entry{}, false, false, fmt.Errorf("decode cache %s: %w", path, err)
 	}
+	if entry.Profile != profile || entry.Resource != resource || !validMetadataPayload(resource, entry.Data) {
+		return Entry{}, false, false, fmt.Errorf("cache entry does not match the requested metadata resource")
+	}
 	if ttl <= 0 {
 		ttl = DefaultTTL
 	}
 	return entry, true, time.Since(entry.FetchedAt) > ttl, nil
+}
+
+func validMetadataPayload(resource string, data json.RawMessage) bool {
+	if resource != "users" && resource != "channels" {
+		return true
+	}
+	var payload map[string]json.RawMessage
+	if json.Unmarshal(data, &payload) != nil {
+		return false
+	}
+	var items []struct{ ID string }
+	if json.Unmarshal(payload[resource], &items) != nil || items == nil {
+		return false
+	}
+	for _, item := range items {
+		if strings.TrimSpace(item.ID) == "" {
+			return false
+		}
+	}
+	return true
 }
 
 func Write(profile, resource string, data json.RawMessage) (Entry, error) {
@@ -137,7 +161,7 @@ func ClearProfile(profile string) ([]string, error) {
 	}
 	var removed []string
 	for _, entry := range entries {
-		if entry.IsDir() {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
 		name := entry.Name()
@@ -150,8 +174,31 @@ func ClearProfile(profile string) ([]string, error) {
 }
 
 func sanitize(name string) string {
-	if name == "" {
-		return "_"
+	if portableCacheName(name) {
+		return name
 	}
-	return strings.NewReplacer("/", "_", "\\", "_", "..", "_").Replace(name)
+	// The reserved prefix cannot occur in a portable name. Hash the original
+	// bytes rather than replacing characters, so distinct names stay distinct.
+	return fmt.Sprintf("~%x", sha256.Sum256([]byte(name)))
+}
+
+func portableCacheName(name string) bool {
+	if name == "" || len(name) > 200 || strings.HasSuffix(name, ".") {
+		return false
+	}
+	for _, r := range name {
+		if r != '.' && r != '_' && r != '-' && (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
+			return false
+		}
+	}
+	stem, _, _ := strings.Cut(name, ".")
+	stem = strings.ToUpper(stem)
+	switch stem {
+	case "CON", "PRN", "AUX", "NUL":
+		return false
+	}
+	if len(stem) == 4 && (strings.HasPrefix(stem, "COM") || strings.HasPrefix(stem, "LPT")) && stem[3] >= '1' && stem[3] <= '9' {
+		return false
+	}
+	return true
 }

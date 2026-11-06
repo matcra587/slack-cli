@@ -19,6 +19,11 @@ slick workspace list
 slick workspace list --output=json
 ```
 
+Profiles appear in stable, case-sensitive name order in every output mode.
+Listing reads configuration only; it does not resolve credentials or call Slack.
+The selected profile must still be valid, using the same `--workspace`,
+environment, and default-profile rules as other workspace commands.
+
 ### Output
 
 === "Human"
@@ -35,7 +40,7 @@ slick workspace list --output=json
 
 === "JSON"
 
-    JSON envelope:
+    JSON data excerpt:
 
     ```json
     {

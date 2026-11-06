@@ -117,7 +117,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			})
 		},
 	}
-	uploadCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
+	uploadCmd.Flags().StringP("channel", "c", "", "Channel ID or configured alias")
 	uploadCmd.Flags().StringVarP(&filePath, "file", "f", "", "Path to upload or - for stdin")
 	uploadCmd.Flags().StringVarP(&filename, "filename", "N", "", "Filename for stdin or override")
 	uploadCmd.Flags().StringVarP(&title, "title", "T", "", "Slack file title")
@@ -146,12 +146,22 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
 	}
 	channel, _ := cmd.Flags().GetString("channel")
+	channel = strings.TrimSpace(climessage.ResolveAlias(profile, strings.TrimSpace(channel)))
 	if strings.TrimSpace(channel) == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("channel is required"))
 	}
 	content, filename, err := readUploadSource(runtime.Stdin, opts.FilePath, opts.Filename)
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+	}
+	if len(content) == 0 {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("upload file must not be empty"))
+	}
+	if strings.TrimSpace(filename) == "" {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("filename must not be blank"))
+	}
+	if strings.ContainsAny(filename, "\x00\r\n") {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("filename must not contain NUL or line breaks"))
 	}
 	blocks, err := uploadMessageBlocks(opts.Message, opts.Blocks, attribution)
 	if err != nil {
@@ -171,7 +181,7 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 	}
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("files:write")); err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
@@ -184,19 +194,27 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 		Reader:          bytes.NewReader(content),
 		FileSize:        len(content),
 	}
-	if len(blocks) > 0 {
+	if opts.Blocks || len(blocks) > 0 {
 		params.Blocks = slackgo.Blocks{BlockSet: blocks}
 	} else {
 		params.InitialComment = opts.Message
 	}
-	file, err := client.UploadFileContext(cmd.Context(), params)
+	file, err := uploadFile(cmd.Context(), client, params)
 	if err != nil {
-		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
+		cliErr := clioutput.CliErrorFromSlack(cmd.Context(), err, "")
+		if progress, ok := errors.AsType[*uploadFailure](err); ok {
+			details := map[string]any{"stage": progress.stage}
+			if progress.fileID != "" {
+				details["file_id"] = progress.fileID
+			}
+			cliErr = cliErr.WithDetails(details)
+		}
+		return clioutput.WriteCommandError(ctx, cliErr)
 	}
 	fileName := filename
 	fileTitle := cliutil.FirstNonEmpty(file.Title, opts.Title)
 	var filePermalink *string
-	if info, _, _, infoErr := client.GetFileInfoContext(cmd.Context(), file.ID, 0, 0); infoErr == nil && info != nil {
+	if info, _, _, infoErr := client.GetFileInfoContext(cmd.Context(), file.ID, 1, 1); infoErr == nil && info != nil && info.ID == file.ID {
 		filePermalink = cliutil.StringPtr(info.Permalink)
 		fileName = cliutil.FirstNonEmpty(info.Name, fileName)
 		fileTitle = cliutil.FirstNonEmpty(info.Title, fileTitle)
@@ -211,6 +229,9 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 }
 
 func uploadMessageBlocks(message string, raw bool, attribution agent.Attribution) ([]slackgo.Block, error) {
+	if raw {
+		return climessage.ComposeBlocks(message, true, attribution)
+	}
 	if strings.TrimSpace(message) == "" && !attribution.Enabled {
 		return nil, nil
 	}
@@ -228,8 +249,14 @@ func readUploadSource(stdin io.Reader, filePath, filename string) ([]byte, strin
 		if filename == "" {
 			return nil, "", errors.New("filename is required when reading file content from stdin")
 		}
+		if stdin == nil {
+			return nil, "", errors.New("stdin is unavailable")
+		}
 		content, err := io.ReadAll(stdin)
-		return content, filename, err
+		if err != nil {
+			return nil, "", errors.New("could not read upload data from stdin")
+		}
+		return content, filename, nil
 	}
 	expandedPath := xfilepath.Expand(filePath)
 	content, err := os.ReadFile(expandedPath) //nolint:gosec // File upload intentionally reads the caller-supplied path.

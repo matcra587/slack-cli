@@ -89,7 +89,7 @@ func newTemplateCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Description:     "Slack CLI app for agent-friendly messaging and automation.",
 		Preset:          DefaultPreset,
 		Type:            "user",
-		RedirectURLs:    []string{clioauth.DefaultManifestRedirectURL()},
+		RedirectURLs:    []string{clioauth.RedirectURLForPort(clioauth.DefaultCallbackPort())},
 		BackgroundColor: "#4A154B",
 	}
 	cmd := &cobra.Command{
@@ -102,9 +102,9 @@ func newTemplateCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			return runTemplate(cmd, runtime, opts)
 		},
 	}
-	cmd.Flags().StringVarP(&opts.Name, "name", "N", opts.Name, "App display name")
-	cmd.Flags().StringVarP(&opts.Description, "description", "d", opts.Description, "Short app description")
-	cmd.Flags().StringVarP(&opts.LongDescription, "long-description", "L", "", "Long app description")
+	cmd.Flags().StringVarP(&opts.Name, "name", "N", opts.Name, "App display name (1-35 characters)")
+	cmd.Flags().StringVarP(&opts.Description, "description", "d", opts.Description, "Short app description (up to 140 characters)")
+	cmd.Flags().StringVarP(&opts.LongDescription, "long-description", "L", "", "Long app description (175-4000 characters when supplied)")
 	cmd.Flags().StringVarP(&opts.Preset, "preset", "p", opts.Preset, "Scope preset: readonly, messaging, files, search, or full")
 	cmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
 		if name == "template" {
@@ -113,11 +113,11 @@ func newTemplateCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		return pflag.NormalizedName(name)
 	})
 	cmd.Flags().StringVarP(&opts.Type, "type", "t", opts.Type, "Auth shape: user, bot, or both")
-	cmd.Flags().StringVarP(&opts.BackgroundColor, "background-color", "B", opts.BackgroundColor, "App background color")
+	cmd.Flags().StringVarP(&opts.BackgroundColor, "background-color", "B", opts.BackgroundColor, "App background color (#RGB or #RRGGBB)")
 	cmd.Flags().StringArrayVarP(&opts.BotScopes, "bot-scope", "S", nil, "Override bot OAuth scope")
 	cmd.Flags().StringArrayVarP(&opts.UserScopes, "user-scope", "U", nil, "Override user OAuth scope")
 	cmd.Flags().StringArrayVarP(&opts.RedirectURLs, "redirect-url", "r", opts.RedirectURLs, "OAuth redirect URL")
-	cmd.Flags().StringVarP(&opts.CallbackPort, "callback-port", "C", "", "Local OAuth callback port for the generated redirect URL")
+	cmd.Flags().StringVarP(&opts.CallbackPort, "callback-port", "C", "", "Local OAuth callback port (1-65535; 0 allocates a free port)")
 	cmd.Flags().StringVarP(&opts.Format, "format", "f", "json", "Output format: json or yaml")
 	cmd.SetHelpFunc(templateHelpFunc(runtime.HelpRenderer))
 	return cmd
@@ -146,12 +146,20 @@ func templateHelpFunc(renderer *help.Renderer) func(*cobra.Command, []string) {
 
 func runTemplate(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts templateOptions) error {
 	ctx := cliruntime.LocalContext(cmd, runtime, "manifest")
-	if opts.CallbackPort != "" && !cmd.Flags().Changed("redirect-url") {
-		opts.RedirectURLs = []string{redirectURLForPort(opts.CallbackPort)}
-	}
 	manifest, err := buildManifest(opts)
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+	}
+	if !cmd.Flags().Changed("redirect-url") {
+		port := opts.CallbackPort
+		if port == "" {
+			port = clioauth.DefaultCallbackPort()
+		}
+		redirect, err := redirectURLForPort(port)
+		if err != nil {
+			return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
+		}
+		manifest.OAuthConfig.RedirectUrls = []string{redirect}
 	}
 
 	format := strings.ToLower(strings.TrimSpace(opts.Format))
@@ -181,19 +189,28 @@ func runTemplate(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts templ
 	return ctx.WriteResult("manifest.template", data)
 }
 
-func redirectURLForPort(port string) string {
-	if strings.TrimSpace(port) == clioauth.OSAssignedCallbackPort {
-		if allocated, err := clioauth.AllocateLocalCallbackPort(); err == nil {
-			port = allocated
+func redirectURLForPort(port string) (string, error) {
+	number, err := strconv.ParseUint(strings.TrimSpace(port), 10, 16)
+	if err != nil {
+		return "", errors.New("callback-port must be between 0 and 65535")
+	}
+	port = strconv.FormatUint(number, 10)
+	if port == clioauth.OSAssignedCallbackPort {
+		port, err = clioauth.AllocateLocalCallbackPort()
+		if err != nil {
+			return "", errors.New("cannot allocate a local OAuth callback port")
 		}
 	}
-	return clioauth.RedirectURLForPort(port)
+	return clioauth.RedirectURLForPort(port), nil
 }
 
 func buildManifest(opts templateOptions) (*generatedManifest, error) {
 	name := strings.TrimSpace(opts.Name)
 	if name == "" {
 		return nil, errors.New("name is required")
+	}
+	if err := validateTemplateDisplay(opts); err != nil {
+		return nil, err
 	}
 	authType := strings.ToLower(strings.TrimSpace(opts.Type))
 	botScopes, userScopes, err := resolveScopes(authType, opts.Preset, opts.BotScopes, opts.UserScopes)
@@ -496,7 +513,11 @@ func renderYAML(manifest *generatedManifest) string {
 		}
 	}
 	b.WriteString("  pkce_enabled: true\n")
-	b.WriteString("  scopes:\n")
+	if len(manifest.OAuthConfig.Scopes.Bot) == 0 && len(manifest.OAuthConfig.Scopes.User) == 0 {
+		b.WriteString("  scopes: {}\n")
+	} else {
+		b.WriteString("  scopes:\n")
+	}
 	if len(manifest.OAuthConfig.Scopes.Bot) > 0 {
 		b.WriteString("    bot:\n")
 		for _, scope := range manifest.OAuthConfig.Scopes.Bot {

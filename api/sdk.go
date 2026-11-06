@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -24,9 +25,9 @@ type SDKOptions struct {
 }
 
 // NewSDKClient creates a native slack-go client with slick's transport policy.
-// A supplied HTTP client is copied so its timeout, redirects, and cookie jar
+// A supplied HTTP client is copied so its timeout, explicit redirect policy, and cookie jar
 // remain effective without replacing its transport in the caller.
-// Native SDK options run last and can override the defaults. The returned client
+// Native SDK options run last and follow their SDK semantics. The returned client
 // exposes every operation in the SDK version selected by slick's Go module.
 func NewSDKClient(token string, opts SDKOptions, options ...slackgo.Option) *slackgo.Client {
 	log := opts.Log
@@ -48,10 +49,13 @@ func NewSDKClient(token string, opts SDKOptions, options ...slackgo.Option) *sla
 		httpClient = &copy
 	}
 	httpClient.Transport = transport
+	if httpClient.CheckRedirect == nil {
+		httpClient.CheckRedirect = sdkCheckRedirect
+	}
 	defaults := []slackgo.Option{
-		slackgo.OptionHTTPClient(httpClient),
+		slackgo.OptionHTTPClient(newSDKHTTPClient(httpClient, opts.APIURL)),
 		slackgo.OptionRetryConfig(sdkRetryConfig()),
-		slackgo.OptionLog(&sdkLogAdapter{w: log, token: token}),
+		slackgo.OptionLog(&sdkLogAdapter{w: log}),
 		slackgo.OptionDebug(opts.Debug),
 	}
 	if opts.APIURL != "" {
@@ -61,31 +65,34 @@ func NewSDKClient(token string, opts SDKOptions, options ...slackgo.Option) *sla
 }
 
 type sdkLogAdapter struct {
-	mu    sync.Mutex
-	w     io.Writer
-	token string
+	mu sync.Mutex
+	w  io.Writer
 }
 
-// SDK debug output may contain an unparsed HTTP error body. Redact configured
-// credentials and recognized credential fields before handing text to callers.
-var sdkDiagnosticRedactors = sync.OnceValue(func() []*regexp.Regexp {
-	return []*regexp.Regexp{
-		regexp.MustCompile(`(?i)("(?:access_token|refresh_token|client_secret|token|authorization)"\s*:\s*)"(?:\\.|[^"\\])*(?:"|$)`),
-		regexp.MustCompile(`(?i)((?:access_token|refresh_token|client_secret|token)=)[^&\s]*`),
-		regexp.MustCompile(`(?im)^([ \t]*authorization[ \t]*:[ \t]*)[^\r\n]*`),
-	}
-})
+var sdkDiagnosticStatusRE = regexp.MustCompile(`^HTTP/[0-9]+(?:\.[0-9]+)? ([1-5][0-9]{2})(?:[ \r\n]|$)`)
 
+// SDK diagnostics can contain complete request payloads, response headers and
+// opaque error bodies. Summarize recognized events without forwarding their
+// contents; a credential-field denylist cannot protect unknown secret fields.
 func (a *sdkLogAdapter) Output(_ int, s string) error {
-	if a.token != "" {
-		s = strings.ReplaceAll(s, a.token, "[REDACTED]")
-	}
-	for _, pattern := range sdkDiagnosticRedactors() {
-		s = pattern.ReplaceAllString(s, "${1}[REDACTED]")
+	summary := "Slack SDK diagnostic: details omitted"
+	switch {
+	case strings.HasPrefix(s, "Sending request:"):
+		summary = "Slack SDK request: payload omitted"
+	case strings.HasPrefix(s, "slack retry:"):
+		summary = "Slack SDK retry: details omitted"
+	case strings.TrimSpace(s) == "Challenging auth...":
+		summary = "Slack SDK auth check"
+	default:
+		if match := sdkDiagnosticStatusRE.FindStringSubmatch(s); len(match) == 2 {
+			if code, err := strconv.Atoi(match[1]); err == nil {
+				summary = fmt.Sprintf("Slack HTTP response: %d %s (headers and body omitted)", code, http.StatusText(code))
+			}
+		}
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	_, err := fmt.Fprintln(a.w, s)
+	_, err := fmt.Fprintln(a.w, summary)
 	return err
 }
 
@@ -96,13 +103,56 @@ type sdkRateLimitTransport struct {
 }
 
 func (t sdkRateLimitTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if !t.disabled && strings.HasPrefix(req.URL.Path, "/api/") {
-		method := strings.TrimPrefix(req.URL.Path, "/api/")
-		if err := t.throttler.Wait(req.Context(), ratelimit.TierForMethod(method)); err != nil {
-			return nil, err
+	ctx := req.Context()
+	call, _ := ctx.Value(sdkCallKey{}).(*sdkCall)
+	if call != nil && !t.disabled {
+		// HTTP-client timeouts include pacing. Redirect hops share this
+		// reservation; a separate SDK retry receives a new logical call.
+		call.pacing.Do(func() {
+			call.pacingErr = t.throttler.Wait(ctx, ratelimit.TierForMethod(call.method))
+		})
+		if call.pacingErr != nil {
+			return nil, call.pacingErr
 		}
 	}
-	return t.base.RoundTrip(req)
+	response, err := t.base.RoundTrip(req)
+	if err != nil {
+		return response, err
+	}
+	if call != nil {
+		// An explicit caller redirect policy may change the final URL or
+		// HTTP verb. Validate the original SDK operation's reply contract.
+		req = call.request.WithContext(req.Context())
+	}
+	response, err = guardSDKHTTPRateLimit(response)
+	if err != nil {
+		return response, err
+	}
+	response, err = guardSDKAuthResponse(req, response)
+	if err != nil {
+		return response, err
+	}
+	response, err = guardSDKReactionResponse(req, response)
+	if err != nil {
+		return response, err
+	}
+	response, err = guardSDKUploadResponse(req, response)
+	if err != nil {
+		return response, err
+	}
+	response, err = guardSDKStatusResponse(req, response)
+	if err != nil {
+		return response, err
+	}
+	response, err = guardSDKMessageResponse(req, response)
+	if err != nil {
+		return response, err
+	}
+	response, err = guardSDKHistoryResponse(req, response)
+	if err != nil {
+		return response, err
+	}
+	return guardSDKLookupResponse(req, response)
 }
 
 func sdkRetryConfig() slackgo.RetryConfig {

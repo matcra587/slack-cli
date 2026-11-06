@@ -37,7 +37,7 @@ This composes → `search_msgs` and → `delete_msg` in a loop. The loop is the 
 ### Behavior
 
 *   Hard cap: stop after 10 outer loop iterations or if match count fails to decrease across two consecutive loops. A non-decreasing count means the query matches non-test content; escalate to the user with the residue rather than looping forever.
-*   On structured `rate_limit` errors, sleep `errors[0].retry_after_seconds` before retrying that target.
+*   On structured `rate_limit` errors, wait for `errors[0].retry_after_seconds` when present. If timing is absent, stop or use bounded backoff. Keep per-target retry attempts bounded.
 *   `message_not_found` = already clean (another worker won the race). Treat as success.
 *   A single `--max-items` page is NOT proof of cleanup — search-result windows can shift mid-delete, so the outer re-run loop is mandatory.
 

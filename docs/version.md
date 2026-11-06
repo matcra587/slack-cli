@@ -36,7 +36,8 @@ slick version --output=json
 
     ```json
     {
-      "meta": {"command": "version", "workspace": "version", "timestamp": "2026-05-26T03:00:56Z", "request_id": "337f5bd1-a5f2-4bb8-8da5-510cb801f62d"},
+      "ok": true,
+      "meta": {"command": "version", "exit_code": 0, "workspace": "version", "timestamp": "2026-05-26T03:00:56Z", "request_id": "337f5bd1-a5f2-4bb8-8da5-510cb801f62d"},
       "data": {
         "version": "v0.5.5",
         "commit": "87e81b8",

@@ -25,6 +25,8 @@ func parseScheduleWhen(input string, now time.Time) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
+	// Slack receives integer Unix seconds; validate the same instant we send.
+	postAt = postAt.Truncate(time.Second)
 	if !postAt.After(now) {
 		return time.Time{}, ErrScheduleInPast
 	}

@@ -102,11 +102,6 @@ func TestFromMarkdownPreservesUnsupportedBlockSourceFallback(t *testing.T) {
 			input: "<details>\n<summary>Deploy</summary>\n</details>\n",
 			want:  "&lt;details&gt;\n&lt;summary&gt;Deploy&lt;/summary&gt;\n&lt;/details&gt;",
 		},
-		{
-			name:  "unsupported extension marker",
-			input: "~~obsolete~~\n",
-			want:  "~~obsolete~~",
-		},
 	}
 
 	for _, tt := range tests {

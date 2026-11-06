@@ -20,6 +20,9 @@ For agents, the documentation is available as an [llms.txt index](https://matcra
 and a [single full-text file](https://matcra587.github.io/slack-cli/llms-full.txt).
 Use **Copy as Markdown** at the top of any page to copy its rendered content.
 
+Running `slick` without a subcommand lists its commands without resolving
+credentials. Printing shell completion scripts also needs no token.
+
 ## Install
 
 ```sh
@@ -98,6 +101,15 @@ flowchart LR
 Use command-local `--blocks` when the message body is already a Slack Block
 Kit JSON array.
 
+`--timeout` (`-I`) defaults to `30s`. Positive values add a command deadline.
+Zero and negative values add no deadline; they preserve any existing caller
+deadline and cancellation. Command-specific limits still apply.
+
+`--debug` (or `-D`) adds diagnostics on stderr. SDK diagnostics keep safe
+HTTP status and event summaries. They omit request payloads, response headers
+and bodies, and unknown diagnostic text, which can contain credentials, message
+content, or signed URLs. Machine results keep the same stdout format.
+
 ## Exit codes
 
 | Code | Meaning |
@@ -105,22 +117,75 @@ Kit JSON array.
 | 0 | Success |
 | 1 | `auth_failure` (`invalid_auth`, `missing_scope`, `no_permission`, expired) |
 | 2 | `not_found` (`channel_not_found`, `user_not_found`, `not_in_channel`, …) |
-| 3 | `rate_limit` (with `retry_after_seconds` in the error envelope) |
+| 3 | `rate_limit` (`retry_after_seconds` is included when Slack supplies timing) |
 | 4 | `validation_error` (bad flags, malformed input, Slack rejects the value) |
-| 5 | `server_error` (Slack 5xx or filesystem/runtime failure) |
-| 6 | `canceled` (SIGINT/SIGTERM during a Slack call) |
-| 7 | `timeout` (`--timeout` exceeded) |
+| 5 | `server_error` (unexpected HTTP response or filesystem/runtime failure) |
+| 6 | `canceled` (command or credential lookup canceled) |
+| 7 | `timeout` (command or credential lookup deadline exceeded) |
 | 8 | `io` (`output_write_failed`; a mutation may already have completed) |
 
 JSON and compact failures write a full `{ok, meta, data, errors}` envelope
 to stdout, with `ok=false`, `data=null`, and the original error class and exit
-code. Human errors use stderr. A machine failure has no duplicate human error.
+code. Human errors use stderr and include `retry_after_seconds` when known,
+including zero. A machine failure has no duplicate human error.
+Help and shell completion scripts keep their text format in every output mode.
+If writing that text fails, slick returns exit 8, reports `output_write_failed`
+on stderr, and stops writing. Discard any partial text.
+Credential lookup failures use exit 1 with a safe diagnostic. Provider output
+is not included because it may contain secrets. Cancellation and deadlines
+keep exit 6 and 7, including during credential lookup. An empty credential
+stops the command before any Slack request.
+
 Compact success still emits the command data directly. Paginated command data
 includes `pagination`; JSON also keeps `meta.pagination` for compatibility.
+List pagination includes `items_returned`, including `0` for an empty page.
+Human list output keeps the rows and adds a footer with `has_more`, the count,
+and any next cursor or time boundary. A final page shows `has_more=false`.
 
-A result-write failure exits 8. A mutation may already have completed: inspect
-Slack before retrying it. Bare `slick` returns command discovery in machine
-modes; explicit `--help` remains help text.
+Recognized Slack JSON errors distinguish recovery: `token_expired` and
+`access_denied` use exit 1; `file_not_found`, `thread_not_found`, and
+`invalid_scheduled_message_id` use exit 2. `rate_limited` and `ratelimited` use
+exit 3. Bad timestamps, stale cursors, invalid rich content, and the reaction
+limits listed in the command docs use exit 4. Internal failures and unrecognized
+Slack error codes keep exit 5. These classes do not trigger automatic mutation
+retries.
+
+HTTP `429` uses exit 3 even when `Retry-After` is missing or unusable. A usable
+nonnegative integer delay allows at most two automatic retries. Missing,
+invalid, duplicate, or excessively long timing returns the rate-limit error
+immediately. Known timing is included as `retry_after_seconds`, including zero;
+unknown timing is omitted. A valid integer delay that exceeds the supported
+wait duration is reported without scheduling a retry.
+
+`--no-throttle` disables proactive pacing; bounded retries for usable rate-limit
+timing remain enabled. Cancellation or a deadline during a retry wait uses exit
+6 or 7. Other unexpected HTTP responses, including `401` and `403`, use exit 5.
+Slack JSON errors such as `invalid_auth` and `missing_scope` use exit 1.
+
+Slack request failures use safe diagnostic summaries. HTTP failures retain the
+numeric status, but omit the server's reason phrase and request URL. Malformed
+error codes and unrecognized scope names are omitted. Missing-scope errors
+prefer Slack's structured `needed` field and fall back to metadata messages
+when the SDK preserves them. Some SDK response types discard those messages,
+so a missing-scope failure may have no `needed` detail.
+
+When present, `errors[].details.needed` is always an array of scope names.
+`needed_match` explains the list: `all` requires every named scope; `any`
+requires at least one. `reported` means Slack supplied the names and slick
+does not infer an all-or-any rule from them. Unrecognized scope names are
+omitted from diagnostics.
+
+A result-write failure exits 8 in human, JSON, and compact modes. A mutation
+may already have completed: inspect Slack before retrying it. Slick does not
+retry the failed result destination. Output diagnostics omit the underlying
+writer error text, which can contain private data. If a human error cannot be
+written to stderr, slick also exits 8 and leaves stdout empty. Bare `slick`
+returns command discovery in machine modes; explicit `--help` remains help text.
+Flag and argument parsing failures identify the selected command in
+`meta.command`, using its canonical name even when invoked through an alias.
+Early failures retain the requested workspace, using its configured spelling
+when known, or the configured default when no profile was selected. Formatting
+these errors does not read credentials or call Slack.
 
 ## Output styling
 
@@ -197,7 +262,8 @@ slick config set workspaces.default.attribution.message "Sent via build agent"
 
 *   Config: `${SLICK_CONFIG:-${XDG_CONFIG_HOME:-~/.config}/slick/config.toml}`.
   `SLACK_CLI_CONFIG` remains as a legacy override.
-*   Cache: `${XDG_CACHE_HOME:-~/.cache}/slick/<profile>/`.
+*   Cache: `${XDG_CACHE_HOME:-~/.cache}/slick/<profile>/` for ordinary names.
+    [Special or long profile names](cache.md) use stable folder identifiers.
 *   Path inputs (`SLICK_CONFIG`, `--token-file`, `--file`, …) expand `~` and
   environment variables.
 

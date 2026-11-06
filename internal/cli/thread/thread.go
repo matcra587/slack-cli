@@ -31,7 +31,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			return runThreadReply(cmd, runtime, src, cliruntime.DryRun(cmd))
 		},
 	}
-	replyCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
+	replyCmd.Flags().StringP("channel", "c", "", "Channel ID or configured alias")
 	replyCmd.Flags().StringP("parent", "p", "", "Parent message timestamp")
 	replyCmd.Flags().StringVarP(&src.Message, "message", "m", "", "Message body")
 	replyCmd.Flags().StringVarP(&src.File, "file", "f", "", "Read message body from file or - for stdin")
@@ -47,11 +47,13 @@ func runThreadReply(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src cli
 	}
 
 	channel, _ := cmd.Flags().GetString("channel")
+	channel = strings.TrimSpace(climessage.ResolveAlias(profile, strings.TrimSpace(channel)))
 	if strings.TrimSpace(channel) == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("channel is required"))
 	}
 	parent, _ := cmd.Flags().GetString("parent")
-	if strings.TrimSpace(parent) == "" {
+	parent = strings.TrimSpace(parent)
+	if parent == "" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("parent is required"))
 	}
 
@@ -63,6 +65,9 @@ func runThreadReply(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src cli
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
+	if src.Blocks && len(blocks) == 0 {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("new messages require at least one block"))
+	}
 
 	result := climessage.SendData{Attribution: attribution.Enabled}
 	if dryRun {
@@ -73,17 +78,21 @@ func runThreadReply(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src cli
 			Text:     cliutil.StringPtr(strings.TrimSpace(content)),
 			ThreadTS: cliutil.StringPtr(parent),
 		}
+		if src.Blocks {
+			result.Message.Text = nil
+			result.Message.Blocks = &slackgo.Blocks{BlockSet: blocks}
+		}
 		result.DryRun = true
 		result.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), nil, profile.Name, channel)
 	} else {
 		client, err := slackclient.Client(cmd, profile, runtime)
 		if err != nil {
-			return clioutput.WriteCommandError(ctx, clioutput.AuthCLIError(err.Error()))
+			return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 		}
 		if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("chat:write")); err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 		}
-		options := append(climessage.MessageOptions(content, blocks, attribution), slackgo.MsgOptionTS(parent))
+		options := append(climessage.MessageOptions(content, blocks, src.Blocks), slackgo.MsgOptionTS(parent))
 		respChannel, ts, sent, err := client.PostMessageWithResponseContext(cmd.Context(), channel, options...)
 		if err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))

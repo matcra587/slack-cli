@@ -45,7 +45,8 @@ type apiTestData struct {
 
 type apiTestResponse struct {
 	slackgo.SlackResponse
-	Args map[string]any `json:"args,omitempty"`
+	Acknowledged *bool          `json:"ok"`
+	Args         map[string]any `json:"args,omitempty"`
 }
 
 type currentResponse struct {
@@ -309,6 +310,10 @@ func (c Client) APITest(ctx context.Context) (apiTestData, error) {
 	if err := c.doJSON(req, &response); err != nil {
 		return apiTestData{}, fmt.Errorf("call api.test: %w", err)
 	}
+	if response.Acknowledged == nil || (!*response.Acknowledged && strings.TrimSpace(response.Error) == "") || (*response.Acknowledged && response.Error != "") {
+		return apiTestData{}, errors.New("invalid api.test acknowledgement")
+	}
+	response.Ok = *response.Acknowledged
 	if err := response.Err(); err != nil {
 		return apiTestData{}, err
 	}
@@ -324,6 +329,9 @@ func (c Client) Current(ctx context.Context) (currentResponse, error) {
 	if err := c.doJSON(req, &response); err != nil {
 		return currentResponse{}, fmt.Errorf("call slack status current: %w", err)
 	}
+	if strings.TrimSpace(response.Status) == "" || !validIncidentList(response.ActiveIncidents) {
+		return currentResponse{}, errors.New("incomplete current status response")
+	}
 	return response, nil
 }
 
@@ -336,7 +344,22 @@ func (c Client) History(ctx context.Context) ([]clioutput.HealthIncident, error)
 	if err := c.doJSON(req, &response); err != nil {
 		return nil, fmt.Errorf("call slack status history: %w", err)
 	}
+	if !validIncidentList(response) {
+		return nil, errors.New("incomplete status history")
+	}
 	return incidentsFromRaw(response), nil
+}
+
+func validIncidentList(incidents []rawIncident) bool {
+	if incidents == nil {
+		return false
+	}
+	for _, incident := range incidents {
+		if strings.TrimSpace(string(incident.ID)) == "" {
+			return false
+		}
+	}
+	return true
 }
 
 func (c Client) doJSON(req *http.Request, out any) error {
@@ -349,12 +372,27 @@ func (c Client) doJSON(req *http.Request, out any) error {
 		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("http status %d", resp.StatusCode)
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return rateLimitError{retryAfterSeconds: retryAfterSeconds(resp.Header.Values("Retry-After"))}
 	}
-	decoder := json.NewDecoder(io.LimitReader(resp.Body, maxResponseBytes))
-	if err := decoder.Decode(out); err != nil {
-		return fmt.Errorf("decode response: %w", err)
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return slackgo.StatusCodeError{Code: resp.StatusCode}
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
+	if err != nil {
+		if contextErr := req.Context().Err(); contextErr != nil {
+			return contextErr
+		}
+		return errors.New("incomplete health response")
+	}
+	if len(body) > maxResponseBytes {
+		return errors.New("health response exceeds size limit")
+	}
+	if bytes.Equal(bytes.TrimSpace(body), []byte("null")) {
+		return errors.New("missing health response")
+	}
+	if err := json.Unmarshal(body, out); err != nil {
+		return errors.New("invalid health response")
 	}
 	return nil
 }
@@ -379,6 +417,10 @@ func incidentsFromRaw(raw []rawIncident) []clioutput.HealthIncident {
 	}
 	out := make([]clioutput.HealthIncident, 0, len(raw))
 	for _, incident := range raw {
+		notes := make([]clioutput.HealthNote, len(incident.Notes))
+		for i, note := range incident.Notes {
+			notes[i] = clioutput.HealthNote{Body: note.Body, DateCreated: note.DateCreated}
+		}
 		out = append(out, clioutput.HealthIncident{
 			ID:          string(incident.ID),
 			Title:       strings.TrimSpace(incident.Title),
@@ -388,7 +430,8 @@ func incidentsFromRaw(raw []rawIncident) []clioutput.HealthIncident {
 			DateCreated: strings.TrimSpace(incident.DateCreated),
 			DateUpdated: strings.TrimSpace(incident.DateUpdated),
 			Services:    compactStrings(incident.Services),
-			NoteCount:   len(incident.Notes),
+			Notes:       notes,
+			NoteCount:   len(notes),
 		})
 	}
 	return out
@@ -456,7 +499,36 @@ func statusEndpointURL(baseURL, endpoint string) string {
 	return strings.TrimRight(baseURL, "/") + "/" + endpoint
 }
 
+type rateLimitError struct {
+	retryAfterSeconds *int
+}
+
+func (rateLimitError) Error() string { return "ratelimited" }
+
+func retryAfterSeconds(values []string) *int {
+	if len(values) != 1 {
+		return nil
+	}
+	value := strings.TrimSpace(values[0])
+	if value == "" || strings.IndexFunc(value, func(r rune) bool { return r < '0' || r > '9' }) >= 0 {
+		return nil
+	}
+	seconds, err := strconv.Atoi(value)
+	if err != nil {
+		return nil
+	}
+	return &seconds
+}
+
 func cliError(ctx context.Context, err error) clioutput.CLIError {
+	if rateErr, ok := errors.AsType[rateLimitError](err); ok {
+		return clioutput.CLIError{
+			Type:              clioutput.ErrorTypeRateLimit,
+			Message:           "ratelimited",
+			RetryAfterSeconds: rateErr.retryAfterSeconds,
+			ExitCode:          clioutput.ExitCodeRateLimit,
+		}
+	}
 	if slackErr, ok := errors.AsType[slackgo.SlackErrorResponse](err); ok {
 		return clioutput.CliErrorFromSlack(ctx, slackErr, "")
 	}

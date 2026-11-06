@@ -1,6 +1,9 @@
 package workspace
 
 import (
+	"cmp"
+	"slices"
+
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	"github.com/matcra587/slack-cli/internal/config"
@@ -36,6 +39,9 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 					workspaces = append(workspaces, profile)
 				}
 			}
+			slices.SortFunc(workspaces, func(a, b config.WorkspaceProfile) int {
+				return cmp.Compare(a.Name, b.Name)
+			})
 			return ctx.WriteResult("workspace.list", ListData{Workspaces: workspaces})
 		},
 	}

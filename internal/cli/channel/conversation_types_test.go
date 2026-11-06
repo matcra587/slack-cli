@@ -23,7 +23,7 @@ func TestParseConversationTypes(t *testing.T) {
 			want: []string{"public_channel", "private_channel"},
 		},
 		{
-			name: "all short-circuits to every supported conversation type",
+			name: "all expands to every supported conversation type",
 			in:   "im,all,public_channel",
 			want: []string{"public_channel", "private_channel", "im", "mpim"},
 		},
@@ -43,7 +43,10 @@ func TestParseConversationTypes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := parseConversationTypes(tt.in)
+			got, err := parseConversationTypes(tt.in)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if !slices.Equal(got, tt.want) {
 				t.Fatalf("parseConversationTypes(%q) = %#v, want %#v", tt.in, got, tt.want)
 			}

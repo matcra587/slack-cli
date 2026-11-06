@@ -50,6 +50,9 @@ Goal: Post a message to a channel, user, or group DM and capture the Slack times
 
 ## Save
 
+Real sends return Slack's message text, author, and blocks when present. The
+receipt can differ from the submitted text. Dry runs return the planned input.
+
 > Requires `--output=json`.
 
 Immediate: `data.message.ts`, `data.message.thread_ts` (when threaded), `data.permalink`, `data.message.channel` / `data.message.channel_url`.

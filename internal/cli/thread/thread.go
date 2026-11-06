@@ -84,17 +84,13 @@ func runThreadReply(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src cli
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 		}
 		options := append(climessage.MessageOptions(content, blocks, attribution), slackgo.MsgOptionTS(parent))
-		respChannel, ts, err := client.PostMessageContext(cmd.Context(), channel, options...)
+		respChannel, ts, sent, err := client.PostMessageWithResponseContext(cmd.Context(), channel, options...)
 		if err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 		}
-		result.Message = clioutput.Message{
-			Type:     "message",
-			TS:       ts,
-			Channel:  cliutil.StringPtr(respChannel),
-			Text:     cliutil.StringPtr(strings.TrimSpace(content)),
-			ThreadTS: cliutil.StringPtr(parent),
-		}
+		sent.Type = cliutil.FirstNonEmpty(sent.Type, "message")
+		sent.Timestamp = cliutil.FirstNonEmpty(sent.Timestamp, ts)
+		result.Message = clioutput.MessageFromSlack(sent, respChannel)
 		result.Permalink = climessage.Permalink(cmd.Context(), client, respChannel, ts)
 		result.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, respChannel)
 	}

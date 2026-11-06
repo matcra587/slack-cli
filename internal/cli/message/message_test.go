@@ -981,3 +981,71 @@ func workspaceConfig(tokenType config.TokenType) *config.Config {
 		},
 	}
 }
+
+func TestMessageSendReceiptUsesSlackResponse(t *testing.T) {
+	for _, mode := range []string{"json", "compact"} {
+		t.Run(mode, func(t *testing.T) {
+			server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+				"chat.postMessage": func(testutil.SlackRequest) testutil.SlackResponse {
+					return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","text":"Slack normalized this text","user":"U456","bot_id":"B789","ts":"1746284582.123456","blocks":[{"type":"section","text":{"type":"plain_text","text":"Stored block"}}]}}`)
+				},
+				"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
+					return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
+				},
+			})
+			stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
+				[]string{"message", "send", "--channel", "C123", "--message", "Submitted text", "--output=" + mode})
+			if err != nil {
+				t.Fatalf("send failed: %v; stderr=%s", err, stderr)
+			}
+			var result map[string]any
+			if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+				t.Fatal(err)
+			}
+			if mode == "json" {
+				result = result["data"].(map[string]any)
+			}
+			message := result["message"].(map[string]any)
+			for key, want := range map[string]string{"text": "Slack normalized this text", "user": "U456", "bot_id": "B789", "channel": "C123", "ts": "1746284582.123456"} {
+				if message[key] != want {
+					t.Errorf("message.%s = %#v, want %q", key, message[key], want)
+				}
+			}
+			if blocks, ok := message["blocks"].([]any); !ok || len(blocks) != 1 {
+				t.Fatalf("blocks = %#v", message["blocks"])
+			}
+			if n := len(server.Requests("chat.postMessage")); n != 1 {
+				t.Fatalf("post requests = %d, want 1", n)
+			}
+			if n := len(server.Requests("conversations.history")); n != 0 {
+				t.Fatalf("history requests = %d, want 0", n)
+			}
+		})
+	}
+}
+
+func TestMessageSendSparseReceiptDoesNotInventSlackText(t *testing.T) {
+	server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+		"chat.postMessage": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284582.123456"}`)
+		},
+		"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
+			return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.com/message"}`)
+		},
+	})
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "", []string{"message", "send", "--channel", "C123", "--message", "Not returned by Slack"})
+	if err != nil {
+		t.Fatalf("send failed: %v; stderr=%s", err, stderr)
+	}
+	var result map[string]any
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatal(err)
+	}
+	message := result["data"].(map[string]any)["message"].(map[string]any)
+	if _, exists := message["text"]; exists {
+		t.Fatalf("invented text in receipt: %#v", message)
+	}
+	if message["ts"] != "1746284582.123456" || message["channel"] != "C123" {
+		t.Fatalf("missing top-level receipt identity: %#v", message)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"unicode/utf8"
 
 	slackgo "github.com/slack-go/slack"
 )
@@ -418,6 +419,11 @@ func validateRawRichTextSectionChild(index int, label string, childIndex int, ch
 		requiredField = "url"
 	case "user":
 		requiredField = "user_id"
+	case "message_mention":
+		requiredField = "channel_id"
+		if timestamp, _ := child["message_ts"].(string); timestamp == "" {
+			return fmt.Errorf("block %d %s element %d message_ts is required", index, label, childIndex)
+		}
 	case "channel":
 		requiredField = "channel_id"
 	case "usergroup":
@@ -467,7 +473,7 @@ func validateRawTextObject(index int, label string, text map[string]any, maxLeng
 	if value == "" {
 		return fmt.Errorf("block %d %s text is required", index, label)
 	}
-	if len(value) > maxLength {
+	if utf8.RuneCountInString(value) > maxLength {
 		return fmt.Errorf("block %d %s text exceeds %d characters", index, label, maxLength)
 	}
 	return nil
@@ -506,7 +512,7 @@ func validateTextObject(index int, label string, text *TextObject, maxLength int
 	if text.Text == "" {
 		return fmt.Errorf("block %d %s text is required", index, label)
 	}
-	if len(text.Text) > maxLength {
+	if utf8.RuneCountInString(text.Text) > maxLength {
 		return fmt.Errorf("block %d %s exceeds %d characters", index, label, maxLength)
 	}
 	return nil

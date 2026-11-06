@@ -132,7 +132,33 @@ Markdown converts to Block Kit before posting:
     IDs with [`lookup user`](lookup.md#lookup-user) /
     [`lookup channel`](lookup.md#lookup-channel).
 
+### Text limits and message references
+
+Section text supports up to 3,000 Unicode characters; each section field supports
+up to 2,000. Emoji and non-English text count by character rather than UTF-8 byte
+length.
+
+Raw Block Kit input can link to an existing message with a `message_mention`
+element. Keep the timestamp as a string:
+
+```json
+[{"type":"rich_text","elements":[
+  {"type":"rich_text_section","elements":[
+    {"type":"text","text":"Review "},
+    {"type":"message_mention","channel_id":"C1234567890","message_ts":"1746284582.123456"},
+    {"type":"text","text":" before release."}
+  ]}
+]}]
+```
+
+Save the array to `blocks.json`, then pass `--blocks --file blocks.json`. The
+referenced message must be in a channel the reader can access.
+
 ### Output
+
+For real sends, `data.message` uses the message Slack returns, including its
+stored text, author, and blocks when present. Slick does not replace Slack's text
+with the submitted input. Dry runs describe the planned message instead.
 
 === "Human"
 

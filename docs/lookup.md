@@ -265,6 +265,11 @@ Requires a user token with `search:read`.
     | `-C`, `--cursor` | `<CURSOR>` | Pagination cursor |
     | `-F`, `--full` | | Show full text in human mode |
 
+When Slack returns empty message text, slick extracts readable text from the
+message's blocks. This includes file, canvas, citation, message, list, workflow,
+and app references. Slick uses the supplied label or URL, then a reference ID
+when available. Nonempty text returned by Slack takes precedence.
+
 Query syntax follows Slack's search modifiers (`from:`, `in:`, `before:`,
 `after:`, etc.).
 

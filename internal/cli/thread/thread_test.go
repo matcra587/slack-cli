@@ -324,3 +324,43 @@ func workspaceConfig(tokenType config.TokenType) *config.Config {
 		},
 	}
 }
+
+func TestReplyReceiptUsesActualThreadPlacement(t *testing.T) {
+	for _, tc := range []struct{ name, thread string }{
+		{"posted in thread", `,"thread_ts":"1746284582.123456"`},
+		{"parent deleted and reply posted outside thread", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := testutil.NewSlackServer(t, map[string]testutil.SlackHandler{
+				"chat.postMessage": func(testutil.SlackRequest) testutil.SlackResponse {
+					return testutil.JSONResponse(`{"ok":true,"channel":"C123","ts":"1746284599.123456","message":{"type":"message","text":"Stored reply","user":"U456","ts":"1746284599.123456"` + tc.thread + `}}`)
+				},
+				"chat.getPermalink": func(testutil.SlackRequest) testutil.SlackResponse {
+					return testutil.JSONResponse(`{"ok":true,"permalink":"https://example.com/reply"}`)
+				},
+			})
+			stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "", []string{"reply", "--channel", "C123", "--parent", "1746284582.123456", "--message", "Submitted reply"})
+			if err != nil {
+				t.Fatalf("reply failed: %v; stderr=%s", err, stderr)
+			}
+			var result map[string]any
+			if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+				t.Fatal(err)
+			}
+			message := result["data"].(map[string]any)["message"].(map[string]any)
+			if message["text"] != "Stored reply" || message["user"] != "U456" {
+				t.Fatalf("receipt does not reflect Slack message: %#v", message)
+			}
+			thread, exists := message["thread_ts"]
+			if tc.thread == "" && exists {
+				t.Fatalf("invented thread placement: %#v", message)
+			}
+			if tc.thread != "" && thread != "1746284582.123456" {
+				t.Fatalf("thread_ts = %#v", thread)
+			}
+			if n := len(server.Requests("chat.postMessage")); n != 1 {
+				t.Fatalf("post requests = %d, want 1", n)
+			}
+		})
+	}
+}

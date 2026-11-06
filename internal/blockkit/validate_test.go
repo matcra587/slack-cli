@@ -334,3 +334,62 @@ func (fakeBlock) BlockType() slackgo.MessageBlockType {
 func (fakeBlock) ID() string {
 	return ""
 }
+
+func TestValidateTextCountsUnicodeCharacters(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name      string
+		text      string
+		field     bool
+		wantError bool
+	}{
+		{name: "section CJK at limit", text: strings.Repeat("界", 3000)},
+		{name: "section emoji at limit", text: strings.Repeat("🚀", 3000)},
+		{name: "section over limit", text: strings.Repeat("🚀", 3001), wantError: true},
+		{name: "ASCII over limit", text: strings.Repeat("a", 3001), wantError: true},
+		{name: "field at limit", text: strings.Repeat("é", 2000), field: true},
+		{name: "field over limit", text: strings.Repeat("é", 2001), field: true, wantError: true},
+		{name: "combining marks count separately", text: strings.Repeat("e\u0301", 1501), wantError: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			typed := &blockkit.SectionBlock{Type: "section"}
+			raw := map[string]any{"type": "section"}
+			object := map[string]any{"type": "plain_text", "text": tc.text}
+			if tc.field {
+				typed.Fields = []*blockkit.TextObject{{Type: "plain_text", Text: tc.text}}
+				raw["fields"] = []any{object}
+			} else {
+				typed.Text = &blockkit.TextObject{Type: "plain_text", Text: tc.text}
+				raw["text"] = object
+			}
+			for name, err := range map[string]error{
+				"typed": blockkit.ValidateBlocks([]blockkit.Block{typed}),
+				"raw":   blockkit.ValidateRawBlocks([]map[string]any{raw}),
+			} {
+				if (err != nil) != tc.wantError {
+					t.Errorf("%s validation error = %v, want error %v", name, err, tc.wantError)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateRawMessageMention(t *testing.T) {
+	for _, tc := range []struct {
+		name, channel, ts string
+		wantError         bool
+	}{
+		{name: "valid reference", channel: "C123", ts: "1746284582.123456"},
+		{name: "missing channel", ts: "1746284582.123456", wantError: true},
+		{name: "missing timestamp", channel: "C123", wantError: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			blocks := []map[string]any{{"type": "rich_text", "elements": []any{map[string]any{"type": "rich_text_section", "elements": []any{map[string]any{"type": "message_mention", "channel_id": tc.channel, "message_ts": tc.ts}}}}}}
+			err := blockkit.ValidateRawBlocks(blocks)
+			if (err != nil) != tc.wantError {
+				t.Fatalf("error = %v, want error %v", err, tc.wantError)
+			}
+		})
+	}
+}

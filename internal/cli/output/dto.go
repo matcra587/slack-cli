@@ -311,6 +311,54 @@ func richTextSectionElementsToString(elems []slackgo.RichTextSectionElement) str
 			b.WriteString("<#" + e.ChannelID + ">")
 		case *slackgo.RichTextSectionBroadcastElement:
 			b.WriteString("<!" + e.Range + ">")
+		case *slackgo.RichTextSectionFileElement:
+			if e != nil {
+				b.WriteString(cliutil.FirstNonEmpty(e.Text, e.URL, "[file "+e.FileID+"]"))
+			}
+		case *slackgo.RichTextSectionCanvasElement:
+			if e != nil {
+				label := ""
+				if e.Label != nil {
+					label = *e.Label
+				}
+				b.WriteString(cliutil.FirstNonEmpty(label, e.Text, e.URL, "[canvas "+e.FileID+"]"))
+			}
+		case *slackgo.RichTextSectionCitationElement:
+			if e != nil {
+				b.WriteString(cliutil.FirstNonEmpty(e.Text, e.URL, "[citation]"))
+			}
+		case *slackgo.RichTextSectionMessageMentionElement:
+			if e != nil {
+				b.WriteString(cliutil.FirstNonEmpty(e.Text, e.URL, "[message "+e.ChannelID+"/"+e.MessageTimestamp+"]"))
+			}
+		case *slackgo.RichTextSectionCanvasMessageUnfurlElement:
+			if e != nil {
+				b.WriteString("[message " + e.RootMessageChannel + "/" + e.RootMessageTimestamp + "]")
+			}
+		case *slackgo.RichTextSectionCanvasUserMentionElement:
+			if e != nil {
+				b.WriteString("<@" + e.UserID + ">")
+			}
+		case *slackgo.RichTextSectionListRecordElement:
+			if e != nil {
+				ref := e.FileID
+				if e.RecordID != "" {
+					ref += "/" + e.RecordID
+				}
+				b.WriteString(cliutil.FirstNonEmpty(e.Text, e.URL, "[list "+ref+"]"))
+			}
+		case *slackgo.RichTextSectionWorkflowMentionElement:
+			if e != nil {
+				b.WriteString(cliutil.FirstNonEmpty(e.Text, e.URL, "[workflow "+e.WorkflowID+"]"))
+			}
+		case *slackgo.RichTextSectionAttachmentMentionElement:
+			if e != nil {
+				b.WriteString(cliutil.FirstNonEmpty(e.Text, e.URL, "[attachment "+e.EntityID+"]"))
+			}
+		case *slackgo.RichTextSectionWorkObjectMentionElement:
+			if e != nil {
+				b.WriteString(cliutil.FirstNonEmpty(e.Text, e.URL, "[work object "+e.EntityID+"]"))
+			}
 		}
 	}
 	return b.String()

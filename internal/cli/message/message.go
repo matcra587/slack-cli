@@ -277,11 +277,13 @@ func runMessageSend(cmd *cobra.Command, runtime *cliruntime.RootRuntime, src Sou
 		} else if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("chat:write")); err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 		}
-		channel, ts, err := client.PostMessageContext(cmd.Context(), target.Channel, MessageOptions(content, blocks, attribution)...)
+		channel, ts, sent, err := client.PostMessageWithResponseContext(cmd.Context(), target.Channel, MessageOptions(content, blocks, attribution)...)
 		if err != nil {
 			return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 		}
-		result.Message = clioutput.Message{Type: "message", TS: ts, Channel: cliutil.StringPtr(channel), Text: cliutil.StringPtr(strings.TrimSpace(content))}
+		sent.Type = cliutil.FirstNonEmpty(sent.Type, "message")
+		sent.Timestamp = cliutil.FirstNonEmpty(sent.Timestamp, ts)
+		result.Message = clioutput.MessageFromSlack(sent, channel)
 		result.Permalink = Permalink(cmd.Context(), client, channel, ts)
 		result.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), client, profile.Name, channel)
 	}

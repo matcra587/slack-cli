@@ -1,6 +1,7 @@
 package output
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -127,5 +128,38 @@ func TestSearchMessageFromSlack_EmptyBlocksReturnsEmpty(t *testing.T) {
 	got := SearchMessageFromSlack(msg)
 	if got.Text != "" {
 		t.Fatalf("Text = %q, want empty", got.Text)
+	}
+}
+
+func TestSearchMessageFromSlackPreservesNewRichTextReferences(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ name, element, want string }{
+		{"file label", `{"type":"file","file_id":"F1","text":"Release notes","url":"https://example.com/file"}`, "Release notes"},
+		{"file URL", `{"type":"file","file_id":"F1","url":"https://example.com/file"}`, "https://example.com/file"},
+		{"file ID", `{"type":"file","file_id":"F1"}`, "[file F1]"},
+		{"canvas label", `{"type":"canvas","file_id":"F2","label":"Runbook","text":"Other"}`, "Runbook"},
+		{"canvas ID", `{"type":"canvas","file_id":"F2"}`, "[canvas F2]"},
+		{"citation", `{"type":"citation","url":"https://example.com/source","text":"Source","index":1,"details":{"type":"web","url":"https://example.com/source"}}`, "Source"},
+		{"message label", `{"type":"message_mention","channel_id":"C1","message_ts":"1746284582.123456","text":"Incident update"}`, "Incident update"},
+		{"message ID", `{"type":"message_mention","channel_id":"C1","message_ts":"1746284582.123456"}`, "[message C1/1746284582.123456]"},
+		{"canvas message", `{"type":"canvas_message_unfurl","root_message_channel":"C1","root_message_ts":"1746284582.123456"}`, "[message C1/1746284582.123456]"},
+		{"canvas user", `{"type":"canvas_user_mention","user_id":"U1"}`, "<@U1>"},
+		{"list item", `{"type":"list_record","file_id":"F3","record_id":"R1"}`, "[list F3/R1]"},
+		{"workflow", `{"type":"workflow_mention","workflow_id":"W1","function_trigger_id":"T1","text":"Deploy"}`, "Deploy"},
+		{"attachment", `{"type":"attachment_mention","url":"https://example.com/attachment","text":"Design"}`, "Design"},
+		{"work object", `{"type":"work_object_mention","entity_id":"E1","app_id":"A1","text":"Ticket","url":"https://example.com/ticket"}`, "Ticket"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			raw := `{"text":"","blocks":[{"type":"rich_text","elements":[{"type":"rich_text_section","elements":[{"type":"text","text":"See "},` + tc.element + `,{"type":"text","text":" today"}]}]}]}`
+			var message slackgo.SearchMessage
+			if err := json.Unmarshal([]byte(raw), &message); err != nil {
+				t.Fatal(err)
+			}
+			got := SearchMessageFromSlack(message)
+			if want := "See " + tc.want + " today"; got.Text != want {
+				t.Fatalf("text = %q, want %q", got.Text, want)
+			}
+		})
 	}
 }

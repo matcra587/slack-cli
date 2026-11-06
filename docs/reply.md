@@ -45,8 +45,11 @@ slick reply --channel C1234567890 --parent 1746284582.123456 --blocks --file blo
 === "JSON"
 
     JSON envelope (real reply) mirrors [`message send`](message.md#message-send)
-    but the data record includes `thread_ts`, and the `permalink` carries
-    extra query parameters identifying the parent thread:
+    and uses Slack's returned message. `data.message.thread_ts` records the actual
+    thread anchor when Slack includes it. If the parent was deleted and Slack
+    posts outside the thread, this field is absent. Check the receipt rather
+    than assuming the reply used the requested parent. A threaded reply's
+    permalink can include query parameters identifying the thread:
 
     ```json
     {

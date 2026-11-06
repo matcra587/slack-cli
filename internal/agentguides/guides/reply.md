@@ -47,7 +47,7 @@ Goal: Post a threaded reply to a parent message, returning the new `ts` and the 
 
 > Requires `--output=json`.
 *   `data.message.ts` [string, required] — the reply's own ts (use for `react` / `edit_msg` on the reply).
-*   `data.message.thread_ts` [string, required] — shared thread anchor; equals `--parent` on the first reply.
+*   `data.message.thread_ts` [string, optional] — actual thread anchor returned by Slack. If the parent was deleted and Slack posted outside the thread, this field is absent. Inspect it before treating the send as threaded.
 *   `data.permalink` [string, required] — Slack URL.
 
 ## Preconditions

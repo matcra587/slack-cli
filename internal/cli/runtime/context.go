@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/matcra587/slack-cli/internal/agent"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
@@ -104,6 +105,7 @@ func CommandContext(cmd *cobra.Command, runtime *RootRuntime) (*clioutput.Comman
 		sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
 		clioutput.ApplyRenderMode(sl, mode)
 		ctx := &clioutput.CommandContext{
+			Command:       strings.TrimPrefix(strings.ReplaceAll(cmd.CommandPath(), " ", "."), "slick."),
 			Workspace:     "default",
 			Mode:          mode,
 			Stdout:        runtime.Stdout,
@@ -149,6 +151,7 @@ func CommandContext(cmd *cobra.Command, runtime *RootRuntime) (*clioutput.Comman
 	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
 	clioutput.ApplyRenderMode(sl, mode)
 	ctx := &clioutput.CommandContext{
+		Command:       strings.TrimPrefix(strings.ReplaceAll(cmd.CommandPath(), " ", "."), "slick."),
 		Workspace:     resolvedWorkspace,
 		TeamID:        resolvedProfile.TeamID,
 		Mode:          mode,
@@ -229,7 +232,9 @@ func localString(fs *pflag.FlagSet, name string) string {
 func LocalContext(cmd *cobra.Command, runtime *RootRuntime, workspace string) *clioutput.CommandContext {
 	output, _ := ExtractFlags(cmd)
 	mode := output.Resolve(runtime.IsTTY, detectAgentOutputMode())
-	return buildLocalContext(runtime, workspace, mode)
+	ctx := buildLocalContext(runtime, workspace, mode)
+	ctx.Command = strings.TrimPrefix(strings.ReplaceAll(cmd.CommandPath(), " ", "."), "slick.")
+	return ctx
 }
 
 // LocalContextForceAgent is like LocalContext but forces agent-mode output
@@ -238,7 +243,9 @@ func LocalContext(cmd *cobra.Command, runtime *RootRuntime, workspace string) *c
 func LocalContextForceAgent(cmd *cobra.Command, runtime *RootRuntime, workspace string) *clioutput.CommandContext {
 	output, _ := ExtractFlags(cmd)
 	mode := output.Resolve(runtime.IsTTY, true)
-	return buildLocalContext(runtime, workspace, mode)
+	ctx := buildLocalContext(runtime, workspace, mode)
+	ctx.Command = strings.TrimPrefix(strings.ReplaceAll(cmd.CommandPath(), " ", "."), "slick.")
+	return ctx
 }
 
 func buildLocalContext(runtime *RootRuntime, workspace string, mode clioutput.RenderMode) *clioutput.CommandContext {
@@ -262,10 +269,11 @@ func buildLocalContext(runtime *RootRuntime, workspace string, mode clioutput.Re
 // WriteRuntimeError emits a structured CLI error using a minimal context built
 // from the runtime (before a full CommandContext is available).
 func WriteRuntimeError(runtime *RootRuntime, err clioutput.CLIError) error {
-	mode := clioutput.OutputFlags{}.Resolve(runtime.IsTTY, false)
+	mode := clioutput.OutputFlags{Output: runtime.OutputMode}.Resolve(runtime.IsTTY, detectAgentOutputMode())
 	sl, el := clioutput.BuildBaseLoggers(runtime.Stdout, runtime.Stderr, runtime.ColorMode)
 	clioutput.ApplyRenderMode(sl, mode)
 	ctx := &clioutput.CommandContext{
+		Command:       runtime.CommandName,
 		Workspace:     "default",
 		Mode:          mode,
 		Stdout:        runtime.Stdout,

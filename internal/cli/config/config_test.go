@@ -115,18 +115,21 @@ func TestConfigRejectsAuthOwnedKeys(t *testing.T) {
 		t.Fatalf("save config: %v", err)
 	}
 
-	_, stderr, err := executeRoot(t, nil, configPath, config.NewMemoryCredentialStore(), strings.NewReader(""), false,
+	stdout, stderr, err := executeRoot(t, nil, configPath, config.NewMemoryCredentialStore(), strings.NewReader(""), false,
 		[]string{
 			"config", "set",
 			"workspaces.default.token",
 			"env:SLACK_CLI_TOKEN",
 		},
 	)
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("config set returned nil error, want auth-owned key rejection")
 	}
-	if !strings.Contains(stderr, "auth settings are managed by slick auth") {
-		t.Fatalf("stderr = %q, want auth-owned key validation", stderr)
+	if !strings.Contains(stdout, "auth settings are managed by slick auth") {
+		t.Fatalf("stdout = %q, want auth-owned key validation", stdout)
 	}
 }
 
@@ -136,17 +139,20 @@ func TestConfigInitRefusesExistingConfigWithoutForce(t *testing.T) {
 		t.Fatalf("write sentinel config: %v", err)
 	}
 
-	_, stderr, err := executeRoot(t, nil, configPath, config.NewMemoryCredentialStore(), strings.NewReader(""), false,
+	stdout, stderr, err := executeRoot(t, nil, configPath, config.NewMemoryCredentialStore(), strings.NewReader(""), false,
 		[]string{
 			"config", "init",
 			"--profile", "default",
 		},
 	)
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("config init returned nil error, want overwrite protection")
 	}
-	if !strings.Contains(stderr, "config already exists") {
-		t.Fatalf("stderr = %q, want config already exists", stderr)
+	if !strings.Contains(stdout, "config already exists") {
+		t.Fatalf("stdout = %q, want config already exists", stdout)
 	}
 	raw, err := os.ReadFile(configPath)
 	if err != nil {

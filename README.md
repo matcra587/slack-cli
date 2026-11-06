@@ -46,8 +46,8 @@ scope presets and bot-vs-user manifest shapes.
 slick emits human-friendly clog output on TTYs and switches to JSON
 automatically for non-TTY callers and detected agent environments. Pick a
 mode explicitly with `--output` (short `-o`); valid values are `auto`,
-`human`, `json`, and `compact`. Command data goes to stdout; diagnostics
-and structured errors go to stderr.
+`human`, `json`, and `compact`. Machine successes and failure envelopes go to stdout; human diagnostics
+go to stderr. Existing exit codes remain unchanged; output-write failures use exit 8.
 
 ```sh
 slick auth status --output=json

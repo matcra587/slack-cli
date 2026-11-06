@@ -21,6 +21,8 @@ func TestBinaryAgentAttributionAddsContextBlock(t *testing.T) {
 	var sawAttribution bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/api/conversations.info":
+			writeJSON(w, `{"ok":true,"channel":{"id":"C123","name":"general"}}`)
 		case "/api/auth.test":
 			writeJSON(w, `{"ok":true,"user_id":"U123"}`)
 		case "/api/chat.postMessage":
@@ -56,6 +58,8 @@ func TestBinaryProfileAttributionAddsContextBlockWithoutAgentEnv(t *testing.T) {
 	var sawAttribution bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/api/conversations.info":
+			writeJSON(w, `{"ok":true,"channel":{"id":"C123","name":"general"}}`)
 		case "/api/auth.test":
 			writeJSON(w, `{"ok":true,"user_id":"U123"}`)
 		case "/api/chat.postMessage":

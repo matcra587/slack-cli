@@ -10,7 +10,6 @@ import (
 
 	cobracli "github.com/gechr/clib/cli/cobra"
 	"github.com/gechr/clib/help"
-	"github.com/gechr/clog"
 	xslices "github.com/gechr/x/slices"
 	clioauth "github.com/matcra587/slack-cli/internal/cli/oauth"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
@@ -154,15 +153,32 @@ func runTemplate(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts templ
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError(err.Error()))
 	}
-	switch strings.ToLower(strings.TrimSpace(opts.Format)) {
-	case "", "json":
-		ctx.StdoutLogger().Print().Mode(clog.JSONFlat).JSON(manifest)
-	case "yaml", "yml":
-		return ctx.WriteString(renderYAML(manifest))
-	default:
+
+	format := strings.ToLower(strings.TrimSpace(opts.Format))
+	if format == "" {
+		format = "json"
+	}
+	if format == "yml" {
+		format = "yaml"
+	}
+	if format != "json" && format != "yaml" {
 		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("format must be json or yaml"))
 	}
-	return nil
+	if ctx.Mode == clioutput.RenderModePlain {
+		if format == "yaml" {
+			return ctx.WriteString(renderYAML(manifest))
+		}
+		return ctx.WriteJSON(manifest)
+	}
+	data := struct {
+		Format   string             `json:"format"`
+		Manifest *generatedManifest `json:"manifest"`
+		Document string             `json:"document,omitempty"`
+	}{Format: format, Manifest: manifest}
+	if format == "yaml" {
+		data.Document = renderYAML(manifest)
+	}
+	return ctx.WriteResult("manifest.template", data)
 }
 
 func redirectURLForPort(port string) string {

@@ -151,7 +151,6 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	}
 
 	var src Source
-	var filename string
 	var scheduleWhen string
 	sendCmd := &cobra.Command{
 		Use:   "send",
@@ -170,7 +169,9 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
   $ slick message send --user <user-id-or-slack-profile-email> --message <markdown> --schedule 90m --output=json`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			_ = filename
+			if cmd.Flags().Changed("filename") {
+				cmd.PrintErrln("Flag --filename has been deprecated, message bodies have no filename; use file upload --filename for attachments")
+			}
 			return runMessageSend(cmd, runtime, src, cliruntime.DryRun(cmd), scheduleWhen)
 		},
 	}
@@ -178,7 +179,8 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	sendCmd.Flags().StringVarP(&src.File, "file", "f", "", "Read message body from file or - for stdin")
 	sendCmd.Flags().StringP("channel", "c", "", "Channel ID, name, or alias")
 	sendCmd.Flags().StringArrayP("user", "u", nil, "User ID, alias, or Slack-profile email for DM target; repeat or comma-separate for group DMs")
-	sendCmd.Flags().StringVarP(&filename, "filename", "N", "", "Filename metadata for stdin sources")
+	sendCmd.Flags().StringP("filename", "N", "", "Deprecated compatibility option; message bodies have no filename")
+	_ = sendCmd.Flags().MarkHidden("filename")
 	sendCmd.Flags().BoolVarP(&src.Blocks, "blocks", "b", false, "Treat message source as raw Block Kit JSON")
 	sendCmd.Flags().StringVarP(&scheduleWhen, "schedule", "s", "", "Schedule for future send: RFC3339, Go duration, or Unix seconds")
 	cliruntime.RegisterAttributionFlags(sendCmd)

@@ -26,7 +26,7 @@ func TestLookupUserListsAndShowsInfo(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"lookup", "user", "--max-items", "1", "--presence"},
+		[]string{"lookup", "user", "--max-items", "1"},
 	)
 	if err != nil {
 		t.Fatalf("lookup user returned error: %v\nstderr=%s", err, stderr)
@@ -62,7 +62,7 @@ func TestLookupUserHidesEmptyPresence(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"--output=human", "lookup", "user", "--max-items", "1", "--presence"},
+		[]string{"--output=human", "lookup", "user", "--max-items", "1"},
 	)
 	if err != nil {
 		t.Fatalf("lookup user returned error: %v\nstderr=%s", err, stderr)
@@ -92,7 +92,7 @@ func TestLookupUserShowsPresenceColumnWhenAnyUserHasPresence(t *testing.T) {
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
-		[]string{"--output=human", "lookup", "user", "--max-items", "2", "--presence"},
+		[]string{"--output=human", "lookup", "user", "--max-items", "2"},
 	)
 	if err != nil {
 		t.Fatalf("lookup user returned error: %v\nstderr=%s", err, stderr)
@@ -161,11 +161,11 @@ func TestLookupUserMapsMissingUserToNotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("Execute returned nil error, want not-found")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, `"type":"not_found"`) {
-		t.Fatalf("stderr = %s, want not_found", stderr)
+	if !strings.Contains(stdout, `"type":"not_found"`) {
+		t.Fatalf("stdout = %s, want not_found", stdout)
 	}
 }
 
@@ -195,5 +195,18 @@ func workspaceConfig(tokenType config.TokenType) *config.Config {
 				TokenRef:  "env:SLACK_TEST_TOKEN",
 			},
 		},
+	}
+}
+
+func TestLookupUserRejectsListPresenceBeforeSlackRequest(t *testing.T) {
+	server := testutil.NewSlackServer(t, nil)
+	stdout, _, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "", []string{"lookup", "user", "--presence"})
+	if err == nil || !strings.Contains(stdout, "--presence requires --user") {
+		t.Fatalf("err=%v stdout=%s", err, stdout)
+	}
+	for _, method := range []string{"auth.test", "users.list", "users.getPresence"} {
+		if len(server.Requests(method)) != 0 {
+			t.Fatalf("unexpected request: %s", method)
+		}
 	}
 }

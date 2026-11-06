@@ -17,6 +17,8 @@ import (
 )
 
 type RootRuntime struct {
+	OutputMode         string
+	CommandName        string
 	Config             *config.Config
 	ConfigLoadError    error
 	ConfigExplicit     bool

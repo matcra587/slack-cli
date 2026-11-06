@@ -90,8 +90,10 @@ func GenerateSchema(root *cobra.Command) Schema {
 			Notes: []string{
 				"set --output (or -o) to exactly one of auto, human, json, compact",
 				"auto picks human in a TTY and json otherwise",
-				"stdout is command data",
-				"stderr is diagnostics",
+				"stdout carries one machine result on success or failure; human diagnostics use stderr",
+				"machine failures use the full {ok,meta,data,errors} envelope even in compact mode; stderr has no duplicate human error",
+				"paginated data includes pagination in json and compact; json keeps meta.pagination as a compatibility mirror",
+				"output_write_failed is io exit 8 and must not trigger replay of a mutation",
 				"mutation commands support --dry-run",
 				"agent-originated messages include attribution unless explicitly disabled",
 				"use command-local --blocks for raw Block Kit input",
@@ -158,8 +160,8 @@ func inputShapes() map[string][]string {
 func outputSchemas() map[string][]string {
 	return map[string][]string{
 		"output_flag":            {"--output (or -o) selects one of auto, human, json, compact", "auto picks human in a TTY and json otherwise"},
-		"json":                   {"meta.command", "meta.workspace", "meta.timestamp", "meta.request_id", "data", "errors"},
-		"compact":                {"command-specific data only"},
+		"json":                   {"ok", "meta.command", "meta.workspace", "meta.timestamp", "meta.request_id", "data", "errors"},
+		"compact":                {"command-specific data on success, including pagination for paginated operations", "full failure envelope on error"},
 		"human":                  {"human-readable text", "Slack channels, DMs, and permalinks may be OSC 8 terminal hyperlinks; do not parse human output"},
 		"message.scheduled.list": {"data.scheduled_messages[].id", "data.scheduled_messages[].channel raw ID for delete targets", "data.scheduled_messages[].channel_name/channel_hr/channel_url/channel_type/channel_user/is_dm best-effort metadata", "human table columns ID/CHANNEL/DM/POST_AT/TEXT; human CHANNEL may be a friendly #channel or @user label"},
 		"health.current":         {"data.status", "data.date_updated", "data.active_incidents[]", "data.active_incident_count", "data.total_active_incident_count"},
@@ -178,6 +180,7 @@ func exitCodes() map[string]int {
 		"server_error":     5,
 		"canceled":         6,
 		"timeout":          7,
+		"io":               8,
 	}
 }
 

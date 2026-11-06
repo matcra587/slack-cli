@@ -57,18 +57,21 @@ func TestMessageEditCommandSupportsBlockInput(t *testing.T) {
 func TestMessageEditCommandRejectsMalformedBlockInput(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
 
-	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
 		[]string{"message", "edit", "--channel", "C123", "--timestamp", "1746284582.123456", "--blocks", "--message", `not-json`},
 	)
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("Execute returned nil error, want malformed block validation error")
 	}
 	if got := len(server.Requests("chat.update")); got != 0 {
 		t.Fatalf("chat.update requests = %d, want 0", got)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) {
-		t.Fatalf("stderr = %s, want validation_error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) {
+		t.Fatalf("stdout = %s, want validation_error", stdout)
 	}
 }
 
@@ -111,16 +114,16 @@ func TestMessageEditCommandRejectsInvalidRawBlockRequiredFieldsBeforeSlackReques
 	if err == nil {
 		t.Fatal("Execute returned nil error, want raw block validation error")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
 	for _, method := range []string{"auth.test", "conversations.replies", "chat.update"} {
 		if got := len(server.Requests(method)); got != 0 {
 			t.Fatalf("%s requests = %d, want 0", method, got)
 		}
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "image_url or slack_file is required") {
-		t.Fatalf("stderr = %s, want image validation error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) || !strings.Contains(stdout, "image_url or slack_file is required") {
+		t.Fatalf("stdout = %s, want image validation error", stdout)
 	}
 }
 
@@ -158,11 +161,11 @@ func TestMessageEditCommandMapsCantUpdateMessageToValidationError(t *testing.T) 
 	if err == nil {
 		t.Fatal("Execute returned nil error, want validation_error for cant_update_message")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "cant_update_message") {
-		t.Fatalf("stderr = %s, want validation_error containing cant_update_message", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) || !strings.Contains(stdout, "cant_update_message") {
+		t.Fatalf("stdout = %s, want validation_error containing cant_update_message", stdout)
 	}
 }
 
@@ -176,11 +179,11 @@ func TestMessageDeleteCommandRequiresForce(t *testing.T) {
 	if err == nil {
 		t.Fatal("Execute returned nil error, want force validation error")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) {
-		t.Fatalf("stderr = %s, want validation_error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) {
+		t.Fatalf("stdout = %s, want validation_error", stdout)
 	}
 }
 
@@ -252,11 +255,11 @@ func TestMessageDeleteCommandMapsCantDeleteMessageToValidationError(t *testing.T
 	if err == nil {
 		t.Fatal("Execute returned nil error, want validation_error for cant_delete_message")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "cant_delete_message") {
-		t.Fatalf("stderr = %s, want validation_error containing cant_delete_message", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) || !strings.Contains(stdout, "cant_delete_message") {
+		t.Fatalf("stdout = %s, want validation_error containing cant_delete_message", stdout)
 	}
 }
 

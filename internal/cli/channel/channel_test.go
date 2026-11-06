@@ -84,11 +84,11 @@ func TestLookupChannelMapsMissingChannelToNotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("Execute returned nil error, want not-found error")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, `"type":"not_found"`) {
-		t.Fatalf("stderr = %s, want not_found", stderr)
+	if !strings.Contains(stdout, `"type":"not_found"`) {
+		t.Fatalf("stdout = %s, want not_found", stdout)
 	}
 }
 

@@ -16,9 +16,15 @@ import (
 
 // Data is the result type for search messages operations.
 type Data struct {
-	Matches []clioutput.SearchMessage `json:"matches"`
-	Query   string                    `json:"query,omitempty"`
-	Full    bool                      `json:"-"`
+	Matches    []clioutput.SearchMessage `json:"matches"`
+	Query      string                    `json:"query,omitempty"`
+	Full       bool                      `json:"-"`
+	Pagination *clioutput.Pagination     `json:"pagination,omitempty"`
+}
+
+func (d Data) WithPagination(pagination *clioutput.Pagination) any {
+	d.Pagination = pagination
+	return d
 }
 
 var (

@@ -81,7 +81,7 @@ func TestGuideAuthSetupRefusesRawTokenArgv(t *testing.T) {
 func TestGuideCoreContractInvariants(t *testing.T) {
 	guide := agenthelp.GetGuideSection("core_contract")
 	requireFragments(t, "core_contract", guide,
-		"stdout is command data only",
+		"Machine success and failure are JSON records on stdout",
 		"stderr is diagnostics",
 		"--output",
 		"`auto`",

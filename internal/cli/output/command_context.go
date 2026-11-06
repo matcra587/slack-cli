@@ -3,6 +3,7 @@ package output
 import (
 	"io"
 	"maps"
+	"strings"
 	"time"
 
 	"github.com/gechr/clib/theme"
@@ -15,6 +16,7 @@ import (
 // carry the trailing Func suffix so the accessor methods (Now, RequestID) keep
 // the names callers expect.
 type CommandContext struct {
+	Command       string
 	Workspace     string
 	TeamID        string
 	GOOS          string
@@ -34,6 +36,11 @@ type ListPlainWriter[T any] func(c *CommandContext, command string, items []T, p
 
 type ResultEnricher interface {
 	EnrichResult(c *CommandContext) any
+}
+
+// PaginatedResult retains paging facts when compact output removes the envelope.
+type PaginatedResult interface {
+	WithPagination(*Pagination) any
 }
 
 func (c *CommandContext) StdoutLogger() *clog.Logger { return c.StdoutLog }
@@ -73,13 +80,17 @@ func (c *CommandContext) WriteResult(command string, data any) error {
 
 func (c *CommandContext) WriteResultWithPagination(command string, data any, pagination *Pagination) error {
 	data = c.EnrichResult(data)
+	if paginated, ok := data.(PaginatedResult); ok && pagination != nil {
+		data = paginated.WithPagination(pagination)
+	}
 	switch c.Mode {
 	case RenderModePlain:
 		return c.WritePlainResult(command, data, pagination)
 	case RenderModeCompact:
-		c.StdoutLogger().Print().JSON(data)
+		return c.WriteJSON(data)
 	default:
-		c.StdoutLogger().Print().JSON(Envelope{
+		return c.WriteJSON(Envelope{
+			OK: true,
 			Meta: EnvelopeMeta{
 				Command:    command,
 				Workspace:  c.WorkspaceName(),
@@ -91,7 +102,6 @@ func (c *CommandContext) WriteResultWithPagination(command string, data any, pag
 			Errors: []CLIError{},
 		})
 	}
-	return nil
 }
 
 func (c *CommandContext) EnrichResult(data any) any {
@@ -315,8 +325,10 @@ func (c *CommandContext) WriteWorkspaces(command string, workspaces []config.Wor
 }
 
 func (c *CommandContext) WriteString(message string) error {
-	c.StdoutLogger().Info().Parts(clog.PartMessage).Msg(message)
-	return nil
+	if !strings.HasSuffix(message, "\n") {
+		message += "\n"
+	}
+	return c.writeBytes(c.OutWriter(), []byte(message))
 }
 
 func (c *CommandContext) WriteError(err CLIError) int {
@@ -327,17 +339,26 @@ func (c *CommandContext) WriteError(err CLIError) int {
 		event = AddCLIErrorDetails(event, err.Details)
 		event.Msg(err.Message)
 	} else {
-		c.StderrLogger().Print().JSON(struct {
-			Errors []CLIError `json:"errors"`
-		}{
+		command := c.Command
+		if command == "" {
+			command = "slick"
+		}
+		if writeErr := c.WriteJSON(Envelope{
+			OK:     false,
+			Meta:   EnvelopeMeta{Command: command, Workspace: c.WorkspaceName(), Timestamp: c.Now().Format(time.RFC3339), RequestID: c.RequestID(), ExitCode: err.ExitCode},
+			Data:   nil,
 			Errors: []CLIError{err},
-		})
+		}); writeErr != nil {
+			return ExitCodeIO
+		}
 	}
 	return err.ExitCode
 }
 
 func WriteCommandError(ctx *CommandContext, err CLIError) error {
-	ctx.WriteError(err)
+	if code := ctx.WriteError(err); code == ExitCodeIO {
+		return CommandError{CLIError: CLIError{Type: ErrorTypeIO, Message: "output_write_failed", ExitCode: code}}
+	}
 	return CommandError{CLIError: err}
 }
 

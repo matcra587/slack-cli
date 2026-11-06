@@ -47,7 +47,7 @@ The schema's top-level object includes:
     structured inputs (e.g. Block Kit) and outputs each command emits.
 *   `env` — environment variables slick reads, including config overrides
     and the agent-detection trigger set.
-*   `exit_codes` — the 1..7 mapping with `errors[0].type` names.
+*   `exit_codes` — the 1..8 mapping with `errors[0].type` names.
 *   `examples` — annotated invocation examples per command.
 *   `workflows` — pointers into the `agent guide` workflow catalogue.
 *   `best_practices`, `anti_patterns` — guidance an agent should follow or

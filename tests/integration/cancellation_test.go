@@ -65,9 +65,9 @@ func TestBinaryTimeoutFlagErrorsOnHungServer(t *testing.T) {
 	if exitErr.ExitCode() != 7 {
 		t.Fatalf("exit code = %d, want 7 (timeout); stderr=%s", exitErr.ExitCode(), stderr.String())
 	}
-	// stderr should carry the timeout error envelope.
-	if !strings.Contains(stderr.String(), `"type":"timeout"`) {
-		t.Fatalf("stderr = %q, want type:timeout", stderr.String())
+	// Machine failures carry the full envelope on stdout.
+	if !strings.Contains(stdout.String(), `"type":"timeout"`) {
+		t.Fatalf("stdout = %q, want type:timeout", stdout.String())
 	}
 }
 

@@ -93,6 +93,9 @@ func slackScopeMessage(slackErr slackgo.SlackErrorResponse) string {
 }
 
 func neededScopeFromSlackError(slackErr slackgo.SlackErrorResponse) string {
+	if needed := strings.TrimSpace(slackErr.Needed); needed != "" {
+		return needed
+	}
 	for _, message := range slackErr.ResponseMetadata.Messages {
 		matches := missingScopeMessageRE.FindStringSubmatch(message)
 		if len(matches) == 2 {

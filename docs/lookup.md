@@ -142,10 +142,11 @@ Find user metadata. With `--user`, fetch one; without, list active users.
 
 === "Presence"
 
-    Fetch the presence flag alongside user metadata:
+    Fetch presence alongside metadata for one user. Slack no longer provides
+    presence through user lists:
 
     ```sh
-    slick lookup user --presence
+    slick lookup user --user U123ABC --presence
     ```
 
 === "Filter"

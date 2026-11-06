@@ -15,7 +15,13 @@ import (
 
 // ListData is the result type for user list operations.
 type ListData struct {
-	Users []clioutput.User `json:"users"`
+	Users      []clioutput.User      `json:"users"`
+	Pagination *clioutput.Pagination `json:"pagination,omitempty"`
+}
+
+func (d ListData) WithPagination(pagination *clioutput.Pagination) any {
+	d.Pagination = pagination
+	return d
 }
 
 var _ clioutput.PlainRenderer = ListData{}
@@ -82,7 +88,7 @@ func NewLookupUserCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	userCmd.Flags().IntVarP(&opts.MaxItems, "max-items", "M", 0, "Maximum users to return")
 	userCmd.Flags().StringVarP(&opts.Cursor, "cursor", "C", "", "Pagination cursor")
 	userCmd.Flags().StringVarP(&opts.Filter, "filter", "f", "", "Filter by ID or name")
-	userCmd.Flags().BoolVarP(&opts.Presence, "presence", "p", false, "Fetch presence")
+	userCmd.Flags().BoolVarP(&opts.Presence, "presence", "p", false, "Fetch presence for an explicit --user")
 	userCmd.Flags().BoolVarP(&opts.IncludeDeleted, "include-deleted", "d", false, "Include deleted or deactivated users")
 	return userCmd
 }
@@ -91,6 +97,9 @@ func runUserListWithCommand(cmd *cobra.Command, runtime *cliruntime.RootRuntime,
 	ctx, profile, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
+	}
+	if opts.Presence {
+		return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("--presence requires --user; Slack no longer supports presence in user lists"))
 	}
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {

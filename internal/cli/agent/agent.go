@@ -36,11 +36,9 @@ func newSchemaCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cliruntime.LocalContextForceAgent(cmd, runtime, "agent")
 			if compact {
-				ctx.StdoutLogger().Print().JSON(agenthelp.GenerateCompactSchema(cmd.Root()))
-				return nil
+				return ctx.WriteJSON(agenthelp.GenerateCompactSchema(cmd.Root()))
 			}
-			ctx.StdoutLogger().Print().JSON(agenthelp.GenerateSchema(cmd.Root()))
-			return nil
+			return ctx.WriteJSON(agenthelp.GenerateSchema(cmd.Root()))
 		},
 	}
 	cmd.Flags().BoolVarP(&compact, "compact", "c", false, "Output minimal schema")

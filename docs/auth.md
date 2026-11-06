@@ -6,6 +6,10 @@ holds the keychain reference; it never holds a raw token.
 
 ## auth login
 
+Token imports accept bot and user access tokens, including rotating `xoxe.`
+forms. An imported access token has no refresh token and expires on Slack’s
+schedule. Use browser OAuth to retain refresh support.
+
 Create or replace a workspace profile.
 
 The local profile name can come from either flag: the hidden
@@ -278,6 +282,9 @@ the argument is trimmed; `--debug` logs the trim.
     profile is unauthenticated.
 
 ## auth logout
+
+Logging out removes auth fields and preserves configured preferences. If no
+profiles remain, slick removes the empty config file.
 
 Revoke the token on Slack and delete the local credential. With `--keep-token`,
 slick removes the workspace's auth fields from config but leaves the keychain

@@ -50,6 +50,9 @@ For thread replies, see [`reply`](reply.md). For reactions, see
 
 ### Flags
 
+`message send --filename` (`-N`) is a deprecated compatibility option with no
+effect. Message text has no filename. Use `file upload --filename` for attachments.
+
 ??? note "Flags"
 
     | Flag | Value | Description |
@@ -58,7 +61,6 @@ For thread replies, see [`reply`](reply.md). For reactions, see
     | `-u`, `--user` | `<USER>…` | User ID or alias; repeat or comma-separate for group DM |
     | `-m`, `--message` | `<TEXT>` | Message body |
     | `-f`, `--file` | `<FILE>` | Read message body from file or `-` for stdin |
-    | `-N`, `--filename` | `<NAME>` | Filename metadata for stdin sources |
     | `-b`, `--blocks` | | Treat message source as raw Block Kit JSON |
     | `-s`, `--schedule` | `<WHEN>` | Schedule for future send: RFC3339, Go duration, or Unix seconds |
     | `-n`, `--dry-run` | | Preview without sending |

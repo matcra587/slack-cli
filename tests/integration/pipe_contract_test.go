@@ -64,13 +64,13 @@ func TestPipeContractUnknownCommandUsesStructuredValidationError(t *testing.T) {
 		t.Fatal("command returned nil error, want unknown command failure")
 	}
 	if got := exitCode(err); got != 4 {
-		t.Fatalf("exit code = %d, want 4\nstderr=%s", got, stderr)
+		t.Fatalf("exit code = %d, want 4\nstdout=%s", got, stdout)
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, `unknown command \"dm\"`) {
-		t.Fatalf("stderr = %q, want structured unknown-command validation error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) || !strings.Contains(stdout, `unknown command \"dm\"`) {
+		t.Fatalf("stdout = %q, want structured unknown-command validation error", stdout)
 	}
 }
 
@@ -85,17 +85,17 @@ func TestPipeContractRejectsInvalidRawBlocksFromStdinBeforeSlackCall(t *testing.
 		t.Fatal("command returned nil error, want raw Block Kit validation failure")
 	}
 	if got := exitCode(err); got != 4 {
-		t.Fatalf("exit code = %d, want 4\nstderr=%s", got, stderr)
+		t.Fatalf("exit code = %d, want 4\nstdout=%s", got, stdout)
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "section text or fields are required") {
-		t.Fatalf("stderr = %q, want raw Block Kit validation error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) || !strings.Contains(stdout, "section text or fields are required") {
+		t.Fatalf("stdout = %q, want raw Block Kit validation error", stdout)
 	}
 }
 
-func TestPipeContractPermissionFailuresKeepStdoutEmpty(t *testing.T) {
+func TestPipeContractPermissionFailuresUseStdoutEnvelope(t *testing.T) {
 	binary := buildSlackBinary(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -116,13 +116,35 @@ func TestPipeContractPermissionFailuresKeepStdoutEmpty(t *testing.T) {
 		t.Fatal("command returned nil error, want Slack permission failure")
 	}
 	if got := exitCode(err); got != 2 {
-		t.Fatalf("exit code = %d, want 2\nstderr=%s", got, stderr)
+		t.Fatalf("exit code = %d, want 2\nstdout=%s", got, stdout)
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, `"type":"not_found"`) || !strings.Contains(stderr, "not_in_channel") {
-		t.Fatalf("stderr = %q, want fixed not_found error", stderr)
+	if !strings.Contains(stdout, `"type":"not_found"`) || !strings.Contains(stdout, "not_in_channel") {
+		t.Fatalf("stdout = %q, want fixed not_found error", stdout)
+	}
+}
+
+func TestBinaryBrokenOutputPipeUsesExitCode8(t *testing.T) {
+	binary := buildSlackBinary(t)
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = writer.Close() })
+	cmd := exec.Command(binary, "version", "--output=json")
+	cmd.Stdout = writer
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); exitCode(err) != 8 {
+		t.Fatalf("error=%v exit=%d stderr=%q; want output failure exit 8", err, exitCode(err), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "output_write_failed") {
+		t.Fatalf("stderr=%q, want output failure diagnostic", stderr.String())
 	}
 }
 
@@ -183,6 +205,8 @@ func pipeMockSlackServer(t *testing.T) *httptest.Server {
 			writeJSON(w, `{"ok":true,"channel":"C123","ts":"1746284582.123456","message":{"type":"message","user":"U123","text":"hello","ts":"1746284582.123456"}}`)
 		case "/api/chat.getPermalink":
 			writeJSON(w, `{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
+		case "/api/conversations.info":
+			writeJSON(w, `{"ok":true,"channel":{"id":"C123","name":"general"}}`)
 		case "/api/auth.test":
 			writeJSON(w, `{"ok":true,"user_id":"U123"}`)
 		case "/api/conversations.replies":

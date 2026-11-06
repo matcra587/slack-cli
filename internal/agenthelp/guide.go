@@ -27,7 +27,7 @@ var guideWorkflows = []GuideWorkflow{
 	{
 		Name:        "core_contract",
 		Description: "Understand output modes, stderr/stdout, and fixed exit codes",
-		Steps:       []string{"Use JSON for automation and human output for humans", "Treat stdout as command data only", "Treat stderr as diagnostics and structured errors", "Set --output to one of auto, human, json, compact (auto-detected by default)", "Parse fixed exit codes and error types on failure"},
+		Steps:       []string{"Use JSON for automation and human output for humans", "Treat stdout as command data only", "Parse machine successes and failures on stdout; reserve stderr for diagnostics", "Set --output to one of auto, human, json, compact (auto-detected by default)", "Parse fixed exit codes and error types on failure"},
 	},
 	{
 		Name:        "check_health",
@@ -112,7 +112,7 @@ var guideWorkflows = []GuideWorkflow{
 	{
 		Name:        "safe_mutation",
 		Description: "Preview high-impact changes and parse JSON results",
-		Steps:       []string{"Use --dry-run before high-impact mutations", "Keep JSON output for machine parsing", "Treat deletes as destructive operations", "Do not parse rich/plain output in automation", "Structured errors are on stderr with fixed exit codes"},
+		Steps:       []string{"Use --dry-run before high-impact mutations", "Keep JSON output for machine parsing", "Treat deletes as destructive operations", "Do not parse rich/plain output in automation", "Machine errors are on stdout with fixed exit codes"},
 	},
 	{
 		Name:        "developer_review",
@@ -141,17 +141,19 @@ Goal: Apply the cross-cutting output-mode, stdout/stderr, exit-code, and error-s
 
 **Save**
 > Requires ` + "`--output=json`" + `.
-- ` + "`meta.command`" + `, ` + "`meta.workspace`" + `, ` + "`meta.timestamp`" + `, ` + "`meta.request_id`" + ` [string, required] — envelope identity.
+- ` + "`ok`" + ` [bool, required] reports command success. ` + "`meta.command`" + `, ` + "`meta.workspace`" + `, ` + "`meta.timestamp`" + `, ` + "`meta.request_id`" + ` [string, required] — envelope identity.
 - ` + "`data`" + ` [object, required] — command-specific payload.
 - ` + "`errors`" + ` [array, required] — empty on success.
 
 **Behavior**
-- stdout is command data only. stderr is diagnostics, progress, warnings, and structured errors.
-- JSON-mode failures emit ` + "`errors[0].type`" + `, ` + "`errors[0].message`" + `, ` + "`errors[0].exit_code`" + ` on stderr; stdout stays empty.
+- Machine success and failure are JSON records on stdout. stderr is diagnostics, progress, and explicit debug output; no duplicate human error is emitted for a machine failure.
+- JSON/compact failures emit a full envelope with ` + "`ok=false`" + ` and ` + "`errors[0].type`" + `, ` + "`errors[0].message`" + `, ` + "`errors[0].exit_code`" + ` on stdout; ` + "`data=null`" + ` on failure.
 - Exit codes: auth ` + "`1`" + `, not found ` + "`2`" + `, rate limit ` + "`3`" + `, validation ` + "`4`" + `, server ` + "`5`" + `, canceled ` + "`6`" + `, timeout ` + "`7`" + `.
 - Slack channels/DMs/permalinks may render as OSC 8 hyperlinks for humans. Do not scrape — parse JSON for raw IDs, channel_name/channel_hr/channel_url, timestamps, full URLs.
 - ` + "`--output`" + ` selects output mode only; it does NOT switch input to Block Kit. Use command-local ` + "`--blocks`" + ` for that.
 - Attribution auto-attaches to ` + "`send_msg`" + ` / ` + "`reply`" + ` / ` + "`edit_msg`" + ` / ` + "`upload_file`" + ` comments as a context block on agent/CI detection — do NOT repeat in body. Toggle ` + "`--attribution`" + ` / ` + "`--no-attribution`" + `; override copy ` + "`--attribution-{label,emoji,message}`" + `.
+- Paginated commands retain ` + "`data.pagination`" + ` in JSON and ` + "`pagination`" + ` in compact output; ` + "`meta.pagination`" + ` remains compatible.
+- ` + "`io`" + ` / exit 8 means the result could not be written. A mutation may already have completed; inspect remote state before retrying.
 - Slack ts values stay strings (e.g. ` + "`1746284582.123456`" + `); never cast to float.
 
 ## check_health
@@ -484,14 +486,14 @@ Goal: Discover message timestamps in a channel or thread so other workflows (` +
 - Channel: ` + "`slick history list --channel <id> --max-items <n> --output=json`" + `
 - Thread: ` + "`slick history list --channel <id> --thread <parent-ts> --max-items <n> --output=json`" + `
 - Filtered: append ` + "`--since`" + ` / ` + "`--until`" + ` / ` + "`--user`" + `
-- Next page: ` + "`slick history list --channel <id> --cursor <meta.pagination.cursor> --max-items <n> --output=json`" + `
+- Next page: ` + "`slick history list --channel <id> --cursor <meta.pagination.next_cursor> --max-items <n> --output=json`" + `
 
 **Save**
 > Requires ` + "`--output=json`" + `.
 - ` + "`data.messages[].ts`" + ` [string, required] — feed to ` + "`react --timestamp`" + `, ` + "`reply --parent`" + ` (when it's a parent), ` + "`message edit/delete --timestamp`" + `.
 - ` + "`data.messages[].text`" + ` [string] and ` + "`data.messages[].blocks`" + ` [array, optional] — text may flatten display formatting; check ` + "`blocks`" + ` when Slack-native structure matters.
 - ` + "`data.messages[].permalink`" + ` [string, optional] — present when fetched.
-- ` + "`meta.pagination.cursor`" + ` / ` + "`.has_more`" + ` [string / bool] — paginate until ` + "`has_more=false`" + `.
+- ` + "`meta.pagination.next_cursor`" + ` / ` + "`.has_more`" + ` [string / bool] — paginate until ` + "`has_more=false`" + `.
 
 **Behavior**
 - Plain mode (TTY / ` + "`--output=human`" + `) renders a table for humans; JSON mode is the agent contract.
@@ -976,7 +978,7 @@ This is not a command — it's the discipline that wraps the mutating workflows.
 
 **Preconditions**
 - Always ` + "`--output=json`" + ` for automation — never parse ` + "`--output=human`" + ` (it's display-only).
-- Parse stderr JSON for ` + "`type`" + ` / ` + "`message`" + ` / ` + "`exit_code`" + ` on failure; do NOT scrape human text.
+- Parse the stdout failure envelope for ` + "`type`" + ` / ` + "`message`" + ` / ` + "`exit_code`" + ` on failure; do NOT scrape human text.
 
 **Behavior**
 - Rate limits map to exit code ` + "`3`" + ` + structured ` + "`rate_limit`" + ` errors with ` + "`errors[0].retry_after_seconds`" + `. Sleep before retrying that target.

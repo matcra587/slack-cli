@@ -68,6 +68,12 @@ func (d ScheduledSendData) WritePlain(c *clioutput.CommandContext, command strin
 
 type ScheduledListData struct {
 	ScheduledMessages []clioutput.ScheduledMessage `json:"scheduled_messages"`
+	Pagination        *clioutput.Pagination        `json:"pagination,omitempty"`
+}
+
+func (d ScheduledListData) WithPagination(pagination *clioutput.Pagination) any {
+	d.Pagination = pagination
+	return d
 }
 
 var _ clioutput.ResultEnricher = ScheduledListData{}

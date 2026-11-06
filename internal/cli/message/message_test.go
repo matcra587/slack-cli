@@ -458,11 +458,11 @@ func TestMessageSendCommandBotUserTargetLetsSlackDecide(t *testing.T) {
 	if err == nil {
 		t.Fatal("Execute returned nil error, want Slack rejection mapped structurally")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "not_allowed_token_type") {
-		t.Fatalf("stderr = %s, want structured not_allowed_token_type validation error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) || !strings.Contains(stdout, "not_allowed_token_type") {
+		t.Fatalf("stdout = %s, want structured not_allowed_token_type validation error", stdout)
 	}
 	if got := len(server.Requests("conversations.open")); got != 1 {
 		t.Fatalf("conversations.open requests = %d, want Slack-decided attempt", got)
@@ -519,8 +519,8 @@ func TestMessageSendCommandRejectsBothChannelAndUserBeforeSlackRequest(t *testin
 	if err == nil {
 		t.Fatal("Execute returned nil error, want target validation error")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
 	if got := len(server.Requests("chat.postMessage")); got != 0 {
 		t.Fatalf("chat.postMessage requests = %d, want 0", got)
@@ -528,8 +528,8 @@ func TestMessageSendCommandRejectsBothChannelAndUserBeforeSlackRequest(t *testin
 	if got := len(server.Requests("conversations.open")); got != 0 {
 		t.Fatalf("conversations.open requests = %d, want 0", got)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) {
-		t.Fatalf("stderr = %s, want structured validation_error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) {
+		t.Fatalf("stdout = %s, want structured validation_error", stdout)
 	}
 }
 
@@ -537,34 +537,40 @@ func TestMessageSendCommandRejectsBlockKitOverLimitBeforeSlackRequest(t *testing
 	server := testutil.NewSlackServer(t, nil)
 
 	rawBlocks := `[` + strings.TrimRight(strings.Repeat(`{"type":"divider"},`, 51), ",") + `]`
-	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 		[]string{"message", "send", "--channel", "C123", "--blocks", "--message", rawBlocks},
 	)
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("Execute returned nil error, want validation failure")
 	}
 	if got := len(server.Requests("chat.postMessage")); got != 0 {
 		t.Fatalf("chat.postMessage requests = %d, want 0", got)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) {
-		t.Fatalf("stderr = %s, want validation_error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) {
+		t.Fatalf("stdout = %s, want validation_error", stdout)
 	}
 }
 
 func TestMessageSendCommandRejectsMalformedBlockKitBeforeSlackRequest(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
 
-	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 		[]string{"message", "send", "--channel", "C123", "--blocks", "--message", `{"type":"section"`},
 	)
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("Execute returned nil error, want malformed block validation failure")
 	}
 	if got := len(server.Requests("chat.postMessage")); got != 0 {
 		t.Fatalf("chat.postMessage requests = %d, want 0", got)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) {
-		t.Fatalf("stderr = %s, want validation_error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) {
+		t.Fatalf("stdout = %s, want validation_error", stdout)
 	}
 }
 
@@ -663,14 +669,14 @@ func TestMessageSendCommandRejectsInvalidRawBlockRequiredFieldsBeforeSlackReques
 			if err == nil {
 				t.Fatal("Execute returned nil error, want raw block validation failure")
 			}
-			if stdout != "" {
-				t.Fatalf("stdout = %q, want empty", stdout)
+			if stderr != "" {
+				t.Fatalf("stderr = %q, want empty", stderr)
 			}
 			if got := len(server.Requests("chat.postMessage")); got != 0 {
 				t.Fatalf("chat.postMessage requests = %d, want 0", got)
 			}
-			if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, tt.want) {
-				t.Fatalf("stderr = %s, want validation_error containing %q", stderr, tt.want)
+			if !strings.Contains(stdout, `"type":"validation_error"`) || !strings.Contains(stdout, tt.want) {
+				t.Fatalf("stdout = %s, want validation_error containing %q", stdout, tt.want)
 			}
 		})
 	}
@@ -708,11 +714,11 @@ func TestMessageSendCommandMapsSlackPermissionFailuresToFixedContract(t *testing
 			if err == nil {
 				t.Fatal("Execute returned nil error, want Slack permission failure")
 			}
-			if stdout != "" {
-				t.Fatalf("stdout = %q, want empty", stdout)
+			if stderr != "" {
+				t.Fatalf("stderr = %q, want empty", stderr)
 			}
-			if !strings.Contains(stderr, `"type":"`+tt.wantType+`"`) || !strings.Contains(stderr, tt.slackErr) {
-				t.Fatalf("stderr = %s, want %s containing %s", stderr, tt.wantType, tt.slackErr)
+			if !strings.Contains(stdout, `"type":"`+tt.wantType+`"`) || !strings.Contains(stdout, tt.slackErr) {
+				t.Fatalf("stdout = %s, want %s containing %s", stdout, tt.wantType, tt.slackErr)
 			}
 		})
 	}
@@ -721,17 +727,20 @@ func TestMessageSendCommandMapsSlackPermissionFailuresToFixedContract(t *testing
 func TestMessageSendCommandRejectsMissingWorkspaceBeforeSlackMutation(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
 
-	_, stderr, err := executeTestRoot(t, nil, server.BaseURL(), "",
+	stdout, stderr, err := executeTestRoot(t, nil, server.BaseURL(), "",
 		[]string{"message", "send", "--channel", "C123", "--message", "No workspace"},
 	)
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("Execute returned nil error, want missing workspace validation")
 	}
 	if got := len(server.Requests("chat.postMessage")); got != 0 {
 		t.Fatalf("chat.postMessage requests = %d, want 0", got)
 	}
-	if !strings.Contains(stderr, "config is required") {
-		t.Fatalf("stderr = %s, want config is required", stderr)
+	if !strings.Contains(stdout, "config is required") {
+		t.Fatalf("stdout = %s, want config is required", stdout)
 	}
 }
 
@@ -759,14 +768,14 @@ func TestMessageSendCommandValidatesRequiredScopeBeforeSlackMutation(t *testing.
 	if err == nil {
 		t.Fatal("Execute returned nil error, want missing-scope auth failure")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
 	if got := len(server.Requests("chat.postMessage")); got != 0 {
 		t.Fatalf("chat.postMessage requests = %d, want 0", got)
 	}
-	if !strings.Contains(stderr, `"type":"auth_failure"`) || !strings.Contains(stderr, "chat:write") {
-		t.Fatalf("stderr = %s, want auth failure naming missing chat:write scope", stderr)
+	if !strings.Contains(stdout, `"type":"auth_failure"`) || !strings.Contains(stdout, "chat:write") {
+		t.Fatalf("stdout = %s, want auth failure naming missing chat:write scope", stdout)
 	}
 }
 
@@ -812,6 +821,9 @@ func TestMessageSendCommandReadsMessageFromFilePath(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("Execute returned error: %v\nstderr=%s", err, stderr)
+	}
+	if !strings.Contains(stderr, "message bodies have no filename") {
+		t.Fatalf("missing deprecation diagnostic: %s", stderr)
 	}
 }
 

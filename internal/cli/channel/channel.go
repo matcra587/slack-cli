@@ -19,7 +19,13 @@ import (
 
 // ListData is the result type for channel list operations.
 type ListData struct {
-	Channels []clioutput.Channel `json:"channels"`
+	Channels   []clioutput.Channel   `json:"channels"`
+	Pagination *clioutput.Pagination `json:"pagination,omitempty"`
+}
+
+func (d ListData) WithPagination(pagination *clioutput.Pagination) any {
+	d.Pagination = pagination
+	return d
 }
 
 var (

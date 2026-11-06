@@ -81,6 +81,7 @@ func (d UploadData) WritePlain(c *clioutput.CommandContext, command string, _ *c
 type Info struct {
 	ID        string  `json:"id,omitempty"`
 	Name      string  `json:"name,omitempty"`
+	Title     string  `json:"title,omitempty"`
 	Size      int     `json:"size,omitempty"`
 	Permalink *string `json:"permalink,omitempty"`
 }
@@ -160,7 +161,7 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 	ctx.StderrLogger().Debug().Parts(clog.PartMessage).Msg("uploading file")
 	if opts.DryRun {
 		data := UploadData{
-			File:        Info{ID: "dry-run", Name: filename, Size: len(content)},
+			File:        Info{ID: "dry-run", Name: filename, Title: opts.Title, Size: len(content)},
 			Channel:     channel,
 			Attribution: attribution.Enabled,
 			DryRun:      true,
@@ -192,13 +193,16 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
-	fileName := cliutil.FirstNonEmpty(file.Title, filename)
+	fileName := filename
+	fileTitle := cliutil.FirstNonEmpty(file.Title, opts.Title)
 	var filePermalink *string
 	if info, _, _, infoErr := client.GetFileInfoContext(cmd.Context(), file.ID, 0, 0); infoErr == nil && info != nil {
 		filePermalink = cliutil.StringPtr(info.Permalink)
+		fileName = cliutil.FirstNonEmpty(info.Name, fileName)
+		fileTitle = cliutil.FirstNonEmpty(info.Title, fileTitle)
 	}
 	data := UploadData{
-		File:        Info{ID: file.ID, Name: fileName, Size: len(content), Permalink: filePermalink},
+		File:        Info{ID: file.ID, Name: fileName, Title: fileTitle, Size: len(content), Permalink: filePermalink},
 		Channel:     channel,
 		Attribution: attribution.Enabled,
 	}

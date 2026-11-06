@@ -22,6 +22,10 @@ func TestBinaryRetriesRetryAfterRateLimit(t *testing.T) {
 			writeJSON(w, `{"ok":true,"permalink":"https://example.slack.com/archives/C123/p1746284582123456"}`)
 			return
 		}
+		if r.URL.Path == "/api/conversations.info" {
+			writeJSON(w, `{"ok":true,"channel":{"id":"C123","name":"general"}}`)
+			return
+		}
 		if r.URL.Path != "/api/conversations.history" {
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
@@ -59,14 +63,17 @@ func TestBinaryRateLimitExhaustionUsesExitCode3(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, stderr, err := runSlackBinary(t, binary, configPath, server.URL, "", "history", "list", "--channel", "C123")
+	stdout, stderr, err := runSlackBinary(t, binary, configPath, server.URL, "", "history", "list", "--channel", "C123")
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("command succeeded, want rate-limit failure")
 	}
 	if exitCode := exitCode(err); exitCode != 3 {
-		t.Fatalf("exit code = %d, want 3; stderr=%s", exitCode, stderr)
+		t.Fatalf("exit code = %d, want 3; stdout=%s", exitCode, stdout)
 	}
-	if !strings.Contains(stderr, `"type":"rate_limit"`) {
-		t.Fatalf("stderr = %s, want rate_limit", stderr)
+	if !strings.Contains(stdout, `"type":"rate_limit"`) {
+		t.Fatalf("stdout = %s, want rate_limit", stdout)
 	}
 }

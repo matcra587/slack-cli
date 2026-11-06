@@ -71,11 +71,11 @@ func TestThreadReplyCommandMapsInvalidParentToNotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("Execute returned nil error, want not-found error")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, `"type":"not_found"`) {
-		t.Fatalf("stderr = %s, want not_found", stderr)
+	if !strings.Contains(stdout, `"type":"not_found"`) {
+		t.Fatalf("stdout = %s, want not_found", stdout)
 	}
 }
 
@@ -116,18 +116,21 @@ func TestThreadReplyCommandSupportsBlockInput(t *testing.T) {
 func TestThreadReplyCommandRejectsMalformedBlockInput(t *testing.T) {
 	server := testutil.NewSlackServer(t, nil)
 
-	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(),
 		"",
 		[]string{"reply", "--channel", "C123", "--parent", "1746284582.123456", "--blocks", "--message", `not-json`},
 	)
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("Execute returned nil error, want malformed block validation error")
 	}
 	if got := len(server.Requests("chat.postMessage")); got != 0 {
 		t.Fatalf("chat.postMessage requests = %d, want 0", got)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) {
-		t.Fatalf("stderr = %s, want validation_error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) {
+		t.Fatalf("stdout = %s, want validation_error", stdout)
 	}
 }
 
@@ -170,14 +173,14 @@ func TestThreadReplyCommandRejectsInvalidRawBlockRequiredFieldsBeforeSlackReques
 	if err == nil {
 		t.Fatal("Execute returned nil error, want raw block validation error")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
 	if got := len(server.Requests("chat.postMessage")); got != 0 {
 		t.Fatalf("chat.postMessage requests = %d, want 0", got)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "context elements are required") {
-		t.Fatalf("stderr = %s, want context validation error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) || !strings.Contains(stdout, "context elements are required") {
+		t.Fatalf("stdout = %s, want context validation error", stdout)
 	}
 }
 

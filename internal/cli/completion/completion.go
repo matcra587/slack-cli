@@ -29,6 +29,7 @@ const completionTimeout = 5 * time.Second
 
 // Setup registers the clib completion handler on the root command.
 func Setup(root *cobra.Command, runtime *cliruntime.RootRuntime) {
+	fallback := root.RunE
 	completion := cobracli.NewCompletion(root)
 	root.RunE = func(cmd *cobra.Command, args []string) error {
 		handled, err := completion.Handle(
@@ -38,6 +39,9 @@ func Setup(root *cobra.Command, runtime *cliruntime.RootRuntime) {
 		)
 		if err != nil || handled {
 			return err
+		}
+		if fallback != nil {
+			return fallback(cmd, args)
 		}
 		return cmd.Help()
 	}

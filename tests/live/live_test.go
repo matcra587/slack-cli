@@ -66,7 +66,6 @@ func TestLiveScheduledMessageRoundTrip(t *testing.T) {
 	binary := slickBinary(t)
 	env := requireLiveEnv(t, binary)
 	runID := newRunID(t)
-	sweepRecentByPrefix(t, binary, env, "live-scheduled-")
 
 	body := fmt.Sprintf(`live-scheduled-%s Release note queued for later
 
@@ -270,7 +269,7 @@ func TestLiveScheduledDryRunPreviewsDoNotMutate(t *testing.T) {
 		"--output=json",
 	)
 	if err != nil {
-		if scope := missingScopeFromStderr(stderr); scope != "" {
+		if scope := missingScopeFromOutput(stdout); scope != "" {
 			t.Skipf("workspace token missing required scope %q; scheduled list needs chat:write", scope)
 		}
 		t.Fatalf("scheduled list with dry-run flag failed: %v\nstderr=%s", err, stderr)
@@ -330,7 +329,7 @@ func TestLiveScheduledRejectsInvalidLocalTimes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := fmt.Sprintf("live-scheduled-invalid-%s %s", runID, tt.name)
-			_, stderr, err := runSlick(t, binary, "",
+			stdout, stderr, err := runSlick(t, binary, "",
 				"message", "send",
 				"--workspace", env.workspace,
 				"--channel", env.channel,
@@ -341,8 +340,8 @@ func TestLiveScheduledRejectsInvalidLocalTimes(t *testing.T) {
 			if err == nil {
 				t.Fatalf("schedule %q returned success, want validation failure", tt.schedule)
 			}
-			if !strings.Contains(stderr, tt.want) {
-				t.Fatalf("stderr = %s, want %q", stderr, tt.want)
+			if !strings.Contains(stdout, tt.want) || stderr != "" {
+				t.Fatalf("stdout=%s stderr=%s, want machine validation error %q on stdout", stdout, stderr, tt.want)
 			}
 			if _, ts := lookupRecentByText(t, binary, env, body); ts != "" {
 				t.Fatalf("invalid scheduled send posted message ts=%s", ts)
@@ -351,18 +350,7 @@ func TestLiveScheduledRejectsInvalidLocalTimes(t *testing.T) {
 	}
 }
 
-// TestLiveAttributionOverride sends a message with overridden attribution
-// emoji and message and intentionally leaves it in the channel so the
-// override can be visually verified in Slack. Cleanup is skipped on purpose;
-// the message stays until manually deleted.
-//
-// The test deliberately does not fake an agent env trigger. Attribution is
-// forced on by `--attribution` so the test runs against whatever Category
-// the surrounding environment actually has: a human shell produces the
-// "Sent via slick" wording (CategoryCLI); an agent shell (Claude Code,
-// Cursor, CI, etc.) lets the env trigger fire and the message gets tagged
-// "(agent mode)". The residue in Slack then becomes a real signal of who
-// ran the suite, not a test fixture mutating reality.
+// TestLiveAttributionOverride verifies overrides and cleans its exact receipt.
 func TestLiveAttributionOverride(t *testing.T) {
 	binary := slickBinary(t)
 	env := requireLiveEnv(t, binary)
@@ -377,7 +365,7 @@ When run from a human shell the context line ends at "test suite"; when run
 under an agent or CI env trigger, slick appends "(agent mode)" — which is
 how you eyeball whether real detection fired or the human exemption held.
 
-Left in the channel on purpose so the override can be eyeballed in Slack.`, runID)
+The fixture is removed after the attribution assertions.`, runID)
 
 	stdout, stderr, err := runSlick(t, binary, "",
 		"message", "send",
@@ -397,15 +385,15 @@ Left in the channel on purpose so the override can be eyeballed in Slack.`, runI
 	if !ok {
 		t.Fatalf("envelope missing data: %s", stdout)
 	}
-	if got, _ := data["attribution"].(bool); !got {
-		t.Fatalf("attribution = %v, want true (--attribution was passed)", data["attribution"])
-	}
 	channel := mustString(t, envelope, "data", "message", "channel")
 	ts := mustString(t, envelope, "data", "message", "ts")
 	if channel == "" || ts == "" {
 		t.Fatalf("envelope missing channel/ts: %s", stdout)
 	}
-	t.Logf("attribution override message left in channel=%s ts=%s — verify :test_tube: emoji and custom text in Slack", channel, ts)
+	cleanupMessage(t, binary, env, runID, channel, ts)
+	if got, _ := data["attribution"].(bool); !got {
+		t.Fatalf("attribution = %v, want true (--attribution was passed)", data["attribution"])
+	}
 }
 
 // clearAgentEnvTriggers unsets every env var that agent.Detect treats as an
@@ -495,7 +483,7 @@ func TestLiveAttributionForceOn(t *testing.T) {
 
 // TestLiveAttributionRejectsValueForm asserts the presence-only switch
 // semantics: `--attribution=false` is a parse error rather than a silent
-// invert. The check is "non-zero exit + stderr surfaces a usage/parse
+// invert. The check is "non-zero exit + stdout surfaces a usage/parse
 // error"; we deliberately avoid asserting on the exact wording so pflag/
 // cobra phrasing tweaks don't break the test.
 func TestLiveAttributionRejectsValueForm(t *testing.T) {
@@ -504,7 +492,7 @@ func TestLiveAttributionRejectsValueForm(t *testing.T) {
 	runID := newRunID(t)
 
 	body := fmt.Sprintf("live-attribution-reject-%s — this message must NOT be sent because the flag form should error before any Slack call.", runID)
-	_, stderr, err := runSlick(t, binary, "",
+	stdout, stderr, err := runSlick(t, binary, "",
 		"message", "send",
 		"--workspace", env.workspace,
 		"--channel", env.channel,
@@ -515,8 +503,8 @@ func TestLiveAttributionRejectsValueForm(t *testing.T) {
 	if err == nil {
 		t.Fatalf("--attribution=false should error at parse time; instead got success.\nstderr=%s", stderr)
 	}
-	if stderr == "" {
-		t.Fatalf("--attribution=false errored but stderr is empty; expected a parse/validation message")
+	if !strings.Contains(stdout, `"type":"validation_error"`) || stderr != "" {
+		t.Fatalf("stdout=%s stderr=%s; want structured parse failure on stdout", stdout, stderr)
 	}
 	// Belt-and-braces: confirm Slack wasn't actually called by sweeping
 	// recent history for the sentinel body. lookupRecentByText returns
@@ -895,13 +883,13 @@ func TestLiveStatusSetAndClear(t *testing.T) {
 
 	statusText := fmt.Sprintf("Heads down — slick v0.4 release prep (live-status-%s)", runID)
 	t.Cleanup(func() {
-		_, stderr, err := runSlick(t, binary, "",
+		stdout, stderr, err := runSlick(t, binary, "",
 			"status", "clear",
 			"--workspace", env.workspace,
 			"--output=json",
 		)
-		if err != nil && missingScopeFromStderr(stderr) == "" {
-			t.Logf("cleanup status clear failed (run id %s): %v\nstderr=%s", runID, err, stderr)
+		if err != nil && missingScopeFromOutput(stdout) == "" {
+			t.Errorf("cleanup status clear failed (run id %s): %v\nstderr=%s", runID, err, stderr)
 		}
 	})
 
@@ -914,14 +902,14 @@ func TestLiveStatusSetAndClear(t *testing.T) {
 		"--output=json",
 	)
 	if err != nil {
-		if scope := missingScopeFromStderr(stderr); scope != "" {
+		if scope := missingScopeFromOutput(stdout); scope != "" {
 			t.Skipf("workspace token missing required scope %q; status set/clear needs a user token with users.profile:write", scope)
 		}
 		t.Fatalf("status set failed: %v\nstderr=%s", err, stderr)
 	}
 	envelope := decodeEnvelope(t, stdout)
-	if got := mustString(t, envelope, "data", "status_text"); got != "" && got != statusText {
-		t.Fatalf("status_text=%q, want %q", got, statusText)
+	if got := mustString(t, envelope, "data", "text"); got != statusText {
+		t.Fatalf("text=%q, want %q", got, statusText)
 	}
 
 	if _, stderr, err := runSlick(t, binary, "",
@@ -1162,7 +1150,7 @@ func cleanupMessage(t *testing.T, binary string, env liveEnv, runID, channel, ts
 			"--output=json",
 		)
 		if err != nil {
-			t.Logf("cleanup delete failed (run id %s, channel %s, ts %s): %v\nstderr=%s",
+			t.Errorf("cleanup delete failed (run id %s, channel %s, ts %s): %v\nstderr=%s",
 				runID, channel, ts, err, stderr)
 		}
 	})
@@ -1210,60 +1198,6 @@ func lookupRecentByText(t *testing.T, binary string, env liveEnv, text string) (
 	return "", ""
 }
 
-// sweepRecentByPrefix removes residue from scheduled-message live tests after
-// an interrupted run lets a scheduled message post before cleanup can delete it.
-func sweepRecentByPrefix(t *testing.T, binary string, env liveEnv, prefix string) {
-	t.Helper()
-	stdout, stderr, err := runSlick(t, binary, "",
-		"history", "list",
-		"--workspace", env.workspace,
-		"--channel", env.channel,
-		"--max-items", "100",
-		"--output=json",
-	)
-	if err != nil {
-		t.Logf("sweepRecentByPrefix history list failed: %v\nstderr=%s", err, stderr)
-		return
-	}
-	envelope := decodeEnvelope(t, stdout)
-	data, ok := envelope["data"].(map[string]any)
-	if !ok {
-		return
-	}
-	messages, ok := data["messages"].([]any)
-	if !ok {
-		return
-	}
-	for _, raw := range messages {
-		msg, ok := raw.(map[string]any)
-		if !ok {
-			continue
-		}
-		msgText, _ := msg["text"].(string)
-		if !strings.HasPrefix(msgText, prefix) {
-			continue
-		}
-		ts, _ := msg["ts"].(string)
-		channel, _ := msg["channel"].(string)
-		if channel == "" {
-			channel = env.channel
-		}
-		if ts == "" {
-			continue
-		}
-		if _, deleteStderr, deleteErr := runSlick(t, binary, "",
-			"message", "delete",
-			"--workspace", env.workspace,
-			"--channel", channel,
-			"--timestamp", ts,
-			"--force",
-			"--output=json",
-		); deleteErr != nil {
-			t.Logf("sweep delete failed (channel %s, ts %s): %v\nstderr=%s", channel, ts, deleteErr, deleteStderr)
-		}
-	}
-}
-
 func scheduleLiveMessage(t *testing.T, binary string, env liveEnv, targetArgs []string, body, schedule string) scheduledRef {
 	t.Helper()
 	args := []string{
@@ -1278,7 +1212,7 @@ func scheduleLiveMessage(t *testing.T, binary string, env liveEnv, targetArgs []
 	)
 	stdout, stderr, err := runSlick(t, binary, "", args...)
 	if err != nil {
-		if scope := missingScopeFromStderr(stderr); scope != "" {
+		if scope := missingScopeFromOutput(stdout); scope != "" {
 			t.Skipf("workspace token missing required scope %q; scheduled messages need chat:write plus DM scopes for --user targets", scope)
 		}
 		t.Fatalf("scheduled send failed: %v\nstderr=%s", err, stderr)
@@ -1309,7 +1243,7 @@ func cleanupScheduledMessage(t *testing.T, binary string, env liveEnv, runID str
 			"--output=json",
 		)
 		if cleanupErr != nil {
-			t.Logf("scheduled cleanup failed (run id %s, channel %s, id %s): %v\nstderr=%s",
+			t.Errorf("scheduled cleanup failed (run id %s, channel %s, id %s): %v\nstderr=%s",
 				runID, ref.Channel, ref.ID, cleanupErr, cleanupStderr)
 		}
 	})
@@ -1375,7 +1309,7 @@ func scheduledMessageExists(t *testing.T, binary string, env liveEnv, channel, r
 func findScheduledMessage(t *testing.T, binary string, env liveEnv, channel, runID string) (map[string]any, bool) {
 	t.Helper()
 	cursor := ""
-	for page := 0; page < 5; page++ {
+	for range 5 {
 		args := []string{
 			"message", "scheduled", "list",
 			"--workspace", env.workspace,
@@ -1388,17 +1322,17 @@ func findScheduledMessage(t *testing.T, binary string, env liveEnv, channel, run
 		}
 		stdout, stderr, err := runSlick(t, binary, "", args...)
 		if err != nil {
-			t.Logf("scheduled list failed while looking for run id %s: %v\nstderr=%s", runID, err, stderr)
+			t.Fatalf("scheduled list failed while looking for run id %s: %v\nstderr=%s", runID, err, stderr)
 			return nil, false
 		}
 		envelope := decodeEnvelope(t, stdout)
 		data, ok := envelope["data"].(map[string]any)
 		if !ok {
-			return nil, false
+			t.Fatalf("scheduled list returned an unexpected data shape")
 		}
 		rows, ok := data["scheduled_messages"].([]any)
 		if !ok {
-			return nil, false
+			t.Fatalf("scheduled list returned an unexpected data shape")
 		}
 		for _, raw := range rows {
 			row, ok := raw.(map[string]any)
@@ -1419,17 +1353,18 @@ func findScheduledMessage(t *testing.T, binary string, env liveEnv, channel, run
 		}
 		cursor = nextCursor
 	}
+	t.Fatalf("scheduled list pagination exceeded the scan limit; absence is unverified")
 	return nil, false
 }
 
-// missingScopeFromStderr extracts the scope name from a structured error
+// missingScopeFromOutput extracts the scope name from a structured error
 // envelope (e.g. {"errors":[{"type":"auth_failure","message":"missing required
-// Slack scope: users.profile:write"...}]}). Returns "" if stderr isn't
-// recognisable as a missing-scope error. Used by tests that gracefully skip
+// Slack scope: users.profile:write"...}]}). Returns "" if stdout isn't
+// recognizable as a missing-scope error. Used by tests that gracefully skip
 // when the live workspace token lacks the scope they exercise.
-func missingScopeFromStderr(stderr string) string {
-	stderr = strings.TrimSpace(stderr)
-	if stderr == "" {
+func missingScopeFromOutput(stdout string) string {
+	stdout = strings.TrimSpace(stdout)
+	if stdout == "" {
 		return ""
 	}
 	var envelope struct {
@@ -1438,7 +1373,7 @@ func missingScopeFromStderr(stderr string) string {
 			Message string `json:"message"`
 		} `json:"errors"`
 	}
-	if err := json.Unmarshal([]byte(stderr), &envelope); err != nil {
+	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
 		return ""
 	}
 	const prefix = "missing required Slack scope: "

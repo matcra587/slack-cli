@@ -215,7 +215,7 @@ Incident rows use this shape in JSON:
 | `server_error: http status 503` | Slack Status or Slack Web API returned a non-2xx response. | Retry later or inspect Slack Status in a browser. |
 | `server_error: decode response` | The endpoint returned malformed JSON. | Retry; if persistent, capture the response for debugging. |
 | `timeout` (exit 7) | `--timeout` expired before the endpoint responded. | Increase `--timeout` or retry after checking network connectivity. |
-| Slack Web API errors such as `invalid_auth`, `access_denied`, or `ratelimited` | `api.test` returned a documented Slack error response. | Read stderr JSON; `type`, `message`, and `exit_code` follow the normal slick error contract. |
+| Slack Web API errors such as `invalid_auth`, `access_denied`, or `ratelimited` | `api.test` returned a documented Slack error response. | Read the stdout failure envelope; `type`, `message`, and `exit_code` follow the normal slick error contract. |
 
 ## See also
 

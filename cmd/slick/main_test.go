@@ -526,8 +526,8 @@ name = "Default"
 	if err == nil {
 		t.Fatal("Execute returned nil error, want config load error")
 	}
-	if !strings.Contains(stderr.String(), "duplicate workspace profile") {
-		t.Fatalf("stderr = %q, want duplicate workspace profile error", stderr.String())
+	if !strings.Contains(stdout.String(), "duplicate workspace profile") {
+		t.Fatalf("stdout = %q, want duplicate workspace profile error", stdout.String())
 	}
 }
 
@@ -549,19 +549,19 @@ func TestCommandSurfacesMissingConfigWithInitRemediation(t *testing.T) {
 	if err == nil {
 		t.Fatal("Execute returned nil error, want missing config error")
 	}
-	if stdout.String() != "" {
-		t.Fatalf("stdout = %q, want empty", stdout.String())
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 	for _, want := range []string{"config file not found", "~/.config/slick/missing.toml", "slick config init"} {
-		if !strings.Contains(stderr.String(), want) {
-			t.Fatalf("stderr = %q, want %q", stderr.String(), want)
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout = %q, want %q", stdout.String(), want)
 		}
 	}
-	if strings.Contains(stderr.String(), home) {
-		t.Fatalf("stderr = %q, should not expose absolute home path %q", stderr.String(), home)
+	if strings.Contains(stdout.String(), home) {
+		t.Fatalf("stdout = %q, should not expose absolute home path %q", stdout.String(), home)
 	}
-	if strings.Contains(stderr.String(), "open ") {
-		t.Fatalf("stderr = %q, should not expose raw open error", stderr.String())
+	if strings.Contains(stdout.String(), "open ") {
+		t.Fatalf("stdout = %q, should not expose raw open error", stdout.String())
 	}
 }
 

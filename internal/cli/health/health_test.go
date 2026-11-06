@@ -154,12 +154,12 @@ func TestHealthAPITestMapsSlackError(t *testing.T) {
 	if err == nil {
 		t.Fatalf("health api-test unexpectedly succeeded\nstdout=%s", stdout)
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty on error", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty on error", stderr)
 	}
 	for _, fragment := range []string{`"type":"auth_failure"`, `"message":"invalid_auth"`, `"exit_code":1`} {
-		if !strings.Contains(stderr, fragment) {
-			t.Fatalf("stderr = %q, want fragment %q", stderr, fragment)
+		if !strings.Contains(stdout, fragment) {
+			t.Fatalf("stdout = %q, want fragment %q", stdout, fragment)
 		}
 	}
 }
@@ -170,9 +170,12 @@ func TestHealthHistoryRejectsNegativeLimit(t *testing.T) {
 	if err == nil {
 		t.Fatalf("health history unexpectedly succeeded\nstdout=%s", stdout)
 	}
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty on error", stderr)
+	}
 	for _, fragment := range []string{`"type":"validation_error"`, `"message":"limit must be zero or positive"`, `"exit_code":4`} {
-		if !strings.Contains(stderr, fragment) {
-			t.Fatalf("stderr = %q, want fragment %q", stderr, fragment)
+		if !strings.Contains(stdout, fragment) {
+			t.Fatalf("stdout = %q, want fragment %q", stdout, fragment)
 		}
 	}
 }

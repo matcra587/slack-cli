@@ -5,8 +5,9 @@
 `slick` is a headless Slack CLI for agents, scripts, CI jobs, and human users.
 The name is a short play on `slack-cli`: the repository and module stay
 `slack-cli`, while the installed binary is `slick`. Runtime Slack commands are
-non-interactive. Command data goes to stdout; diagnostics and errors go to
-stderr.
+non-interactive. Machine success and failure envelopes go to stdout; human diagnostics
+and errors go to stderr. Result-write failures use exit 8 and must not trigger
+blind mutation retries.
 
 ## Local Workflow
 

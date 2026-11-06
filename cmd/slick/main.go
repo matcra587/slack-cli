@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/gechr/x/terminal"
 	"github.com/google/uuid"
 	"github.com/matcra587/slack-cli/internal/agent"
+	"github.com/matcra587/slack-cli/internal/agenthelp"
 	cliagent "github.com/matcra587/slack-cli/internal/cli/agent"
 	cliauth "github.com/matcra587/slack-cli/internal/cli/auth"
 	clicache "github.com/matcra587/slack-cli/internal/cli/cache"
@@ -204,6 +206,19 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 		Short:         "Slack command line interface",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if flag := cmd.Flags().Lookup("@complete"); flag != nil && flag.Changed {
+				return nil
+			}
+			return cobra.NoArgs(cmd, args)
+		},
+	}
+	root.RunE = func(cmd *cobra.Command, _ []string) error {
+		ctx := cliruntime.LocalContext(cmd, runtime, "default")
+		if ctx.Mode == clioutput.RenderModePlain {
+			return cmd.Help()
+		}
+		return ctx.WriteResult("slick", agenthelp.GenerateSchema(cmd.Root()))
 	}
 	root.SetIn(runtime.Stdin)
 	root.SetOut(runtime.Stdout)
@@ -227,6 +242,8 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	flags.DurationP("timeout", "I", 30*time.Second, "Slack API call timeout")
 	flags.TextVarP(&runtime.ColorMode, "color", "V", clog.ColorAuto, "Color mode (auto, always, never)")
 	root.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		runtime.OutputMode, _ = cmd.Root().PersistentFlags().GetString("output")
+		runtime.CommandName = strings.TrimPrefix(strings.ReplaceAll(cmd.CommandPath(), " ", "."), "slick.")
 		if output, _ := cmd.Root().PersistentFlags().GetString("output"); output != "" {
 			if err := clioutput.ValidateOutputMode(output); err != nil {
 				return cliruntime.WriteRuntimeError(runtime, validationCLIError(err.Error()))
@@ -411,6 +428,8 @@ func truncateText(value string, limit int) string {
 }
 
 func main() {
+	// Return write failures through the output contract instead of dying on SIGPIPE.
+	signal.Ignore(syscall.SIGPIPE)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -421,31 +440,63 @@ func main() {
 		}
 	}()
 	root.SetContext(ctx)
+	runtime.OutputMode = failureOutputMode(root, os.Args[1:])
 	if err := root.ExecuteContext(ctx); err != nil {
 		if commandErr, ok := errors.AsType[CommandError](err); ok {
 			os.Exit(commandErr.CLIError.ExitCode)
 		}
-		isTTY := terminal.Is(os.Stdout)
-		mode := outputFlagsFromCommand(root).Resolve(isTTY, false)
-		sl, el := buildBaseLoggers(os.Stdout, os.Stderr, clog.ColorAuto)
-		applyRenderMode(sl, mode)
-		cmdCtx := &CommandContext{
-			Workspace: "default",
-			Mode:      mode,
-			Stdout:    os.Stdout,
-			Stderr:    os.Stderr,
-			IsTTY:     isTTY,
-			ColorMode: clog.ColorAuto,
-			Theme:     runtime.Theme,
-			StdoutLog: sl,
-			StderrLog: el,
+		commandErr := cliruntime.WriteRuntimeError(runtime, validationCLIError(err.Error()))
+		if classified, ok := errors.AsType[CommandError](commandErr); ok {
+			os.Exit(classified.CLIError.ExitCode)
 		}
-		os.Exit(cmdCtx.WriteError(validationCLIError(err.Error())))
+		os.Exit(ExitCodeValidation)
 	}
 }
 
-func outputFlagsFromCommand(cmd *cobra.Command) OutputFlags {
-	flags := cmd.PersistentFlags()
-	output, _ := flags.GetString("output")
-	return OutputFlags{Output: output}
+// failureOutputMode resolves the global selector before Cobra can fail parsing.
+// Known value-taking flags consume their next token so message text is not
+// mistaken for an output selector. A literal -- terminates flag processing.
+func failureOutputMode(root *cobra.Command, args []string) string {
+	command, _, _ := root.Find(args)
+	if command == nil {
+		command = root
+	}
+	selected := clioutput.OutputAuto
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			break
+		}
+		name, value, attached := strings.Cut(strings.TrimPrefix(arg, "--"), "=")
+		if strings.HasPrefix(arg, "--") {
+			flag := command.Flags().Lookup(name)
+			if flag == nil {
+				flag = root.PersistentFlags().Lookup(name)
+			}
+			if flag != nil && !attached && flag.NoOptDefVal == "" && i+1 < len(args) {
+				i++
+				value = args[i]
+			}
+			if name == "output" {
+				selected = value
+			}
+		} else if strings.HasPrefix(arg, "-") && len(arg) > 1 {
+			short := arg[1:2]
+			flag := command.Flags().ShorthandLookup(short)
+			if flag == nil {
+				flag = root.PersistentFlags().ShorthandLookup(short)
+			}
+			if flag != nil && flag.NoOptDefVal == "" {
+				value = strings.TrimPrefix(arg[2:], "=")
+				if value == "" && i+1 < len(args) {
+					i++
+					value = args[i]
+				}
+				if short == "o" {
+					selected = value
+				}
+			}
+		}
+	}
+	return selected
 }

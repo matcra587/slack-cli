@@ -130,3 +130,16 @@ printf '%%s\n' "$@" > %q
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+func TestTokenImportAcceptsRotatingAccessTokens(t *testing.T) {
+	for _, token := range []string{"xoxe.xoxp-user-access", "xoxe.xoxb-bot-access"} {
+		if err := validateLoginTokenContent(token); err != nil {
+			t.Errorf("rotating access token rejected: %v", err)
+		}
+	}
+	for _, token := range []string{"xoxe-refresh-only", "xoxe.xapp-app-access", "xoxp-with spaces"} {
+		if err := validateLoginTokenContent(token); err == nil {
+			t.Error("unsupported or malformed credential accepted")
+		}
+	}
+}

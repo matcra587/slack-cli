@@ -18,6 +18,12 @@ import (
 type Data struct {
 	Messages   []clioutput.Message            `json:"messages"`
 	ChannelRef clioutput.SlackConversationRef `json:"-"`
+	Pagination *clioutput.Pagination          `json:"pagination,omitempty"`
+}
+
+func (d Data) WithPagination(pagination *clioutput.Pagination) any {
+	d.Pagination = pagination
+	return d
 }
 
 var (

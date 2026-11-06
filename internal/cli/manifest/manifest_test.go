@@ -376,5 +376,67 @@ func executeTestRoot(t *testing.T, cfg *config.Config, baseURL, stdin string, ar
 	})
 	root := runtimetest.NewRoot(runtime, stdout, stderr)
 	root.AddCommand(climanifest.NewCommand(runtime))
-	return runtimetest.Run(t, root, args, stdout, stderr)
+	out, diagnostics, err := runtimetest.Run(t, root, args, stdout, stderr)
+	if err == nil {
+		var frame struct {
+			Data struct {
+				Manifest json.RawMessage `json:"manifest"`
+				Document string          `json:"document"`
+			} `json:"data"`
+		}
+		if json.Unmarshal([]byte(out), &frame) == nil && len(frame.Data.Manifest) > 0 {
+			if frame.Data.Document != "" {
+				out = frame.Data.Document
+			} else {
+				out = string(frame.Data.Manifest)
+			}
+		}
+	}
+	return out, diagnostics, err
+}
+
+func TestTemplateHonorsOutputModes(t *testing.T) {
+	for _, format := range []string{"json", "yaml"} {
+		for _, mode := range []string{"json", "compact", "human"} {
+			t.Run(format+"/"+mode, func(t *testing.T) {
+				runtime, stdout, stderr := runtimetest.NewRuntime(t, runtimetest.Options{Theme: clitheme.Default()})
+				root := runtimetest.NewRoot(runtime, stdout, stderr)
+				root.AddCommand(climanifest.NewCommand(runtime))
+				out, diagnostics, err := runtimetest.Run(t, root, []string{"manifest", "template", "--format", format, "--output", mode}, stdout, stderr)
+				if err != nil || diagnostics != "" {
+					t.Fatalf("err=%v stderr=%s", err, diagnostics)
+				}
+				if mode == "human" && format == "yaml" {
+					if !strings.Contains(out, "display_information:") || strings.Contains(out, `"meta"`) {
+						t.Fatalf("not importable YAML: %s", out)
+					}
+					return
+				}
+				var data map[string]json.RawMessage
+				if err := json.Unmarshal([]byte(out), &data); err != nil {
+					t.Fatal(err)
+				}
+				if mode == "human" {
+					if _, ok := data["display_information"]; !ok {
+						t.Fatal("human mode lost raw manifest")
+					}
+					return
+				}
+				if mode == "json" {
+					if len(data) != 4 || string(data["ok"]) != "true" {
+						t.Fatalf("invalid result frame: %s", out)
+					}
+					if err := json.Unmarshal(data["data"], &data); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if len(data["manifest"]) == 0 || string(data["format"]) != `"`+format+`"` {
+					t.Fatalf("missing importable artifact: %s", out)
+				}
+				if format == "yaml" && len(data["document"]) == 0 {
+					t.Fatal("YAML document missing")
+				}
+			})
+		}
+	}
 }

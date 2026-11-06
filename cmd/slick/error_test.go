@@ -9,7 +9,7 @@ import (
 	"github.com/matcra587/slack-cli/internal/testutil"
 )
 
-func TestWriteErrorUsesStructuredStderrOnly(t *testing.T) {
+func TestWriteErrorUsesStructuredStdoutOnly(t *testing.T) {
 	ctx, stdout, stderr := newOutputTestContext(RenderModeEnvelope)
 
 	exitCode := ctx.WriteError(CLIError{
@@ -22,15 +22,15 @@ func TestWriteErrorUsesStructuredStderrOnly(t *testing.T) {
 	if exitCode != ExitCodeValidation {
 		t.Fatalf("exit code = %d, want %d", exitCode, ExitCodeValidation)
 	}
-	if stdout.Len() != 0 {
-		t.Fatalf("stdout = %q, want empty", stdout.String())
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 
 	var payload struct {
 		Errors []CLIError `json:"errors"`
 	}
-	if err := json.Unmarshal(stderr.Bytes(), &payload); err != nil {
-		t.Fatalf("stderr is not JSON: %v\n%s", err, stderr.String())
+	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
+		t.Fatalf("stdout is not JSON: %v\n%s", err, stdout.String())
 	}
 	if len(payload.Errors) != 1 {
 		t.Fatalf("errors length = %d, want 1", len(payload.Errors))
@@ -78,9 +78,12 @@ func TestRateLimitErrorIncludesRetryAfterSecondsWhenSlackSuppliesTiming(t *testi
 		},
 	})
 
-	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.BaseURL(), "",
 		[]string{"message", "send", "--channel", "C123", "--message", "Rate limited"},
 	)
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("Execute returned nil error, want rate limit error")
 	}
@@ -88,8 +91,8 @@ func TestRateLimitErrorIncludesRetryAfterSecondsWhenSlackSuppliesTiming(t *testi
 	var payload struct {
 		Errors []CLIError `json:"errors"`
 	}
-	if unmarshalErr := json.Unmarshal([]byte(stderr), &payload); unmarshalErr != nil {
-		t.Fatalf("stderr is not JSON: %v\n%s", unmarshalErr, stderr)
+	if unmarshalErr := json.Unmarshal([]byte(stdout), &payload); unmarshalErr != nil {
+		t.Fatalf("stdout is not JSON: %v\n%s", unmarshalErr, stdout)
 	}
 	if len(payload.Errors) != 1 {
 		t.Fatalf("errors length = %d, want 1", len(payload.Errors))

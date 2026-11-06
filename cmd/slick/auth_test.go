@@ -190,16 +190,19 @@ func TestAuthLoginTokenSourcesAreMutuallyExclusive(t *testing.T) {
 		t.Fatalf("write token file: %v", err)
 	}
 
-	_, stderr, err := executeAuthRootWithInput(t, nil, filepath.Join(t.TempDir(), "config.toml"), config.NewMemoryCredentialStore(), "http://example.invalid",
+	stdout, stderr, err := executeAuthRootWithInput(t, nil, filepath.Join(t.TempDir(), "config.toml"), config.NewMemoryCredentialStore(), "http://example.invalid",
 		strings.NewReader("xoxb-stdin-secret\n"),
 		false,
 		[]string{"--workspace", "default", "auth", "login", "--method", "token", "--token-stdin", "--token-file", tokenPath},
 	)
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("auth login returned nil error, want mutually exclusive token source failure")
 	}
-	if !strings.Contains(stderr, "token source flags are mutually exclusive") {
-		t.Fatalf("stderr = %q, want token source mutual exclusion", stderr)
+	if !strings.Contains(stdout, "token source flags are mutually exclusive") {
+		t.Fatalf("stdout = %q, want token source mutual exclusion", stdout)
 	}
 }
 
@@ -356,11 +359,11 @@ func TestAuthLoginRequiresForceToOverwriteAuthenticatedProfile(t *testing.T) {
 	if err == nil {
 		t.Fatal("auth login returned nil error, want force validation")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, "--force") {
-		t.Fatalf("stderr = %q, want --force guidance", stderr)
+	if !strings.Contains(stdout, "--force") {
+		t.Fatalf("stdout = %q, want --force guidance", stdout)
 	}
 	secret, err := store.Get("slack-cli", "default")
 	if err != nil {
@@ -735,19 +738,22 @@ func TestAuthLoginOAuthBadClientSecretExplainsPKCESetup(t *testing.T) {
 
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
-	_, stderr, err := executeAuthRootWithOptions(t, nil, configPath, store, server.BaseURL(),
+	stdout, stderr, err := executeAuthRootWithOptions(t, nil, configPath, store, server.BaseURL(),
 		strings.NewReader(""),
 		false,
 		[]string{"auth", "login", "--workspace-name", "oauth-profile", "--auth-method", "oauth", "--client-id", "C123", "--oauth-redirect-url", redirectURL},
 		WithOAuthTimeout(2*time.Second),
 		WithURLOpener(oauthTestCallbackOpener(t, "oauth-code")),
 	)
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("auth login returned nil error, want PKCE setup error")
 	}
 	for _, fragment := range []string{"PKCE", "oauth_config.pkce_enabled", "client secret"} {
-		if !strings.Contains(stderr, fragment) {
-			t.Fatalf("stderr = %q, want fragment %q", stderr, fragment)
+		if !strings.Contains(stdout, fragment) {
+			t.Fatalf("stdout = %q, want fragment %q", stdout, fragment)
 		}
 	}
 }
@@ -789,7 +795,7 @@ func TestAuthLoginOAuthRequiresClientIDBeforeOpeningBrowser(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewMemoryCredentialStore()
 	opened := false
-	_, stderr, err := executeAuthRootWithOptions(t, nil, configPath, store, "http://example.invalid",
+	stdout, stderr, err := executeAuthRootWithOptions(t, nil, configPath, store, "http://example.invalid",
 		strings.NewReader(""),
 		false,
 		[]string{"auth", "login", "--workspace-name", "oauth-profile", "--auth-method", "oauth"},
@@ -798,14 +804,17 @@ func TestAuthLoginOAuthRequiresClientIDBeforeOpeningBrowser(t *testing.T) {
 			return nil
 		}),
 	)
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("auth login returned nil error, want missing client secret")
 	}
 	if opened {
 		t.Fatal("browser opener was called before client id validation")
 	}
-	if !strings.Contains(stderr, "oauth client id is required") {
-		t.Fatalf("stderr = %q, want client id validation", stderr)
+	if !strings.Contains(stdout, "oauth client id is required") {
+		t.Fatalf("stdout = %q, want client id validation", stdout)
 	}
 }
 
@@ -1006,14 +1015,17 @@ func TestMessageCommandReportsUnauthenticatedWorkspaceProfile(t *testing.T) {
 		},
 	}
 
-	_, stderr, err := executeAuthRoot(t, cfg, filepath.Join(t.TempDir(), "config.toml"), config.NewMemoryCredentialStore(), "http://example.invalid",
+	stdout, stderr, err := executeAuthRoot(t, cfg, filepath.Join(t.TempDir(), "config.toml"), config.NewMemoryCredentialStore(), "http://example.invalid",
 		[]string{"message", "send", "--channel", "C7N2Q8L4P", "--message", "hello"},
 	)
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("message send returned nil error, want unauthenticated workspace failure")
 	}
-	if !strings.Contains(stderr, "workspace default is not authenticated") {
-		t.Fatalf("stderr = %q, want unauthenticated workspace guidance", stderr)
+	if !strings.Contains(stdout, "workspace default is not authenticated") {
+		t.Fatalf("stdout = %q, want unauthenticated workspace guidance", stdout)
 	}
 }
 
@@ -1243,5 +1255,21 @@ func TestAuthLogoutRevokeFailureProceedsWithCleanup(t *testing.T) {
 	// Revoke failure must be logged to stderr.
 	if !strings.Contains(stderr, "token revocation failed") {
 		t.Fatalf("stderr = %q, want token revocation failure message", stderr)
+	}
+}
+
+func TestAuthLogoutPersistsRemovalOfLastProfile(t *testing.T) {
+	cfg := authTestConfig()
+	delete(cfg.Workspaces, "other")
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := config.SaveFile(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	_, stderr, err := executeAuthRoot(t, cfg, path, config.NewMemoryCredentialStore(), "http://example.invalid", []string{"auth", "logout", "default", "--keep-token"})
+	if err != nil {
+		t.Fatalf("logout: %v; stderr=%s", err, stderr)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("empty configuration remains after logout: %v", err)
 	}
 }

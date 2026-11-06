@@ -69,6 +69,9 @@ data.
 
 ### Output
 
+`file.name` is the uploaded filename. The optional `file.title` is its Slack
+display title; setting `--title` does not replace the filename.
+
 === "Human"
 
     Human (real upload — post-v0.4.0 the JSON fields now match the Slack file

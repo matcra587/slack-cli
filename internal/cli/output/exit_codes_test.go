@@ -2,6 +2,7 @@ package output
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -17,6 +18,18 @@ func TestCliErrorFromSlackMissingScopeIncludesNeeded(t *testing.T) {
 		wantMessage string
 		wantNeeded  any
 	}{
+		{
+			name:        "structured scope without metadata",
+			err:         slackgo.SlackErrorResponse{Err: "missing_scope", Needed: "chat:write,users:read"},
+			wantMessage: "missing_scope: missing required Slack scope: chat:write,users:read",
+			wantNeeded:  "chat:write,users:read",
+		},
+		{
+			name:        "structured scope takes precedence",
+			err:         slackgo.SlackErrorResponse{Err: "missing_scope", Needed: " files:write ", ResponseMetadata: slackgo.ResponseMetadata{Messages: []string{"[ERROR] missing required scope: chat:write"}}},
+			wantMessage: "missing_scope: missing required Slack scope: files:write",
+			wantNeeded:  "files:write",
+		},
 		{
 			name: "slack response metadata message",
 			err: slackgo.SlackErrorResponse{
@@ -47,7 +60,7 @@ func TestCliErrorFromSlackMissingScopeIncludesNeeded(t *testing.T) {
 			if got.Message != tt.wantMessage {
 				t.Fatalf("message = %q, want %q", got.Message, tt.wantMessage)
 			}
-			if got.Details["needed"] == nil {
+			if !reflect.DeepEqual(got.Details["needed"], tt.wantNeeded) {
 				t.Fatalf("details = %#v, want needed=%#v", got.Details, tt.wantNeeded)
 			}
 			if !strings.Contains(got.Message, "scope") {

@@ -225,7 +225,7 @@ func TestAgentGuideOutputsAdditionalWorkflowInstructions(t *testing.T) {
 		},
 		"core_contract": {
 			"## core_contract",
-			"stdout is command data only",
+			"Machine success and failure are JSON records on stdout",
 			"stderr is diagnostics",
 			"--output",
 			"Exit codes",

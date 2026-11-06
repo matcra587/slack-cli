@@ -449,8 +449,9 @@ func validateLoginTokenContent(token string) error {
 	if strings.TrimSpace(token) != token || strings.ContainsAny(token, "\r\n\t ") {
 		return errors.New("token content is malformed")
 	}
-	if !strings.HasPrefix(token, "xoxb-") && !strings.HasPrefix(token, "xoxp-") {
-		return errors.New("token content is malformed; expected xoxb- or xoxp- token")
+	accessToken := strings.TrimPrefix(token, "xoxe.")
+	if !strings.HasPrefix(accessToken, "xoxb-") && !strings.HasPrefix(accessToken, "xoxp-") {
+		return errors.New("token content is malformed; expected a bot or user access token (xoxb-, xoxp-, or rotating xoxe. form)")
 	}
 	return nil
 }
@@ -658,8 +659,8 @@ func completeOAuthLogin(reqCtx context.Context, ctx *clioutput.CommandContext, r
 	// Publish the OAuth response safely if cancellation races the exchange.
 	var responsePtr atomic.Pointer[slackgo.OAuthV2Response]
 	spinner := ctx.StderrLogger().Spinner("Waiting for Slack OAuth callback").
-		Link("authorize_url", authorizeURL, clioutput.HyperlinkText(authorizeURL)).
-		Link("redirect_url", redirectURL.String(), clioutput.HyperlinkText(redirectURL.String()))
+		Link("authorize_url", authorizeURL, ctx.HyperlinkText(authorizeURL)).
+		Link("redirect_url", redirectURL.String(), ctx.HyperlinkText(redirectURL.String()))
 	group := ctx.StderrLogger().Group(oauthCtx, fx.WithClearOnCancel())
 	group.Add(spinner).Run(func(taskCtx context.Context) error {
 		_ = openURL(authorizeURL)
@@ -1022,8 +1023,17 @@ func runAuthLogout(cmd *cobra.Command, runtime *cliruntime.RootRuntime, workspac
 		if runtime.Config.DefaultWorkspace == workspace && !configManagedProfile(runtime.Config.Workspaces[workspace]) {
 			runtime.Config.DefaultWorkspace = firstWorkspaceName(runtime.Config.Workspaces)
 		}
-		if runtime.ConfigPath != "" && len(runtime.Config.Workspaces) > 0 {
-			if err := config.SaveFile(runtime.ConfigPath, runtime.Config); err != nil {
+		if runtime.ConfigPath != "" {
+			var err error
+			if len(runtime.Config.Workspaces) == 0 {
+				err = os.Remove(runtime.ConfigPath)
+				if errors.Is(err, os.ErrNotExist) {
+					err = nil
+				}
+			} else {
+				err = config.SaveFile(runtime.ConfigPath, runtime.Config)
+			}
+			if err != nil {
 				return clioutput.WriteCommandError(ctx, clioutput.RuntimeCLIError(err.Error()))
 			}
 		}

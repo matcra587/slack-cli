@@ -125,11 +125,11 @@ func TestScheduledSendRejectsInvalidTargetsAndSchedulesBeforeSlack(t *testing.T)
 			if err == nil {
 				t.Fatalf("Execute returned nil error, want validation failure\nstdout=%s", stdout)
 			}
-			if stdout != "" {
-				t.Fatalf("stdout = %q, want empty", stdout)
+			if stderr != "" {
+				t.Fatalf("stderr = %q, want empty", stderr)
 			}
-			if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, tt.want) {
-				t.Fatalf("stderr = %s, want validation_error containing %q", stderr, tt.want)
+			if !strings.Contains(stdout, `"type":"validation_error"`) || !strings.Contains(stdout, tt.want) {
+				t.Fatalf("stdout = %s, want validation_error containing %q", stdout, tt.want)
 			}
 			if got := len(server.Requests("chat.scheduleMessage")); got != 0 {
 				t.Fatalf("chat.scheduleMessage requests = %d, want 0", got)
@@ -545,8 +545,8 @@ func TestScheduledDeleteEnvelopeAndValidation(t *testing.T) {
 				if err == nil {
 					t.Fatalf("Execute returned nil error, want validation failure\nstdout=%s", stdout)
 				}
-				if !strings.Contains(stderr, `"type":"validation_error"`) {
-					t.Fatalf("stderr = %s, want validation_error", stderr)
+				if !strings.Contains(stdout, `"type":"validation_error"`) {
+					t.Fatalf("stdout = %s, want validation_error", stdout)
 				}
 				return
 			}
@@ -606,11 +606,11 @@ func TestScheduledSendMissingScopeIncludesNeeded(t *testing.T) {
 	if err == nil {
 		t.Fatal("Execute returned nil error, want missing_scope")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, "missing_scope") || !strings.Contains(stderr, "chat:write") || !strings.Contains(stderr, `"needed":"chat:write"`) {
-		t.Fatalf("stderr = %s, want missing_scope with needed chat:write", stderr)
+	if !strings.Contains(stdout, "missing_scope") || !strings.Contains(stdout, "chat:write") || !strings.Contains(stdout, `"needed":"chat:write"`) {
+		t.Fatalf("stdout = %s, want missing_scope with needed chat:write", stdout)
 	}
 }
 
@@ -688,14 +688,14 @@ func TestScheduledCommandsMapSlackErrorsToFixedContract(t *testing.T) {
 			if err == nil {
 				t.Fatalf("Execute returned nil error, want Slack error\nstdout=%s", stdout)
 			}
-			if stdout != "" {
-				t.Fatalf("stdout = %q, want empty", stdout)
+			if stderr != "" {
+				t.Fatalf("stderr = %q, want empty", stderr)
 			}
-			if !strings.Contains(stderr, `"type":"`+tt.wantType+`"`) || !strings.Contains(stderr, tt.wantText) {
-				t.Fatalf("stderr = %s, want %s containing %s", stderr, tt.wantType, tt.wantText)
+			if !strings.Contains(stdout, `"type":"`+tt.wantType+`"`) || !strings.Contains(stdout, tt.wantText) {
+				t.Fatalf("stdout = %s, want %s containing %s", stdout, tt.wantType, tt.wantText)
 			}
-			if tt.slackErr == "missing_scope" && !strings.Contains(stderr, `"needed":["chat:write"]`) {
-				t.Fatalf("stderr = %s, want needed chat:write detail", stderr)
+			if tt.slackErr == "missing_scope" && !strings.Contains(stdout, `"needed":["chat:write"]`) {
+				t.Fatalf("stdout = %s, want needed chat:write detail", stdout)
 			}
 		})
 	}

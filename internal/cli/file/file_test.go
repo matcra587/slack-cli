@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/matcra587/slack-cli/internal/agent"
@@ -257,15 +258,18 @@ func TestFileUploadCommandSupportsBlockInputForUploadMessage(t *testing.T) {
 func TestFileUploadCommandRejectsMalformedBlockComment(t *testing.T) {
 	server := fileUploadServer(t)
 
-	_, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.URL,
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.URL,
 		"hello world",
 		[]string{"file", "upload", "--channel", "C123", "--file", "-", "--filename", "stdin.txt", "--blocks", "--message", `not-json`},
 	)
+	if stderr != "" {
+		t.Fatalf("unexpected machine diagnostics: %s", stderr)
+	}
 	if err == nil {
 		t.Fatal("Execute returned nil error, want malformed block validation error")
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) {
-		t.Fatalf("stderr = %s, want validation_error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) {
+		t.Fatalf("stdout = %s, want validation_error", stdout)
 	}
 }
 
@@ -313,7 +317,12 @@ func TestFileUploadCommandPreservesUnsupportedMarkdownSourceFallbackInComment(t 
 }
 
 func TestFileUploadCommandRejectsInvalidRawBlockCommentBeforeSlackRequest(t *testing.T) {
-	server := fileUploadServer(t)
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(server.Close)
 
 	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.URL,
 		"hello world",
@@ -322,44 +331,43 @@ func TestFileUploadCommandRejectsInvalidRawBlockCommentBeforeSlackRequest(t *tes
 	if err == nil {
 		t.Fatal("Execute returned nil error, want raw block validation error")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	for _, path := range []string{"auth.test", "files.getUploadURLExternal", "files.completeUploadExternal"} {
-		if got := strings.Count(stderr, path); got > 0 {
-			t.Fatalf("stderr = %s, want no Slack upload call mentioning %s", stderr, path)
-		}
+	if got := requests.Load(); got != 0 {
+		t.Fatalf("Slack requests = %d, want zero before validation", got)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) || !strings.Contains(stderr, "file external_id and source are required") {
-		t.Fatalf("stderr = %s, want file validation error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) || !strings.Contains(stdout, "file external_id and source are required") {
+		t.Fatalf("stdout = %s, want file validation error", stdout)
 	}
 }
 
-func fileUploadServer(t *testing.T) *httptest.Server {
+func fileUploadServer(t *testing.T, titles ...string) *httptest.Server {
 	t.Helper()
 	uploadedName := "report.txt"
+	uploadedTitle := ""
+	if len(titles) > 0 {
+		uploadedTitle = titles[0]
+	}
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/auth.test":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ok":true,"user_id":"U123"}`))
 		case "/api/files.getUploadURLExternal":
+			uploadedName = r.FormValue("filename")
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ok":true,"upload_url":"` + "http://" + r.Host + `/upload","file_id":"F123"}`))
 		case "/upload":
 			_, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusOK)
 		case "/api/files.completeUploadExternal":
-			name := "report.txt"
-			if strings.Contains(r.FormValue("files"), "stdin.txt") {
-				name = "stdin.txt"
-			}
-			uploadedName = name
+			name := uploadedName
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"ok":true,"files":[{"id":"F123","name":"` + name + `","size":11,"permalink":"https://example.slack.com/files/F123"}]}`))
+			_, _ = w.Write([]byte(`{"ok":true,"files":[{"id":"F123","name":"` + name + `","title":"` + uploadedTitle + `","size":11,"permalink":"https://example.slack.com/files/F123"}]}`))
 		case "/api/files.info":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"ok":true,"file":{"id":"F123","name":"` + uploadedName + `","title":"` + uploadedName + `","size":11,"permalink":"https://example.slack.com/files/F123"}}`))
+			_, _ = w.Write([]byte(`{"ok":true,"file":{"id":"F123","name":"` + uploadedName + `","title":"` + uploadedTitle + `","size":11,"permalink":"https://example.slack.com/files/F123"}}`))
 		case "/api/conversations.info":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ok":true,"channel":{"id":"C123","name":"alerts","is_channel":true}}`))
@@ -408,5 +416,24 @@ func workspaceConfig(tokenType config.TokenType) *config.Config {
 				TokenRef:  "env:SLACK_TEST_TOKEN",
 			},
 		},
+	}
+}
+
+func TestFileUploadKeepsFilenameSeparateFromTitle(t *testing.T) {
+	server := fileUploadServer(t, "Release evidence")
+	stdout, stderr, err := executeTestRoot(t, workspaceConfig(config.TokenTypeBot), server.URL, "artifact", []string{"file", "upload", "--channel", "C123", "--file", "-", "--filename", "report.txt", "--title", "Release evidence"})
+	if err != nil {
+		t.Fatalf("error=%v stderr=%s", err, stderr)
+	}
+	var frame struct {
+		Data struct {
+			File map[string]any `json:"file"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &frame); err != nil {
+		t.Fatal(err)
+	}
+	if frame.Data.File["name"] != "report.txt" || frame.Data.File["title"] != "Release evidence" {
+		t.Fatalf("file metadata=%v; filename and display title must remain distinct", frame.Data.File)
 	}
 }

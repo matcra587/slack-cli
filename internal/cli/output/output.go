@@ -87,9 +87,11 @@ const (
 	ExitCodeServer      = 5
 	ExitCodeCanceled    = 6
 	ExitCodeTimeout     = 7
+	ExitCodeIO          = 8
 )
 
 const (
+	ErrorTypeIO         = "io"
 	ErrorTypeAuth       = "auth_failure"
 	ErrorTypeNotFound   = "not_found"
 	ErrorTypeRateLimit  = "rate_limit"
@@ -100,12 +102,14 @@ const (
 )
 
 type Envelope struct {
+	OK     bool         `json:"ok"`
 	Meta   EnvelopeMeta `json:"meta"`
 	Data   any          `json:"data"`
 	Errors []CLIError   `json:"errors"`
 }
 
 type EnvelopeMeta struct {
+	ExitCode   int         `json:"exit_code,omitempty"`
 	Command    string      `json:"command"`
 	Workspace  string      `json:"workspace"`
 	Timestamp  string      `json:"timestamp"`

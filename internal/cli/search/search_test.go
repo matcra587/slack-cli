@@ -79,11 +79,11 @@ func TestSearchMessagesCommandRejectsMissingQuery(t *testing.T) {
 	if err == nil {
 		t.Fatal("Execute returned nil error, want validation error")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, `"type":"validation_error"`) {
-		t.Fatalf("stderr = %s, want validation_error", stderr)
+	if !strings.Contains(stdout, `"type":"validation_error"`) {
+		t.Fatalf("stdout = %s, want validation_error", stdout)
 	}
 }
 
@@ -102,11 +102,11 @@ func TestSearchMessagesRequiresUserToken(t *testing.T) {
 	if err == nil {
 		t.Fatal("Execute returned nil error, want auth failure")
 	}
-	if stdout != "" {
-		t.Fatalf("stdout = %q, want empty", stdout)
+	if stderr != "" {
+		t.Fatalf("stderr = %q, want empty", stderr)
 	}
-	if !strings.Contains(stderr, `"type":"auth_failure"`) || !strings.Contains(stderr, "user token") || !strings.Contains(stderr, "search:read") {
-		t.Fatalf("stderr = %s, want user-token search scope auth failure", stderr)
+	if !strings.Contains(stdout, `"type":"auth_failure"`) || !strings.Contains(stdout, "user token") || !strings.Contains(stdout, "search:read") {
+		t.Fatalf("stdout = %s, want user-token search scope auth failure", stdout)
 	}
 }
 

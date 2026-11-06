@@ -49,7 +49,7 @@ func (d InitData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 		clioutput.EntityFieldStyle("workspace", d.Workspace),
 	)
 	c.ResultEvent(command).
-		Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
+		Link("path", d.Path, c.HyperlinkText(human.ContractHome(d.Path))).
 		Str("profile", d.Profile).
 		Str("workspace", d.Workspace).
 		Msg(clioutput.ActionLabel(command))
@@ -67,7 +67,7 @@ var _ clioutput.PlainRenderer = PathData{}
 func (d PathData) WritePlain(c *clioutput.CommandContext, command string, _ *clioutput.Pagination) error {
 	clioutput.ApplyBoolValueStyle(c.StdoutLogger(), c.Theme, "exists", d.Exists)
 	c.ResultEvent(command).
-		Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
+		Link("path", d.Path, c.HyperlinkText(human.ContractHome(d.Path))).
 		Bool("exists", d.Exists).
 		Msg(clioutput.ActionLabel(command))
 	return nil
@@ -95,7 +95,7 @@ func (d ListData) WritePlain(c *clioutput.CommandContext, command string, _ *cli
 			clioutput.HashedFieldStyle("default_workspace", "workspace:"+d.DefaultWorkspace),
 		)
 		c.ResultEvent(command).
-			Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
+			Link("path", d.Path, c.HyperlinkText(human.ContractHome(d.Path))).
 			Str("default_workspace", d.DefaultWorkspace).
 			Int("settings", len(d.Settings)).
 			Msg(clioutput.ActionLabel(command))
@@ -151,7 +151,7 @@ func (d MutationData) WritePlain(c *clioutput.CommandContext, command string, _ 
 	// label and the JSON envelope's meta.command.)
 	clioutput.ApplyConfigValueStyle(c.StdoutLogger(), c.Theme, "value", d.Value)
 	event := c.ResultEvent(command).
-		Link("path", d.Path, clioutput.HyperlinkText(human.ContractHome(d.Path))).
+		Link("path", d.Path, c.HyperlinkText(human.ContractHome(d.Path))).
 		Str("key", d.Key)
 	if d.Value != "" {
 		event = event.Str("value", d.Value)

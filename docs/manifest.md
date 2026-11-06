@@ -10,7 +10,7 @@ does not create Slack apps; it generates the manifest text.
     Default messaging manifest for user-token auth:
 
     ```sh
-    slick manifest template --preset messaging --type user --name slack-cli > manifest.json
+    slick manifest template --preset messaging --type user --name slack-cli --output=human > manifest.json
     ```
 
 === "YAML output"
@@ -18,7 +18,7 @@ does not create Slack apps; it generates the manifest text.
     Emit the manifest as YAML:
 
     ```sh
-    slick manifest template --preset messaging --type user --name slack-cli --format yaml > manifest.yml
+    slick manifest template --preset messaging --type user --name slack-cli --format yaml --output=human > manifest.yml
     ```
 
 === "Pin callback port"
@@ -26,7 +26,7 @@ does not create Slack apps; it generates the manifest text.
     Pin a local OAuth callback port (used by `auth login --oauth-callback-port`):
 
     ```sh
-    slick manifest template --preset messaging --type user --name slack-cli --callback-port 53221 > manifest.json
+    slick manifest template --preset messaging --type user --name slack-cli --callback-port 53221 --output=human > manifest.json
     ```
 
 === "Override scopes"
@@ -35,7 +35,7 @@ does not create Slack apps; it generates the manifest text.
 
     ```sh
     slick manifest template --preset readonly --type user \
-      --user-scope channels:history --user-scope groups:history > manifest.json
+      --user-scope channels:history --user-scope groups:history --output=human > manifest.json
     ```
 
 ### Flags
@@ -103,11 +103,14 @@ under user scopes only, since bot tokens cannot use the search API.
 
 ### Output
 
-The manifest is printed to stdout as JSON (default) or YAML. Pipe it to a
+Human output prints the importable manifest directly as JSON (default) or YAML.
+Use `--output=human` when saving an importable file. Machine output uses the
+common result envelope: extract `data.manifest` for JSON or `data.document` for
+YAML; compact output has the same payload without the envelope. Pipe it to a
 file or your clipboard.
 
 ```sh
-slick manifest template --preset messaging --type user --name slack-cli | \
+slick manifest template --preset messaging --type user --name slack-cli --output=human | \
   jq -e '.oauth_config.scopes.user'      # confirm scope shape
 ```
 
@@ -121,7 +124,7 @@ PY
 )
 
 slick manifest template --preset messaging --type user --name slack-cli \
-  --callback-port "$PORT" > manifest.json
+  --callback-port "$PORT" --output=human > manifest.json
 
 # Import manifest.json in Slack, then:
 slick auth login --oauth-callback-port "$PORT"

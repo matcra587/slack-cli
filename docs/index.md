@@ -65,7 +65,7 @@ slick has a single output flag, `--output` (short `-o`), with four values:
 *   `auto` — the default. TTY without an agent renders human-readable clog
     output; everything else renders the JSON envelope.
 *   `human` — human-readable clog output.
-*   `json` — full envelope with `meta`, `data`, and `errors[]`.
+*   `json` — full envelope with `ok`, `meta`, `data`, and `errors[]`.
 *   `compact` — JSON `data` only; no envelope.
 
 Under `auto`, JSON is selected when stdout is not a TTY or when slick detects
@@ -103,10 +103,17 @@ Kit JSON array.
 | 5 | `server_error` (Slack 5xx or filesystem/runtime failure) |
 | 6 | `canceled` (SIGINT/SIGTERM during a Slack call) |
 | 7 | `timeout` (`--timeout` exceeded) |
+| 8 | `io` (`output_write_failed`; a mutation may already have completed) |
 
-JSON-mode failures put `errors[0].type`, `errors[0].message`, and
-`errors[0].exit_code` on stderr. The action label (e.g. `Message sent`) goes
-to stdout only on success.
+JSON and compact failures write a full `{ok, meta, data, errors}` envelope
+to stdout, with `ok=false`, `data=null`, and the original error class and exit
+code. Human errors use stderr. A machine failure has no duplicate human error.
+Compact success still emits the command data directly. Paginated command data
+includes `pagination`; JSON also keeps `meta.pagination` for compatibility.
+
+A result-write failure exits 8. A mutation may already have completed: inspect
+Slack before retrying it. Bare `slick` returns command discovery in machine
+modes; explicit `--help` remains help text.
 
 ## Output styling
 

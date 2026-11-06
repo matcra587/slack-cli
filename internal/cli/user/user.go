@@ -106,7 +106,8 @@ func runUserListWithCommand(cmd *cobra.Command, runtime *cliruntime.RootRuntime,
 	if opts.Cursor != "" {
 		options = append(options, slackgo.GetUsersOptionCursor(opts.Cursor))
 	}
-	options = append(options, slackgo.GetUsersOptionPresence(opts.Presence))
+	// Slack retired the users.list presence parameter; explicit user lookups
+	// still fetch presence through users.getPresence below.
 	pager := client.GetUsersPaginated(options...)
 	page, err := pager.Next(cmd.Context())
 	if err != nil {

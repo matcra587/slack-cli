@@ -87,7 +87,7 @@ run = ["go fmt ./...", "go tool gofumpt -w ."]
 
 ["fmt:check"]
 description = "Check Go formatting"
-run = 'test -z "$(go tool gofumpt -l .)"'
+run = 'formatted_files=$(go tool gofumpt -l .) && test -z "$formatted_files"'
 
 ["fmt:file"]
 description = "Format Go file(s) with gofumpt"
@@ -154,18 +154,14 @@ description = "Print build version info"
 quiet = true
 file = ".mise/tasks/version"
 
-# Docs site is built with the official zensical/zensical image (the modern
-# successor to MkDocs Material by the same team). Local serve and CI use the
-# same image tag so what you see is what ships. Bump the tag in one place —
-# search both files for "zensical/zensical".
-#
-# Configuration lives in `zensical.toml` (Zensical's native format, under a
-# `[project]` table). Zensical auto-detects it ahead of any mkdocs.yml.
+# Local development and CI use the same pinned uv/Zensical invocation.
+# Keep builds strict; preview retains the established localhost:4000 address.
 
 ["docs:serve"]
-description = "Serve the docs site locally via the official Zensical image"
-run = "docker run --rm -v \"$PWD\":/docs -p 4000:8000 -w /docs zensical/zensical:latest serve --dev-addr 0.0.0.0:8000"
+description = "Serve the documentation site with live reload"
+raw_args = true
+run = "uvx --python 3.15 --from zensical==0.1.0 zensical serve -f zensical.toml --dev-addr 127.0.0.1:4000"
 
 ["docs:build"]
-description = "Build the docs site to ./site/ via the official Zensical image"
-run = "docker run --rm -v \"$PWD\":/docs -w /docs zensical/zensical:latest build --clean --strict"
+description = "Build the documentation site with strict validation"
+run = "uvx --python 3.15 --from zensical==0.1.0 zensical build --clean --strict -f zensical.toml"

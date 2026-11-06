@@ -1,9 +1,7 @@
-// clover: from=hk find=download/v<version>/hk@<version>
-amends "package://github.com/jdx/hk/releases/download/v1.58.1/hk@1.58.1#/Config.pkl"
-// clover: from=hk find=download/v<version>/hk@<version>
-import "package://github.com/jdx/hk/releases/download/v1.58.1/hk@1.58.1#/Builtins.pkl"
+amends "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Builtins.pkl"
 
-min_hk_version = "1.45.0"
+min_hk_version = "2.11.1"
 
 // Project linters and formatters managed by go.mod tool directives are
 // invoked via `go tool`, not as PATH binaries. Override the relevant
@@ -11,14 +9,61 @@ min_hk_version = "1.45.0"
 // exits 0), so replace it with a working `gofumpt -l` test.
 
 local gofumpt = (Builtins.go_fumpt) {
-    check = "test -z \"$(go tool gofumpt -l {{ files }})\""
+    check_diff = "hk util format-diff {{ files }} -- go tool gofumpt"
+    check_list_files = null
+    check_first = true
+    check = "formatted_files=$(go tool gofumpt -l {{ files }}) && test -z \"$formatted_files\""
     fix = "go tool gofumpt -w {{ files }}"
+    // The upstream fixtures assume a standalone executable. Supply the
+    // module's pinned tools when exercising our go-tool command overrides.
+    tests = new Mapping<String, StepTest> {
+        for (name, test in Builtins.go_fumpt.tests) {
+            [name] = (test) {
+                write {
+                    ["go.mod"] = read("go.mod").text
+                    ["go.sum"] = read("go.sum").text
+                }
+            }
+        }
+        ["check missing module tool fails"] {
+            tmpdir = true
+            write {
+                ["go.mod"] = "module example.com/fixture\ngo 1.27.3\n"
+                ["test.go"] = "package fixture\n"
+            }
+            expect { code = 2 }
+        }
+        ["check malformed source fails"] {
+            tmpdir = true
+            write {
+                ["go.mod"] = read("go.mod").text
+                ["go.sum"] = read("go.sum").text
+                ["test.go"] = "package ???\n"
+            }
+            expect { code = 2 }
+        }
+    }
 }
 
 local golangciLint = (Builtins.golangci_lint) {
+    check_diff = null
+    check_list_files = null
+    check_first = true
     check = "cd {{workspace}} && go tool golangci-lint run --fix=false ./..."
     fix = "cd {{workspace}} && go tool golangci-lint run --fix ./..."
     depends = List("gofumpt")
+    // The upstream fixtures assume a standalone executable. Supply the
+    // module's pinned tools when exercising our go-tool command overrides.
+    tests = new Mapping<String, StepTest> {
+        for (name, test in Builtins.golangci_lint.tests) {
+            [name] = (test) {
+                write {
+                    ["go.mod"] = read("go.mod").text
+                    ["go.sum"] = read("go.sum").text
+                }
+            }
+        }
+    }
 }
 
 local govulncheck = (Builtins.go_vuln_check) {
@@ -26,6 +71,7 @@ local govulncheck = (Builtins.go_vuln_check) {
 }
 
 local shellcheck = (Builtins.shellcheck) {
+    match_any = null
     glob = List("**/*.sh", ".mise/tasks/build", ".mise/tasks/install", ".mise/tasks/version", ".mise/tasks/deps-update", ".mise/tasks/release")
     check = "shellcheck -x {{ files }}"
 }
@@ -60,6 +106,8 @@ hooks {
     }
     ["fix"] {
         fix = true
+        // Preserve the v1 manual-fix staging policy.
+        stage = true
         steps = linters
     }
     ["commit-msg"] {

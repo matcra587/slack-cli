@@ -12,6 +12,10 @@ terminal, structured JSON when piped or under an agent.
 
 The binary is `slick`; the repo and Go module are `slack-cli`.
 
+For agents, the documentation is available as an [llms.txt index](https://matcra587.github.io/slack-cli/llms.txt)
+and a [single full-text file](https://matcra587.github.io/slack-cli/llms-full.txt).
+Use **Copy as Markdown** at the top of any page to copy its rendered content.
+
 ## Install
 
 ```sh

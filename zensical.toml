@@ -72,6 +72,9 @@ language = "en"
 font.text = "Geist"
 font.code = "Geist Mono"
 features = [
+    "navigation.instant",
+    "navigation.instant.prefetch",
+    "navigation.instant.progress",
     "navigation.tracking",
     "navigation.tabs",
     "navigation.sections",
@@ -83,6 +86,7 @@ features = [
     "content.code.copy",
     "content.code.annotate",
     "content.tabs.link",
+    "content.action.copy",
     "content.action.edit",
     "content.action.view",
 ]
@@ -158,3 +162,22 @@ alternate_style = true
 
 [project.markdown_extensions.pymdownx.tasklist]
 custom_checkbox = true
+
+# Native exports use rendered content so agents receive expanded tabs and snippets.
+# Keep the selected pages aligned with the public navigation above.
+[project.plugins.llmstxt]
+full_output = "llms-full.txt"
+
+[project.plugins.llmstxt.sections]
+"Getting started" = ["index.md", "installation.md", "auth.md", "agent.md"]
+"Messaging" = ["message.md", "reply.md", "react.md", "history.md"]
+"Discovery and health" = ["lookup.md", "cache.md", "status.md", "health.md"]
+"Configuration and reference" = ["config.md", "workspace.md", "manifest.md", "file.md", "version.md"]
+
+# Self-host the fonts and emoji used by this site without fetching optional
+# theme integrations such as video players and in-browser Python runtimes.
+[project.plugins.privacy]
+assets_include = ["fonts.googleapis.com/*", "fonts.gstatic.com/*", "cdnjs.cloudflare.com/ajax/libs/emojione/*"]
+
+[project.plugins.minify]
+minify_html = true

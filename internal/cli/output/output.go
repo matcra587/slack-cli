@@ -10,12 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/matcra587/slack-cli/internal/cli/clitheme"
+
 	"charm.land/lipgloss/v2"
 	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
 	"github.com/gechr/clog/field/hyperlink"
 	clogstyle "github.com/gechr/clog/style"
-	"github.com/matcra587/slack-cli/internal/cli/clitheme"
 )
 
 type RenderMode int

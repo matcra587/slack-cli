@@ -19,7 +19,7 @@ func LoginHuhTheme(th *clibtheme.Theme) huh.Theme {
 		th = Default()
 	}
 	return huh.ThemeFunc(func(isDark bool) *huh.Styles {
-		if strings.HasPrefix(th.String(), "plain-") || strings.HasPrefix(th.String(), "monochrome-") {
+		if strings.HasPrefix(th.String(), "plain") || strings.HasPrefix(th.String(), "monochrome") {
 			return huh.ThemeBase(isDark)
 		}
 		resolved := th.Init()

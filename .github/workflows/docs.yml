@@ -8,6 +8,9 @@ on:
       - 'docs/**'
       - 'includes/**'
       - 'zensical.toml'
+      - 'tasks.toml'
+      - '.mise.toml'
+      - 'mise.lock'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -37,18 +40,16 @@ jobs:
         # @clover: constraint=major tags=configure-pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
-      - name: Set up Python
-        # @clover: constraint=major tags=setup-python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Install mise
+        # @clover: constraint=major tags=mise-action
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          # @clover: constraint=minor
-          python-version: '3.x'
-
-      - name: Install Zensical
-        run: pip install zensical
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          install_args: --locked
+          cache: false
 
       - name: Build site
-        run: zensical build --clean --strict
+        run: mise run docs:build
 
       - name: Upload artifact
         # @clover: constraint=major tags=upload-pages-artifact

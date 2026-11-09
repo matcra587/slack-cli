@@ -1,1431 +1,673 @@
 //go:build live
 
-// Package live_test contains tests that exercise slick against a real Slack
-// workspace. Run with:
-//
-//	mise run test:live
-//
-// The tests pick up your authenticated slick session by default. With no env
-// overrides, they use:
-//
-//	workspace = config's default_workspace
-//	channel   = workspaces.<workspace>.default_channel
-//
-// Override either with env vars when you need a different target:
-//
-//	SLICK_LIVE_WORKSPACE=<name>    (override the config-derived workspace)
-//	SLICK_LIVE_CHANNEL=Cxxxxxxx    (override the config-derived channel)
-//	SLICK_LIVE_USER=Uxxxxxxx       (optional user ID/alias/email for DM tests)
-//
-// Tests skip with a helpful message when no workspace + channel can be
-// resolved (e.g. fresh environment without `slick config init`).
-//
-// The tests build the slick binary, post real messages tagged with a run ID,
-// verify Slack accepted them, and clean up by deleting/un-reacting the same
-// targets. A failed test that escapes cleanup leaves residue tagged with the
-// run ID for manual triage.
+// Package live_test validates only explicitly approved isolated Slack fixtures.
+// No ordinary account defaults, status changes, credential replacement or revoke.
 package live_test
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/hex"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/matcra587/slack-cli/internal/agent"
+	slack "github.com/slack-go/slack"
 )
 
-// --- message lifecycle ------------------------------------------------------
-
-func TestLiveMessageSendAndDelete(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	body := fmt.Sprintf(`live-send-%s PR review: github.com/matcra587/slack-cli/pull/42
-
-Summary
-- CLI behavior looks right for normal message send/edit/reply flows.
-- Rate-limit handling is structured, but process-level fanout can still hit Slack 429s.
-- Markdown rendering is fixed: *bold*, _italic_, `+"`code`"+`, and 🫎 all render through Block Kit.
-
-LGTM after the docs note lands. 👀`, runID)
-	channel, ts := postMessage(t, binary, env, body)
-	cleanupMessage(t, binary, env, runID, channel, ts)
-}
-
-func TestLiveScheduledMessageRoundTrip(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	body := fmt.Sprintf(`live-scheduled-%s Release note queued for later
-
-This scheduled message should be listed and deleted before it posts.`, runID)
-	ref := scheduleLiveMessage(t, binary, env, []string{"--channel", env.channel}, body, "90m")
-	deleted := cleanupScheduledMessage(t, binary, env, runID, ref)
-
-	if !waitForScheduledMessage(t, binary, env, ref.Channel, runID, true) {
-		t.Fatalf("scheduled list did not return run id %s", runID)
-	}
-	row := requireScheduledMessage(t, binary, env, ref.Channel, runID)
-	if got, _ := row["id"].(string); got != ref.ID {
-		t.Fatalf("scheduled row id = %q, want %q; row=%+v", got, ref.ID, row)
-	}
-	if got, _ := row["channel"].(string); got != ref.Channel {
-		t.Fatalf("scheduled row channel = %q, want %q; row=%+v", got, ref.Channel, row)
-	}
-	if got, _ := row["post_at_iso"].(string); got == "" {
-		t.Fatalf("scheduled row missing post_at_iso: %+v", row)
-	}
-	if got, _ := row["text_preview"].(string); !strings.Contains(got, runID) {
-		t.Fatalf("scheduled row text_preview = %q, want run id %s", got, runID)
-	}
-
-	assertScheduledHumanList(t, binary, env, ref.Channel, ref.ID, runID, "")
-
-	stdout, stderr, err := runSlick(t, binary, "",
-		"--workspace", env.workspace,
-		"--dry-run",
-		"message", "scheduled", "delete",
-		"--channel", ref.Channel,
-		"--scheduled-id", ref.ID,
-		"--output=json",
-	)
-	if err != nil {
-		t.Fatalf("scheduled delete dry-run against real id failed: %v\nstderr=%s", err, stderr)
-	}
-	envelope := decodeEnvelope(t, stdout)
-	data, ok := envelope["data"].(map[string]any)
-	if !ok {
-		t.Fatalf("delete dry-run envelope missing data: %s", stdout)
-	}
-	if got, _ := data["dry_run"].(bool); !got {
-		t.Fatalf("delete dry_run = %v, want true", data["dry_run"])
-	}
-	if !waitForScheduledMessage(t, binary, env, ref.Channel, runID, true) {
-		t.Fatalf("scheduled delete dry-run removed real message id %s", ref.ID)
-	}
-
-	if _, stderr, err := runSlick(t, binary, "",
-		"message", "scheduled", "delete",
-		"--workspace", env.workspace,
-		"--channel", ref.Channel,
-		"--scheduled-id", ref.ID,
-		"--output=json",
-	); err != nil {
-		t.Fatalf("scheduled delete failed: %v\nstderr=%s", err, stderr)
-	}
-	*deleted = true
-	if !waitForScheduledMessage(t, binary, env, ref.Channel, runID, false) {
-		t.Fatalf("scheduled list still returned run id %s after delete", runID)
-	}
-}
-
-func TestLiveScheduledDirectMessageRoundTrip(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	user := requireLiveUser(t, env)
-	runID := newRunID(t)
-
-	body := fmt.Sprintf(`live-scheduled-dm-%s Follow-up DM queued by live tests
-
-This scheduled DM should appear in message scheduled list as a DM and then be deleted.`, runID)
-	ref := scheduleLiveMessage(t, binary, env, []string{"--user", user}, body, "90m")
-	deleted := cleanupScheduledMessage(t, binary, env, runID, ref)
-
-	if ref.Channel == "" || !strings.HasPrefix(ref.Channel, "D") {
-		t.Fatalf("scheduled DM returned channel %q, want D-prefixed IM channel", ref.Channel)
-	}
-	row := requireScheduledMessage(t, binary, env, ref.Channel, runID)
-	if got, _ := row["is_dm"].(bool); !got {
-		t.Fatalf("scheduled DM row is_dm = %v, want true; row=%+v", row["is_dm"], row)
-	}
-	if got, _ := row["channel_type"].(string); got != "im" {
-		t.Fatalf("scheduled DM row channel_type = %q, want im; row=%+v", got, row)
-	}
-	assertScheduledHumanList(t, binary, env, ref.Channel, ref.ID, runID, "@")
-
-	if _, stderr, err := runSlick(t, binary, "",
-		"message", "scheduled", "delete",
-		"--workspace", env.workspace,
-		"--channel", ref.Channel,
-		"--scheduled-id", ref.ID,
-		"--output=json",
-	); err != nil {
-		t.Fatalf("scheduled DM delete failed: %v\nstderr=%s", err, stderr)
-	}
-	*deleted = true
-	if !waitForScheduledMessage(t, binary, env, ref.Channel, runID, false) {
-		t.Fatalf("scheduled DM list still returned run id %s after delete", runID)
-	}
-}
-
-func TestLiveScheduledAcceptsAllSupportedTimeInputs(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	tests := []struct {
-		name     string
-		schedule string
-	}{
-		{name: "rfc3339", schedule: time.Now().Add(95 * time.Minute).UTC().Format(time.RFC3339)},
-		{name: "unix seconds", schedule: fmt.Sprintf("%d", time.Now().Add(100*time.Minute).Unix())},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			body := fmt.Sprintf("live-scheduled-format-%s %s accepted and cleaned up before posting.", runID, tt.name)
-			ref := scheduleLiveMessage(t, binary, env, []string{"--channel", env.channel}, body, tt.schedule)
-			deleted := cleanupScheduledMessage(t, binary, env, runID, ref)
-			row := requireScheduledMessage(t, binary, env, ref.Channel, runID)
-			if got, _ := row["id"].(string); got != ref.ID {
-				t.Fatalf("scheduled row id = %q, want %q; row=%+v", got, ref.ID, row)
-			}
-			if _, stderr, err := runSlick(t, binary, "",
-				"message", "scheduled", "delete",
-				"--workspace", env.workspace,
-				"--channel", ref.Channel,
-				"--scheduled-id", ref.ID,
-				"--output=json",
-			); err != nil {
-				t.Fatalf("scheduled delete failed: %v\nstderr=%s", err, stderr)
-			}
-			*deleted = true
-			if !waitForScheduledMessage(t, binary, env, ref.Channel, runID, false) {
-				t.Fatalf("scheduled list still returned run id %s after delete", runID)
-			}
-		})
-	}
-}
-
-func TestLiveScheduledDryRunPreviewsDoNotMutate(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	body := fmt.Sprintf("live-scheduled-dry-run-%s release note preview; this should never be queued.", runID)
-	stdout, stderr, err := runSlick(t, binary, "",
-		"--workspace", env.workspace,
-		"--dry-run",
-		"message", "send",
-		"--channel", env.channel,
-		"--message", body,
-		"--schedule", "90m",
-		"--output=json",
-	)
-	if err != nil {
-		t.Fatalf("scheduled send dry-run failed: %v\nstderr=%s", err, stderr)
-	}
-	envelope := decodeEnvelope(t, stdout)
-	if got := mustString(t, envelope, "data", "scheduled_message_id"); got != "Q-dry-run" {
-		t.Fatalf("scheduled_message_id = %q, want Q-dry-run", got)
-	}
-	data, ok := envelope["data"].(map[string]any)
-	if !ok {
-		t.Fatalf("envelope missing data: %s", stdout)
-	}
-	if got, _ := data["dry_run"].(bool); !got {
-		t.Fatalf("dry_run = %v, want true", data["dry_run"])
-	}
-
-	stdout, stderr, err = runSlick(t, binary, "",
-		"--workspace", env.workspace,
-		"--dry-run",
-		"message", "scheduled", "delete",
-		"--channel", env.channel,
-		"--scheduled-id", "Q-dry-run",
-		"--output=json",
-	)
-	if err != nil {
-		t.Fatalf("scheduled delete dry-run failed: %v\nstderr=%s", err, stderr)
-	}
-	envelope = decodeEnvelope(t, stdout)
-	data, ok = envelope["data"].(map[string]any)
-	if !ok {
-		t.Fatalf("delete dry-run envelope missing data: %s", stdout)
-	}
-	if got, _ := data["dry_run"].(bool); !got {
-		t.Fatalf("delete dry_run = %v, want true", data["dry_run"])
-	}
-	if got, _ := data["deleted"].(bool); !got {
-		t.Fatalf("delete deleted = %v, want true", data["deleted"])
-	}
-
-	stdout, stderr, err = runSlick(t, binary, "",
-		"--workspace", env.workspace,
-		"--dry-run",
-		"message", "scheduled", "list",
-		"--channel", env.channel,
-		"--limit", "1",
-		"--output=json",
-	)
-	if err != nil {
-		if scope := missingScopeFromOutput(stdout); scope != "" {
-			t.Skipf("workspace token missing required scope %q; scheduled list needs chat:write", scope)
-		}
-		t.Fatalf("scheduled list with dry-run flag failed: %v\nstderr=%s", err, stderr)
-	}
-	_ = decodeEnvelope(t, stdout)
-	if scheduledMessageExists(t, binary, env, env.channel, runID) {
-		t.Fatalf("scheduled send dry-run created pending message for run id %s", runID)
-	}
-}
-
-func TestLiveScheduledUserDryRunPreviewsDoNotMutate(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	user := requireLiveUser(t, env)
-	runID := newRunID(t)
-
-	body := fmt.Sprintf("live-scheduled-dm-dry-run-%s DM preview; this should never be queued.", runID)
-	stdout, stderr, err := runSlick(t, binary, "",
-		"--workspace", env.workspace,
-		"--dry-run",
-		"message", "send",
-		"--user", user,
-		"--message", body,
-		"--schedule", "90m",
-		"--output=json",
-	)
-	if err != nil {
-		t.Fatalf("scheduled DM dry-run failed: %v\nstderr=%s", err, stderr)
-	}
-	envelope := decodeEnvelope(t, stdout)
-	if got := mustString(t, envelope, "data", "scheduled_message_id"); got != "Q-dry-run" {
-		t.Fatalf("scheduled_message_id = %q, want Q-dry-run", got)
-	}
-	data, ok := envelope["data"].(map[string]any)
-	if !ok {
-		t.Fatalf("envelope missing data: %s", stdout)
-	}
-	if got, _ := data["dry_run"].(bool); !got {
-		t.Fatalf("dry_run = %v, want true", data["dry_run"])
-	}
-}
-
-func TestLiveScheduledRejectsInvalidLocalTimes(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	tests := []struct {
-		name     string
-		schedule string
-		want     string
-	}{
-		{name: "past", schedule: "-1m", want: "schedule time must be in the future"},
-		{name: "beyond 120 days", schedule: "2881h", want: "schedule time must be within 120 days"},
-		{name: "natural language", schedule: "tomorrow at 9am", want: "schedule time must be RFC3339, Go duration, or Unix seconds"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			body := fmt.Sprintf("live-scheduled-invalid-%s %s", runID, tt.name)
-			stdout, stderr, err := runSlick(t, binary, "",
-				"message", "send",
-				"--workspace", env.workspace,
-				"--channel", env.channel,
-				"--message", body,
-				"--schedule", tt.schedule,
-				"--output=json",
-			)
-			if err == nil {
-				t.Fatalf("schedule %q returned success, want validation failure", tt.schedule)
-			}
-			if !strings.Contains(stdout, tt.want) || stderr != "" {
-				t.Fatalf("stdout=%s stderr=%s, want machine validation error %q on stdout", stdout, stderr, tt.want)
-			}
-			if _, ts := lookupRecentByText(t, binary, env, body); ts != "" {
-				t.Fatalf("invalid scheduled send posted message ts=%s", ts)
-			}
-		})
-	}
-}
-
-// TestLiveAttributionOverride verifies overrides and cleans its exact receipt.
-func TestLiveAttributionOverride(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	body := fmt.Sprintf(`live-attribution-%s testing --attribution-emoji and --attribution-message overrides.
-
-The context block below this message should show :test_tube: instead of
-:robot_face:, and the text should read "Sent from the live test suite".
-
-When run from a human shell the context line ends at "test suite"; when run
-under an agent or CI env trigger, slick appends "(agent mode)" — which is
-how you eyeball whether real detection fired or the human exemption held.
-
-The fixture is removed after the attribution assertions.`, runID)
-
-	stdout, stderr, err := runSlick(t, binary, "",
-		"message", "send",
-		"--workspace", env.workspace,
-		"--channel", env.channel,
-		"--message", body,
-		"--attribution",
-		"--attribution-emoji", ":test_tube:",
-		"--attribution-message", "Sent from the live test suite",
-		"--output=json",
-	)
-	if err != nil {
-		t.Fatalf("message send failed: %v\nstderr=%s", err, stderr)
-	}
-	envelope := decodeEnvelope(t, stdout)
-	data, ok := envelope["data"].(map[string]any)
-	if !ok {
-		t.Fatalf("envelope missing data: %s", stdout)
-	}
-	channel := mustString(t, envelope, "data", "message", "channel")
-	ts := mustString(t, envelope, "data", "message", "ts")
-	if channel == "" || ts == "" {
-		t.Fatalf("envelope missing channel/ts: %s", stdout)
-	}
-	cleanupMessage(t, binary, env, runID, channel, ts)
-	if got, _ := data["attribution"].(bool); !got {
-		t.Fatalf("attribution = %v, want true (--attribution was passed)", data["attribution"])
-	}
-}
-
-// clearAgentEnvTriggers unsets every env var that agent.Detect treats as an
-// active signal, so a test can simulate "no env detection" even when running
-// inside a developer's Claude Code / CI / cron shell.
-func clearAgentEnvTriggers(t *testing.T) {
+func setupLive(t *testing.T) (*liveRunner, *slackObserver) {
 	t.Helper()
-	for _, key := range agent.KnownEnvVars() {
-		t.Setenv(key, "")
+	p, err := loadLivePlan(os.Getenv)
+	if errors.Is(err, errLiveDisabled) {
+		t.Skip("live disabled: explicit designated-fixtures confirmation required")
 	}
-}
-
-// TestLiveAttributionForceOff confirms that --no-attribution suppresses the
-// attribution block on a real send even when env detection would otherwise
-// fire (CLAUDE_CODE=1 set explicitly here). The asserted contract is the
-// envelope's data.attribution=false plus a clean delete on cleanup.
-func TestLiveAttributionForceOff(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-	t.Setenv("CLAUDE_CODE", "1")
-
-	body := fmt.Sprintf("live-attribution-off-%s probing --no-attribution under CLAUDE_CODE=1; no context block should follow.", runID)
-	stdout, stderr, err := runSlick(t, binary, "",
-		"message", "send",
-		"--workspace", env.workspace,
-		"--channel", env.channel,
-		"--message", body,
-		"--no-attribution",
-		"--output=json",
-	)
 	if err != nil {
-		t.Fatalf("message send failed: %v\nstderr=%s", err, stderr)
+		t.Fatal("invalid isolated live plan")
 	}
-	envelope := decodeEnvelope(t, stdout)
-	data, ok := envelope["data"].(map[string]any)
-	if !ok {
-		t.Fatalf("envelope missing data: %s", stdout)
+	if deadline, ok := t.Deadline(); ok && time.Until(deadline) < 11*time.Minute {
+		t.Fatal("live runner requires at least 11 minutes including cleanup reserve")
 	}
-	if got, _ := data["attribution"].(bool); got {
-		t.Fatalf("attribution = true; --no-attribution should force off even with CLAUDE_CODE set: %s", stdout)
+	// Separate scenario ledgers let focused tests share the approved plan safely.
+	switch t.Name() {
+	case "TestLiveThreadPagination":
+		p.RunID = p.RunID[:min(len(p.RunID), 56)] + "-thread"
+	case "TestLiveFileUpload":
+		p.RunID = p.RunID[:min(len(p.RunID), 56)] + "-upload"
 	}
-	channel := mustString(t, envelope, "data", "message", "channel")
-	ts := mustString(t, envelope, "data", "message", "ts")
-	if channel == "" || ts == "" {
-		t.Fatalf("envelope missing channel/ts: %s", stdout)
-	}
-	cleanupMessage(t, binary, env, runID, channel, ts)
-}
-
-// TestLiveAttributionForceOn confirms --attribution forces attribution on
-// without an env trigger. Clears the AI/CI env triggers up-front so the only
-// thing flipping detection on is the flag itself.
-func TestLiveAttributionForceOn(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-	clearAgentEnvTriggers(t)
-
-	body := fmt.Sprintf("live-attribution-on-%s probing --attribution with no env trigger; context block should still render.", runID)
-	stdout, stderr, err := runSlick(t, binary, "",
-		"message", "send",
-		"--workspace", env.workspace,
-		"--channel", env.channel,
-		"--message", body,
-		"--attribution",
-		"--output=json",
-	)
+	// Read the sole approved credential only after the complete plan/config gate.
+	token := os.Getenv("SLICK_LIVE_ACCESS_TOKEN")
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	t.Cleanup(transport.CloseIdleConnections)
+	observer := &slackObserver{runID: p.RunID, actor: p.ActorID, team: p.TeamID, public: p.PublicChannel, private: p.PrivateChannel, client: slack.New(token, slack.OptionHTTPClient(&http.Client{Transport: liveReadTransport{base: transport, origin: "https://slack.com"}, Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}))}
+	runner, err := newLiveRunner(p, token, observer, executeLiveChild)
 	if err != nil {
-		t.Fatalf("message send failed: %v\nstderr=%s", err, stderr)
+		t.Fatal("isolated live runner could not initialize")
 	}
-	envelope := decodeEnvelope(t, stdout)
-	data, ok := envelope["data"].(map[string]any)
-	if !ok {
-		t.Fatalf("envelope missing data: %s", stdout)
-	}
-	if got, _ := data["attribution"].(bool); !got {
-		t.Fatalf("attribution = false; --attribution should force on even without env trigger: %s", stdout)
-	}
-	channel := mustString(t, envelope, "data", "message", "channel")
-	ts := mustString(t, envelope, "data", "message", "ts")
-	if channel == "" || ts == "" {
-		t.Fatalf("envelope missing channel/ts: %s", stdout)
-	}
-	cleanupMessage(t, binary, env, runID, channel, ts)
-}
-
-// TestLiveAttributionRejectsValueForm asserts the presence-only switch
-// semantics: `--attribution=false` is a parse error rather than a silent
-// invert. The check is "non-zero exit + stdout surfaces a usage/parse
-// error"; we deliberately avoid asserting on the exact wording so pflag/
-// cobra phrasing tweaks don't break the test.
-func TestLiveAttributionRejectsValueForm(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	body := fmt.Sprintf("live-attribution-reject-%s — this message must NOT be sent because the flag form should error before any Slack call.", runID)
-	stdout, stderr, err := runSlick(t, binary, "",
-		"message", "send",
-		"--workspace", env.workspace,
-		"--channel", env.channel,
-		"--message", body,
-		"--attribution=false",
-		"--output=json",
-	)
-	if err == nil {
-		t.Fatalf("--attribution=false should error at parse time; instead got success.\nstderr=%s", stderr)
-	}
-	if !strings.Contains(stdout, `"type":"validation_error"`) || stderr != "" {
-		t.Fatalf("stdout=%s stderr=%s; want structured parse failure on stdout", stdout, stderr)
-	}
-	// Belt-and-braces: confirm Slack wasn't actually called by sweeping
-	// recent history for the sentinel body. lookupRecentByText returns
-	// (channel, ts) and the ts is the meaningful "found" signal here.
-	if _, ts := lookupRecentByText(t, binary, env, body); ts != "" {
-		t.Fatalf("rejected --attribution=false invocation still posted the message (ts=%s); presence-only switch is leaking past validation", ts)
-	}
-}
-
-func TestLiveMessageEdit(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	initial := fmt.Sprintf(`live-edit-%s incident report — *INVESTIGATING*
-
-Symptom: elevated 429s on `+"`chat.postMessage`"+` since 23:00 UTC.
-Hypothesis: process-level fanout missing the special-tier route.
-Next: route the call through the throttler's `+"`tier_special`"+` bucket.`, runID)
-	channel, ts := postMessage(t, binary, env, initial)
-	cleanupMessage(t, binary, env, runID, channel, ts)
-
-	updated := fmt.Sprintf(`live-edit-%s incident report — *RESOLVED*
-
-Root cause: `+"`chat.postMessage`"+` was on the default tier; bursts spilled into 429.
-Fix: PR #42 routes the call through `+"`tier_special`"+`. Deployed at 23:42 UTC.
-Action items:
-1. Add a live-test note for same-channel burst behavior.
-2. Document the fanout limitation in CLAUDE.md.
-
-Closing — incident over. 🫡`, runID)
-	stdout, stderr, err := runSlick(t, binary, "",
-		"message", "edit",
-		"--workspace", env.workspace,
-		"--channel", channel,
-		"--timestamp", ts,
-		"--message", updated,
-		"--output=json",
-	)
-	if err != nil {
-		t.Fatalf("message edit failed: %v\nstderr=%s", err, stderr)
-	}
-	envelope := decodeEnvelope(t, stdout)
-	if got := mustString(t, envelope, "data", "message", "ts"); got != ts {
-		t.Fatalf("edit returned ts=%q, want original %q", got, ts)
-	}
-	if got := mustString(t, envelope, "data", "message", "text"); got != "" && !strings.Contains(got, "RESOLVED") {
-		t.Fatalf("edit returned text=%q, want substring \"RESOLVED\"", got)
-	}
-}
-
-func TestLiveThreadReply(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	parent := fmt.Sprintf(`live-reply-%s PR review: github.com/matcra587/slack-cli/pull/43
-
-Requested changes
-1. Move `+"`chat.postMessage`"+` to Slack's special tier.
-2. Keep cross-process locking out for now; document the fanout limitation instead.
-3. Add one live-test note showing same-channel burst behavior.`, runID)
-	channel, parentTS := postMessage(t, binary, env, parent)
-	cleanupMessage(t, binary, env, runID, channel, parentTS)
-
-	replyBody := fmt.Sprintf("live-reply-%s Done — pushed the docs note in commit `abc1234`. Closing the loop on item 3. 👍", runID)
-	stdout, stderr, err := runSlick(t, binary, "",
-		"reply",
-		"--workspace", env.workspace,
-		"--channel", channel,
-		"--parent", parentTS,
-		"--message", replyBody,
-		"--output=json",
-	)
-	if err != nil {
-		t.Fatalf("reply failed: %v\nstderr=%s", err, stderr)
-	}
-	envelope := decodeEnvelope(t, stdout)
-	replyTS := mustString(t, envelope, "data", "message", "ts")
-	if replyTS == "" {
-		t.Fatalf("reply envelope missing ts: %s", stdout)
-	}
-	if replyTS == parentTS {
-		t.Fatalf("reply ts %q equals parent ts; expected a distinct thread reply", replyTS)
-	}
-	// Slack thread_ts on the reply should equal the parent ts; the deleting
-	// the parent cascades the thread, no separate cleanup needed.
-	if got := mustString(t, envelope, "data", "message", "thread_ts"); got != "" && got != parentTS {
-		t.Fatalf("reply thread_ts=%q, want parent %q", got, parentTS)
-	}
-}
-
-func TestLiveReactionAddAndRemove(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	body := fmt.Sprintf(`live-react-%s Release notes — slick v0.4.0
-
-- Added: ordered multi-emoji react support (`+"`react add --emoji thumbsup,rocket,sparkles`"+`).
-- Added: live test matrix gated by the `+"`live`"+` build tag (`+"`mise run test:live`"+`).
-- Fixed: Markdown bold/italic/code rendering through Block Kit.
-
-Approve with 🚀 once you've smoked it locally.`, runID)
-	channel, ts := postMessage(t, binary, env, body)
-	cleanupMessage(t, binary, env, runID, channel, ts)
-
-	const emojis = "white_check_mark,rocket,sparkles"
-	if _, stderr, err := runSlick(t, binary, "",
-		"react", "add",
-		"--workspace", env.workspace,
-		"--channel", channel,
-		"--timestamp", ts,
-		"--emoji", emojis,
-		"--output=json",
-	); err != nil {
-		t.Fatalf("react add failed: %v\nstderr=%s", err, stderr)
-	}
-
-	if _, stderr, err := runSlick(t, binary, "",
-		"react", "remove",
-		"--workspace", env.workspace,
-		"--channel", channel,
-		"--timestamp", ts,
-		"--emoji", emojis,
-		"--output=json",
-	); err != nil {
-		t.Fatalf("react remove failed: %v\nstderr=%s", err, stderr)
-	}
-}
-
-// --- markdown rendering -----------------------------------------------------
-
-// TestLiveMarkdownRoundTripsThroughBlockKit verifies that markdown features
-// (bold, italic, code spans, bulleted + numbered lists, unicode emoji) sent
-// via `slick message send` survive the Block Kit conversion: the message
-// posted to Slack has a non-empty `blocks` payload when read back through
-// `slick history list`. Slack's `text` field flattens visual formatting, so
-// the assertion is on the structured `blocks` instead.
-func TestLiveMarkdownRoundTripsThroughBlockKit(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	body := fmt.Sprintf(`live-markdown-%s Markdown coverage probe
-
-Inline marks: *bold*, _italic_, `+"`code`"+`, and 🫎 unicode emoji.
-
-Bulleted list:
-- alpha
-- bravo
-- charlie
-
-Numbered list:
-1. first
-2. second
-3. third
-
-Closing line — testing rich_text round-trip through Block Kit.`, runID)
-	channel, ts := postMessage(t, binary, env, body)
-	cleanupMessage(t, binary, env, runID, channel, ts)
-
-	stdout, stderr, err := runSlick(t, binary, "",
-		"history", "list",
-		"--workspace", env.workspace,
-		"--channel", env.channel,
-		"--max-items", "10",
-		"--output=json",
-	)
-	if err != nil {
-		t.Fatalf("history list failed: %v\nstderr=%s", err, stderr)
-	}
-	envelope := decodeEnvelope(t, stdout)
-	messages, ok := envelope["data"].(map[string]any)["messages"].([]any)
-	if !ok {
-		t.Fatalf("envelope missing data.messages array: %s", stdout)
-	}
-	var found map[string]any
-	for _, raw := range messages {
-		msg := raw.(map[string]any)
-		if msg["ts"] == ts {
-			found = msg
-			break
-		}
-	}
-	if found == nil {
-		t.Fatalf("history list did not return ts=%s", ts)
-	}
-	blocks, ok := found["blocks"].([]any)
-	if !ok || len(blocks) == 0 {
-		t.Fatalf("message ts=%s missing/empty blocks payload (markdown→Block Kit pipeline likely skipped): %v", ts, found)
-	}
-}
-
-// --- discovery --------------------------------------------------------------
-
-func TestLiveHistoryList(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	want := map[string]bool{}
-	updates := []string{
-		fmt.Sprintf(`live-history-%s Deploy update — *starting* slick v0.4.0 rollout
-
-Touching:
-- `+"`internal/cli/runtime`"+` (NowFunc/RequestIDFunc cleanup)
-- `+"`tests/live`"+` (matrix expansion)
-Watch this thread for ETA.`, runID),
-		fmt.Sprintf(`live-history-%s Deploy update — *complete* slick v0.4.0 is live
-
-Smoke checks:
-1. `+"`mise run test:live`"+` → all green except status (scope-gated).
-2. `+"`mise run check`"+` → 0 issues.
-Closing the deploy thread. 🟢`, runID),
-	}
-	for _, body := range updates {
-		_, ts := postMessage(t, binary, env, body)
-		cleanupMessage(t, binary, env, runID, env.channel, ts)
-		want[ts] = true
-	}
-
-	stdout, stderr, err := runSlick(t, binary, "",
-		"history", "list",
-		"--workspace", env.workspace,
-		"--channel", env.channel,
-		"--max-items", "20",
-		"--output=json",
-	)
-	if err != nil {
-		t.Fatalf("history list failed: %v\nstderr=%s", err, stderr)
-	}
-	envelope := decodeEnvelope(t, stdout)
-	messages := envelope["data"].(map[string]any)["messages"]
-	got := map[string]bool{}
-	for _, raw := range messages.([]any) {
-		msg := raw.(map[string]any)
-		if ts, ok := msg["ts"].(string); ok {
-			got[ts] = true
-		}
-	}
-	for ts := range want {
-		if !got[ts] {
-			t.Fatalf("history did not return ts=%s; got=%v", ts, got)
-		}
-	}
-}
-
-func TestLiveSearchMessagesCommandWorks(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	// Slack search.messages is asynchronously indexed; results may take
-	// seconds to minutes to appear. The test verifies the command path
-	// (auth, scope, envelope shape) rather than result content.
-	body := fmt.Sprintf(`live-search-%s Slack indexing seed — search.messages is asynchronously indexed
-
-This message exists so the search command path (auth, scope, envelope) is exercised.
-The test does not assert on result content because indexing latency is unbounded.`, runID)
-	channel, ts := postMessage(t, binary, env, body)
-	cleanupMessage(t, binary, env, runID, channel, ts)
-
-	stdout, stderr, err := runSlick(t, binary, "",
-		"lookup", "messages",
-		"--workspace", env.workspace,
-		"--query", runID,
-		"--max-items", "5",
-		"--output=json",
-	)
-	if err != nil {
-		t.Fatalf("lookup messages failed: %v\nstderr=%s", err, stderr)
-	}
-	envelope := decodeEnvelope(t, stdout)
-	if _, ok := envelope["data"].(map[string]any)["matches"]; !ok {
-		t.Fatalf("envelope missing data.matches: %s", stdout)
-	}
-}
-
-// TestLiveSearchMessagesPopulatesText round-trips a real send through
-// search.messages and asserts the match's text field is non-empty and
-// contains the run ID. This guards the searchTextFromBlocks fallback
-// (Slack returns Text="" for Block Kit messages and stashes the body
-// in Blocks; without the fallback, matches arrive textless and this
-// test catches that regression).
-//
-// Indexing latency is unbounded; the test polls up to 60s and skips
-// (rather than fails) when Slack hasn't indexed the message in time.
-func TestLiveSearchMessagesPopulatesText(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	body := fmt.Sprintf(`live-search-text-%s Release note: rolled out search-text
-extraction so lookup messages results carry the message body even when Slack
-returns it inside blocks rather than the top-level text field.`, runID)
-	channel, ts := postMessage(t, binary, env, body)
-	cleanupMessage(t, binary, env, runID, channel, ts)
-
-	deadline := time.Now().Add(60 * time.Second)
-	interval := 5 * time.Second
-	var matches []any
-	for time.Now().Before(deadline) {
-		stdout, stderr, err := runSlick(t, binary, "",
-			"lookup", "messages",
-			"--workspace", env.workspace,
-			"--query", runID,
-			"--max-items", "5",
-			"--output=json",
-		)
-		if err != nil {
-			t.Fatalf("lookup messages failed: %v\nstderr=%s", err, stderr)
-		}
-		envelope := decodeEnvelope(t, stdout)
-		data, _ := envelope["data"].(map[string]any)
-		got, _ := data["matches"].([]any)
-		if len(got) > 0 {
-			matches = got
-			break
-		}
-		time.Sleep(interval)
-	}
-	if len(matches) == 0 {
-		t.Skipf("search did not index run %s within 60s; skipping text assertion", runID)
-		return
-	}
-
-	match, ok := matches[0].(map[string]any)
-	if !ok {
-		t.Fatalf("matches[0] is not an object: %T %+v", matches[0], matches[0])
-	}
-	text, _ := match["text"].(string)
-	if text == "" {
-		t.Fatalf("matches[0].text is empty — text-from-blocks fallback failed.\nmatch=%+v", match)
-	}
-	if !strings.Contains(text, runID) {
-		t.Fatalf("matches[0].text does not contain run ID %q: %q", runID, text)
-	}
-}
-
-func TestLiveCachePopulate(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-
-	for _, resource := range []string{"users", "channels"} {
-		stdout, stderr, err := runSlick(t, binary, "",
-			"cache", resource,
-			"--workspace", env.workspace,
-			"--refresh",
-			"--output=json",
-		)
-		if err != nil {
-			t.Fatalf("cache %s failed: %v\nstderr=%s", resource, err, stderr)
-		}
-		envelope := decodeEnvelope(t, stdout)
-		data, ok := envelope["data"].(map[string]any)
-		if !ok {
-			t.Fatalf("cache %s envelope missing data: %s", resource, stdout)
-		}
-		items, ok := data[resource].([]any)
-		if !ok {
-			t.Fatalf("cache %s envelope missing data.%s array: %s", resource, resource, stdout)
-		}
-		if len(items) == 0 {
-			t.Fatalf("cache %s returned 0 items; expected at least one", resource)
-		}
-	}
-}
-
-// --- profile mutation -------------------------------------------------------
-
-func TestLiveStatusSetAndClear(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	statusText := fmt.Sprintf("Heads down — slick v0.4 release prep (live-status-%s)", runID)
 	t.Cleanup(func() {
-		stdout, stderr, err := runSlick(t, binary, "",
-			"status", "clear",
-			"--workspace", env.workspace,
-			"--output=json",
-		)
-		if err != nil && missingScopeFromOutput(stdout) == "" {
-			t.Errorf("cleanup status clear failed (run id %s): %v\nstderr=%s", runID, err, stderr)
+		if runner.cleanup() != nil {
+			t.Error("live cleanup incomplete; exact run requires private inspection")
 		}
 	})
-
-	stdout, stderr, err := runSlick(t, binary, "",
-		"status", "set",
-		"--workspace", env.workspace,
-		"--text", statusText,
-		"--emoji", "test_tube",
-		"--expires-in", "5m",
-		"--output=json",
-	)
-	if err != nil {
-		if scope := missingScopeFromOutput(stdout); scope != "" {
-			t.Skipf("workspace token missing required scope %q; status set/clear needs a user token with users.profile:write", scope)
-		}
-		t.Fatalf("status set failed: %v\nstderr=%s", err, stderr)
+	if runner.preflight() != nil {
+		t.Fatal("live identity/channel preflight failed; no mutations authorized")
 	}
-	envelope := decodeEnvelope(t, stdout)
-	if got := mustString(t, envelope, "data", "text"); got != statusText {
-		t.Fatalf("text=%q, want %q", got, statusText)
+	runner.allowFiles = slices.Contains(observer.scopes, "files:read") && slices.Contains(observer.scopes, "files:write")
+	runner.onCommand = func(path string, exit int, kind, code string) {
+		t.Logf("CLI %s exit=%d type=%s code=%s", path, exit, kind, code)
 	}
+	return runner, observer
+}
 
-	if _, stderr, err := runSlick(t, binary, "",
-		"status", "clear",
-		"--workspace", env.workspace,
-		"--output=json",
-	); err != nil {
-		t.Fatalf("status clear failed: %v\nstderr=%s", err, stderr)
+// TestLiveThreadPagination requires continuation from its own larger thread.
+func TestLiveThreadPagination(t *testing.T) {
+	r, s := setupLive(t)
+	liveCall(t, r, "send", r.plan.PublicChannel, "", "Release pagination review "+r.plan.RunID)
+	parent := lastReceipt(t, r)
+	readMessage(t, r, s, parent, r.plan.RunID)
+	replies := make([]liveReceipt, 0, 5)
+	for i := range 5 {
+		body := fmt.Sprintf("Review item %d of 5: %s", i+1, r.plan.RunID)
+		liveCall(t, r, "reply", parent.Channel, parent.TS, body)
+		reply := lastReceipt(t, r)
+		readMessage(t, r, s, reply, body)
+		replies = append(replies, reply)
+	}
+	ctx, cancel := context.WithTimeout(r.ctx, time.Minute)
+	defer cancel()
+	if err := r.threadReplies(ctx, parent, replies); err != nil {
+		t.Fatal(err)
 	}
 }
 
-// --- output mode sweep ------------------------------------------------------
-
-func TestLiveOutputModesProduceExpectedShapes(t *testing.T) {
-	binary := slickBinary(t)
-	env := requireLiveEnv(t, binary)
-	runID := newRunID(t)
-
-	cases := []struct {
-		name      string
-		flag      string
-		assertion func(t *testing.T, stdout string)
-	}{
-		{
-			name: "json",
-			flag: "--output=json",
-			assertion: func(t *testing.T, stdout string) {
-				envelope := decodeEnvelope(t, stdout)
-				if _, ok := envelope["meta"].(map[string]any); !ok {
-					t.Fatalf("--output=json output missing meta envelope: %s", stdout)
-				}
-			},
-		},
-		{
-			name: "compact",
-			flag: "--output=compact",
-			assertion: func(t *testing.T, stdout string) {
-				var data map[string]any
-				if err := json.Unmarshal([]byte(stdout), &data); err != nil {
-					t.Fatalf("--output=compact output is not JSON: %v\n%s", err, stdout)
-				}
-				if _, hasMeta := data["meta"]; hasMeta {
-					t.Fatalf("--output=compact output should not include meta envelope: %s", stdout)
-				}
-				if _, hasMessage := data["message"]; !hasMessage {
-					t.Fatalf("--output=compact output missing message field: %s", stdout)
-				}
-			},
-		},
-		{
-			name: "human",
-			flag: "--output=human",
-			assertion: func(t *testing.T, stdout string) {
-				trimmed := strings.TrimSpace(stdout)
-				if strings.HasPrefix(trimmed, "{") {
-					t.Fatalf("--output=human output looks like JSON: %s", stdout)
-				}
-				if trimmed == "" {
-					t.Fatalf("--output=human output empty")
-				}
-			},
-		},
+func TestLiveFileUpload(t *testing.T) {
+	r, s := setupLive(t)
+	if !slices.Contains(s.scopes, "files:read") || !slices.Contains(s.scopes, "files:write") {
+		t.Skip("upload unverified: files:read and files:write are both required before creation")
 	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			body := fmt.Sprintf(`live-output-%s-%s Output mode probe — *%s*
-
-Verifying that `+"`message send`"+` emits the expected envelope shape for `+"`%s`"+` mode.
-This message is short on purpose so the assertion path is the focus.`, runID, tc.name, tc.name, tc.name)
-			stdout, stderr, err := runSlick(t, binary, "",
-				"message", "send",
-				"--workspace", env.workspace,
-				"--channel", env.channel,
-				"--message", body,
-				tc.flag,
-			)
-			if err != nil {
-				t.Fatalf("message send (%s) failed: %v\nstderr=%s", tc.name, err, stderr)
-			}
-			tc.assertion(t, stdout)
-
-			// Plain and compact modes don't emit a structured ts/channel that the
-			// envelope path uses; re-fetch from history to clean up so we don't
-			// leave residue regardless of output mode.
-			channel, ts := lookupRecentByText(t, binary, env, body)
-			if ts != "" {
-				cleanupMessage(t, binary, env, runID, channel, ts)
-			}
-		})
+	path := filepath.Join(r.plan.RunRoot, "artifact-"+r.plan.RunID+".txt")
+	if os.WriteFile(path, []byte("Synthetic release review "+r.plan.RunID), 0o600) != nil {
+		t.Fatal("cannot prepare isolated upload")
+	}
+	liveCall(t, r, "upload", r.plan.PublicChannel, path, "Review "+r.plan.RunID)
+	ctx, cancel := context.WithTimeout(r.ctx, 20*time.Second)
+	present, err := s.Inspect(ctx, lastReceipt(t, r))
+	cancel()
+	if err != nil || !present {
+		t.Fatal("independent file readback failed")
 	}
 }
 
-// --- helpers ----------------------------------------------------------------
-
-type liveEnv struct {
-	workspace string
-	channel   string
-	user      string
-}
-
-type scheduledRef struct {
-	Channel string
-	ID      string
-}
-
-func requireLiveEnv(t *testing.T, binary string) liveEnv {
+func liveCall(t *testing.T, r *liveRunner, op, ch, target, body string) {
 	t.Helper()
-	workspace := os.Getenv("SLICK_LIVE_WORKSPACE")
-	channel := os.Getenv("SLICK_LIVE_CHANNEL")
-	user := os.Getenv("SLICK_LIVE_USER")
-	if workspace == "" || channel == "" {
-		ws, ch := discoverLiveDefaults(t, binary)
-		if workspace == "" {
-			workspace = ws
-		}
+	out, err := r.command(op, ch, target, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commands := map[string]string{"send": "message.send", "send-users": "message.send", "send-users-repeated": "message.send", "reply": "reply", "edit": "message.edit", "delete": "message.delete", "add": "react.add", "remove": "react.remove", "watch": "react.watch", "schedule": "message.send", "schedule-users": "message.send", "cancel": "message.scheduled.delete", "upload": "file.upload"}
+	checkLiveFrame(t, out, commands[op], r.plan.Workspace)
+}
+
+func checkLiveFrame(t *testing.T, out []byte, command, workspace string) json.RawMessage {
+	t.Helper()
+	data, err := decodeLiveResult(out, command, workspace)
+	if err != nil {
+		t.Fatal("live result envelope mismatch")
+	}
+	return data
+}
+
+func lastReceipt(t *testing.T, r *liveRunner) liveReceipt {
+	t.Helper()
+	if len(r.receipts) == 0 {
+		t.Fatal("missing exact live receipt")
+	}
+	return r.receipts[len(r.receipts)-1]
+}
+
+func readMessage(t *testing.T, r *liveRunner, s *slackObserver, v liveReceipt, want string) *slack.Message {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(r.ctx, 20*time.Second)
+	defer cancel()
+	m, err := s.message(ctx, v)
+	blocks, _ := json.Marshal(m)
+	if err != nil || m == nil || m.Timestamp != v.TS || (!strings.Contains(m.Text, want) && !strings.Contains(string(blocks), want)) {
+		t.Fatal("independent message readback failed")
+	}
+	if v.ParentTS != "" && m.ThreadTimestamp != v.ParentTS {
+		t.Fatal("independent reply parent mismatch")
+	}
+	if len(m.Blocks.BlockSet) == 0 {
+		t.Fatal("independent readback lost rich content blocks")
+	}
+	return m
+}
+
+// One lifecycle owns exact receipts; cleanup runs even after a fatal assertion.
+func TestLiveApprovedFixtures(t *testing.T) {
+	r, s := setupLive(t)
+	var publicParent liveReceipt
+	for index, channel := range []string{r.plan.PublicChannel, r.plan.PrivateChannel} {
 		if channel == "" {
-			channel = ch
-		}
-	}
-	if workspace == "" {
-		t.Skip("no workspace resolved; run `slick auth login` or set SLICK_LIVE_WORKSPACE")
-	}
-	if channel == "" {
-		t.Skipf("no channel resolved for workspace %q; run `slick config set workspaces.%s.default_channel <Cxxxx>` or set SLICK_LIVE_CHANNEL", workspace, workspace)
-	}
-	if !strings.HasPrefix(channel, "C") && !strings.HasPrefix(channel, "G") && !strings.HasPrefix(channel, "D") {
-		t.Fatalf("resolved channel %q does not look like a Slack channel ID", channel)
-	}
-	return liveEnv{workspace: workspace, channel: channel, user: user}
-}
-
-func requireLiveUser(t *testing.T, env liveEnv) string {
-	t.Helper()
-	if env.user == "" {
-		t.Skip("no DM target resolved; set SLICK_LIVE_USER to a Slack user ID, alias, or Slack-profile email to run scheduled DM live tests")
-	}
-	return env.user
-}
-
-// discoverLiveDefaults shells out to `slick config list --json` and returns
-// the configured default workspace + that workspace's default_channel.
-// Returns ("", "") when the user has no slick config yet.
-func discoverLiveDefaults(t *testing.T, binary string) (workspace, channel string) {
-	t.Helper()
-	stdout, _, err := runSlick(t, binary, "", "config", "list", "--output=json")
-	if err != nil {
-		return "", ""
-	}
-	var envelope map[string]any
-	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
-		return "", ""
-	}
-	data, _ := envelope["data"].(map[string]any)
-	if data == nil {
-		return "", ""
-	}
-	workspace, _ = data["default_workspace"].(string)
-	if workspace == "" {
-		return "", ""
-	}
-	settings, _ := data["settings"].([]any)
-	wantKey := "workspaces." + workspace + ".default_channel"
-	for _, raw := range settings {
-		setting, ok := raw.(map[string]any)
-		if !ok {
+			t.Run("private channel lifecycle", func(t *testing.T) { t.Skip("private channel not planned") })
 			continue
 		}
-		if key, _ := setting["key"].(string); key == wantKey {
-			channel, _ = setting["value"].(string)
-			break
+		t.Run([]string{"public channel lifecycle", "private channel lifecycle"}[index], func(t *testing.T) {
+			body := "*Release review* `" + r.plan.RunID + "`: ready for approval.\n\n- Checks complete\n- Documentation reviewed 👀\n\n| Check | Result |\n| --- | --- |\n| **Tests** | `Ready` |\n| Docs | Reviewed |"
+			liveCall(t, r, "send", channel, "", body)
+			parent := lastReceipt(t, r)
+			if index == 0 {
+				publicParent = parent
+			}
+			message := readMessage(t, r, s, parent, r.plan.RunID)
+			assertNativeTable(t, message)
+			liveCall(t, r, "edit", channel, parent.TS, "Release review "+r.plan.RunID+": approved.")
+			readMessage(t, r, s, parent, "approved")
+			liveCall(t, r, "reply", channel, parent.TS, "Follow-up "+r.plan.RunID+": checks complete.")
+			reply := lastReceipt(t, r)
+			readMessage(t, r, s, reply, r.plan.RunID)
+			if index == 0 {
+				watchBeforeAdd(t, r, s, parent)
+			} else {
+				liveCall(t, r, "add", channel, parent.TS, "")
+			}
+			ctx, cancel := context.WithTimeout(r.ctx, 20*time.Second)
+			item, err := s.client.GetReactionsContext(ctx, slack.NewRefToMessage(channel, parent.TS), slack.GetReactionsParameters{Full: true})
+			cancel()
+			present, stateErr := reactionForActor(item.Reactions, "eyes", r.plan.ActorID)
+			if err != nil || stateErr != nil || !present {
+				t.Fatal("independent reaction readback failed")
+			}
+			assertCLIReactions(t, r, parent, true)
+			liveCall(t, r, "watch", channel, parent.TS, "")
+			liveCall(t, r, "remove", channel, parent.TS, "")
+			ctx, cancel = context.WithTimeout(r.ctx, 20*time.Second)
+			item, err = s.client.GetReactionsContext(ctx, slack.NewRefToMessage(channel, parent.TS), slack.GetReactionsParameters{Full: true})
+			cancel()
+			present, stateErr = reactionForActor(item.Reactions, "eyes", r.plan.ActorID)
+			if err != nil || stateErr != nil || present {
+				t.Fatal("independent reaction removal failed")
+			}
+			assertCLIReactions(t, r, parent, false)
+			if r.markAbsent(liveReceipt{Kind: "reaction", Channel: channel, TS: parent.TS, Emoji: "eyes"}) != nil {
+				t.Fatal("cannot retain reaction absence proof")
+			}
+			liveCall(t, r, "schedule", channel, "", "Queued review "+r.plan.RunID)
+			scheduled := lastReceipt(t, r)
+			ctx, cancel = context.WithTimeout(r.ctx, 20*time.Second)
+			present, err = s.Inspect(ctx, scheduled)
+			cancel()
+			if err != nil || !present {
+				t.Fatal("independent schedule readback failed")
+			}
+			assertCLIScheduled(t, r, s, scheduled, true)
+			liveCall(t, r, "cancel", channel, scheduled.ScheduledID, "")
+			ctx, cancel = context.WithTimeout(r.ctx, 20*time.Second)
+			present, err = s.Inspect(ctx, scheduled)
+			cancel()
+			if err != nil || present {
+				t.Fatal("independent schedule cancellation failed")
+			}
+			assertCLIScheduled(t, r, s, scheduled, false)
+		})
+	}
+	t.Run("recipient workflows", func(t *testing.T) {
+		if len(r.plan.Recipients) < 2 {
+			t.Skip("DM/group-DM unverified: two consenting peer IDs must be explicitly planned")
 		}
-	}
-	return workspace, channel
-}
-
-// slickBinary returns the path to the slick binary produced by `mise run
-// build`. test:live declares build as a dependency, so the binary is fresh
-// when this target runs.
-func slickBinary(t *testing.T) string {
-	t.Helper()
-	path := fmt.Sprintf("../../dist/slick-%s-%s", runtime.GOOS, runtime.GOARCH)
-	if _, err := os.Stat(path); err != nil {
-		t.Skipf("slick binary not found at %s; run `mise run test:live` (got %v)", path, err)
-	}
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		t.Fatalf("filepath.Abs(%s): %v", path, err)
-	}
-	return abs
-}
-
-func runSlick(t *testing.T, binary, stdin string, args ...string) (string, string, error) {
-	t.Helper()
-	cmd := exec.Command(binary, args...)
-	cmd.Env = os.Environ()
-	cmd.Stdin = strings.NewReader(stdin)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	return stdout.String(), stderr.String(), err
-}
-
-// postMessage sends body to env.channel and returns (channel, ts) from the
-// envelope. body should embed the runID on its first line so manual triage
-// can grep for residue when cleanup fails.
-func postMessage(t *testing.T, binary string, env liveEnv, body string) (channel, ts string) {
-	t.Helper()
-	stdout, stderr, err := runSlick(t, binary, "",
-		"message", "send",
-		"--workspace", env.workspace,
-		"--channel", env.channel,
-		"--message", body,
-		"--output=json",
-	)
-	if err != nil {
-		t.Fatalf("postMessage failed: %v\nstderr=%s", err, stderr)
-	}
-	envelope := decodeEnvelope(t, stdout)
-	channel = mustString(t, envelope, "data", "message", "channel")
-	ts = mustString(t, envelope, "data", "message", "ts")
-	if channel == "" || ts == "" {
-		t.Fatalf("postMessage envelope missing channel/ts: %s", stdout)
-	}
-	return channel, ts
-}
-
-func cleanupMessage(t *testing.T, binary string, env liveEnv, runID, channel, ts string) {
-	t.Helper()
-	t.Cleanup(func() {
-		_, stderr, err := runSlick(t, binary, "",
-			"message", "delete",
-			"--workspace", env.workspace,
-			"--channel", channel,
-			"--timestamp", ts,
-			"--force",
-			"--output=json",
-		)
+		for _, ids := range [][]string{r.plan.Recipients[:1], r.plan.Recipients[:2]} {
+			name := "DM"
+			if len(ids) == 2 {
+				name = "group DM"
+			}
+			t.Run(name, func(t *testing.T) {
+				channel, err := r.admitRecipients(ids)
+				if err != nil {
+					t.Fatal("independent recipient conversation preflight failed")
+				}
+				target := strings.Join(ids, ",")
+				liveCall(t, r, "send-users", channel, target, "Recipient review "+r.plan.RunID+": ready for approval.")
+				readMessage(t, r, s, lastReceipt(t, r), r.plan.RunID)
+				if len(ids) == 2 {
+					liveCall(t, r, "send-users-repeated", channel, target, "Repeated recipients "+r.plan.RunID+": checks complete.")
+					readMessage(t, r, s, lastReceipt(t, r), r.plan.RunID)
+				}
+				liveCall(t, r, "schedule-users", channel, target, "Recipient queue "+r.plan.RunID)
+				scheduled := lastReceipt(t, r)
+				assertCLIScheduled(t, r, s, scheduled, true)
+				liveCall(t, r, "cancel", channel, scheduled.ScheduledID, "")
+				assertCLIScheduled(t, r, s, scheduled, false)
+			})
+		}
+	})
+	t.Run("read-only output modes", func(t *testing.T) {
+		for _, mode := range []string{"json", "compact", "human"} {
+			ctx, cancel := context.WithTimeout(r.ctx, 20*time.Second)
+			out, err := r.execute(ctx, []string{"history", "list", "--workspace", r.plan.Workspace, "--channel", r.plan.PublicChannel, "--max-items", "10", "--output=" + mode, "--color=never", "--timeout=10s"}, r.env, "")
+			cancel()
+			if err != nil || len(out) == 0 {
+				t.Fatal("live read-only output failed")
+			}
+			if mode != "human" {
+				data := out
+				if mode == "json" {
+					data = checkLiveFrame(t, out, "history.list", r.plan.Workspace)
+				}
+				var result struct{ Messages []json.RawMessage }
+				if json.Unmarshal(data, &result) != nil || result.Messages == nil {
+					t.Fatal("live history output shape mismatch")
+				}
+			}
+		}
+	})
+	t.Run("CLI lookup channel and user", func(t *testing.T) { assertCLILookups(t, r) })
+	t.Run("CLI unique run search", func(t *testing.T) { assertCLISearch(t, r, s, publicParent) })
+	t.Run("CLI isolated cache lifecycle", func(t *testing.T) { assertCLICaches(t, r) })
+	t.Run("CLI health reads", func(t *testing.T) { assertCLIHealth(t, r) })
+	t.Run("CLI exact message deletion", func(t *testing.T) { deleteOwnedMessages(t, r, s) })
+	t.Run("auth last read only", func(t *testing.T) {
+		if r.preflight() != nil {
+			t.Fatal("final independent identity check failed")
+		}
+		ctx, cancel := context.WithTimeout(r.ctx, 20*time.Second)
+		defer cancel()
+		out, err := r.execute(ctx, []string{"auth", "status", "--workspace", r.plan.Workspace, "--output=json", "--timeout=10s"}, r.env, "")
 		if err != nil {
-			t.Errorf("cleanup delete failed (run id %s, channel %s, ts %s): %v\nstderr=%s",
-				runID, channel, ts, err, stderr)
+			t.Fatal("read-only auth status failed")
+		}
+		var status struct {
+			Workspaces []struct {
+				Workspace     string
+				Authenticated bool
+			}
+		}
+		data := checkLiveFrame(t, out, "auth.status", r.plan.Workspace)
+		if json.Unmarshal(data, &status) != nil || len(status.Workspaces) != 1 || status.Workspaces[0].Workspace != r.plan.Workspace || !status.Workspaces[0].Authenticated {
+			t.Fatal("read-only auth status identity mismatch")
 		}
 	})
 }
 
-// lookupRecentByText scans recent channel history for the supplied exact text
-// and returns its (channel, ts) for cleanup. Returns ("", "") if no match.
-// Used by output-mode tests where the command output doesn't reveal ts/channel.
-func lookupRecentByText(t *testing.T, binary string, env liveEnv, text string) (string, string) {
+func TestLiveExcludedOperations(t *testing.T) {
+	for _, name := range []string{"status mutation", "OAuth replacement", "token revocation"} {
+		t.Run(name, func(t *testing.T) { t.Skip("excluded from live authorization") })
+	}
+}
+
+// Both processes use the one approved actor. The relay provides an actual
+// successful empty-poll barrier without exposing payloads or changing Slack.
+func watchBeforeAdd(t *testing.T, r *liveRunner, s *slackObserver, target liveReceipt) {
 	t.Helper()
-	stdout, stderr, err := runSlick(t, binary, "",
-		"history", "list",
-		"--workspace", env.workspace,
-		"--channel", env.channel,
-		"--max-items", "20",
-		"--output=json",
-	)
+	ctx, cancel := context.WithTimeout(r.ctx, 20*time.Second)
+	defer cancel()
+	item, err := s.client.GetReactionsContext(ctx, slack.NewRefToMessage(target.Channel, target.TS), slack.GetReactionsParameters{Full: true})
+	present, stateErr := reactionForActor(item.Reactions, "eyes", r.plan.ActorID)
+	if err != nil || stateErr != nil || present {
+		t.Fatal("watch fixture must begin without the selected actor reaction")
+	}
+	token := ""
+	for _, entry := range r.env {
+		if value, ok := strings.CutPrefix(entry, "SLICK_LIVE_ACCESS_TOKEN="); ok {
+			token = value
+		}
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	defer transport.CloseIdleConnections()
+	upstream := &http.Client{Transport: liveReadTransport{base: transport, origin: "https://slack.com"}, Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	relay, ready := newWatchRelay(token, target, r.plan.ActorID, upstream)
+	defer relay.Close()
+	var output []byte
+	var commandErr error
+	done := make(chan struct{})
+	env := append(slices.Clone(r.env), "SLACK_CLI_BASE_URL="+relay.URL)
+	args := []string{"react", "watch", "--workspace", r.plan.Workspace, "--channel", target.Channel, "--timestamp", target.TS, "--emoji", "eyes", "--user", r.plan.ActorID, "--interval=1s", "--timeout=12s", "--output=json", "--color=never", "--no-throttle"}
+	go func() { output, commandErr = r.execute(ctx, args, env, ""); close(done) }()
+	defer func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			t.Error("watch child did not reap within cleanup bound")
+		}
+	}()
+	select {
+	case <-ready:
+	case <-done:
+		t.Fatal("watch ended before its first empty Slack poll")
+	case <-ctx.Done():
+		t.Fatal("watch did not establish an empty Slack poll within budget")
+	}
+	// This separate ordinary CLI process performs the approved reaction mutation.
+	liveCall(t, r, "add", target.Channel, target.TS, "")
+	select {
+	case <-done:
+	case <-ctx.Done():
+		t.Fatal("watch did not finish after the approved reaction")
+	}
+	if commandErr != nil {
+		t.Fatal("watch polling command failed; diagnostics withheld")
+	}
+	data := checkLiveFrame(t, output, "react.watch", r.plan.Workspace)
+	var result struct {
+		Target struct {
+			Channel string
+			TS      string `json:"ts"`
+		}
+		Reactions []slack.ItemReaction
+	}
+	decodeErr := json.Unmarshal(data, &result)
+	present, stateErr = reactionForActor(result.Reactions, "eyes", r.plan.ActorID)
+	if decodeErr != nil || result.Target.Channel != target.Channel || result.Target.TS != target.TS || stateErr != nil || !present {
+		t.Fatal("watch polling matched the wrong target or actor")
+	}
+}
+
+func liveRead(t *testing.T, r *liveRunner, args ...string) json.RawMessage {
+	t.Helper()
+	data, err := r.read(r.ctx, args...)
 	if err != nil {
-		t.Logf("lookupRecentByText history list failed: %v\nstderr=%s", err, stderr)
-		return "", ""
+		t.Fatalf("live read %s failed", liveCLIPath(args))
 	}
-	envelope := decodeEnvelope(t, stdout)
-	data, ok := envelope["data"].(map[string]any)
-	if !ok {
-		return "", ""
+	return data
+}
+
+func assertCLIReactions(t *testing.T, r *liveRunner, target liveReceipt, want bool) {
+	t.Helper()
+	data := liveRead(t, r, "react", "list", "--channel", target.Channel, "--timestamp", target.TS)
+	var result struct {
+		Target    struct{ Channel, TS string }
+		Reactions []slack.ItemReaction
 	}
-	messages, ok := data["messages"].([]any)
-	if !ok {
-		return "", ""
+	if json.Unmarshal(data, &result) != nil || result.Target.Channel != target.Channel || result.Target.TS != target.TS || result.Reactions == nil {
+		t.Fatal("CLI reaction list lost exact target or array")
 	}
-	for _, raw := range messages {
-		msg, ok := raw.(map[string]any)
-		if !ok {
+	present, err := reactionForActor(result.Reactions, "eyes", r.plan.ActorID)
+	if err != nil || present != want {
+		t.Fatal("CLI reaction list could not establish selected actor state")
+	}
+}
+
+func assertCLIScheduled(t *testing.T, r *liveRunner, s *slackObserver, target liveReceipt, want bool) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(r.ctx, 30*time.Second)
+	defer cancel()
+	present, err := r.scheduledContains(ctx, target)
+	if err != nil || present != want {
+		t.Fatal("CLI scheduled list lost exact receipt or complete absence")
+	}
+	present, err = s.Inspect(ctx, target)
+	if err != nil || present != want {
+		t.Fatal("independent scheduled state disagreed")
+	}
+	if !want && r.markAbsent(target) != nil {
+		t.Fatal("cannot retain exact scheduled absence proof")
+	}
+}
+
+func assertCLILookups(t *testing.T, r *liveRunner) {
+	t.Helper()
+	for _, channel := range []string{r.plan.PublicChannel, r.plan.PrivateChannel} {
+		if channel == "" {
 			continue
 		}
-		if msgText, _ := msg["text"].(string); msgText == text {
-			ts, _ := msg["ts"].(string)
-			channel, _ := msg["channel"].(string)
-			if channel == "" {
-				channel = env.channel
-			}
-			return channel, ts
+		data := liveRead(t, r, "lookup", "channel", "--channel", channel)
+		var result struct{ Channel struct{ ID string } }
+		if json.Unmarshal(data, &result) != nil || result.Channel.ID != channel {
+			t.Fatal("CLI channel lookup changed approved identity")
 		}
 	}
-	return "", ""
+	for _, id := range append([]string{r.plan.ActorID}, r.plan.Recipients...) {
+		data := liveRead(t, r, "lookup", "user", "--user", id)
+		var result struct{ User struct{ ID string } }
+		if json.Unmarshal(data, &result) != nil || result.User.ID != id {
+			t.Fatal("CLI user lookup changed approved identity")
+		}
+	}
 }
 
-func scheduleLiveMessage(t *testing.T, binary string, env liveEnv, targetArgs []string, body, schedule string) scheduledRef {
+func assertCLISearch(t *testing.T, r *liveRunner, s *slackObserver, parent liveReceipt) {
 	t.Helper()
-	args := []string{
-		"message", "send",
-		"--workspace", env.workspace,
+	if !slices.Contains(s.scopes, "search:read") {
+		t.Skip("search unverified: search:read unavailable")
 	}
-	args = append(args, targetArgs...)
-	args = append(args,
-		"--message", body,
-		"--schedule", schedule,
-		"--output=json",
-	)
-	stdout, stderr, err := runSlick(t, binary, "", args...)
-	if err != nil {
-		if scope := missingScopeFromOutput(stdout); scope != "" {
-			t.Skipf("workspace token missing required scope %q; scheduled messages need chat:write plus DM scopes for --user targets", scope)
-		}
-		t.Fatalf("scheduled send failed: %v\nstderr=%s", err, stderr)
+	if parent.TS == "" {
+		t.Skip("search unverified: owned parent unavailable")
 	}
-	envelope := decodeEnvelope(t, stdout)
-	ref := scheduledRef{
-		Channel: mustString(t, envelope, "data", "channel"),
-		ID:      mustString(t, envelope, "data", "scheduled_message_id"),
-	}
-	if ref.Channel == "" || ref.ID == "" {
-		t.Fatalf("scheduled send envelope missing channel/id: %s", stdout)
-	}
-	return ref
-}
-
-func cleanupScheduledMessage(t *testing.T, binary string, env liveEnv, runID string, ref scheduledRef) *bool {
-	t.Helper()
-	deleted := false
-	t.Cleanup(func() {
-		if deleted {
-			return
-		}
-		_, cleanupStderr, cleanupErr := runSlick(t, binary, "",
-			"message", "scheduled", "delete",
-			"--workspace", env.workspace,
-			"--channel", ref.Channel,
-			"--scheduled-id", ref.ID,
-			"--output=json",
-		)
-		if cleanupErr != nil {
-			t.Errorf("scheduled cleanup failed (run id %s, channel %s, id %s): %v\nstderr=%s",
-				runID, ref.Channel, ref.ID, cleanupErr, cleanupStderr)
-		}
-	})
-	return &deleted
-}
-
-func requireScheduledMessage(t *testing.T, binary string, env liveEnv, channel, runID string) map[string]any {
-	t.Helper()
-	deadline := time.Now().Add(30 * time.Second)
+	ctx, cancel := context.WithTimeout(r.ctx, 45*time.Second)
+	defer cancel()
 	for {
-		if row, ok := findScheduledMessage(t, binary, env, channel, runID); ok {
-			return row
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("scheduled list did not return run id %s in channel %s", runID, channel)
-		}
-		time.Sleep(2 * time.Second)
-	}
-}
-
-func assertScheduledHumanList(t *testing.T, binary string, env liveEnv, channel, scheduledID, runID, requiredChannelPrefix string) {
-	t.Helper()
-	stdout, stderr, err := runSlick(t, binary, "",
-		"message", "scheduled", "list",
-		"--workspace", env.workspace,
-		"--channel", channel,
-		"--output=human",
-	)
-	if err != nil {
-		t.Fatalf("scheduled human list failed: %v\nstderr=%s", err, stderr)
-	}
-	for _, want := range []string{"ID", "CHANNEL", "DM", "POST_AT", "TEXT", scheduledID, runID} {
-		if !strings.Contains(stdout, want) {
-			t.Fatalf("scheduled human list missing %q\nstdout=%s", want, stdout)
-		}
-	}
-	if requiredChannelPrefix != "" && !strings.Contains(stdout, requiredChannelPrefix) {
-		t.Fatalf("scheduled human list missing channel prefix %q\nstdout=%s", requiredChannelPrefix, stdout)
-	}
-}
-
-func waitForScheduledMessage(t *testing.T, binary string, env liveEnv, channel, runID string, want bool) bool {
-	t.Helper()
-	deadline := time.Now().Add(30 * time.Second)
-	for {
-		got := scheduledMessageExists(t, binary, env, channel, runID)
-		if got == want {
-			return true
-		}
-		if time.Now().After(deadline) {
-			return false
-		}
-		time.Sleep(2 * time.Second)
-	}
-}
-
-func scheduledMessageExists(t *testing.T, binary string, env liveEnv, channel, runID string) bool {
-	t.Helper()
-	_, ok := findScheduledMessage(t, binary, env, channel, runID)
-	return ok
-}
-
-func findScheduledMessage(t *testing.T, binary string, env liveEnv, channel, runID string) (map[string]any, bool) {
-	t.Helper()
-	cursor := ""
-	for range 5 {
-		args := []string{
-			"message", "scheduled", "list",
-			"--workspace", env.workspace,
-			"--channel", channel,
-			"--limit", "100",
-			"--output=json",
-		}
-		if cursor != "" {
-			args = append(args, "--cursor", cursor)
-		}
-		stdout, stderr, err := runSlick(t, binary, "", args...)
-		if err != nil {
-			t.Fatalf("scheduled list failed while looking for run id %s: %v\nstderr=%s", runID, err, stderr)
-			return nil, false
-		}
-		envelope := decodeEnvelope(t, stdout)
-		data, ok := envelope["data"].(map[string]any)
-		if !ok {
-			t.Fatalf("scheduled list returned an unexpected data shape")
-		}
-		rows, ok := data["scheduled_messages"].([]any)
-		if !ok {
-			t.Fatalf("scheduled list returned an unexpected data shape")
-		}
-		for _, raw := range rows {
-			row, ok := raw.(map[string]any)
-			if !ok {
-				continue
+		cursor := ""
+		seen := map[string]bool{"": true}
+		for {
+			args := []string{"lookup", "messages", "--query", `"` + r.plan.RunID + `"`, "--max-items", "100"}
+			if cursor != "" {
+				args = append(args, "--cursor", cursor)
 			}
-			preview, _ := row["text_preview"].(string)
-			if strings.Contains(preview, runID) {
-				return row, true
+			data, err := r.read(ctx, args...)
+			if err != nil {
+				if ctx.Err() != nil {
+					t.Skip("search indexing/read budget expired; owned result remains unverified")
+				}
+				t.Fatal("CLI unique-run search failed")
 			}
+			var page struct {
+				Matches []struct {
+					TS, Text, User string
+					Channel        struct{ ID string }
+				}
+				Paging    *livePaging `json:"pagination"`
+				Truncated bool
+			}
+			if json.Unmarshal(data, &page) != nil || page.Matches == nil || page.Paging == nil {
+				t.Fatal("CLI search lost result/pagination shape")
+			}
+			for _, match := range page.Matches {
+				if match.TS == parent.TS && match.Channel.ID == parent.Channel && match.User == r.plan.ActorID {
+					if !strings.Contains(match.Text, r.plan.RunID) {
+						t.Fatal("CLI search lost owned message text")
+					}
+					return
+				}
+			}
+			if page.Truncated {
+				t.Skip("Slack search cap prevented complete owned-result inspection")
+			}
+			more, err := nextLivePage(*page.Paging, seen)
+			if err != nil {
+				t.Fatal("CLI search pagination incomplete")
+			}
+			if !more {
+				break
+			}
+			cursor = page.Paging.Next
 		}
-		meta, _ := envelope["meta"].(map[string]any)
-		pagination, _ := meta["pagination"].(map[string]any)
-		hasMore, _ := pagination["has_more"].(bool)
-		nextCursor, _ := pagination["next_cursor"].(string)
-		if !hasMore || nextCursor == "" {
-			return nil, false
+		timer := time.NewTimer(2 * time.Second)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			t.Skip("search indexing budget expired; owned result remains unverified")
+		case <-timer.C:
 		}
-		cursor = nextCursor
 	}
-	t.Fatalf("scheduled list pagination exceeded the scan limit; absence is unverified")
-	return nil, false
 }
 
-// missingScopeFromOutput extracts the scope name from a structured error
-// envelope (e.g. {"errors":[{"type":"auth_failure","message":"missing required
-// Slack scope: users.profile:write"...}]}). Returns "" if stdout isn't
-// recognizable as a missing-scope error. Used by tests that gracefully skip
-// when the live workspace token lacks the scope they exercise.
-func missingScopeFromOutput(stdout string) string {
-	stdout = strings.TrimSpace(stdout)
-	if stdout == "" {
-		return ""
+func assertCLICaches(t *testing.T, r *liveRunner) {
+	t.Helper()
+	root := ""
+	for _, entry := range r.env {
+		if value, ok := strings.CutPrefix(entry, "XDG_CACHE_HOME="); ok {
+			root = value
+		}
 	}
-	var envelope struct {
-		Errors []struct {
-			Type    string `json:"type"`
-			Message string `json:"message"`
-		} `json:"errors"`
+	if root == "" || !strings.HasPrefix(root, r.plan.RunRoot+string(filepath.Separator)) {
+		t.Fatal("cache path is not isolated")
 	}
-	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
-		return ""
+	_ = liveRead(t, r, "cache", "clear")
+	folder := filepath.Join(root, "slick", r.plan.Workspace)
+	if os.MkdirAll(folder, 0o700) != nil {
+		t.Fatal("cannot prepare isolated cache sentinel")
 	}
-	const prefix = "missing required Slack scope: "
-	const slackPrefix = "missing_scope: missing required Slack scope: "
-	for _, e := range envelope.Errors {
-		if e.Type != "auth_failure" {
+	sentinel := filepath.Join(folder, "unrelated.txt")
+	if os.WriteFile(sentinel, []byte("unrelated owned setting"), 0o600) != nil {
+		t.Fatal("cache sentinel write")
+	}
+	for _, resource := range []string{"users", "channels"} {
+		path := filepath.Join(folder, resource+".json")
+		for _, step := range []string{"cold", "warm", "refresh"} {
+			prior, _ := os.ReadFile(path)
+			args := []string{"cache", resource, "--page-size", "100", "--max-pages", "20"}
+			if step == "refresh" {
+				args = append(args, "--refresh")
+			}
+			data := liveRead(t, r, args...)
+			var result struct {
+				FromCache bool `json:"from_cache"`
+				Count     int
+				Truncated bool
+				Fetched   string `json:"fetched_at"`
+			}
+			if json.Unmarshal(data, &result) != nil || result.FromCache != (step == "warm") || result.Count <= 0 || result.Truncated {
+				t.Fatal("CLI cache cold/warm/refresh contract incomplete")
+			}
+			var fields map[string]json.RawMessage
+			var rows []struct{ ID string }
+			if json.Unmarshal(data, &fields) != nil || json.Unmarshal(fields[resource], &rows) != nil || len(rows) != result.Count {
+				t.Fatal("CLI cache lost reviewed resource rows")
+			}
+			wantID := r.plan.ActorID
+			if resource == "channels" {
+				wantID = r.plan.PublicChannel
+			}
+			if !slices.ContainsFunc(rows, func(v struct{ ID string }) bool { return v.ID == wantID }) {
+				t.Fatal("CLI cache lost approved target identity")
+			}
+			if _, err := time.Parse(time.RFC3339Nano, result.Fetched); err != nil {
+				t.Fatal("CLI cache lost fetch timestamp")
+			}
+			current, err := os.ReadFile(path)
+			info, statErr := os.Stat(path)
+			if err != nil || statErr != nil || info.Mode().Perm()&0o077 != 0 || (step == "warm" && !bytes.Equal(prior, current)) {
+				t.Fatal("cache persistence/protection changed")
+			}
+		}
+		data := liveRead(t, r, "cache", "clear", resource)
+		var result struct{ Cleared bool }
+		if json.Unmarshal(data, &result) != nil || !result.Cleared {
+			t.Fatal("CLI cache clear did not report existing resource")
+		}
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatal("CLI cache clear left resource present")
+		}
+		body, err := os.ReadFile(sentinel)
+		if err != nil || string(body) != "unrelated owned setting" {
+			t.Fatal("cache clear changed unrelated isolated setting")
+		}
+	}
+}
+
+func assertCLIHealth(t *testing.T, r *liveRunner) {
+	t.Helper()
+	for _, op := range []string{"current", "history", "api-test", "check"} {
+		args := []string{"health", op}
+		if op == "history" {
+			args = append(args, "--limit", "1")
+		}
+		data := liveRead(t, r, args...)
+		var fields map[string]json.RawMessage
+		if json.Unmarshal(data, &fields) != nil {
+			t.Fatal("health output not an object")
+		}
+		switch op {
+		case "current":
+			var status string
+			if json.Unmarshal(fields["status"], &status) != nil || status == "" {
+				t.Fatal("health current lost service status")
+			}
+		case "history":
+			var rows []json.RawMessage
+			if json.Unmarshal(fields["incidents"], &rows) != nil || rows == nil || len(rows) > 1 {
+				t.Fatal("health history lost bounded incidents")
+			}
+		case "api-test":
+			if string(fields["ok"]) != "true" {
+				t.Fatal("health api-test was not acknowledged")
+			}
+		case "check":
+			if string(fields["api_ok"]) != "true" {
+				t.Fatal("health check lost API acknowledgement")
+			}
+		}
+	}
+}
+
+func deleteOwnedMessages(t *testing.T, r *liveRunner, s *slackObserver) {
+	t.Helper()
+	for _, receipt := range slices.Backward(r.receipts) {
+		if receipt.Kind != "message" || r.finished[receiptKey(receipt)] {
 			continue
 		}
-		if rest, ok := strings.CutPrefix(e.Message, prefix); ok {
-			return strings.TrimSpace(rest)
+		ctx, cancel := context.WithTimeout(r.ctx, 20*time.Second)
+		present, err := s.Inspect(ctx, receipt)
+		cancel()
+		if err != nil || !present {
+			t.Fatal("owned message unavailable before CLI deletion")
 		}
-		if rest, ok := strings.CutPrefix(e.Message, slackPrefix); ok {
-			return strings.TrimSpace(rest)
+		liveCall(t, r, "delete", receipt.Channel, receipt.TS, "")
+		ctx, cancel = context.WithTimeout(r.ctx, 20*time.Second)
+		present, err = s.Inspect(ctx, receipt)
+		cancel()
+		if err != nil || present {
+			t.Fatal("independent message deletion verification failed")
+		}
+		if r.markAbsent(receipt) != nil {
+			t.Fatal("cannot retain exact message absence proof")
 		}
 	}
-	return ""
 }
 
-func newRunID(t *testing.T) string {
+func assertNativeTable(t *testing.T, message *slack.Message) {
 	t.Helper()
-	var b [6]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		t.Fatalf("rand.Read: %v", err)
-	}
-	return hex.EncodeToString(b[:])
-}
-
-func decodeEnvelope(t *testing.T, stdout string) map[string]any {
-	t.Helper()
-	var envelope map[string]any
-	if err := json.Unmarshal([]byte(stdout), &envelope); err != nil {
-		t.Fatalf("envelope decode: %v\nstdout=%s", err, stdout)
-	}
-	return envelope
-}
-
-func mustString(t *testing.T, m map[string]any, path ...string) string {
-	t.Helper()
-	current := any(m)
-	for _, key := range path {
-		obj, ok := current.(map[string]any)
-		if !ok {
-			t.Fatalf("path %v: expected map at %q, got %T", path, key, current)
+	tableFound, richFound := false, false
+	for _, block := range message.Blocks.BlockSet {
+		var table *slack.TableBlock
+		switch v := block.(type) {
+		case *slack.TableBlock:
+			table = v
+		case slack.TableBlock:
+			table = &v
 		}
-		current = obj[key]
+		if table == nil {
+			continue
+		}
+		tableFound = true
+		if len(table.Rows) < 2 {
+			t.Fatal("native table lost rows")
+		}
+		for _, row := range table.Rows {
+			for _, cell := range row {
+				if cell == nil {
+					continue
+				}
+				if cell.TableCellType() == slack.TableCellRichText {
+					if rich, ok := cell.(*slack.TableRichTextCell); ok && len(rich.Elements) > 0 {
+						richFound = true
+					}
+				}
+			}
+		}
+		body, _ := json.Marshal(table)
+		if !strings.Contains(string(body), "Tests") || !strings.Contains(string(body), "Ready") {
+			t.Fatal("native table lost rich content")
+		}
 	}
-	if current == nil {
-		return ""
+	if !tableFound || !richFound {
+		t.Fatal("independent SDK readback did not contain native table/rich_text cells")
 	}
-	s, ok := current.(string)
-	if !ok {
-		t.Fatalf("path %v: expected string, got %T", path, current)
-	}
-	return s
 }

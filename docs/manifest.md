@@ -51,7 +51,7 @@ does not create Slack apps; it generates the manifest text.
     | `-N`, `--name` | `<NAME>` | App display name, 1–35 characters |
     | `-d`, `--description` | `<TEXT>` | Short app description, up to 140 characters |
     | `-L`, `--long-description` | `<TEXT>` | Long app description, 175–4000 characters when supplied |
-    | `-p`, `--preset` | `<PRESET>` | Scope preset: readonly, messaging, files, search, or full |
+    | `-p`, `--preset` | `<PRESET>` | Scope preset: readonly, messaging, files, search, organize, or full |
     | `-t`, `--type` | `<TYPE>` | Auth shape: user, bot, or both |
     | `-B`, `--background-color` | `<#RGB>` or `<#RRGGBB>` | App background color in hexadecimal |
     | `-S`, `--bot-scope` | `<SCOPE>…` | Override bot OAuth scope |
@@ -79,38 +79,46 @@ it; local checks do not prove that Slack will accept every supplied setting.
 | `messaging` | Default. Readonly plus send/edit/delete messages and DMs, manage reactions. |
 | `files` | Messaging plus file upload (`files:write`). |
 | `search` | Readonly plus workspace message search (`search:read`, user-token only). |
-| `full` | Messaging, file upload, search, and `users.profile:write` for `status set`. |
+| `organize` | DND, pins and channel link bookmarks. |
+| `full` | Messaging, files, search, profile status, DND, pins and bookmarks. |
 
 ??? note "Scope matrix"
 
     Authoritative per-preset scope set, derived from
     [`internal/cli/manifest/manifest.go`](https://github.com/matcra587/slack-cli/blob/main/internal/cli/manifest/manifest.go):
 
-    | Scope | `readonly` | `messaging` | `files` | `search` | `full` |
-    |---|:-:|:-:|:-:|:-:|:-:|
-    | `channels:history` | ✓ | ✓ | ✓ | ✓ | ✓ |
-    | `channels:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-    | `chat:write` |   | ✓ | ✓ |   | ✓ |
-    | `files:write` |   |   | ✓ |   | ✓ |
-    | `groups:history` | ✓ | ✓ | ✓ | ✓ | ✓ |
-    | `groups:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-    | `im:history` | ✓ | ✓ | ✓ | ✓ | ✓ |
-    | `im:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-    | `im:write` |   | ✓ | ✓ |   | ✓ |
-    | `mpim:history` | ✓ | ✓ | ✓ | ✓ | ✓ |
-    | `mpim:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-    | `mpim:write` |   | ✓ | ✓ |   | ✓ |
-    | `reactions:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-    | `reactions:write` |   | ✓ | ✓ |   | ✓ |
-    | `search:read` |   |   |   | ✓ | ✓ |
-    | `users:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-    | `users:read.email` |   | ✓ | ✓ |   | ✓ |
-    | `users.profile:write` |   |   |   |   | ✓ |
+    | Scope | `readonly` | `messaging` | `files` | `search` | `organize` | `full` |
+    |---|:-:|:-:|:-:|:-:|:-:|:-:|
+    | `bookmarks:read` |   |   |   |   | ✓ | ✓ |
+    | `bookmarks:write` |   |   |   |   | ✓ | ✓ |
+    | `channels:history` | ✓ | ✓ | ✓ | ✓ |   | ✓ |
+    | `channels:read` | ✓ | ✓ | ✓ | ✓ |   | ✓ |
+    | `chat:write` |   | ✓ | ✓ |   |   | ✓ |
+    | `dnd:read` |   |   |   |   | ✓ | ✓ |
+    | `dnd:write` |   |   |   |   | ✓ | ✓ |
+    | `files:write` |   |   | ✓ |   |   | ✓ |
+    | `groups:history` | ✓ | ✓ | ✓ | ✓ |   | ✓ |
+    | `groups:read` | ✓ | ✓ | ✓ | ✓ |   | ✓ |
+    | `im:history` | ✓ | ✓ | ✓ | ✓ |   | ✓ |
+    | `im:read` | ✓ | ✓ | ✓ | ✓ |   | ✓ |
+    | `im:write` |   | ✓ | ✓ |   |   | ✓ |
+    | `mpim:history` | ✓ | ✓ | ✓ | ✓ |   | ✓ |
+    | `mpim:read` | ✓ | ✓ | ✓ | ✓ |   | ✓ |
+    | `mpim:write` |   | ✓ | ✓ |   |   | ✓ |
+    | `pins:read` |   |   |   |   | ✓ | ✓ |
+    | `pins:write` |   |   |   |   | ✓ | ✓ |
+    | `reactions:read` | ✓ | ✓ | ✓ | ✓ |   | ✓ |
+    | `reactions:write` |   | ✓ | ✓ |   |   | ✓ |
+    | `search:read` |   |   |   | ✓ |   | ✓ |
+    | `users.profile:write` |   |   |   |   |   | ✓ |
+    | `users:read` | ✓ | ✓ | ✓ | ✓ |   | ✓ |
+    | `users:read.email` |   | ✓ | ✓ |   |   | ✓ |
 
 `--type user` is the normal choice — the CLI acts as you. Use `--type bot`
 only when messages should originate from the app's bot user. `--type both`
 generates a manifest with both shapes; in that case `search:read` is placed
 under user scopes only, since bot tokens cannot use the search API.
+`users.profile:write` and `dnd:write` are also excluded from bot scopes.
 
 `--user-scope` replaces the user-token preset scopes for `user` and `both`;
 `--bot-scope` replaces the bot-token preset scopes for `bot` and `both`.

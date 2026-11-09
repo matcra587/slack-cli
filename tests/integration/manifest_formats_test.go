@@ -32,7 +32,7 @@ func TestBinaryManifestFormatsPreservePresetScopes(t *testing.T) {
 						}
 						if kind == "bot" || kind == "both" {
 							for _, scope := range want {
-								if scope != "search:read" && scope != "users.profile:write" {
+								if scope != "search:read" && scope != "users.profile:write" && scope != "dnd:write" {
 									bot = append(bot, scope)
 								}
 							}
@@ -243,7 +243,7 @@ func publishedManifestScopes(preset string) []string {
 	case "search":
 		return append(readonly, "search:read")
 	case "full":
-		return append(messaging, "files:write", "search:read", "users.profile:write")
+		return append(messaging, "files:write", "search:read", "users.profile:write", "bookmarks:read", "bookmarks:write", "dnd:read", "dnd:write", "pins:read", "pins:write")
 	default:
 		panic("unknown test preset")
 	}

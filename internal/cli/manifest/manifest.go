@@ -105,7 +105,7 @@ func newTemplateCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	cmd.Flags().StringVarP(&opts.Name, "name", "N", opts.Name, "App display name (1-35 characters)")
 	cmd.Flags().StringVarP(&opts.Description, "description", "d", opts.Description, "Short app description (up to 140 characters)")
 	cmd.Flags().StringVarP(&opts.LongDescription, "long-description", "L", "", "Long app description (175-4000 characters when supplied)")
-	cmd.Flags().StringVarP(&opts.Preset, "preset", "p", opts.Preset, "Scope preset: readonly, messaging, files, search, or full")
+	cmd.Flags().StringVarP(&opts.Preset, "preset", "p", opts.Preset, "Scope preset: readonly, messaging, files, search, organize, or full")
 	cmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
 		if name == "template" {
 			return pflag.NormalizedName("preset")
@@ -285,7 +285,7 @@ func botCompatibleScopes(scopes []string) []string {
 }
 
 func userTokenOnlyScope(scope string) bool {
-	return scope == "search:read" || scope == "users.profile:write"
+	return scope == "search:read" || scope == "users.profile:write" || scope == "dnd:write"
 }
 
 func templatePresets() []templatePreset {
@@ -367,9 +367,15 @@ func templatePresets() []templatePreset {
 			},
 		},
 		{
+			Name:        "organize",
+			Description: "Read and manage notification pauses, pins and channel bookmarks.",
+			Scopes:      []string{"bookmarks:read", "bookmarks:write", "dnd:read", "dnd:write", "pins:read", "pins:write"},
+		},
+		{
 			Name:        "full",
-			Description: "Messaging, file upload, and search scopes.",
+			Description: "All supported task scopes, including notification and channel organization.",
 			Scopes: []string{
+				"bookmarks:read", "bookmarks:write", "dnd:read", "dnd:write", "pins:read", "pins:write",
 				"channels:history",
 				"channels:read",
 				"chat:write",
@@ -404,7 +410,7 @@ func PresetScopes(template string) ([]string, error) {
 			return slices.Clone(preset.Scopes), nil
 		}
 	}
-	return nil, errors.New("template must be readonly, messaging, files, search, or full")
+	return nil, errors.New("template must be readonly, messaging, files, search, organize, or full")
 }
 
 func templatePresetHelp() help.CommandGroup {
@@ -418,6 +424,12 @@ func templatePresetHelp() help.CommandGroup {
 
 func scopeReasons() []scopeReason {
 	return []scopeReason{
+		{Scope: "bookmarks:read", Reason: "List channel bookmarks."},
+		{Scope: "bookmarks:write", Reason: "Add, edit and remove channel bookmarks."},
+		{Scope: "dnd:read", Reason: "Read users' Do Not Disturb settings."},
+		{Scope: "dnd:write", Reason: "Change the authenticated user's notification pause."},
+		{Scope: "pins:read", Reason: "List pinned channel messages."},
+		{Scope: "pins:write", Reason: "Pin and unpin channel messages."},
 		{Scope: "channels:history", Reason: "Read public channel history and thread replies."},
 		{Scope: "channels:read", Reason: "List public channels and resolve public channel metadata."},
 		{Scope: "chat:write", Reason: "Send, edit, and delete Slack CLI messages."},

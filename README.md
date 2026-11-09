@@ -66,6 +66,7 @@ They are stored via your OS keychain or a configured secret manager;
 | `history`, `lookup` | [history.md](docs/history.md), [lookup.md](docs/lookup.md) |
 | `react`, `status`, `health` | [react.md](docs/react.md), [status.md](docs/status.md), [health.md](docs/health.md) |
 | `file` | [file.md](docs/file.md) |
+| `dnd`, `pin`, `bookmark` | [dnd.md](docs/dnd.md), [pin.md](docs/pin.md), [bookmark.md](docs/bookmark.md) |
 | `cache` | [cache.md](docs/cache.md) |
 | `config`, `workspace` | [config.md](docs/config.md), [workspace.md](docs/workspace.md) |
 | `manifest` | [manifest.md](docs/manifest.md) |

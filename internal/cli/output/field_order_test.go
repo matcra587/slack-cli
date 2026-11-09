@@ -64,7 +64,7 @@ var canonicalCategory = map[string]int{
 	"workspace": 1, "team_id": 1, "team_name": 1, "profile": 1,
 	"channel": 1, "user": 1, "path": 1, "service": 1,
 	// 2. what
-	"ts": 2, "id": 2, "scheduled_message_id": 2, "name": 2, "type": 2,
+	"ts": 2, "id": 2, "scheduled_message_id": 2, "bookmark_id": 2, "name": 2, "type": 2,
 	"token_type": 2, "resource": 2, "key": 2, "query": 2, "action": 2, "shell": 2,
 	// 3. when
 	"age": 3, "time": 3, "fetched_at": 3, "post_at": 3, "post_at_iso": 3,
@@ -74,15 +74,15 @@ var canonicalCategory = map[string]int{
 	"is_im": 4, "deleted": 4, "removed": 4, "cleared": 4, "written": 4,
 	"exists": 4, "dry_run": 4, "from_cache": 4, "truncated": 4,
 	"attribution": 4, "command": 4, "healthy": 4, "status": 4, "api_ok": 4,
-	"ok": 4, "changed": 4, "would_change": 4,
+	"ok": 4, "changed": 4, "would_change": 4, "enabled": 4, "snooze_enabled": 4,
 	// 5. detail
 	"text": 5, "topic": 5, "emoji": 5, "presence": 5, "status_text": 5,
 	"timezone": 5, "permalink": 5, "description": 5, "value": 5,
-	"default_workspace": 5, "thread_ts": 5, "text_preview": 5,
+	"default_workspace": 5, "thread_ts": 5, "text_preview": 5, "title": 5, "link": 5,
 	// 6. numbers
 	"count": 6, "members": 6, "num_members": 6, "size": 6, "replies": 6,
 	"removed_count": 6, "settings": 6, "expires_in": 6, "resources": 6,
-	"active_incidents": 6, "total_active_incidents": 6,
+	"active_incidents": 6, "total_active_incidents": 6, "minutes": 6, "snooze_remaining": 6,
 	// 7. diagnostics
 	"validation_error": 7, "exit_code": 7,
 	// 8. pagination

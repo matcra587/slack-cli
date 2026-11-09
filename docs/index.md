@@ -14,6 +14,9 @@ single binary that runs each of these non-interactively. Drive it with flags, st
 variables, and the output adapts to where it runs: friendly colored text in a
 terminal, structured JSON when piped or under an agent.
 
+You can also [pause notifications](dnd.md), [pin messages](pin.md), and
+[manage channel bookmarks](bookmark.md).
+
 The binary is `slick`; the repo and Go module are `slack-cli`.
 
 For agents, the documentation is available as an [llms.txt index](https://matcra587.github.io/slack-cli/llms.txt)

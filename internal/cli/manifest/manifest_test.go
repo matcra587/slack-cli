@@ -22,6 +22,37 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func TestOrganizationManifestTokenScopes(t *testing.T) {
+	for _, tokenType := range []string{"user", "bot"} {
+		t.Run(tokenType, func(t *testing.T) {
+			out, diagnostics, err := executeTestRoot(t, nil, "http://127.0.0.1:1", "", []string{"manifest", "template", "--preset=organize", "--type=" + tokenType, "--name=Fixture", "--output=human"})
+			if err != nil || diagnostics != "" {
+				t.Fatalf("manifest failed: %v %s", err, diagnostics)
+			}
+			var manifest struct {
+				OAuth struct {
+					Scopes map[string][]string `json:"scopes"`
+				} `json:"oauth_config"`
+			}
+			if json.Unmarshal([]byte(out), &manifest) != nil {
+				t.Fatal("manifest is not JSON")
+			}
+			scopes := manifest.OAuth.Scopes[tokenType]
+			for _, scope := range []string{"dnd:read", "pins:read", "pins:write", "bookmarks:read", "bookmarks:write"} {
+				if !slices.Contains(scopes, scope) {
+					t.Errorf("missing scope %s", scope)
+				}
+			}
+			if slices.Contains(scopes, "dnd:write") != (tokenType == "user") {
+				t.Fatal("DND write token eligibility is wrong")
+			}
+			if slices.Contains(scopes, "chat:write") || slices.Contains(scopes, "reminders:write") {
+				t.Fatal("organization preset grants unrelated write permissions")
+			}
+		})
+	}
+}
+
 func TestManifestHelpOnlyShowsLocalGenerationCommands(t *testing.T) {
 	stdout, stderr, err := executeTestRoot(t, nil, "http://example.invalid", "", []string{"manifest", "--help"})
 	if err != nil {

@@ -4,14 +4,37 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	climanifest "github.com/matcra587/slack-cli/internal/cli/manifest"
+
 	"github.com/matcra587/slack-cli/internal/testutil"
 )
+
+func TestOAuthScopePresetKeepsDefaultAndExplicitOrganizationScopes(t *testing.T) {
+	for _, preset := range []string{"", "messaging", "organize", "full"} {
+		t.Run("preset="+preset, func(t *testing.T) {
+			uri, err := url.Parse(oauthAuthorizeURL(oauthAuthorizeParams{ClientID: "synthetic-client", State: "synthetic-state", CodeChallenge: "synthetic-challenge", ScopePreset: preset}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			scopes := strings.Split(uri.Query().Get("user_scope"), ",")
+			want, _ := climanifest.PresetScopes(preset)
+			if !slices.Equal(scopes, want) || uri.Query().Get("state") != "synthetic-state" || uri.Query().Get("code_challenge") != "synthetic-challenge" {
+				t.Fatal("consent scopes or OAuth guards changed")
+			}
+			if (preset == "" || preset == "messaging") && slices.Contains(scopes, "dnd:write") {
+				t.Fatal("default consent gained new write scopes")
+			}
+		})
+	}
+}
 
 func TestAuthLoginOAuthDefaultRedirectUsesOSAssignedPort(t *testing.T) {
 	t.Setenv("SLACK_CLI_CALLBACK_PORT", "")

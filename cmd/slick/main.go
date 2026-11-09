@@ -24,17 +24,20 @@ import (
 	"github.com/matcra587/slack-cli/internal/agenthelp"
 	cliagent "github.com/matcra587/slack-cli/internal/cli/agent"
 	cliauth "github.com/matcra587/slack-cli/internal/cli/auth"
+	clibookmark "github.com/matcra587/slack-cli/internal/cli/bookmark"
 	clicache "github.com/matcra587/slack-cli/internal/cli/cache"
 	clichannel "github.com/matcra587/slack-cli/internal/cli/channel"
 	"github.com/matcra587/slack-cli/internal/cli/clitheme"
 	clicompletion "github.com/matcra587/slack-cli/internal/cli/completion"
 	cliconfig "github.com/matcra587/slack-cli/internal/cli/config"
+	clidnd "github.com/matcra587/slack-cli/internal/cli/dnd"
 	clifile "github.com/matcra587/slack-cli/internal/cli/file"
 	clihealth "github.com/matcra587/slack-cli/internal/cli/health"
 	clihistory "github.com/matcra587/slack-cli/internal/cli/history"
 	climanifest "github.com/matcra587/slack-cli/internal/cli/manifest"
 	climessage "github.com/matcra587/slack-cli/internal/cli/message"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
+	clipin "github.com/matcra587/slack-cli/internal/cli/pin"
 	clireaction "github.com/matcra587/slack-cli/internal/cli/reaction"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
 	clistatus "github.com/matcra587/slack-cli/internal/cli/status"
@@ -295,6 +298,10 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	statusCmd := clistatus.NewCommand(runtime)
 	statusCmd.GroupID = "messaging"
 	root.AddCommand(statusCmd)
+	for _, cmd := range []*cobra.Command{clidnd.NewCommand(runtime), clipin.NewCommand(runtime), clibookmark.NewCommand(runtime)} {
+		cmd.GroupID = "messaging"
+		root.AddCommand(cmd)
+	}
 
 	healthCmd := clihealth.NewCommand(runtime)
 	healthCmd.GroupID = "meta"

@@ -104,7 +104,7 @@ func TestBinaryAgentExportFlagsSelectDestinationAndFormat(t *testing.T) {
 					return
 				}
 				paths := binaryExportPaths(t, out.String(), mode)
-				if len(paths) != 22 {
+				if len(paths) != 23 {
 					t.Fatal("export selection lost the guide set")
 				}
 				for _, rel := range paths {

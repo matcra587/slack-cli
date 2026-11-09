@@ -152,6 +152,10 @@ func (t sdkRateLimitTransport) RoundTrip(req *http.Request) (*http.Response, err
 	if err != nil {
 		return response, err
 	}
+	response, err = guardSDKOrganizationResponse(req, response)
+	if err != nil {
+		return nil, err
+	}
 	return guardSDKLookupResponse(req, response)
 }
 

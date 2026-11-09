@@ -39,7 +39,8 @@
       "--token-env <env-var-name>",
       "--oauth-client-id <id>",
       "--oauth-redirect-url <local-url>",
-      "--force"
+      "--force",
+      "--scope-preset <readonly|messaging|files|search|organize|full> with --method oauth; messaging remains the default"
     ],
     "cache.channels": [
       "--refresh",
@@ -157,6 +158,56 @@
       "--file <path|->",
       "--blocks Block Kit JSON array",
       "--dry-run"
+    ],
+    "dnd.info": [
+      "optional --user <id>"
+    ],
+    "dnd.team": [
+      "--users <id,...>; repeated flags supported, up to 50 IDs"
+    ],
+    "dnd.snooze": [
+      "--minutes <positive integer>",
+      "--dry-run"
+    ],
+    "dnd.end-snooze": [
+      "--dry-run"
+    ],
+    "dnd.end": [
+      "--dry-run"
+    ],
+    "pin.list": [
+      "--channel <id|alias>"
+    ],
+    "pin.add": [
+      "--channel <id|alias>",
+      "--timestamp <slack-ts>",
+      "--dry-run"
+    ],
+    "pin.remove": [
+      "--channel <id|alias>",
+      "--timestamp <slack-ts>",
+      "--dry-run"
+    ],
+    "bookmark.list": [
+      "--channel <id|alias>"
+    ],
+    "bookmark.add": [
+      "--channel <id|alias>",
+      "--title <text>",
+      "--link <http-or-https-url>",
+      "optional --emoji <name>",
+      "--dry-run"
+    ],
+    "bookmark.edit": [
+      "--channel <id|alias>",
+      "--id <bookmark-id>",
+      "at least one of --title, --link or --emoji; omitted fields preserved; --emoji= clears emoji",
+      "--dry-run"
+    ],
+    "bookmark.remove": [
+      "--channel <id|alias>",
+      "--id <bookmark-id>",
+      "--dry-run"
     ]
   },
   "output_schemas": {
@@ -210,6 +261,53 @@
     "output_flag": [
       "--output (or -o) selects one of auto, human, json, compact",
       "auto picks human in a TTY and json otherwise"
+    ],
+    "dnd.info": [
+      "data.status"
+    ],
+    "dnd.team": [
+      "data.users keyed by user ID"
+    ],
+    "dnd.snooze": [
+      "data.minutes",
+      "data.snooze on success; data.dry_run for previews"
+    ],
+    "dnd.end-snooze": [
+      "data.snooze on success; data.dry_run for previews"
+    ],
+    "dnd.end": [
+      "acknowledgement only; data.dry_run for previews"
+    ],
+    "pin.list": [
+      "data.channel",
+      "data.items[]; empty array when no pins exist"
+    ],
+    "pin.add": [
+      "data.channel",
+      "data.ts",
+      "data.dry_run for previews"
+    ],
+    "pin.remove": [
+      "data.channel",
+      "data.ts",
+      "data.dry_run for previews"
+    ],
+    "bookmark.list": [
+      "data.channel",
+      "data.bookmarks[]; empty array when no bookmarks exist"
+    ],
+    "bookmark.add": [
+      "data.channel",
+      "data.bookmark; data.changes and data.dry_run for previews"
+    ],
+    "bookmark.edit": [
+      "data.channel",
+      "data.bookmark; data.changes and data.dry_run for previews"
+    ],
+    "bookmark.remove": [
+      "data.channel",
+      "data.bookmark_id",
+      "data.dry_run for previews"
     ]
   },
   "env": [

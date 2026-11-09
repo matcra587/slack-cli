@@ -174,7 +174,7 @@ func expectedSlickExportPaths() []string {
 	slugs := []string{
 		"auth-setup", "cache-metadata", "check-health", "cleanup-msgs", "config-prefs",
 		"core-contract", "delete-msg", "developer-review", "discover-destination", "edit-msg",
-		"inspect-schema", "lookup-user", "react", "read-history", "reply", "safe-mutation",
+		"inspect-schema", "lookup-user", "organize", "react", "read-history", "reply", "safe-mutation",
 		"schedule-msg", "search-msgs", "send-dm", "send-msg", "set-status", "upload-file",
 	}
 	paths := make([]string, len(slugs))

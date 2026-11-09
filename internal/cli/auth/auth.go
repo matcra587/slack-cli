@@ -163,6 +163,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	var oauthRedirectURL string
 	var oauthCallbackPort string
 	var force bool
+	var scopePreset string
 	loginCmd := &cobra.Command{
 		Use:          "login",
 		Short:        "Create a workspace profile",
@@ -187,6 +188,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 				ClientID:      clientID,
 				OAuthRedirect: oauthRedirectURL,
 				Force:         force,
+				ScopePreset:   scopePreset,
 			})
 		},
 	}
@@ -201,6 +203,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	loginCmd.Flags().StringVarP(&oauthRedirectURL, "oauth-redirect-url", "r", defaultOAuthRedirectURL(), "Slack OAuth redirect URL configured on the app")
 	loginCmd.Flags().StringVarP(&oauthCallbackPort, "oauth-callback-port", "p", "", "Local OAuth callback port; use 0 for an OS-assigned port")
 	loginCmd.Flags().BoolVarP(&force, "force", "F", false, "Overwrite an existing authenticated profile")
+	loginCmd.Flags().StringVarP(&scopePreset, "scope-preset", "P", climanifest.DefaultPreset, "OAuth user scopes: readonly, messaging, files, search, organize, or full")
 	_ = loginCmd.Flags().MarkHidden("workspace-name")
 	loginCmd.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
 		switch name {
@@ -456,6 +459,7 @@ type loginInput struct {
 	RefreshToken  string
 	ExpiresIn     int
 	Force         bool
+	ScopePreset   string
 }
 
 func (input loginInput) HasTokenSource() bool {
@@ -472,13 +476,16 @@ func (input loginInput) resolvedTokenType() config.TokenType {
 func validateLoginOptions(cmd *cobra.Command, input *loginInput) error {
 	switch input.AuthMethod {
 	case "token":
-		for _, name := range []string{"oauth-client-id", "oauth-redirect-url", "oauth-callback-port"} {
+		for _, name := range []string{"oauth-client-id", "oauth-redirect-url", "oauth-callback-port", "scope-preset"} {
 			if cmd.Flags().Changed(name) {
 				return errors.New("OAuth options require --method oauth")
 			}
 		}
 		return validateLoginTokenSourceFlags(*input)
 	case "oauth":
+		if _, err := climanifest.PresetScopes(input.ScopePreset); err != nil {
+			return err
+		}
 		if input.HasTokenSource() {
 			return errors.New("token source flags require --method token")
 		}
@@ -751,6 +758,7 @@ func completeOAuthLogin(reqCtx context.Context, ctx *clioutput.CommandContext, r
 		RedirectURI:   redirectURL.String(),
 		State:         state,
 		CodeChallenge: slackgo.GenerateCodeChallenge(verifier),
+		ScopePreset:   input.ScopePreset,
 	})
 	openURL := runtime.OpenURL
 	if openURL == nil {
@@ -922,10 +930,11 @@ type oauthAuthorizeParams struct {
 	RedirectURI   string
 	State         string
 	CodeChallenge string
+	ScopePreset   string
 }
 
 func oauthAuthorizeURL(params oauthAuthorizeParams) string {
-	scopes, _ := climanifest.PresetScopes(climanifest.DefaultPreset)
+	scopes, _ := climanifest.PresetScopes(params.ScopePreset)
 	values := url.Values{
 		"client_id":  {params.ClientID},
 		"user_scope": {strings.Join(scopes, ",")},

@@ -186,7 +186,14 @@ output uses safe SDK summaries and does not include request or response payloads
     | `-C`, `--oauth-client-id` | `<ID>` | Slack OAuth client ID |
     | `-r`, `--oauth-redirect-url` | `<URL>` | Slack OAuth redirect URL configured on the app |
     | `-p`, `--oauth-callback-port` | `<PORT>` | Local OAuth callback port; 0 for OS-assigned |
+    | `-P`, `--scope-preset` | `<PRESET>` | OAuth user scopes: readonly, messaging (default), files, search, organize, or full |
     | `-F`, `--force` | | Overwrite an existing authenticated profile |
+
+OAuth requests the selected scope preset. Configure matching user scopes in the
+Slack app before consent. `organize` covers DND, pins and channel bookmarks;
+`full` includes these plus messaging, files, search and profile status. The
+default remains `messaging`. `--scope-preset` requires `--method oauth` and
+does not change an existing token until a new login completes.
 
 The profile-name resolution order is: `--workspace-name` flag, then the
 global `--workspace` flag value, then the TTY interactive form. After

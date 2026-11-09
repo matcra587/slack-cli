@@ -118,7 +118,7 @@ func decodeAgentReadSchema(t *testing.T, out, mode string) agentReadSchemaNode {
 func expectedAgentReadClasses() map[string]bool {
 	want := map[string]bool{}
 	for _, path := range []string{
-		"agent guide", "agent schema", "auth status",
+		"agent guide", "agent schema", "auth status", "dnd info", "dnd team", "pin list", "bookmark list",
 		"completion bash", "completion elvish", "completion fish", "completion nu", "completion pwsh", "completion zsh",
 		"config get", "config list", "config path",
 		"health api-test", "health check", "health current", "health history", "help", "history list",
@@ -128,6 +128,7 @@ func expectedAgentReadClasses() map[string]bool {
 		want["slick "+path] = true
 	}
 	for _, path := range []string{
+		"dnd snooze", "dnd end-snooze", "dnd end", "pin add", "pin remove", "bookmark add", "bookmark edit", "bookmark remove",
 		"agent export", "auth login", "auth logout", "auth switch", "cache channels", "cache clear", "cache users",
 		"config init", "config set", "config unset", "file upload",
 		"message delete", "message edit", "message scheduled delete", "message send",

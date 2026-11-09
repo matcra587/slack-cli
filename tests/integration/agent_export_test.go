@@ -77,13 +77,13 @@ func TestBinaryAgentExportLifecycle(t *testing.T) {
 					}
 				} else {
 					data := decodeAgentExportData(t, preview, mode)
-					if !data.DryRun || len(data.Paths) != 22 {
+					if !data.DryRun || len(data.Paths) != 23 {
 						t.Fatal("incomplete preview")
 					}
 				}
 				out := run(0, base...)
 				paths := binaryExportPaths(t, out, mode)
-				if len(paths) != 22 || paths[0] != "slick-auth-setup/SKILL.md" || paths[1] != "slick-cache-metadata/SKILL.md" {
+				if len(paths) != 23 || paths[0] != "slick-auth-setup/SKILL.md" || paths[1] != "slick-cache-metadata/SKILL.md" {
 					t.Fatal("export missing known artifacts")
 				}
 				for _, rel := range paths {
@@ -247,7 +247,7 @@ func TestBinaryAgentExportResultFailurePreservesArtifacts(t *testing.T) {
 			}); err != nil {
 				t.Fatal(err)
 			}
-			if count != 22 {
+			if count != 23 {
 				t.Fatalf("result failure lost exported artifacts: %d", count)
 			}
 		})

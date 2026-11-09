@@ -114,7 +114,8 @@ local checks; do not bypass it without a reason.
 Goreleaser builds the GitHub release changelog from commits between tags,
 filtered through the `changelog.filters.exclude` patterns in
 [`.goreleaser.yml`](.goreleaser.yml). Commits whose subject matches any of
-the following prefixes are **excluded** from the rendered changelog:
+the following prefixes, with or without a scope such as `(cli)`, are
+**excluded** from the rendered changelog:
 
 | Excluded prefix | Why |
 |---|---|
@@ -123,8 +124,10 @@ the following prefixes are **excluded** from the rendered changelog:
 | `chore:` | Maintenance, deps bumps, housekeeping |
 | `ci:` | CI workflow changes |
 | `test:` | Tests only |
+| `build(docs):` | Documentation build tooling |
 
-`feat:`, `fix:`, `refactor:`, `build:`, and `perf:` commits **do** appear
+Breaking subjects marked with `!` remain visible, including `chore(deps)!:`.
+`feat:`, `fix:`, `refactor:`, other `build:`, and `perf:` commits **do** appear
 in the changelog. Pick the prefix that reflects what the reader of release
 notes should care about — a `chore: bump foo` that secretly contains a
 breaking change should be reclassified as `fix` or `feat!`.

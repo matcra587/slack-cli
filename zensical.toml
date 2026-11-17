@@ -30,6 +30,7 @@ nav = [
     ] },
     { Discovery = [
         { "Go client" = "api.md" },
+        { "Slack API commands" = "api-cli.md" },
         { lookup = "lookup.md" },
         { cache = "cache.md" },
     ] },
@@ -201,7 +202,7 @@ retrying. Never put tokens in command arguments or documentation.
 "Getting started" = ["index.md", "installation.md", "auth.md", "agent.md"]
 "Messaging" = ["message.md", "reply.md", "react.md", "history.md"]
 "Notifications and channel organization" = ["dnd.md", "pin.md", "bookmark.md"]
-"Discovery and health" = ["api.md", "lookup.md", "cache.md", "status.md", "health.md"]
+"Discovery and health" = ["api.md", "api-cli.md", "lookup.md", "cache.md", "status.md", "health.md"]
 "Configuration and reference" = ["config.md", "workspace.md", "manifest.md", "file.md", "version.md"]
 
 # Self-host fonts, emoji, and the native Mermaid runtime without fetching

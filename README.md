@@ -71,6 +71,7 @@ They are stored via your OS keychain or a configured secret manager;
 | `config`, `workspace` | [config.md](docs/config.md), [workspace.md](docs/workspace.md) |
 | `manifest` | [manifest.md](docs/manifest.md) |
 | `agent`, `version` | [agent.md](docs/agent.md), [version.md](docs/version.md) |
+| `api` | [api-cli.md](docs/api-cli.md) |
 
 For authenticated Go clients, see [Use slick from Go](docs/api.md).
 

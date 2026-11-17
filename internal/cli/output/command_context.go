@@ -219,6 +219,9 @@ func (c *CommandContext) FinishResult(event *clog.Event, command string, paginat
 // the test to grow a parallel exception list, which is more disruptive
 // than the comment.
 var commandActionLabel = map[string]string{
+	"api.call":                 "Slack API called",
+	"api.describe":             "Slack API method described",
+	"api.methods":              "Slack API methods listed",
 	"message.send":             "Message sent",
 	"message.edit":             "Message edited",
 	"message.delete":           "Message deleted",

@@ -23,6 +23,7 @@ import (
 	"github.com/matcra587/slack-cli/internal/agent"
 	"github.com/matcra587/slack-cli/internal/agenthelp"
 	cliagent "github.com/matcra587/slack-cli/internal/cli/agent"
+	cliapi "github.com/matcra587/slack-cli/internal/cli/api"
 	cliauth "github.com/matcra587/slack-cli/internal/cli/auth"
 	clibookmark "github.com/matcra587/slack-cli/internal/cli/bookmark"
 	clicache "github.com/matcra587/slack-cli/internal/cli/cache"
@@ -334,6 +335,10 @@ func NewRootCommand(options ...RootOption) *cobra.Command {
 	fileCmd := clifile.NewCommand(runtime)
 	fileCmd.GroupID = "meta"
 	root.AddCommand(fileCmd)
+
+	apiCmd := cliapi.NewCommand(runtime)
+	apiCmd.GroupID = "meta"
+	root.AddCommand(apiCmd)
 
 	versionCmd := newVersionCommand(runtime)
 	versionCmd.GroupID = "meta"

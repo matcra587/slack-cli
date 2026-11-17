@@ -26,13 +26,14 @@ for the full flag list and any short forms.
 The `slack-cli` plugin includes the [Slack CLI skill](skills/slack-how-to/SKILL.md).
 The skill uses the guides and command schema from the installed `slick` CLI.
 
-In Claude Code, install the plugin from the marketplace:
+To install from a marketplace, first check that it lists `slack-cli`.
+Once `slack-cli` is available in the marketplace, install it in Claude Code:
 
 ```text
 /plugin install slack-cli --marketplace matcra587/mattc-marketplace
 ```
 
-In Codex, select `slack-cli` from the same marketplace.
+In Codex, select `slack-cli` from the same marketplace once that entry is available.
 
 ## Quick start
 

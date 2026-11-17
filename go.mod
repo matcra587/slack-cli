@@ -1,27 +1,27 @@
 module github.com/matcra587/slack-cli
 
 // @clover: constraint=minor tags=go
-go 1.27.3
+go 1.27.4
 
 require (
 	charm.land/huh/v2 v2.0.3
-	charm.land/lipgloss/v2 v2.0.6
+	charm.land/lipgloss/v2 v2.1.1
 	github.com/BurntSushi/toml v1.6.0
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/charmbracelet/x/ansi v0.11.9
-	github.com/gechr/clib v0.8.5
-	github.com/gechr/clog v0.17.6
-	github.com/gechr/primer v0.2.12
-	github.com/gechr/x v0.6.5
+	github.com/gechr/clib v0.8.7
+	github.com/gechr/clog v0.18.1
+	github.com/gechr/primer v0.2.14
+	github.com/gechr/x v0.7.2
 	github.com/google/uuid v1.6.0
 	github.com/matcra587/docent v0.4.1
-	github.com/slack-go/slack v0.35.0
+	github.com/slack-go/slack v0.36.0
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.10
+	github.com/spf13/pflag v1.1.0
 	github.com/yuin/goldmark v1.8.7
 	github.com/zalando/go-keyring v0.2.8
-	go.yaml.in/yaml/v3 v3.0.5
-	golang.org/x/sys v0.49.0
+	go.yaml.in/yaml/v3 v3.0.6
+	golang.org/x/sys v0.50.0
 )
 
 require (
@@ -269,7 +269,7 @@ require (
 	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/telemetry v0.0.0-20261010193011-f71dc92da45e // indirect
-	golang.org/x/term v0.47.0 // indirect
+	golang.org/x/term v0.48.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
 	golang.org/x/vuln v1.9.0 // indirect

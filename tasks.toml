@@ -163,8 +163,8 @@ file = ".mise/tasks/version"
 ["docs:serve"]
 description = "Serve the documentation site with live reload"
 raw_args = true
-run = "uvx --python 3.15 --from zensical==0.1.0 zensical serve -f zensical.toml --dev-addr 127.0.0.1:4000"
+run = "uvx --python 3.15 --from zensical==0.1.1 zensical serve -f zensical.toml --dev-addr 127.0.0.1:4000"
 
 ["docs:build"]
 description = "Build the documentation site with strict validation"
-run = "uvx --python 3.15 --from zensical==0.1.0 zensical build --clean --strict -f zensical.toml"
+run = "uvx --python 3.15 --from zensical==0.1.1 zensical build --clean --strict -f zensical.toml"

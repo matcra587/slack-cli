@@ -6,26 +6,26 @@ lockfile = true
 
 [tools]
 # @clover: constraint=minor tags=go
-go = "1.27.3"
+go = "1.27.4"
 # @clover: constraint=major tags=actionlint
 actionlint = "1.7.12"
 # @clover: constraint=major tags=goreleaser
-goreleaser = "2.20.0"
+goreleaser = "2.20.2"
 # @clover: constraint=major tags=cosign
 cosign = "3.1.4"
 # @clover: constraint=major tags=zizmor
 zizmor = "1.32.0"
 # @clover: constraint=major tags=rumdl
-rumdl = "0.3.2"
+rumdl = "0.3.4"
 # @clover: id=hk constraint=major tags=hk
-hk = "2.11.1"
+hk = "2.12.0"
 # @clover: constraint=major tags=pkl
 pkl = "0.32.2"
 # @clover: constraint=major tags=shellcheck
 shellcheck = "0.11.0"
 
 # @clover: constraint=major tags=uv
-uv = "0.13.5"
+uv = "0.13.8"
 
 [env]
 HK_MISE = 1

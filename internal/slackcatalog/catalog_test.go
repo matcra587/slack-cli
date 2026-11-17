@@ -69,7 +69,7 @@ func TestCatalogSnapshotIsCompleteAndOrdered(t *testing.T) {
 	t.Parallel()
 	metadata := slackcatalog.Provenance()
 	methods := slackcatalog.All()
-	if metadata.OfficialMethods != 355 || metadata.SDKClientMethods != 480 || metadata.SDKVersion != "v0.35.0" {
+	if metadata.OfficialMethods != 357 || metadata.SDKClientMethods != 514 || metadata.SDKVersion != "v0.36.0" {
 		t.Fatalf("unexpected source coverage: %#v", metadata)
 	}
 	if len(methods) < metadata.OfficialMethods {

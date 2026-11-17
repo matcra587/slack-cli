@@ -1,7 +1,7 @@
 {
-  "version": "v0.35.0",
-  "source_hash": "482ae618ed5704ee440031133143f7bc14c592a8e8642704cdd0b863bd22a37f",
-  "source": "https://github.com/slack-go/slack/tree/v0.35.0",
+  "version": "v0.36.0",
+  "source_hash": "7aee40ced780831d5e8c3de4a889e752a681355485e007aa22c7242eea33a78c",
+  "source": "https://github.com/slack-go/slack/tree/v0.36.0",
   "note": "Static call-graph inventory of exported *Client methods. Endpoints are resolved from request-builder literals and reachable helpers; an empty list is not proof that a method makes no network calls.",
   "methods": [
     {
@@ -541,11 +541,283 @@
       ]
     },
     {
+      "name": "AdminUsersAccessPause",
+      "file": "admin_users_access.go",
+      "line": 43,
+      "endpoints": [
+        "admin.users.access.pause"
+      ]
+    },
+    {
+      "name": "AdminUsersAccessPauseContext",
+      "file": "admin_users_access.go",
+      "line": 48,
+      "endpoints": [
+        "admin.users.access.pause"
+      ]
+    },
+    {
+      "name": "AdminUsersAccessResume",
+      "file": "admin_users_access.go",
+      "line": 74,
+      "endpoints": [
+        "admin.users.access.resume"
+      ]
+    },
+    {
+      "name": "AdminUsersAccessResumeContext",
+      "file": "admin_users_access.go",
+      "line": 79,
+      "endpoints": [
+        "admin.users.access.resume"
+      ]
+    },
+    {
+      "name": "AdminUsersAssign",
+      "file": "admin_users.go",
+      "line": 364,
+      "endpoints": [
+        "admin.users.assign"
+      ]
+    },
+    {
+      "name": "AdminUsersAssignContext",
+      "file": "admin_users.go",
+      "line": 369,
+      "endpoints": [
+        "admin.users.assign"
+      ]
+    },
+    {
+      "name": "AdminUsersGetExpiration",
+      "file": "admin_users.go",
+      "line": 206,
+      "endpoints": [
+        "admin.users.getExpiration"
+      ]
+    },
+    {
+      "name": "AdminUsersGetExpirationContext",
+      "file": "admin_users.go",
+      "line": 211,
+      "endpoints": [
+        "admin.users.getExpiration"
+      ]
+    },
+    {
+      "name": "AdminUsersInvite",
+      "file": "admin_users.go",
+      "line": 469,
+      "endpoints": [
+        "admin.users.invite"
+      ]
+    },
+    {
+      "name": "AdminUsersInviteContext",
+      "file": "admin_users.go",
+      "line": 474,
+      "endpoints": [
+        "admin.users.invite"
+      ]
+    },
+    {
       "name": "AdminUsersList",
       "file": "admin_users.go",
-      "line": 114,
+      "line": 115,
       "endpoints": [
         "admin.users.list"
+      ]
+    },
+    {
+      "name": "AdminUsersRemove",
+      "file": "admin_users.go",
+      "line": 520,
+      "endpoints": [
+        "admin.users.remove"
+      ]
+    },
+    {
+      "name": "AdminUsersRemoveContext",
+      "file": "admin_users.go",
+      "line": 525,
+      "endpoints": [
+        "admin.users.remove"
+      ]
+    },
+    {
+      "name": "AdminUsersSessionClearSettings",
+      "file": "admin_users_session.go",
+      "line": 14,
+      "endpoints": [
+        "admin.users.session.clearSettings"
+      ]
+    },
+    {
+      "name": "AdminUsersSessionClearSettingsContext",
+      "file": "admin_users_session.go",
+      "line": 19,
+      "endpoints": [
+        "admin.users.session.clearSettings"
+      ]
+    },
+    {
+      "name": "AdminUsersSessionGetSettings",
+      "file": "admin_users_session.go",
+      "line": 51,
+      "endpoints": [
+        "admin.users.session.getSettings"
+      ]
+    },
+    {
+      "name": "AdminUsersSessionGetSettingsContext",
+      "file": "admin_users_session.go",
+      "line": 56,
+      "endpoints": [
+        "admin.users.session.getSettings"
+      ]
+    },
+    {
+      "name": "AdminUsersSessionList",
+      "file": "admin_users_session.go",
+      "line": 130,
+      "endpoints": [
+        "admin.users.session.list"
+      ]
+    },
+    {
+      "name": "AdminUsersSessionListContext",
+      "file": "admin_users_session.go",
+      "line": 135,
+      "endpoints": [
+        "admin.users.session.list"
+      ]
+    },
+    {
+      "name": "AdminUsersSessionReset",
+      "file": "admin_users_session.go",
+      "line": 200,
+      "endpoints": [
+        "admin.users.session.reset"
+      ]
+    },
+    {
+      "name": "AdminUsersSessionResetBulk",
+      "file": "admin_users_session.go",
+      "line": 247,
+      "endpoints": [
+        "admin.users.session.resetBulk"
+      ]
+    },
+    {
+      "name": "AdminUsersSessionResetBulkContext",
+      "file": "admin_users_session.go",
+      "line": 252,
+      "endpoints": [
+        "admin.users.session.resetBulk"
+      ]
+    },
+    {
+      "name": "AdminUsersSessionResetContext",
+      "file": "admin_users_session.go",
+      "line": 205,
+      "endpoints": [
+        "admin.users.session.reset"
+      ]
+    },
+    {
+      "name": "AdminUsersSessionSetSettings",
+      "file": "admin_users_session.go",
+      "line": 301,
+      "endpoints": [
+        "admin.users.session.setSettings"
+      ]
+    },
+    {
+      "name": "AdminUsersSessionSetSettingsContext",
+      "file": "admin_users_session.go",
+      "line": 306,
+      "endpoints": [
+        "admin.users.session.setSettings"
+      ]
+    },
+    {
+      "name": "AdminUsersSetAdmin",
+      "file": "admin_users.go",
+      "line": 164,
+      "endpoints": [
+        "admin.users.setAdmin"
+      ]
+    },
+    {
+      "name": "AdminUsersSetAdminContext",
+      "file": "admin_users.go",
+      "line": 169,
+      "endpoints": [
+        "admin.users.setAdmin"
+      ]
+    },
+    {
+      "name": "AdminUsersSetExpiration",
+      "file": "admin_users.go",
+      "line": 253,
+      "endpoints": [
+        "admin.users.setExpiration"
+      ]
+    },
+    {
+      "name": "AdminUsersSetExpirationContext",
+      "file": "admin_users.go",
+      "line": 258,
+      "endpoints": [
+        "admin.users.setExpiration"
+      ]
+    },
+    {
+      "name": "AdminUsersSetOwner",
+      "file": "admin_users.go",
+      "line": 287,
+      "endpoints": [
+        "admin.users.setOwner"
+      ]
+    },
+    {
+      "name": "AdminUsersSetOwnerContext",
+      "file": "admin_users.go",
+      "line": 292,
+      "endpoints": [
+        "admin.users.setOwner"
+      ]
+    },
+    {
+      "name": "AdminUsersSetRegular",
+      "file": "admin_users.go",
+      "line": 305,
+      "endpoints": [
+        "admin.users.setRegular"
+      ]
+    },
+    {
+      "name": "AdminUsersSetRegularContext",
+      "file": "admin_users.go",
+      "line": 310,
+      "endpoints": [
+        "admin.users.setRegular"
+      ]
+    },
+    {
+      "name": "AdminUsersUnsupportedVersionsExport",
+      "file": "admin_users.go",
+      "line": 570,
+      "endpoints": [
+        "admin.users.unsupportedVersions.export"
+      ]
+    },
+    {
+      "name": "AdminUsersUnsupportedVersionsExportContext",
+      "file": "admin_users.go",
+      "line": 575,
+      "endpoints": [
+        "admin.users.unsupportedVersions.export"
       ]
     },
     {

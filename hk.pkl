@@ -1,7 +1,7 @@
-amends "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Config.pkl"
-import "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Builtins.pkl"
+amends "package://github.com/jdx/hk/releases/download/v2.12.0/hk@2.12.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.12.0/hk@2.12.0#/Builtins.pkl"
 
-min_hk_version = "2.11.1"
+min_hk_version = "2.12.0"
 
 // Project linters and formatters managed by go.mod tool directives are
 // invoked via `go tool`, not as PATH binaries. Override the relevant
@@ -28,7 +28,7 @@ local gofumpt = (Builtins.go_fumpt) {
         ["check missing module tool fails"] {
             tmpdir = true
             write {
-                ["go.mod"] = "module example.com/fixture\ngo 1.27.3\n"
+                ["go.mod"] = "module example.com/fixture\ngo 1.27.4\n"
                 ["test.go"] = "package fixture\n"
             }
             expect { code = 2 }

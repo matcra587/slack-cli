@@ -48,7 +48,7 @@ func installScript(cmd *cobra.Command, runtime *cliruntime.RootRuntime, sh strin
 	if err := cmd.Context().Err(); err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.CliErrorFromSlack(cmd.Context(), err, ""))
 	}
-	if err := xos.AtomicWrite(destination, script.Bytes(), mode); err != nil {
+	if err := xos.AtomicWrite(destination, script.Bytes(), mode, xos.WithNoFollow()); err != nil {
 		// A directory-sync failure can happen after publication. Never retry it.
 		return installFailure(runtime, path, true)
 	}

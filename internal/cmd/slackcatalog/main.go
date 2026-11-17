@@ -35,7 +35,7 @@ func run() error {
 	indexURL := flag.String("index", "https://docs.slack.dev/llms-sitemap.md", "official method sitemap URL or local snapshot path")
 	docsDir := flag.String("docs-dir", "", "read method Markdown from an existing local snapshot directory")
 	sdkDir := flag.String("sdk-dir", "", "source directory of the pinned slack-go/slack module")
-	sdkVersion := flag.String("sdk-version", "v0.35.0", "version corresponding to sdk-dir")
+	sdkVersion := flag.String("sdk-version", "v0.36.0", "version corresponding to sdk-dir")
 	date := flag.String("date", time.Now().UTC().Format(time.DateOnly), "source retrieval date (YYYY-MM-DD)")
 	output := flag.String("output", "internal/slackcatalog/methods.json", "output catalog")
 	coveragePath := flag.String("coverage", "internal/slackcatalog/sdk.json", "output SDK coverage inventory")

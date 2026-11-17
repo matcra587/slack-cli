@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-11-06",
+  "generated_at": "2026-11-17",
   "index_url": "https://docs.slack.dev/llms-sitemap.md",
-  "index_hash": "1e8715c64c5f978f601a4edf199c549c8ed1e127a586d40712c6b1c87bb91ba2",
-  "sdk_version": "v0.35.0",
-  "official_methods": 355,
-  "sdk_client_methods": 480,
+  "index_hash": "139331979a3110264eb4ec8fc10cb73cc93fd4901ff7fcfeecf8d35902921838",
+  "sdk_version": "v0.36.0",
+  "official_methods": 357,
+  "sdk_client_methods": 514,
   "methods": [
     {
       "name": "admin.analytics.getFile",
@@ -43,7 +43,7 @@
       "authentication": "bearer",
       "response_format": "binary",
       "unsupported_reason": "returns a compressed file instead of a JSON response",
-      "source_hash": "ae0b167b258d274345103957e80cd0122073cb06aa355a7dd53dc4fd3c1a5781",
+      "source_hash": "b16f9e007c52b4ee6cdf3c55880577d709ecbbd47381d14d7fe6b8cd8b80a3e4",
       "source": "official"
     },
     {
@@ -91,7 +91,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "7479c3003a57c565717619805ac001fe111688463895e7cb13b8a98d1c5ffda2",
+      "source_hash": "85eff31a1499a8e7469beb32fc38b1461e17aaf12eec49298640dba225d65281",
       "source": "official"
     },
     {
@@ -134,7 +134,77 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "e6875d747248d78dbc5b39126e6e0911a066f8b11a5811ac18156ba7904df982",
+      "source_hash": "f44e6fe75ad542fe9df908187442f8fcc166731a382bd222196b672cd7d25cab",
+      "source": "official"
+    },
+    {
+      "name": "admin.analytics.slackbot.skills",
+      "description": "Retrieve per-user Slackbot skill usage for an Enterprise organization on a single date.",
+      "url": "https://docs.slack.dev/reference/methods/admin.analytics.slackbot.skills",
+      "http_method": "GET",
+      "rate_limit": "t3",
+      "scopes": {
+        "user": [
+          "admin.analytics:read"
+        ]
+      },
+      "arguments": [
+        {
+          "name": "date"
+        },
+        {
+          "name": "cursor",
+          "type": "string"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "default": "500"
+        }
+      ],
+      "read_only": false,
+      "pagination": "cursor",
+      "content_types": [
+        "application/x-www-form-urlencoded"
+      ],
+      "authentication": "bearer",
+      "response_format": "json",
+      "source_hash": "00c3ad348429e1a5e5af64c6be0e7e8d4a3457b9e930e9de8f759f7253ea3a11",
+      "source": "official"
+    },
+    {
+      "name": "admin.analytics.slackbot.tools",
+      "description": "Retrieve per-user Slackbot tool usage for an Enterprise organization on a single date.",
+      "url": "https://docs.slack.dev/reference/methods/admin.analytics.slackbot.tools",
+      "http_method": "GET",
+      "rate_limit": "t3",
+      "scopes": {
+        "user": [
+          "admin.analytics:read"
+        ]
+      },
+      "arguments": [
+        {
+          "name": "date"
+        },
+        {
+          "name": "cursor",
+          "type": "string"
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "default": "500"
+        }
+      ],
+      "read_only": false,
+      "pagination": "cursor",
+      "content_types": [
+        "application/x-www-form-urlencoded"
+      ],
+      "authentication": "bearer",
+      "response_format": "json",
+      "source_hash": "9fb72cf5e584f8d83ef3b45ffe2332d50f28f368db4a481099b853aa9bfa2983",
       "source": "official"
     },
     {
@@ -208,7 +278,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2fcc1e5e947ec10cd15df3de55c49bf2a113f15c914ef26b7d2c31661fdf8992",
+      "source_hash": "a086138bd356ef515eaddbcb05613f92bd42117b7863caf60728df32bf5cf8dd",
       "source": "official"
     },
     {
@@ -259,7 +329,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3ee06323c81e218a61ff2d0c2c691e3b316104ae29cad3833844a32d4e01d9db",
+      "source_hash": "74364381a260b0eb688ebd1be06fad7bef75fc3860ff78ffef429e3e61e3e517",
       "source": "official"
     },
     {
@@ -302,7 +372,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3d74adb5203c2508defca1719c0d3551d5d36f6af52b4118a5cfc9b2ae2f2624",
+      "source_hash": "6ab5e190e5aa5e01dc9f682588045e877dd35c30297f3b154a5c4e7dcd351df2",
       "source": "official",
       "sdk_methods": [
         "AdminAppsApprovedList",
@@ -344,7 +414,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "13f514c3ed29b8d510f4935fdbb1518fe2c2edcee9d5abff3cb6f6218cb48df8",
+      "source_hash": "fd5e52ffdc37221424a7ff0a31373f40013f366a8c475dffa76968e3e94f4e70",
       "source": "official"
     },
     {
@@ -376,7 +446,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "4b95c0a5eeb514f2349e8d8246f5090c4f0f027fa5375d3230cd4d3a602787c1",
+      "source_hash": "2e31026cb9f071b526efb709952c069a1df6183278ec050679adaf58452142e6",
       "source": "official"
     },
     {
@@ -419,7 +489,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "43690306728cef251036ad1e2a9ff1461cf7c7b9be7e5c8f6fd348298874fb2f",
+      "source_hash": "0f61542308844cf88ecdf02943d6c76f7770257c8e114e45aacc6f098c1f28ce",
       "source": "official"
     },
     {
@@ -452,7 +522,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a3b77b31785c7c064e932d8e46fde3d85abd30c75e12dcb969945f3b78eb1b61",
+      "source_hash": "25942c9c6d3ad376315bd3533040dfc510aa3d60cb8582cfe5bece35b5bd7454",
       "source": "official"
     },
     {
@@ -484,7 +554,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "610aa84b3f852ae064ac72f85940c6d371e8a141628033ab162088f6dd11013e",
+      "source_hash": "3cdd326857dcd304e43ffb6f9d978b2587a6f61947e8b616633f7ca16e75b562",
       "source": "official"
     },
     {
@@ -536,7 +606,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3196a30fcaeeee9212b6b64e3bf091c5225b738b594fea80716d655f21466df8",
+      "source_hash": "fd4ed04d4f8ef7ba43b65b39fa5f7d3303a5a3d9519c0252674b39ad192e4919",
       "source": "official"
     },
     {
@@ -580,7 +650,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "256a4e23fb0fcb87e8de8d5f0a0f17b652fed6119b889352a71a0da30e694179",
+      "source_hash": "63b73e7148d54c88f00596cea0d943f657469bc35f1abc4e50f3571fb8dd1cfd",
       "source": "official"
     },
     {
@@ -612,7 +682,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "c7691d19f0253e01b9a7d72a490a21fb8d497a14fe5b40d7061d905ea9b1ed21",
+      "source_hash": "9884a31bfb1823dc8d2d4cd32a62313904740ef26307be149415262865c1dcc9",
       "source": "official"
     },
     {
@@ -656,7 +726,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0ef78d5ceeb7db3a63c47831a9fd94317643426944952c70da8040f8e700108b",
+      "source_hash": "98f2cc2c7dd3f42e4841df5e9988c915118d62450069e26d41a6c715de386199",
       "source": "official"
     },
     {
@@ -710,7 +780,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "5350516c74ae79a417e813b1e6045e2da2b48df91dd61c78b000a7f827d8f922",
+      "source_hash": "f849d079b5c49e7872909fd0b5cd9bcd423c510c8fe4885a25ff701aa24cd780",
       "source": "official"
     },
     {
@@ -748,7 +818,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "56a77d8ee8377bccf6ae546733ef1f4871c6a155226f1825abe5ef47753df9b3",
+      "source_hash": "43c3d3f1f4c437a09658aff79f18f215c3483d7510b174d93885cfe4cfcd29c5",
       "source": "official"
     },
     {
@@ -791,7 +861,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "5aa5b4a0ea2e1939b4794f261aa17312910245b91b3c752ec10ec5e4c3c7c177",
+      "source_hash": "091c054d38cbb86880ce9f2eb595e7e6507745f0fe7302aa7619c10cc64ebfbc",
       "source": "official",
       "sdk_methods": [
         "AdminAppsRequestsList",
@@ -833,7 +903,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0fe4406935ca3cd54d47e2cc22261ec87c9d95942ec58b69b2e5537fac7f512c",
+      "source_hash": "ccbb8be71395a648e83c22fd78e7c84ec7bcb59d6ae6f4f4a7c75a8d851ea0e8",
       "source": "official"
     },
     {
@@ -875,7 +945,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "efdb8f7c3d680102cc218a374c08756280a4d1855516cbadc70f4e38b8617ef6",
+      "source_hash": "6014321d550d6829da995be1eb3da28e929a1f409f1ca50767b9813bd0590b1a",
       "source": "official",
       "sdk_methods": [
         "AdminAppsRestrictedList",
@@ -919,7 +989,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "71e7c168e5f5eec7bcf5960d2c546041438603bda1ab6060bc1e3ff9947654b8",
+      "source_hash": "b7be0ea072b8c0adb876641a183b37ea629d8888616c0a4157f7307493aa32f2",
       "source": "official"
     },
     {
@@ -941,7 +1011,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "7817e678046b5bd77fd6595f8f5264e01a3ba07ec44eec44a443a3f819afceb6",
+      "source_hash": "44e49c24085c77adb9da554853519135211a686b9b15038bce07391c843c3bab",
       "source": "official"
     },
     {
@@ -973,7 +1043,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "cdca008090677dd183812d13fbca0d07adc3291ec4701fb8d0390dc4b90ed6a0",
+      "source_hash": "022d6f8ed691de67ff32ace123204528dec60cf793aaf9453771601f9c272d79",
       "source": "official"
     },
     {
@@ -1016,7 +1086,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "757b98b0dc2d4e2974fabfe156345ea41ae4f1fcf20f662e45087c65f160f3ba",
+      "source_hash": "52c4687c8eeb20a343d08bd81e6ac722c927bd93d01c6a311a8676a25db5f00e",
       "source": "official"
     },
     {
@@ -1060,7 +1130,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "e9251d3d8af1a609e6765fedf4ac42eaf35a5e875147681743cf6a5ddbfb685a",
+      "source_hash": "4933e26a5d0db0bc8e70e13fbc1a798c9e301dc6d121f3973d8c5098b1e9ca38",
       "source": "official"
     },
     {
@@ -1103,7 +1173,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "55a4965aefce2746865be2a7fbe228a16b628d79a46b66a115255f50bf8c05a7",
+      "source_hash": "4fac97732542b1c40fb53249843ff1e624dfad95b166d06e112d40350e73966a",
       "source": "official"
     },
     {
@@ -1145,7 +1215,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6169a6abbad88db77c63b7274c59a56ec0b3a57b91fa1b03c823a8dec90cb82c",
+      "source_hash": "c421df70be61172f9c2f07de101b66e06d14a3cbeb567c82978523461a6e91af",
       "source": "official"
     },
     {
@@ -1175,7 +1245,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "d70d12462e486723ab2d6af4df822a0a69062f31471cdc026a6872ec2c9c060d",
+      "source_hash": "49524014ca7b010a01c62dad92cb484a6e837eb0a6836fa5b56eddd4ae3295ae",
       "source": "official"
     },
     {
@@ -1207,7 +1277,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0e6280892bbf73a99b8c9c8d8d0bade0fdea4b981ee947ac9d2f85e634321b2c",
+      "source_hash": "aceaae4ca8ac96444dc282b0d252b87302ba1d41849e610b4aad7317c7c297fb",
       "source": "official"
     },
     {
@@ -1254,7 +1324,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0523f7ea30056a5a85081e15dbd25240a1e60a651f5ffc58c10b3fc58d2f61db",
+      "source_hash": "64c4baeeb158aafcd52d6e487f415c3899d598ba922fceb983f68fc6798bd57c",
       "source": "official"
     },
     {
@@ -1285,7 +1355,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "510dc5bd4c0831998c53e9cc3a0de584dce1608644ef51cc12acf51ddac9381e",
+      "source_hash": "c00a8c4c5aac41007235444bbe6cef27b67f52ce8d31904235729e2909d0f2fc",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsArchive"
@@ -1319,7 +1389,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "8efce695cdffb6b0b08cb51e34978aeb8891ca4951c119cab7f79e7c364ca24e",
+      "source_hash": "377702a95190ecfd0a6d3f0800fe9c1878331435c290f02013360ba9f00722d4",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsBulkArchive"
@@ -1353,7 +1423,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "b2052c33e1f1d2282f60859a72412b6a1daab1687578b6e5a1108131c8d85c8d",
+      "source_hash": "05f82f004c6e352105e8aed5a387bcae4a6debaadfc195ce45e677536faef915",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsBulkDelete"
@@ -1393,7 +1463,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3d802765c27661eed3166bbfea551fb54372f180e781feda6036a38344a360aa",
+      "source_hash": "9708411775ede98360a46bb9e9139c36b698f2b277a960680208b0e607d83f8f",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsBulkMove"
@@ -1433,7 +1503,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "30b622f8a9291e6abcd7c3765056ed59ee61e5bf4bbbe9e4a4f83b501ae2d6f8",
+      "source_hash": "d9af591e47ba201b2da8867cfb3efda1c60afd2092b5bcb5448559cbff45996d",
       "source": "official"
     },
     {
@@ -1470,7 +1540,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "af8337fc1f6ef3947198bb0f2d04c25f73344563e7809c8dd4d2f290bf3c0dda",
+      "source_hash": "051971139bc172cbbf01e43321cc8fb79d70fa1c31b649f19022b892b62f0f97",
       "source": "official"
     },
     {
@@ -1505,7 +1575,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f6ede434de9902339d9a2fc9da67542020689182d94bb68e91a7aefaca2242f6",
+      "source_hash": "4bc1839b09baa2422cf7e7b117856ab926333b783ddfc21161101ea5a1749d91",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsConvertToPrivate"
@@ -1539,7 +1609,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f313de83e1b6cb70447d26b9860c4f2fdedaf0dc5a3e95beb1520115a3e48d75",
+      "source_hash": "b4f436ad7fac36bad57f88ac773d48019165a42401d8a1c807541205ee3bcb8b",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsConvertToPublic"
@@ -1592,7 +1662,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "adb4584b19074eb5bbb9f4f9614cdad97b5f1bf685e9395b59acc55105dd41c8",
+      "source_hash": "13ca6dd94f1d8f2f9f50f5fbb233fde017450043e25870c8944aca78b4e03040",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsCreate"
@@ -1638,7 +1708,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "b09339077ec6bf447854d2e09965f7720dce75ad7894f7b9ff842934b97f2944",
+      "source_hash": "76440e1befa7c55f522f0d200bc5216902f16a555474761f89fdea62d9e45918",
       "source": "official"
     },
     {
@@ -1669,7 +1739,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "c8ccc8e110da19b16aab34e9f4a2b61cbeff861224c4e68a3c541f39a8f7e0a4",
+      "source_hash": "ae6ad27bbfa074926c3552c8acfa66bc9a84cd9bc25db937a19700ff83c8c0d6",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsDelete"
@@ -1707,7 +1777,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a669a5ea2455a28bb44d26071c331b0ebe255d192e8d24b2c84f65c27af12979",
+      "source_hash": "770009a7670b18b36cb65b3faf4e6df086f95953ecdca5d1b917452f0567352b",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsDisconnectShared"
@@ -1750,7 +1820,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "54c64686cd2d246624389186b9fbdfce88041a335a900810d58463ec5de1283d",
+      "source_hash": "ab4a1dc248959bd2eb062ed25680d1624ae2ea5e81d8c13eaca96c3f61741a0b",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsEKMListOriginalConnectedChannelInfo"
@@ -1784,7 +1854,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "bae8253a970b7b5fde381c0963bf6002929d61d79d3e490a43d9975e76281591",
+      "source_hash": "76194101e90e768669750e6773aaec44a96a31c45f1d76db2ff6624711d42665",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsGetConversationPrefs"
@@ -1819,7 +1889,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "038eb2aec3c67b7a8972c558bbac80714b479badb0014d8f158dac5c3ce03cf8",
+      "source_hash": "bbef7718c5c9ad6e6ea581a003b6c8ea42acea2ea88030a00967babbe6bf34e5",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsGetCustomRetention"
@@ -1862,7 +1932,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "5bb80055a0f7bf68179297200840c17e7840c11fc2608702f6ccd73907972d12",
+      "source_hash": "a72a4aa566af5f5347e4b052cc45e17c7ab64267cb7830ac4d4c0d4f58c99234",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsGetTeams"
@@ -1902,7 +1972,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6c7ed593c0ee6ad811c75239a4dd52773039ed72b91ac00bd02a64d384d2f904",
+      "source_hash": "698335f1143b7b9b646c4401fdd3e74c1de04df75682a0c5d1bedc0f600b9a94",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsInvite"
@@ -1942,7 +2012,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0b040aa128c17779cd9c21f77a61efaca61cd19604eedae7856ab42eda2a029c",
+      "source_hash": "0c0acc4a20e8d97a2a6ddffe94207f2ae7ff8dab506ae8ce11811d24fb24345a",
       "source": "official"
     },
     {
@@ -1986,7 +2056,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6dd7ac83942f6ab4a846acdbec427d90bdab6ddf2c5807a6e5026bbca62bcd32",
+      "source_hash": "2150fe29171e3037bae2909f7e9e64713bdcb7209feedddbee9e8cdf2100da74",
       "source": "official"
     },
     {
@@ -2038,7 +2108,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ea2c2d16f3a552c3278dc32f1b4a187cbd6a563c581a6c4ac5da146fee6a935c",
+      "source_hash": "6534e6df0cfc88343aaa9fa2dfb66e73b5fb519e8a8087d305bc63064a59496a",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsLookup"
@@ -2073,7 +2143,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "31a3f27c449bdae31353b9f0427688ed29d87d0ae7c2e27603df75e353c24f09",
+      "source_hash": "88ca61ab3a8643f315353ea3db91d80295721c2ce63a01de5df0ffaf9457ec79",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsRemoveCustomRetention"
@@ -2113,7 +2183,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2e818b428bac19c77ee5a34cc1158a5182b05b90e0fcb95a45f7cf3f55db8215",
+      "source_hash": "2232b7ddc2c742c6207c3151ae25516f7a9dc0e0dfe9228b35a4ecb6621a82e5",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsRename"
@@ -2154,7 +2224,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "b6391762e5f5e667b8cf4acc2d42209763629936d7ca98b074d4e92d4ed146be",
+      "source_hash": "9b952891667e096c2eb79d9c5856167bab1771aabf0fdea549879313703acb0f",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsRestrictAccessAddGroup"
@@ -2190,7 +2260,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a72285cbe17856a3d48691c93fc26f67d47b94eff9e4afd248718048140bbc52",
+      "source_hash": "56e1054b5ee79c02b6dfe98715661fe322094491986fab7b2c20ae5198d0873a",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsRestrictAccessListGroups"
@@ -2233,7 +2303,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "043a5ba210a1be5a5d9f67680168b56569abc983eff829e4eb7b1c8760c23a38",
+      "source_hash": "a3a04138642111edc8182ea26c3e2585708e084a46f1a6047ba2a2ebc2553cbc",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsRestrictAccessRemoveGroup"
@@ -2299,7 +2369,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "94f4fbcdf4bce9cb2b785973e5d7911ca2bdb9a7cf32e742bf5653ae850bebab",
+      "source_hash": "364dfd8ac07a477aaefefd90a58507181bb8e1e2ab99607686d1e2618027d78d",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsSearch"
@@ -2340,7 +2410,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "61372d8ee7d5cad4cc44191f2699c2c2f5d65bb27db492dfb1f7bedd2e56179f",
+      "source_hash": "004658c5e5acbc86606fff24ade4b2a4f5fdcf8f0d613f808fda58d7eb86f7d0",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsSetConversationPrefs"
@@ -2381,7 +2451,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3989ce759b02500dc7789c8c63d0455d56fecd7808a8fde9cfea2b4eb3d84e40",
+      "source_hash": "0612e3082f60b6a96dac34163bc9e50be983962323f87648bb329e1db37abed9",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsSetCustomRetention"
@@ -2428,7 +2498,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "238195bcaca446f46b03d13ed70105396bedf908aad9e3a9515a9606dc8b129c",
+      "source_hash": "a4202bd9ee6201a6c84839c1d469ff0de7148f9217473258f1553285696bb825",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsSetTeams"
@@ -2462,7 +2532,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2eee597cf959677133ae2d8c3230f012403414e4e4d4046c0e4d4677738d1863",
+      "source_hash": "f7af8ed1b7f1f0410119109a72c7d2d3f3a824e0cc0b8e2b3a55b11be9a2c3cf",
       "source": "official",
       "sdk_methods": [
         "AdminConversationsUnarchive"
@@ -2503,7 +2573,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "cb750abd6cfe2160272fb260b41d2f7fd13a2f65a440d8c6236f6a62e7385e08",
+      "source_hash": "821d75c2d868fda83fa490b9d8d36f7be06f616a01aeda509f1a7cd0b996e60f",
       "source": "official"
     },
     {
@@ -2538,7 +2608,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "068ee3b0bea64ee01af63ee344f00c3f40a4b157ecdc48db581a7116c6a7db28",
+      "source_hash": "10ea2f4c376cda98e3bc75208fa93935b770e03da346d4e504a31171595c8259",
       "source": "official"
     },
     {
@@ -2575,7 +2645,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ee3d551c57ad3a2f80155026fc2dafbad7bdddc913edcc5e884a9d4dcff289a9",
+      "source_hash": "d3062baa09b66ee636e38bf62a5b2e7f7259a545dc83b301493f3c2a46c31d36",
       "source": "official"
     },
     {
@@ -2607,7 +2677,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "7e5158f3108fc1b7044a90527ad62094c01f69ff470fe82187951702393e7670",
+      "source_hash": "acaf0e7d348413c3aa70fd8f4d61c92551e72eaf6bd44d5d8d205d3eac6e4797",
       "source": "official"
     },
     {
@@ -2638,7 +2708,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "91cd3a663702f24eeb1e5c56c3dbf5c02f5fbf38b209d94c22bb6a7cadbe8aed",
+      "source_hash": "0b51eb51b529740d6406ab4b829dfe36f5bd394452f44737dd5767883a78a44d",
       "source": "official"
     },
     {
@@ -2675,7 +2745,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "b35d862a608094cd4c376f1fa19dbbcc54654b18b8b19587c7890a14e05cbbb6",
+      "source_hash": "ab9db94add159fcdba8020d42a46cb219ce053d39c61c9b5ef09f7881e708430",
       "source": "official"
     },
     {
@@ -2723,7 +2793,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "34cdb798d91c2f4a9d0f0973a49211b12466dbd5f53b7231f322449a6304c384",
+      "source_hash": "790a0126f61af244e75d48dd8667fe363baac54ef5a34d6c399b16edf53f569a",
       "source": "official"
     },
     {
@@ -2755,7 +2825,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a1a426a81661e9f155bb42b86a64fa52be81f6704c8f2d13a63be392cd3735c9",
+      "source_hash": "0ba5f2b1f1964764b5fe474b478fe9936f7c3ebd47b11f4d395c2f85480d23eb",
       "source": "official"
     },
     {
@@ -2799,7 +2869,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "53335d2e06d101f50ac7293bbeeab1ca6ea6449a95f8c635e21ad96517361a9a",
+      "source_hash": "8727d9c1df072baa5604d7080ce3ea0dad06fdb2d5bfeb17ed1d66c8eebf1724",
       "source": "official"
     },
     {
@@ -2835,7 +2905,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "c1bd6fdc254f7fd7217acfd3d58acfdd2d415ee6b539c8dc90cd357dadbc6b2d",
+      "source_hash": "386b14f34a3402cdd69a269fed5c85d085dae640033893755c37a4cff025bf0d",
       "source": "official"
     },
     {
@@ -2872,7 +2942,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "91b4c953656b2765611c6b840b154803f72a39ec74424bce6a45eda8c9c90894",
+      "source_hash": "6f1580eeee1f76f08bdc29c937ff810a33aa9380c2364d30a03c5a9d12a34f03",
       "source": "official"
     },
     {
@@ -2908,7 +2978,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a794cd4165c6b1508ad4dd9df3bf63c236668ba129987f5587accb36b929fefa",
+      "source_hash": "8190be22b805590d893757861d0179099054df4792763de14a5a4f3fc518019b",
       "source": "official"
     },
     {
@@ -2944,7 +3014,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "818fc1e412f038929591580a41ed1c1337caf184e5930dbc75e7f2526ef09b7e",
+      "source_hash": "5be00fc830dd4d1ce24bd7a58ee0a917bb24868e2cb6170dd5c91f2d172ab9dc",
       "source": "official"
     },
     {
@@ -2981,7 +3051,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2161f52c68fffb60cdb464f53aa37837d6629be2ca86fc9d02513484e1a3643b",
+      "source_hash": "6fa85f80d0a2249a719a92ede70d4780f39c144f4dd2c7f3ae7a1bae537b45f2",
       "source": "official"
     },
     {
@@ -3025,7 +3095,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f2b8c60b74abdba92914e5ac875492361736df3493dc1452cc6b356d647c05fe",
+      "source_hash": "80e5d1c092626217012082eb46a73cc2f653134123b2b0c8edf7f4219c6ec7a8",
       "source": "official",
       "sdk_methods": [
         "AdminRolesAddAssignments"
@@ -3072,7 +3142,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "95b15fa71a01fa9a98f8724a9c7cfcd534fca92b3b786985018380976f34f2de",
+      "source_hash": "a651da2d7078d67c486d4c67eec4fcc8bdc20615631e7428646d912bc0c3c57c",
       "source": "official",
       "sdk_methods": [
         "AdminRolesListAssignments"
@@ -3119,7 +3189,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "638687dd20bab57e463a615428407f60812ec2aeaba685d748ed99a63afd1855",
+      "source_hash": "caaae6e5e87b146316d36bf30d1eb6ab33096c63186d2603cb5e46488fac9826",
       "source": "official",
       "sdk_methods": [
         "AdminRolesRemoveAssignments"
@@ -3183,7 +3253,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "79903d9dcc33ceab021fc9ab88b8020456aa57fb1a766871379c1f83c3096573",
+      "source_hash": "91787ed76fd0c0712aaa470ec1b300b99c5bafee0ef2f134780325879b283a95",
       "source": "official",
       "sdk_methods": [
         "AdminSlackbotSkillsList",
@@ -3219,7 +3289,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "081267504248f4d219df3e2bfcf7b77f2785c335ee8c1aa8d370da352739d0f3",
+      "source_hash": "fe88d321a2f75effd9148c14a2348311279cd392d8d0681f8fb28586189abda3",
       "source": "official",
       "sdk_methods": [
         "AdminSlackbotSkillsPublish",
@@ -3265,7 +3335,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f2d03a7200556364d7ae9164ac1a73f2885db5990ece913d039a14ec66ab2eee",
+      "source_hash": "5d8228454f24fcd57efa5ab97a0f365618accdcbff423855e8357d7aab05755f",
       "source": "official",
       "sdk_methods": [
         "AdminSlackbotSkillsSetAutoEnabled",
@@ -3301,7 +3371,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f88f0339f8c969e704668ac979403e75a5d5249cc904350ebacc30fbebdd0fcb",
+      "source_hash": "4acaf8d0e381da50f3693e94b6c5bb5cccc75348c9459bbcb5f8a951c1ec9542",
       "source": "official",
       "sdk_methods": [
         "AdminSlackbotSkillsUnpublish",
@@ -3343,7 +3413,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "e9e4a1a88742497e52d1bc44b0f32530f99ce3fd6ea689b2fce38d17cd15b6f5",
+      "source_hash": "3ea66958f8d2bd2bbd44b0b4f1942519c4f8ed15c7fb55e0b242ff446b4e0f1f",
       "source": "official"
     },
     {
@@ -3389,7 +3459,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "e4bae285afe0e2dabe0f08f7f7c98738a121a83602655d6388157b785ebd8017",
+      "source_hash": "cf89af119cc4a1cdb88ce145b655e79a6917247a5b340d029ea305f8704486d7",
       "source": "official"
     },
     {
@@ -3422,7 +3492,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "02fc87ec5803a9587dcfba9b18ef1385b621af6130f78a5474d9b19f301174b7",
+      "source_hash": "c7c79f5128bcf3b6c91977ed8f2ec0bf17655f7b70a52ddf540d33b8ed24f5e1",
       "source": "official",
       "sdk_methods": [
         "AdminTeamsList"
@@ -3464,7 +3534,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "c4ce12eb28afe27f2cc393d8f970c8d12b53b9c15688edabe2f3445f62412498",
+      "source_hash": "38a21f51878c7cf26d3083922bcdc7f1df8e7b710f0a2aa8a8d2b35380096999",
       "source": "official"
     },
     {
@@ -3495,7 +3565,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "d25e5caff7d95dc0f1b6366c190071563b6b20470ec513643b6573f79633f678",
+      "source_hash": "55d40afa4d386e100a2197563cf1cd119bda94183f025df45c3e7c63d4ae2880",
       "source": "official",
       "sdk_methods": [
         "AdminTeamsSettingsInfo"
@@ -3534,7 +3604,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "d492a8d43ceea6f3cdd2d98aef64a5040cbd01d40ab9895f928a633abb45fc07",
+      "source_hash": "4a329fcf04e639a194662826a6362b5d3075e1aee147704c0074b51753bcb6a1",
       "source": "official",
       "sdk_methods": [
         "AdminTeamsSettingsSetDefaultChannels"
@@ -3574,7 +3644,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a586a207e663d790442ac309ade51424ef4a1e9864b0d43e3acfc23f7be44c51",
+      "source_hash": "7fad36ddf320e1b56601238b8ce234fa42584cf60b3735601468f2b26ffd6605",
       "source": "official",
       "sdk_methods": [
         "AdminTeamsSettingsSetDescription"
@@ -3614,7 +3684,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "67507543e09eae076188471afb5be695e0b37643755545eddd77b34d5ffea47c",
+      "source_hash": "07a76d446b2bef889a46c8c75ab7139c5ee2fd305a491a1b94b847df4ecd8ba8",
       "source": "official",
       "sdk_methods": [
         "AdminTeamsSettingsSetDiscoverability"
@@ -3653,7 +3723,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "b4d02fc710945510fd5a7fcf0dd48b93a97476dbf53805b0479eb64e4228b36b",
+      "source_hash": "ab4e995d8e3456d86bd3e38b4be709aa999b016825d252bab3a0ee7912b3d5d4",
       "source": "official",
       "sdk_methods": [
         "AdminTeamsSettingsSetIcon"
@@ -3693,7 +3763,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0c5048eea9b4e1f7cb32b76d17d6c28c2c1dda901d2d0a3641097ca5576e42a4",
+      "source_hash": "94574c1a10fc70d734e12bb456438b4ea152776852bc351a183ca7be10d591cb",
       "source": "official",
       "sdk_methods": [
         "AdminTeamsSettingsSetName"
@@ -3738,7 +3808,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "1bdfc7ba083313422e47ca79e7d2527c081d165a48b5e3a08a09205996426be3",
+      "source_hash": "dd9d5cd5c12b4f1bc17c8a1e5308dcf315b12b66f9e7667732dfaa9204bbf180",
       "source": "official"
     },
     {
@@ -3781,7 +3851,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "d9df4ba4e376587dd090655a0d8db11781ddf621cc7a6ff2ae6a83cbeff903ed",
+      "source_hash": "c417cf2cc0f18e1e2d679c4e527eabb41af3f583d7d5df3639e93d6e11eb2f86",
       "source": "official"
     },
     {
@@ -3819,7 +3889,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "1981c1a085c1501fcb708e4acb5dbe893beed6f0e87eae34a9380c8a548a7408",
+      "source_hash": "350378a11a9c39d0c734362d393495ec6e687aa63c626c97c22aff0d15646417",
       "source": "official"
     },
     {
@@ -3863,7 +3933,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "8c554f9a733dd6fb5ba86ac7335ff81edc58f8399c7ea8cf71df0ef4d9eefdaf",
+      "source_hash": "2b1344140b4e0d9be46fd62043a0f65055263198c85e9b47cf79bc313da2b0ed",
       "source": "official"
     },
     {
@@ -3895,7 +3965,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2381ee89dd551b863c8b6a03c6a2959cd30499ecf4a0e57b81fceaa57e6ce640",
+      "source_hash": "4697c7f6a99591c8ae9defe935d0110d067adbfa32cf310f2c27f8df0e703142",
       "source": "official"
     },
     {
@@ -3934,7 +4004,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "5b59a936e0bf61a98e81076cd88c42c978da67822a7c66f9886a4ccd70b02aba",
+      "source_hash": "aa15b130a0b62d74cd6c2d072c2990cdcf90b00fa2e3c030726023bc0a82a3c2",
       "source": "official"
     },
     {
@@ -3972,7 +4042,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2326726a869cf646e45212ad5a83221053244aaf712fdda0cbcd632ed80fb31d",
+      "source_hash": "6ed5e2e30e5990d02223bc96ff833d9a5d345eb3465edaecd6e315440e692da1",
       "source": "official"
     },
     {
@@ -4010,7 +4080,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6435d7f6e135bd138dbf1c72dfffbec1b4a25f92084e5da787dc31f050c3a1b2",
+      "source_hash": "d272357dd16ea853211592a1f928029fa14a6232ebab8c19da373007d398d748",
       "source": "official"
     },
     {
@@ -4048,7 +4118,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "828a244758f7ba853b9e0d50f9c499d1ce5dd65a34c7b1016da085df3091df38",
+      "source_hash": "ec9146efa9d943cea7876ff3e371f604bfedebb0eadd498c91e7ae4fc048a04f",
       "source": "official"
     },
     {
@@ -4096,7 +4166,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "76727b0ef1f417cbc2ed2c027412f8ed7cb61af38a24d02acbd89bfa4e77f6d9",
+      "source_hash": "ba21b611c3c82c378051ba87cbecf912f730b1ae1eaed671aa5b3fc8260f978a",
       "source": "official"
     },
     {
@@ -4131,7 +4201,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "7d53b42244cd75592f20b76415dcd71f7a548ab83acf1cddfa5705fd3b1691fd",
+      "source_hash": "c2dc0c558d12615376db4f702d2436ea2ce5cb8e15c7e4118ef927658bdd00aa",
       "source": "official"
     },
     {
@@ -4167,8 +4237,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6522a2ee6dcce5fdd095eb8819c6eed5dccc9623365a06b720201fd8f9433a87",
-      "source": "official"
+      "source_hash": "8281e6d12cd37a38c66f218ff9e2d49dc4a122be5f143b151d11847bb6347df4",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersAccessPause",
+        "AdminUsersAccessPauseContext"
+      ]
     },
     {
       "name": "admin.users.access.resume",
@@ -4203,8 +4277,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a5630fd181ce2fa83a4bd395efa0650f02b49f7895f64e838e6659e5dcbebe9e",
-      "source": "official"
+      "source_hash": "36a17bbc4cb7bdfa70900d041e86fd131995a536b884d10c8bbad4393e440d8b",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersAccessResume",
+        "AdminUsersAccessResumeContext"
+      ]
     },
     {
       "name": "admin.users.assign",
@@ -4251,8 +4329,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f12b4a3f59347659cfb2dd9d760898b98123b2e9e53d1ce77ea8955afce6b621",
-      "source": "official"
+      "source_hash": "4c7f0dd0af5c1ec6e93ed5aefa8221ed6b1f9dc2af995701343ba2b4ba2ac570",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersAssign",
+        "AdminUsersAssignContext"
+      ]
     },
     {
       "name": "admin.users.deactivate",
@@ -4283,7 +4365,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "8d6a228d527ab5030586d386e368d93c9e385a1b253e1ff79683a405bd371560",
+      "source_hash": "24643840119a1725a7b3fc9e4e81e7aedac4517aba07e6114cbca10a0ef92108",
       "source": "official"
     },
     {
@@ -4316,8 +4398,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "5fcb3bd11f8bb7efbdf2aa896fd12eb49e645f1d144d30961a8c51536a055ce6",
-      "source": "official"
+      "source_hash": "1f83f4912e6b75687d111c5cb688c2160d4849df8c6e8b477ed0ab0ee38c944e",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersGetExpiration",
+        "AdminUsersGetExpirationContext"
+      ]
     },
     {
       "name": "admin.users.invite",
@@ -4387,8 +4473,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0ac78ff8afe4ec3224ca61e54d5741bd9e2e11e04d47247dfe374975f9312b42",
-      "source": "official"
+      "source_hash": "3f3b049a1f57c9470132167fe6a8d85de90563dd20f14c3b804932d24320cc47",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersInvite",
+        "AdminUsersInviteContext"
+      ]
     },
     {
       "name": "admin.users.list",
@@ -4443,7 +4533,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "efb0938f8a4f3be21fb86f74c07082eb0b05e08b2b6956e110fc799f1c06e7ef",
+      "source_hash": "e9b16bcac4638f889525aaa5c12e852efedae538db6a0e1e499f682937ea56d8",
       "source": "official",
       "sdk_methods": [
         "AdminUsersList"
@@ -4483,8 +4573,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2217efe5f8668fbf1b0021e508b64d1063de13b015fa47fa93b7b8ac10d3ea4c",
-      "source": "official"
+      "source_hash": "60bce159163d919de270fe89bb6809ccbaadaf28c23f8575394c5e4ec1f1ed59",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersRemove",
+        "AdminUsersRemoveContext"
+      ]
     },
     {
       "name": "admin.users.session.clearSettings",
@@ -4515,8 +4609,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "7d1e8a4e9992610d9bf20fe6f6be880d5784803b8720d2de98cbd51255ddbe35",
-      "source": "official"
+      "source_hash": "1975442cfdd0cd2d624ee53721d37f1a9b9df88e37d1585a14eb43622f46f68d",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersSessionClearSettings",
+        "AdminUsersSessionClearSettingsContext"
+      ]
     },
     {
       "name": "admin.users.session.getSettings",
@@ -4547,8 +4645,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ed4ce82ec40d4b4ce8d2b8fa953d41cb4d82893df6905f45caa5f6c54acc7b30",
-      "source": "official"
+      "source_hash": "094713300ff595313e4a8f9b3674fe5011ab3fc7f2ae8091e7a91ef3beb05fb1",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersSessionGetSettings",
+        "AdminUsersSessionGetSettingsContext"
+      ]
     },
     {
       "name": "admin.users.session.invalidate",
@@ -4584,7 +4686,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "b719d676dab52dd2a59a3dffdb2528137f040edb093d136cdc8fe0eabbc1dfd4",
+      "source_hash": "08700d8a09a15896ca6de2e0bf9986952705290b1b019c4fb5e6120a69561e6a",
       "source": "official"
     },
     {
@@ -4625,8 +4727,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "779177b1581a40e37dc7739e00b5393c078a59a418fe31a91cc6ed362c149901",
-      "source": "official"
+      "source_hash": "59996392b46b65536e680a10e47231b447dd2dd0c669c664698f2f584be3ff77",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersSessionList",
+        "AdminUsersSessionListContext"
+      ]
     },
     {
       "name": "admin.users.session.reset",
@@ -4665,8 +4771,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "c2f98ec0d9c959ad1e4d93a6f0e02af02c5a69125b9c561dfe39c10cc894e9d2",
-      "source": "official"
+      "source_hash": "e80b527dc7282a1ebf34c6310996b3e8e6d8884ceefcf863249b5a321e9d870f",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersSessionReset",
+        "AdminUsersSessionResetContext"
+      ]
     },
     {
       "name": "admin.users.session.resetBulk",
@@ -4705,8 +4815,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "032be43720638cc4f7e7dbe4b3bbfa979c2788347b6efaa702240caf309a942a",
-      "source": "official"
+      "source_hash": "96ee405844ab5cef1176087abbb5daeaccb737a40cf3370d407253be2ebda097",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersSessionResetBulk",
+        "AdminUsersSessionResetBulkContext"
+      ]
     },
     {
       "name": "admin.users.session.setSettings",
@@ -4745,8 +4859,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "46cf65b1eb8993bb86251b3731571ff454a4974e38d3ddc67a818a047a109a69",
-      "source": "official"
+      "source_hash": "ac1dd1cb27813c69d554593ef771ab2c8b2a3cecc196cfff94342d0723589156",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersSessionSetSettings",
+        "AdminUsersSessionSetSettingsContext"
+      ]
     },
     {
       "name": "admin.users.setAdmin",
@@ -4782,8 +4900,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "539211c12eb7af5e4d40d44998966a89bb837195b6d3479d521603a2d690871d",
-      "source": "official"
+      "source_hash": "71975a03fbb5e0d16c105fe04280c5a000fc5695aa1ebf06554765fbf99b0009",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersSetAdmin",
+        "AdminUsersSetAdminContext"
+      ]
     },
     {
       "name": "admin.users.setExpiration",
@@ -4823,8 +4945,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "9da034f99f277da67d40b8606205a432e5d05617ca9aaf80fdef495c5d0d5f98",
-      "source": "official"
+      "source_hash": "4920b440cc4ee78e33309609a0f401221f1d43a082949ad1f8bdcd4616c065f1",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersSetExpiration",
+        "AdminUsersSetExpirationContext"
+      ]
     },
     {
       "name": "admin.users.setOwner",
@@ -4859,8 +4985,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "95a44dd40ea44bd67dbbe84b96b829b96ad8191d7bdba18b713e996e880fc8c2",
-      "source": "official"
+      "source_hash": "b97685dd90a2f74415b1d4491d5b6b033f8686499b3675068ebff85572a87940",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersSetOwner",
+        "AdminUsersSetOwnerContext"
+      ]
     },
     {
       "name": "admin.users.setRegular",
@@ -4896,8 +5026,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "9b7800aeb1c20934789cf88c39520903bfbdf7eb112a92a220dfc7cb06b70d7f",
-      "source": "official"
+      "source_hash": "00ddcda4f119108606824c03347bc3fc9b4820b692ddaf65e2681b130c1eec0a",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersSetRegular",
+        "AdminUsersSetRegularContext"
+      ]
     },
     {
       "name": "admin.users.unsupportedVersions.export",
@@ -4927,8 +5061,12 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "65d7780ff0b20b094565a9128a31e832fa5ffff1ec544521d138ce5c6bf7b1a7",
-      "source": "official"
+      "source_hash": "199ede33aa1b73991bedebf64820616e8912b0839cdbb405cc0cc4cce40e566d",
+      "source": "official",
+      "sdk_methods": [
+        "AdminUsersUnsupportedVersionsExport",
+        "AdminUsersUnsupportedVersionsExportContext"
+      ]
     },
     {
       "name": "admin.workflows.collaborators.add",
@@ -4965,7 +5103,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2253952feca674d2ec5bf2bdd313e34ce9da2bf2e6fb9bc6cd2417ef2832615b",
+      "source_hash": "7c139e4cc84d9f07cd19451386cfce2ebc4495ef4391e64fffa4966a3aae887d",
       "source": "official"
     },
     {
@@ -5003,7 +5141,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "af0d60e1bdeec63d109ce5451aafe3171cf4589c9a8acf0d3af158debfd1f631",
+      "source_hash": "c6b8c13a45b177f5a851fbac22428b82886f2d8a0aa2aa908b076b2b8ac5c4b6",
       "source": "official"
     },
     {
@@ -5040,7 +5178,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0e3310cb65941412e8c79479997087950c15621ab9018e20ce0f89bf2803e11e",
+      "source_hash": "06cd45c36f27efdbfd408322503e4a84ac792427918320ecabc1fe8231c817ad",
       "source": "official"
     },
     {
@@ -5124,7 +5262,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0dc44b61b6dedabeec6f3ac0cafd48af0ae2d51ef8c573720c3b1c640e36d0f0",
+      "source_hash": "6113aeaab4d57bf1559387b72f74143abae0022157c459cf51878305d2a77419",
       "source": "official"
     },
     {
@@ -5156,7 +5294,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "e681f419500d59df7746e34cdf9127b09c6d11b2532e60c05f58710774a8bb34",
+      "source_hash": "4541b27194a192f13497e215e7611cdb5900b1e109a5bf7a08c603a5e26a7999",
       "source": "official"
     },
     {
@@ -5199,7 +5337,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "d9de57907fc804dddcc1cb785767c299ceb55f65917861b8e669844427aca4c9",
+      "source_hash": "59b7649ecd4c1014cbb3316e465319a953c91bfb5641510ab4058e31fba9d1cd",
       "source": "official"
     },
     {
@@ -5231,7 +5369,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3e877e7986308c83a8559185ba80cdf1185b3a86c7f409ca06531391aeb95656",
+      "source_hash": "b82309a882ed2866f935cb2268937deb5e055c52bcbfe11c5b25ce5916bfd6aa",
       "source": "official"
     },
     {
@@ -5266,7 +5404,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "4ce8063e2485fd0ed8045b4f9b533587cbc791be168b441802428179f3a92ce7",
+      "source_hash": "90666641e7c3570b419d3239543ed0b46018dd2c0bf37bc8e03752cd3e5c1609",
       "source": "official",
       "sdk_methods": [
         "ArchiveAgentConversation",
@@ -5321,7 +5459,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6fe17d871b4d60e24004c738996f62e2fe762b96f6814c6b8bef828583e16fe7",
+      "source_hash": "4785de3084afc534304ee032a4497599e816765f912940997cea31399bc45a90",
       "source": "official",
       "sdk_methods": [
         "CreateAgentConversation",
@@ -5371,7 +5509,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "7f9c7b18e3ecb3045a66e892dc208fb0ef2d81c3743b5541ba9882820e1d01ef",
+      "source_hash": "fc8ef9f20457d117d4dc1ce6e6638f540624f0ec0e5bbdbfff4b33920bcc615b",
       "source": "official",
       "sdk_methods": [
         "GetAgentConversationCanvas",
@@ -5406,7 +5544,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "bfd5eaddf5922d19ef1ddbd0143705021e670a0ccadbd1bc3dda5994e92d6380",
+      "source_hash": "4019e49cd941e20f3a98df1df5ee88e796f5fcf5ce825c9586286d38534fa1bc",
       "source": "official",
       "sdk_methods": [
         "ListAgentConversationViews",
@@ -5449,7 +5587,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "7167ffeb846d10b4aa28e20c530c8759f7ad17a54897f6abe13913e64083d3ae",
+      "source_hash": "adb950bafe70ef1c06fe3419a5f5d22734f50aaf15f173f113cdc0ce72ea2919",
       "source": "official",
       "sdk_methods": [
         "RemoveAgentConversationView",
@@ -5496,7 +5634,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "19f40fdd710d64976f5839a648595120c0ed2eeeb65ef6456ed13b1de57b90b9",
+      "source_hash": "88a05a9e64ecef2b4360f78c66e46b559f82bc813520187f9e9109ff91ea9a03",
       "source": "official",
       "sdk_methods": [
         "SetAgentConversationCanvasContent",
@@ -5537,7 +5675,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "8481aec2090177e135b476f80888b74ccf4cce097d375bcb5ec87a7eb96bec93",
+      "source_hash": "d3ef140d88101f76d32a1ce2ee4d0ee1e18afb76295dbe0f049b84c16d6e1dc9",
       "source": "official",
       "sdk_methods": [
         "SetAgentConversationCommands",
@@ -5588,7 +5726,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "fd543525ba62eaf9cb6144000e6c0877fa53d2ca69cdc3057e9a0e5009358804",
+      "source_hash": "22098bdc8c3178a0ab2cb9295aa504aede02254ecb1163551d16e264037d6c80",
       "source": "official",
       "sdk_methods": [
         "SetAgentConversationProperties",
@@ -5669,7 +5807,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "286bf58ede5935e1a873725f18247f8972e11dc17997dafd32f820eb4952c565",
+      "source_hash": "113d9b9e9e9047f5a7c1412823b471d4870505504c60fdabca4eea1021588241",
       "source": "official",
       "sdk_methods": [
         "SetAgentConversationView",
@@ -5713,7 +5851,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3eb49d988cfa85f11882195fdca6906ebb2dda9682f051f2186b34a63836bb70",
+      "source_hash": "9b5438325cbca1871929b48e3236a0b8ed964f460813ce2c0c2e739e12d2e4cc",
       "source": "official",
       "sdk_methods": [
         "RenameAgentSession",
@@ -5777,7 +5915,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ef2f4d472d6134cbdc605d2f2cffc919a512deb6b4dd76796d28773a7219cca4",
+      "source_hash": "5b6b43651f440ccb8ddd26657ee7aeb2e7a5342566a04e94f7f8ebb0709e595b",
       "source": "official",
       "sdk_methods": [
         "SetAgentSessionStatus",
@@ -5804,7 +5942,7 @@
       ],
       "authentication": "none",
       "response_format": "json",
-      "source_hash": "40cee498bcbc92e89b9ed7090f6e0e92974fed8d56f103cd93903478f48ddea8",
+      "source_hash": "096361c7594c935adec4b1822563880a7939898d21018f47f18d94ea3f96343b",
       "source": "official"
     },
     {
@@ -5882,7 +6020,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "4be03432285431e255b7aa44b06a97f6aef32c6f279a668db2fa0c54d82c6e24",
+      "source_hash": "f9504ddb7567b838a7f195559bbdaa05fcf5dc10ef3d7cb78ac98835560fbd6d",
       "source": "official"
     },
     {
@@ -5914,7 +6052,7 @@
       "authentication": "bearer",
       "response_format": "json",
       "sensitive_response": true,
-      "source_hash": "736bc0b1700e09af093b703185980d133888901f46c8261d3f7819453c283bf6",
+      "source_hash": "fc8b5bec4e449ea5f63d152a9c63ff74b0eb437c3d26db509f86c75ae55e132d",
       "source": "official"
     },
     {
@@ -5946,7 +6084,7 @@
       "authentication": "bearer",
       "response_format": "json",
       "sensitive_response": true,
-      "source_hash": "5e9acb3d5d6f6c44cdb30bc205eb0c8b3ae074b4670e98c085fb8d31e8d09926",
+      "source_hash": "c1f4062d7a10239345a1bb41469618d5c9757a2133addea68c2ff76a8ee0ff89",
       "source": "official"
     },
     {
@@ -5965,7 +6103,7 @@
       "response_format": "json",
       "sensitive_response": true,
       "unsupported_reason": "requires an app-level token; generic calls support workspace bearer authentication only",
-      "source_hash": "b5614f538b3029ba4802c704b314f308c1d8bbf69d0a7a71c9693a41ef5349e9",
+      "source_hash": "dcde2e9283efb00a23d801c857ef1fc95e6abeeab2fefd19bba3f8e3e0b4c754",
       "source": "official",
       "sdk_methods": [
         "StartSocketModeContext"
@@ -6009,7 +6147,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ccd0d9e968f32aa540f8e9c3bef28731e91a796e3be4f3bf41c0c554a833a8ae",
+      "source_hash": "1dd912a13952fe436a730b0468d45881529d23d3e2892b84f56baaf34377d40f",
       "source": "official"
     },
     {
@@ -6050,7 +6188,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0f0680871957e5ad55a10a7c2a5cdab61ff41d2ef0ddd143c0192399aebdc977",
+      "source_hash": "b4f5540722729c7999b97946a52f7bed7d6cb64893bfbbeb3452bae72c939e5d",
       "source": "official"
     },
     {
@@ -6091,7 +6229,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "5a93847ab956523aea81cbff36005d5c3f702d0a7fd088351604d54634142428",
+      "source_hash": "b53ff356ce605a6a63bb192311ddcca4934d103f8a260c64c5a9efc17a728b43",
       "source": "official"
     },
     {
@@ -6138,7 +6276,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "c048702aab46538e11a165985326bb7e0c3fd4683b2267601276aeacd8bdae0c",
+      "source_hash": "ca1aa8e2d4f8abaa3023fb0b30487e4ed79f796ca01211c2935c616d69108a9b",
       "source": "official"
     },
     {
@@ -6179,7 +6317,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6f2d2b2f18c45aed30fe0ecfa24ce0cf59a1f63c9fadd128c4f67c77146f7d55",
+      "source_hash": "92bea82daeb0d37ac8156cd86bae205a0c7bc86710b505bbda5bd31241077d3f",
       "source": "official"
     },
     {
@@ -6220,7 +6358,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "1e6c2bba62b6b5bba43e0db1cb6fcc07c42e0973bf600940a2263770562f04ef",
+      "source_hash": "86c511ea4f0231b7fe728a5c48879ef89f85ea4d873e2fa240d745c346444a42",
       "source": "official"
     },
     {
@@ -6261,7 +6399,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "569312975b17ed3f2578afa953e052533f1b554437e7282adc2686788af8d68a",
+      "source_hash": "34bab89ce80574671c47f56aff5294fb6c6a5ee0841e0045e18a020310393af3",
       "source": "official"
     },
     {
@@ -6317,7 +6455,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f9727decd6294aee1563f6420a5ef7012cae1badb27b5b781fd23cfcd94079cb",
+      "source_hash": "60a38fdbb7d3c66e66f70378cc9398dd60758dd287e01eadd379d87daabc1e45",
       "source": "official"
     },
     {
@@ -6358,7 +6496,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ea4f262b9521151ae8962ec1980ff0845466bbc57bb386512cc07020bde31274",
+      "source_hash": "f43f07148b5604fe3d9c647fdf9c60a35ca49f2c50586bd5245d0ed22da035f9",
       "source": "official"
     },
     {
@@ -6393,7 +6531,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f6d0f7ca2e5b68d5e60e02c0d38531065146bc5d5becd3dab2bcd6ef40b72ac5",
+      "source_hash": "c9ab616148afdbed0181cf55d37207dc8bb55a2d17b7b3d4927280cbfe63e1b9",
       "source": "official",
       "sdk_methods": [
         "ListEventAuthorizations",
@@ -6405,7 +6543,7 @@
       "description": "Sets the app icon",
       "url": "https://docs.slack.dev/reference/methods/apps.icon.set",
       "http_method": "POST",
-      "rate_limit": "t1",
+      "rate_limit": "t2",
       "scopes": {
         "user": [
           "app_configurations:write"
@@ -6436,7 +6574,7 @@
       "authentication": "bearer",
       "response_format": "json",
       "unsupported_reason": "requires a multipart file upload; use the typed SDK operation",
-      "source_hash": "59383e8e5e0587910194b16d3c06ce7052661a7a0d9be4265174472305ed9b4b",
+      "source_hash": "f1b9e4a9f6eb350f3a7f8a1c87743d1f3f87bb89a4719530db136b1e72b32642",
       "source": "official",
       "sdk_methods": [
         "SetAppIcon",
@@ -6472,7 +6610,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "729d6d9d3fc50905ef04aa07bab09d07177e1eaa4f75623232d68da3cd8f768f",
+      "source_hash": "9f7e6cd8f85eeb0008c101e0f89c06f8d4c7c35ab56dd560ac467c363d6f6228",
       "source": "official"
     },
     {
@@ -6480,7 +6618,7 @@
       "description": "Create an app from an app manifest.",
       "url": "https://docs.slack.dev/reference/methods/apps.manifest.create",
       "http_method": "POST",
-      "rate_limit": "t1",
+      "rate_limit": "t2",
       "required": [
         "manifest"
       ],
@@ -6505,7 +6643,7 @@
       "response_format": "json",
       "sensitive_response": true,
       "unsupported_reason": "requires a configuration token; generic calls support workspace bearer authentication only",
-      "source_hash": "06d20a885bfd31d2ce5d476b047be0416dcf57d63aab9d11249fb09a7b8987bc",
+      "source_hash": "96d0dad01ed177649a9d6a5cd763cbd408b51e5676caec8f34a44239d66bed04",
       "source": "official",
       "sdk_methods": [
         "CreateManifest",
@@ -6519,7 +6657,7 @@
       "description": "Permanently deletes an app created through app manifests",
       "url": "https://docs.slack.dev/reference/methods/apps.manifest.delete",
       "http_method": "POST",
-      "rate_limit": "t1",
+      "rate_limit": "t2",
       "required": [
         "app_id"
       ],
@@ -6538,7 +6676,7 @@
       "authentication": "configuration",
       "response_format": "json",
       "unsupported_reason": "requires a configuration token; generic calls support workspace bearer authentication only",
-      "source_hash": "7b23b9c5048e0383a2e250d04a1f9f3d94784014f1cbe16c172c08f90bb01dab",
+      "source_hash": "da83ba931e6b13b64323a8c9ae3ea9a1b09a96abba7f51edf21f873eac53e16e",
       "source": "official",
       "sdk_methods": [
         "DeleteManifest",
@@ -6570,7 +6708,7 @@
       "response_format": "json",
       "sensitive_response": true,
       "unsupported_reason": "requires a configuration token; generic calls support workspace bearer authentication only",
-      "source_hash": "30572dc0c7e048f2c44f4f779a13f5346ce670ca9f2113f60e85187c680cc200",
+      "source_hash": "761405c4586dd0b0f80c90299714bcd59f89a19344ab350fe63b0d09bc24a62d",
       "source": "official",
       "sdk_methods": [
         "ExportManifest",
@@ -6584,7 +6722,7 @@
       "description": "Update an app from an app manifest",
       "url": "https://docs.slack.dev/reference/methods/apps.manifest.update",
       "http_method": "POST",
-      "rate_limit": "t1",
+      "rate_limit": "t2",
       "required": [
         "manifest",
         "app_id"
@@ -6609,7 +6747,7 @@
       "authentication": "configuration",
       "response_format": "json",
       "unsupported_reason": "requires a configuration token; generic calls support workspace bearer authentication only",
-      "source_hash": "f2651c39affc62bf5181ce021c22afa57d82dea6c9e112d432ff067527a73180",
+      "source_hash": "4cb40e377f3833560169a5e1e0a7d3c3ead4cf20b7d50c6f3352b1ae0fd0dbd1",
       "source": "official",
       "sdk_methods": [
         "UpdateManifest",
@@ -6646,7 +6784,7 @@
       "authentication": "configuration",
       "response_format": "json",
       "unsupported_reason": "requires a configuration token; generic calls support workspace bearer authentication only",
-      "source_hash": "b2cb891ced3c73eba54ba7d0c9076cc0962243257ec57f9570cefe88d74ee311",
+      "source_hash": "8d92f59b77c415ca4d08f22a131c5509c82ecd4b8e70352fbf669552c6cb4acd",
       "source": "official",
       "sdk_methods": [
         "ValidateManifest",
@@ -6684,7 +6822,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "997b2dc8a4e7ea606a30f1c3063f7e01286749e7cf316db4fb67c66670a62a6c",
+      "source_hash": "ca0023d4ff8cd7010d570efb9328e42af2d9d9942088f9b4b2918eeed76c2bcb",
       "source": "official",
       "sdk_methods": [
         "UninstallApp",
@@ -6694,13 +6832,13 @@
     {
       "name": "apps.user.connection.bulkUpdate",
       "description": "Endpoint referenced by the pinned Go SDK; not indexed in Slack's current method documentation.",
-      "url": "https://github.com/slack-go/slack/tree/v0.35.0/apps_user_connection.go",
+      "url": "https://github.com/slack-go/slack/tree/v0.36.0/apps_user_connection.go",
       "read_only": false,
       "pagination": "unknown",
       "authentication": "bearer",
       "response_format": "json",
       "unsupported_reason": "SDK endpoint is absent from Slack's current method index; its request contract needs review",
-      "source_hash": "482ae618ed5704ee440031133143f7bc14c592a8e8642704cdd0b863bd22a37f",
+      "source_hash": "7aee40ced780831d5e8c3de4a889e752a681355485e007aa22c7242eea33a78c",
       "source": "sdk",
       "sdk_methods": [
         "BulkUpdateUserConnections",
@@ -6710,13 +6848,13 @@
     {
       "name": "apps.user.connection.requestAuth",
       "description": "Endpoint referenced by the pinned Go SDK; not indexed in Slack's current method documentation.",
-      "url": "https://github.com/slack-go/slack/tree/v0.35.0/apps_user_connection.go",
+      "url": "https://github.com/slack-go/slack/tree/v0.36.0/apps_user_connection.go",
       "read_only": false,
       "pagination": "unknown",
       "authentication": "bearer",
       "response_format": "json",
       "unsupported_reason": "SDK endpoint is absent from Slack's current method index; its request contract needs review",
-      "source_hash": "482ae618ed5704ee440031133143f7bc14c592a8e8642704cdd0b863bd22a37f",
+      "source_hash": "7aee40ced780831d5e8c3de4a889e752a681355485e007aa22c7242eea33a78c",
       "source": "sdk",
       "sdk_methods": [
         "RequestUserConnectionAuth",
@@ -6758,7 +6896,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "d00b8bb40d66db660bd52c93fc294df8d48300987c0b54d3988a289cb6c4ab83",
+      "source_hash": "f9b905590c4fdbe05608d3e4af484963a6267eb6d7cd9204f9bba92ab327fb3f",
       "source": "official"
     },
     {
@@ -6879,7 +7017,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "e988afb674b1617e7794019edb3b2a51d52a7fad5f7ce9764f5b0a387bd1b74b",
+      "source_hash": "03646de52ff144695186435bb791cb9a0454ae2aa74ca159803fffa2887e5d17",
       "source": "official",
       "sdk_methods": [
         "SearchAssistantContext",
@@ -6908,7 +7046,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "763985acada758d0a5f4b0303ede88082488508ecffc15da3b3bd6197f48e2ea",
+      "source_hash": "34775665945f91895c910250e432f59e4528b6402ee8d6210c30c54006eb6782",
       "source": "official"
     },
     {
@@ -6968,7 +7106,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "07392312a64f8f31bfb469ec3368ab64c199e294836d701d6b5ffe38139a9bb3",
+      "source_hash": "d1442325f8c8398b1475f4c692f0abd1357858a6c75d73a6c2ef7b8172866311",
       "source": "official",
       "sdk_methods": [
         "SetAssistantThreadsStatus",
@@ -7016,7 +7154,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "4f8422ca35d18573f230d645bd233c81d7dbec105882098a8dda8a1b01a3c5fd",
+      "source_hash": "f019a2d3d9492b191d05450746242a52d962045d6a69c44bdc2552568dc6f87e",
       "source": "official",
       "sdk_methods": [
         "SetAssistantThreadsSuggestedPrompts",
@@ -7063,7 +7201,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "76a2e99e3011cd94b44472c800fea1717ac40b4f61e9c40b438bce8506c984e9",
+      "source_hash": "61632a8cd856efbff5e5fcc7200b3c8b7dc533cbec92e57ea0d3f43c5263c12c",
       "source": "official",
       "sdk_methods": [
         "SetAssistantThreadsTitle",
@@ -7089,7 +7227,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "236769d3dedab326f92cc1da5bb119e516dfddfce3b106c34ee815e6aebbaa11",
+      "source_hash": "718b616ead7f0e2647d5c4822829173deb56252772852a50961bec68273ddd4c",
       "source": "official",
       "sdk_methods": [
         "SendAuthRevoke",
@@ -7125,7 +7263,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "7d3f87852407a665f41b4e71e3a1a29cd06ccaa5a6c02a18d6cfe0b269f6d9dc",
+      "source_hash": "1b37ad9dadb3c972fcf2e1a993b4b6fa79ce4d9ca2bd6949030cc4c941159619",
       "source": "official",
       "sdk_methods": [
         "ListTeams",
@@ -7146,7 +7284,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "9aa6a9e602e9b1ae8b3f7b87e21492750e9f734cb3a98091b8ee8e9d7816046d",
+      "source_hash": "66daeb294c692bceee0f11b504bfbf432bdb443fd2c7d01b337a3a4814df0b26",
       "source": "official",
       "sdk_methods": [
         "AuthTest",
@@ -7180,7 +7318,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a0a1c977a29311f74752e84fb6757d962dd9009afe0b40b0bea6c300803bd58a",
+      "source_hash": "676a69800540e021b1a51f27314b9bce089f8c4e658657c4268ed64f5959b1f6",
       "source": "official"
     },
     {
@@ -7245,7 +7383,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "cea63524938b99551bd2deaceb641d69b7b8b3f8f6169760a9a45583648e6c37",
+      "source_hash": "2af5612a4ccac906c6e8fd323b940eaa4cdec864cf4733eaf5036cc48b521472",
       "source": "official",
       "sdk_methods": [
         "AddBookmark",
@@ -7296,7 +7434,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2f1a4e1ab4f97fc375b2ec7352d667abd9ec7f406e8bd3da74d05d890f908ddd",
+      "source_hash": "909bdf31c0a019372fce8e8fed5c6c71cbf0e074bfe59a7818e4a5b180fca7c4",
       "source": "official",
       "sdk_methods": [
         "EditBookmark",
@@ -7331,7 +7469,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6e168fd587a539918b3229ee695741280b7528eb79f64a433663083cf6f992f5",
+      "source_hash": "88b60f6c56211c9de40325e7654f5487a93b88a7c0f834ff4f7cd770323d737c",
       "source": "official",
       "sdk_methods": [
         "ListBookmarks",
@@ -7374,7 +7512,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "01f71ab0741dd91f852978d4e5f8c5baccf643d9c1d7633117e1a43f7b2616d3",
+      "source_hash": "93a97e3bc9b639970208526472822d4b803b037922addb62c58609a27a8ae3dc",
       "source": "official",
       "sdk_methods": [
         "RemoveBookmark",
@@ -7412,7 +7550,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "5fb2d070fcabe7c9cbaff7c27390e6c81a972ee4f786f9331db51ee2aca00d5d",
+      "source_hash": "b031d20cc574918e57a28d0948c690785ae0be557cc7fc584a38bbab4830db1b",
       "source": "official",
       "sdk_methods": [
         "GetBotInfo",
@@ -7481,7 +7619,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f83ae7f8c2fd22548e8e10cec69ed86e2d0a748c2c7631fc6a8da6e0cf9536e7",
+      "source_hash": "1955e7c4ee623cdaed5c720e7f551ce90b2311ac4328724f60224f47538ffa31",
       "source": "official",
       "sdk_methods": [
         "AddCall",
@@ -7524,7 +7662,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "1a3587fd7f883311d573e232579e80ab31dbb6eaed0312b9990d07dd2c4a638d",
+      "source_hash": "046aceca3a251a925a5af276fff52d37017e30dc49ba1cc9945a7005390a56f0",
       "source": "official",
       "sdk_methods": [
         "EndCall",
@@ -7563,7 +7701,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "c266bea00f646c7247c265c625fb8b0b28702ca9389a5980127feb2c9f27b489",
+      "source_hash": "4eddc274d5fa00d80944a9d3c6f70e03d6a2e74dd8b5ca06af260c8b3058f5e8",
       "source": "official",
       "sdk_methods": [
         "GetCall",
@@ -7608,7 +7746,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "d512a41d21d6d94d96f6998a95def95a748688a6ebf80cb7af15de30c5d11fd7",
+      "source_hash": "38cb05fc59fd4ba616ce2b60947a4aedea279fc5e1b257907613fc1ac8e5e5e3",
       "source": "official",
       "sdk_methods": [
         "CallAddParticipants",
@@ -7653,7 +7791,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3796b00ef4fd270f387af050217261fff46dc60862c30445b919ec9fc465af2f",
+      "source_hash": "6be465670f4b88ef45ba5b30231035d9edafd41dc58ba2cbe822172ce35a7f95",
       "source": "official",
       "sdk_methods": [
         "CallRemoveParticipants",
@@ -7704,7 +7842,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f91164275ca63b33044cb0bc24a896f30e292c8fb411ba91ad111772f9c9901e",
+      "source_hash": "1bd743bf79105123b4ae9a9ca4db85edaa4aeaaed5e6324d3e84e70bb50f5d20",
       "source": "official",
       "sdk_methods": [
         "UpdateCall",
@@ -7750,7 +7888,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "16d07550abeecdd7b9571c9b83e2e9a4473ac0194dcc53fa5c17e09197fa1dd8",
+      "source_hash": "08e7a9aed1230a2987e5542b333eff162550b1aff1b5a35f9c38d3bf48622015",
       "source": "official",
       "sdk_methods": [
         "DeleteCanvasAccess",
@@ -7801,7 +7939,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "eb3875c3ef91d458d1412741a1807aad7d6ac451691c9c7b3b5b1986a5d66a86",
+      "source_hash": "87959a33d92046c62e308f9b13be881c74ceef186d954259bc51e474e2466fab",
       "source": "official",
       "sdk_methods": [
         "SetCanvasAccess",
@@ -7843,7 +7981,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "9b1e355f7c703595d38e290eda23a3744649b3f14146c660ef54b671dd1d2046",
+      "source_hash": "cae936e1d73c92f2d90f8ad3ab26942b22ca73350381c912c1e68675334ee19f",
       "source": "official",
       "sdk_methods": [
         "CreateCanvas",
@@ -7881,7 +8019,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6fe61bc271093ef4c486911505b27be8f1aafe2c5a00fc4f4a87107422802f5b",
+      "source_hash": "0cb994ffd09f6105979aa0deff74e4e8d07e22515f6e7120ca3dfc72938ea3e6",
       "source": "official",
       "sdk_methods": [
         "DeleteCanvas",
@@ -7925,7 +8063,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "52dcfe6079d21e0d3af520aab14aa6a0a50c0e34acc8d3c1356ec582658a2f3a",
+      "source_hash": "afa375d97fbde06b2fcbd4e1967c9dadc112c06a5571763df8b3bde0e0a866cc",
       "source": "official",
       "sdk_methods": [
         "EditCanvas",
@@ -7968,7 +8106,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ad5860d63610064c12b51475a1f17c9fd3f70ba76b8abb9766f3e2c3e70d5622",
+      "source_hash": "5429d283b16ec4d30384b5af91718838ab4357205db4ace67ecc8a45c1b0d9fc",
       "source": "official",
       "sdk_methods": [
         "GetCanvasContent",
@@ -8011,7 +8149,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "9df8a77e4601fda7fc154985aeabbbe246eb110763538eda93750574d53323c9",
+      "source_hash": "52c5376598d7d66a01cc252532d0df92d0b5341e85be88bea246b8df982affdf",
       "source": "official",
       "sdk_methods": [
         "LookupCanvasSections",
@@ -8060,7 +8198,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "b8b13a0a206e853ebaca4ac205031ec691d1f88e86adde8cde91f1c54011d24b",
+      "source_hash": "6c7519f8afc3e9a89f62cd08eeb258bced7a68760ba2880d71e7e532a433e67d",
       "source": "official",
       "sdk_methods": [
         "AppendStream",
@@ -8109,7 +8247,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ea725973217413b7bda7bd3d642085c5ba18bd02d9ea481a14b750cfc1c889fa",
+      "source_hash": "de182fdae54ffa0d8908be75aa2d93467e8c5436f1a2f017a4cc5a00b6d19aff",
       "source": "official",
       "sdk_methods": [
         "DeleteMessage",
@@ -8158,7 +8296,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "5db95d903768019bdc612db8b036a515199dbe0b9253dca3171daa572a73a797",
+      "source_hash": "641f3d3d094e504d80b4c961cb406b4e0ee83b10f02ee53d8be6093afb229d19",
       "source": "official",
       "sdk_methods": [
         "DeleteScheduledMessage",
@@ -8194,7 +8332,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "e36243f8008e4b412b98f7bd29e156e76f328d6ef2d84c6b1f9ecc664ead5cce",
+      "source_hash": "2cdb458d6a1988a8fee32d2a7e07405619ee64d2ae45780423ef0eb78e9365cc",
       "source": "official",
       "sdk_methods": [
         "GetPermalink",
@@ -8239,7 +8377,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3c8b650bde3a224270f6913633484da102250b152f60234888915bcf1d9fa76f",
+      "source_hash": "4e9f407cf1ed2a42c03d7c7f6a42595929a2d72a4feaf2a3a351dad6517b2e94",
       "source": "official"
     },
     {
@@ -8321,7 +8459,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "51e0d793f8fe1cef0b90e1e39ccc8faa8f5a5623b72b061c6f8c87fbf6442d7a",
+      "source_hash": "cdf0f4f1f515ac4e4a61aca0f7b75541cccc2c7545f7274ab68ef026e7207b3e",
       "source": "official",
       "sdk_methods": [
         "PostEphemeral",
@@ -8424,7 +8562,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "897cd2b6f23028dfc0eb4e17f3179be4ece6f6fdcebf8ce34ee17f7c6298410a",
+      "source_hash": "cb9b395e38d554d665c7e6e904de3a05097421b0424aa9f4e80a2b6fe03194b4",
       "source": "official",
       "sdk_methods": [
         "PostMessage",
@@ -8518,7 +8656,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f8066f611e90a826392202e3c4929e3a273dd01bdb73326506dd770591ec740f",
+      "source_hash": "67b26b37e9b42974e46370aa69ae58c13560dc45cd8002a0bf02fc71bc8d87f1",
       "source": "official",
       "sdk_methods": [
         "ScheduleMessage",
@@ -8565,7 +8703,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "50408fe228a428cbbe8a45f3632d1264f41999b655b0543a286fbbed82bfb6e5",
+      "source_hash": "6475282d2ea15edf439e990a783ffa91a4ac0cd2eedf57b8d4f6b9687d90f374",
       "source": "official",
       "sdk_methods": [
         "GetScheduledMessages",
@@ -8637,7 +8775,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a01ef7ae69ea3069cf700faaccdea1a4bc3512a1ed991c20c1c17a1b066414df",
+      "source_hash": "803ddb6004ad8373763d4cb56eaabe7c5eb16874c0e037d773c9fed99a740c0e",
       "source": "official",
       "sdk_methods": [
         "StartStream",
@@ -8697,7 +8835,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "d74b6ee5b6b32c063993f644cf00191f12b690cbef005754caa13c00012f8799",
+      "source_hash": "ed6f9af3ab69adb3e05fca686415a1337a80a12bbbe6d1386b6e5388ef793a86",
       "source": "official",
       "sdk_methods": [
         "StopStream",
@@ -8762,7 +8900,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "e55d6c905d8eecae204583b66667a8d1d4e10e5a57fbd06df3d45fa6b7048630",
+      "source_hash": "d53c2b17c1c1bc9ab1aea54eb4885e134eac687316e162c4e7c9c52929c75315",
       "source": "official",
       "sdk_methods": [
         "UnfurlMessage",
@@ -8850,7 +8988,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "13c8e358144148e55f13276a8e3d313ee4539c6c72dac41658aeb8da80cd0ad5",
+      "source_hash": "97bad9ba75a2748f6dad09ee3ff6960bf6b8af1ddbbd99febd9df655c6d90031",
       "source": "official",
       "sdk_methods": [
         "UpdateMessage",
@@ -8903,7 +9041,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ec722a1ecbde7e6dd69692eb55eff36a92d346fd4194d74ae1348150a82be532",
+      "source_hash": "1a6ad07af69148e8c98aee2a763d21451e4f51dce229518288f5a67e5c577f3b",
       "source": "official"
     },
     {
@@ -8937,7 +9075,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2e3965be55654d94b474e2641ec83ee7f379ef5b9c78eb96cc1b07cacc92ad33",
+      "source_hash": "37e87d09674d69ba005a7e9739f6f5f7171588e2564e88384264c835698ee97b",
       "source": "official"
     },
     {
@@ -8978,7 +9116,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "cf3a982dc4ea1c2d7687a4b8dcc40f0fa5aa22bbcae1ec035a581c84bb888ebb",
+      "source_hash": "16f950d82606739c33de18012e40720174a3e221798b9a31ae99fea6faa46019",
       "source": "official",
       "sdk_methods": [
         "ArchiveConversation",
@@ -9024,7 +9162,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "125dd3cb660efe7ba82ea95fe812d66446605df7e450f00064462367ab096f20",
+      "source_hash": "6a85429eb1dd2c238cf7c960962e7f05728e3be8922a934e825762aa0d0c3fe7",
       "source": "official",
       "sdk_methods": [
         "CreateChannelCanvas",
@@ -9069,7 +9207,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f1dc06d9069022e9476ad599ee561e0f65e83926316884369b083ad05d757ddb",
+      "source_hash": "f83c06894c7fb5b19da16934664faf7579a86e7e06b887cf258c9f2631354b29",
       "source": "official",
       "sdk_methods": [
         "CloseConversation",
@@ -9122,7 +9260,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "d3403b4629f264e1149d50c381b01a64719b9a877a2ad70e276b81bfa0d7da47",
+      "source_hash": "07cd71d7dae4ef3486e602cad9018f7ed56edf70de1d5904781dc4d9737f4c19",
       "source": "official",
       "sdk_methods": [
         "CreateConversation",
@@ -9160,7 +9298,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "b29758ba7f8dbbad291911355728db6b1a34353e8e39583fb5efc560b3b4603d",
+      "source_hash": "ccd73573fa1c80b27e9a67cf3f83795861ea934f0cc31f51b227639359c468fc",
       "source": "official"
     },
     {
@@ -9201,7 +9339,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "c7785e75f2d23a5ffc1d5df8a0a6da2bb2f921c41ec62e3deff089798a211c46",
+      "source_hash": "832c0443a3add6ced457957dff240cbcb637bce92ccbea2000fd7d954be6302a",
       "source": "official"
     },
     {
@@ -9268,7 +9406,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2bb75d2d924a5793ead5bb946787947b5b81fcbe59f13611cbe2f0e2b42dc34d",
+      "source_hash": "55f85fdf09f9d653a9da43014f47181341d8a2d49242e5f1ae00e5db18c8a65c",
       "source": "official",
       "sdk_methods": [
         "GetConversationHistory",
@@ -9321,7 +9459,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ce89f8b0292ed315ca81decd8cb898e498da035c4dc091a4714ce5e60f107d36",
+      "source_hash": "26ece75c1fd2902fbe597ec57707706b987dfab80720d6b4a2db4e1bbe0d37c9",
       "source": "official",
       "sdk_methods": [
         "GetConversationInfo",
@@ -9381,7 +9519,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "508764fd546b7cbbbecd9cbaf989d584b47efb3bd375dc2f65bd39dbf03f2532",
+      "source_hash": "13ccd3eea95dff2ef03977431376c8145b500a9df20da86857e95ec2313cb827",
       "source": "official",
       "sdk_methods": [
         "ForceInviteUsersToConversation",
@@ -9431,7 +9569,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3ec4899eaea30d22d1e3e8533136680566600ef732f323473ec10f1e88932844",
+      "source_hash": "f7f0ddfe58413417eaa93036003ed22a600023dce5d79dc0190f12f43a36b705",
       "source": "official",
       "sdk_methods": [
         "InviteSharedEmailsToConversation",
@@ -9474,7 +9612,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6fa1d628f4889693a6db98acc456413efeb796ab12f6e14d56e3181cd83d4dea",
+      "source_hash": "36bf1be19b7a37770a4120bf826e037ef0be9c827919589753bfefe8dfc786bf",
       "source": "official",
       "sdk_methods": [
         "JoinConversation",
@@ -9517,7 +9655,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "459571d4fe824966c3aa02d4017005ba2c7d307763a8c2627737a73ea439a47d",
+      "source_hash": "102f3d6eac73a0eda1aee865d77b97fed40a0c00b12a1a595911e0315f195578",
       "source": "official",
       "sdk_methods": [
         "KickUserFromConversation",
@@ -9562,7 +9700,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6d3f813f974139e4a332b76bb885f972325ccb372f072cbc57f176eee4116440",
+      "source_hash": "74af1d27314d15ded179d56ba6a426ed0a6a46dd018720acc175cc2b211bef2b",
       "source": "official",
       "sdk_methods": [
         "LeaveConversation",
@@ -9621,7 +9759,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "9cd567c76e1bbfbbe599a2681a1022cf31f687f0d8e436c483a8edb91100f189",
+      "source_hash": "2197331bdda679f58513a6cfccf7020064701c47fe83a5bf798f2cf66f2b8230",
       "source": "official",
       "sdk_methods": [
         "GetAllConversations",
@@ -9665,7 +9803,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0dd404bb282265a38d3b8495b8d3c8de1efdfa34028f0257d24b8aad9c0b6f5c",
+      "source_hash": "9b43ba00bfa2369b26d7d772a83f45ce295f2897be32383baa626c49514ec3cb",
       "source": "official"
     },
     {
@@ -9713,7 +9851,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "4bae8c810eb16539214409da6f62af4bb1827674d763cd86e0005a4833f82c32",
+      "source_hash": "b204c6c8532bf88d3c22227f70c14114e2268850e7343b75ac9a312f2200e147",
       "source": "official",
       "sdk_methods": [
         "MarkConversation",
@@ -9766,7 +9904,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3f9d03501e1966a776b38c8933e9bee97c95167ef8a3b9f3fd48c2f58a261d77",
+      "source_hash": "996429ff4efa287d3ea4a7003e5140a6824b97eeeef0d548e6530ca38729ac5c",
       "source": "official",
       "sdk_methods": [
         "GetUsersInConversation",
@@ -9818,7 +9956,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "411ba917a94e2422b175a7c0b82105c77082632f0078e6997ad66daca40ddd4e",
+      "source_hash": "7152bdb20ee85284abcab552b065b89b45920d1655010e82d6bbc7938ffdbed2",
       "source": "official",
       "sdk_methods": [
         "OpenConversation",
@@ -9870,7 +10008,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "9ac0a854192cb69fb09851c9ead73b9974c08c1c9ecea98a4fe49f4a30ca9adf",
+      "source_hash": "835fdaa49e462712df95e170f118448a4b374d770d81a0bd122b9e11881e4e8a",
       "source": "official",
       "sdk_methods": [
         "RenameConversation",
@@ -9947,7 +10085,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f6342251ab845921a5162a3471f60cb0babf99793667d06063750d0e4aa22f3a",
+      "source_hash": "6130b7a846afb5235d3471955c566fb075e773685d32c175ce4f0c31bb2fcf6f",
       "source": "official",
       "sdk_methods": [
         "GetConversationReplies",
@@ -9994,7 +10132,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "491d20ab0e6c18f757d41e7d780a72830d83ba1f08d4df9cade0311df0ce89f5",
+      "source_hash": "3a1827f304f531f9ffd78431c2084aba9d123adba8bd5d4c77f5a0b9b732f4ee",
       "source": "official"
     },
     {
@@ -10029,7 +10167,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "591a88ebcd784b3236889dff77490de51de61f2c9c50730d42218856de0e0862",
+      "source_hash": "dbb89c39d77332ae2cf41ec8217b7881445cfc25eaf7ae4d387d820fabefe2fd",
       "source": "official"
     },
     {
@@ -10081,7 +10219,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "fc67cc65c7b77def2eac169fdc2206c59745a337f5e825dec03cf491b0ba0e39",
+      "source_hash": "43ca87960312cf75bb8e340b5818711c82593b816ebc3cc6e46f36c668490cc0",
       "source": "official"
     },
     {
@@ -10136,7 +10274,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "63be574f133fa6071feff48630387fd61af1cf309b726a729e73d5095cb30841",
+      "source_hash": "ace9c1721608d436c033530acbdd40d9e1be3c98b2d817597a8a5336c1e88c07",
       "source": "official",
       "sdk_methods": [
         "SetPurposeOfConversation",
@@ -10195,7 +10333,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "4e43fbb51517e165b5a1a9ee42b95a65be1c34005f4d184654f98ed10e064a13",
+      "source_hash": "a27b4523651f41c32c32a2f974e68e53f8962be06e5f3591cebf0e676c522b7f",
       "source": "official",
       "sdk_methods": [
         "SetTopicOfConversation",
@@ -10241,7 +10379,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "84eedfddf83f2f0c6875e16ca6d1845c1c13e04536c8b3272fd2f1763f5f444f",
+      "source_hash": "3849144e65c0c9aec902cafd8043646e11bf133fb4e88a068223a00c22d93da0",
       "source": "official",
       "sdk_methods": [
         "UnArchiveConversation",
@@ -10278,7 +10416,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "bbdfe8c2f8035019e367fdea2527bde9a2ed93f153f39f6ce4511acf97813121",
+      "source_hash": "93a4c46cd7ff822cdbe3b89e79c05c55aac291e84e63d29285e74089287f59df",
       "source": "official",
       "sdk_methods": [
         "OpenDialog",
@@ -10304,7 +10442,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "270586f771d684edc956eaf6cc7693747a7d1cf7ec5c7f142d74cb37c5f4bc64",
+      "source_hash": "70563128a789aa3f3fe783868db8a8a2c347ee64214b07f71b89b49c36f55a97",
       "source": "official",
       "sdk_methods": [
         "EndDND",
@@ -10330,7 +10468,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "c18c861edacb6c2317fd02ffee0e0b78d753e5dbb09ed0bfb222ef9ceafc3f76",
+      "source_hash": "0d11257a0dbc0c154f09ffc494e9700232f9fc7be5375e5f344baca1d0b0c3f3",
       "source": "official",
       "sdk_methods": [
         "EndSnooze",
@@ -10368,7 +10506,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6d121fc9587935d78c5646b6abd0ec828994429471f70acf3978f1bcbc88a042",
+      "source_hash": "f7ef4464e8898679cf598d1800de75aa1f0cfe11562f78e1a8d01607059f3f03",
       "source": "official",
       "sdk_methods": [
         "GetDNDInfo",
@@ -10404,7 +10542,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "020781452774340f6a881e33c37174959586aab2a7a6c45258f9d17d9a0afdd9",
+      "source_hash": "1a499263bde99839f5e60372d9fde0866d923dff6fe6b6de68a7b2d4aeaf156d",
       "source": "official",
       "sdk_methods": [
         "SetSnooze",
@@ -10446,7 +10584,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "1d60fdab638ce3fa746726a8130b24dccf7824f70cffbbe93a1d7a2fb7a505f3",
+      "source_hash": "023db85649a154f64b50573c6fa7979d192f1e86c374207bde39fe6881da6a04",
       "source": "official",
       "sdk_methods": [
         "GetDNDTeamInfo",
@@ -10480,7 +10618,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "772b2b01035f5d778d1a9819bb37cbc8233832cc80f2b88f3b21f43d218ddf9c",
+      "source_hash": "fb54af94049dee48189c86172071842aba2bc5be85b5279cdc8c40cdb88ec3e5",
       "source": "official",
       "sdk_methods": [
         "GetEmoji",
@@ -10519,7 +10657,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ad4e962666b44c82a0b85439b7c6c71bd0ec05c475947654c8ab0f5205c13d94",
+      "source_hash": "abe082d8e07bd6a52274a59d6d0aa3617456ce618791a63101a12ff1f87b981d",
       "source": "official"
     },
     {
@@ -10576,7 +10714,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "77552c2942b0c00009926546884f914c835195988f7d7b648d2da7bee1954f28",
+      "source_hash": "6d67c78eda4a986aa8b953e18aa99fb5d90026e29735842ba59554863e179551",
       "source": "official"
     },
     {
@@ -10619,7 +10757,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "e2ccd0e709580611e05077ed0a3c021edac280cd7521dcbdd4e00319c1a1772b",
+      "source_hash": "aa38500939b72d6ff0f00457da871baedd2b4bdbffc71c694762f30a9b455cbf",
       "source": "official",
       "sdk_methods": [
         "EntityPresentDetails",
@@ -10667,7 +10805,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "cbf7fbd4455881e16de038d8b659eb7776ba1752af71eafd5c6cc195235fb962",
+      "source_hash": "821d2ec0ef7571c434b1da0e074f893d19752d2c0c4f7c68e77d230f81b8e79a",
       "source": "official",
       "sdk_methods": [
         "DeleteFileComment",
@@ -10736,7 +10874,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "c09dab48b8f334dc89b1700505cfc89e10e7a79ff18dc167dcca3e9ce066db52",
+      "source_hash": "23850d0af823c5494cbb6499fdef6ffcb0f10d5fe68a77e8b75d5d779674d526",
       "source": "official",
       "sdk_methods": [
         "CompleteUploadExternalContext",
@@ -10776,7 +10914,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "e84d5eaad15d1c95aee2dc3c42d055b36c63180fa97b07185224b4b4f9372df9",
+      "source_hash": "7a28c9f383d30e1b03032695e0485b54772a77d874d9f26069453380da4e50e7",
       "source": "official",
       "sdk_methods": [
         "DeleteFile",
@@ -10829,7 +10967,7 @@
       "authentication": "bearer",
       "response_format": "json",
       "sensitive_response": true,
-      "source_hash": "9fdec7950157972f4c31d2ee2460407b7d180ac3a715970a09e17fe55f562b8b",
+      "source_hash": "68ace8cea7d05eb86d8d4ca6c23fdeaca98a686854b8bcae6ee5dcf41beee73c",
       "source": "official",
       "sdk_methods": [
         "GetUploadURLExternalContext",
@@ -10886,7 +11024,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0404cbe39ab242552286eebbf67ac24537e2dbf2ffb3386d8db9e29e9e0e32ad",
+      "source_hash": "305a731336f55c40a0093d7a5ffa2ffeade7924ac414c9cb1701f53888b093f5",
       "source": "official",
       "sdk_methods": [
         "GetFileInfo",
@@ -10953,7 +11091,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "81105477300a06b7842ca0dda15428bf056bff773264381d4c488bc0e55daec8",
+      "source_hash": "d0a95b23e0d6e3cd23b37f527239f284b8e57411246f4b25d7c9ef558614d1fd",
       "source": "official",
       "sdk_methods": [
         "GetFiles",
@@ -11012,7 +11150,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ad21f2641e3839bbe1bfc1a9b742dfd4016a1d8e61c5d1034a8b735b083e2181",
+      "source_hash": "577a2dcc32e996f2aff0ccee0b41b63963bcd38bd754207aa3e51a8c046684bd",
       "source": "official",
       "sdk_methods": [
         "AddRemoteFile",
@@ -11050,7 +11188,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "9d668313354802d8fa08a6a5fa0661db66e06dbc8e7e7bc93c88e94b7651d115",
+      "source_hash": "b929cbf7c6959c1f76473378efab50bbdd4e762acacf3752b06168984a429616",
       "source": "official",
       "sdk_methods": [
         "GetRemoteFileInfo",
@@ -11102,7 +11240,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2744feb24f5a8740f7b4643b4f002403976c91dc6745188742509e19b6f73936",
+      "source_hash": "3b3212fe77de1e7eacd6f89072cb569101e44a4a328e6a74ba3f1d357deae14a",
       "source": "official",
       "sdk_methods": [
         "ListRemoteFiles",
@@ -11137,7 +11275,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "028ca670e98ed697dc2da6e09455423e5b8d7d58750cc8899277c8a0b2983e9d",
+      "source_hash": "0cb6725be60b857b610c3153bc4119d34ec57be7ad7db492b970cf167c15e30f",
       "source": "official",
       "sdk_methods": [
         "RemoveRemoteFile",
@@ -11183,7 +11321,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "850bd2149f0814ed5902f6811a304a1647cb17f8e1a0b02292bd281dc8c8d95b",
+      "source_hash": "e66cbf60bbe0a79bbf941e87cabc46d8df10f92f7754336d6760a1ed038f57c6",
       "source": "official",
       "sdk_methods": [
         "ShareRemoteFile",
@@ -11236,7 +11374,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "61978abbfb09e673c63117726110e9d71e76cc14751d797fa2e7b66415e9f955",
+      "source_hash": "809b1a15282cb15e933ec9c1afeb198fbef20e3c4eaf116e6afe1c22a66f48f5",
       "source": "official",
       "sdk_methods": [
         "UpdateRemoteFile",
@@ -11275,7 +11413,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "4470408b190fa4e024a5daf8195b924afaf6be8936117a457301338c2d134ea4",
+      "source_hash": "5e13c9333d13fcfbc1ee022d09218a926d347d21478238a93239261b6c270349",
       "source": "official",
       "sdk_methods": [
         "RevokeFilePublicURL",
@@ -11312,7 +11450,7 @@
       "authentication": "bearer",
       "response_format": "json",
       "sensitive_response": true,
-      "source_hash": "0e159088970181a2fbc991c5315512276fe23f64ad9e20538944285769308668",
+      "source_hash": "5bed5df254ac73c1f2b676962ef7be25a9d51422ee37e1ec297b01a201b85f34",
       "source": "official",
       "sdk_methods": [
         "ShareFilePublicURL",
@@ -11375,7 +11513,7 @@
       "response_format": "json",
       "deprecated": true,
       "unsupported_reason": "Slack documents this endpoint as deprecated or retired",
-      "source_hash": "514a3f869b91298c3db097fb0abf7ef2a5b41e0855658a5d3ded32562bef7b6b",
+      "source_hash": "1bd2e59bd74a0648d205d856d593fd002f4c27bbacf16b45f79e7b1493490074",
       "source": "official"
     },
     {
@@ -11408,7 +11546,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "77c611c8e3e7697aa44fb63de65776110f7f7c2ac22706ada5648e0f2b1c5b10",
+      "source_hash": "504ca1cb9a527c6085cc6cc6e971532b70d1971b5f17451e4be0e7c69956acba",
       "source": "official",
       "sdk_methods": [
         "FunctionCompleteError",
@@ -11445,7 +11583,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "d4cb1d3ed486a644addd48ec0256571f6cc81a0275545a2ddba36d30b52fc627",
+      "source_hash": "d641a01579553a206ba655abc83e4b10ad2b3f0960aaa66ce506acdd14253435",
       "source": "official",
       "sdk_methods": [
         "FunctionCompleteSuccess",
@@ -11484,7 +11622,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "613263b73c16e2d95e6812ef692bec61cd2f98a9ed63de2a5654d990ad94dc5f",
+      "source_hash": "53a30af9c02c48b8b460f8b2345212c80c9c11bd947240a4f457c72abdb018f2",
       "source": "official"
     },
     {
@@ -11515,7 +11653,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f74763bd58d6fad493bd6749fdf93250da461bb256ceb89442a2b30a95b9566b",
+      "source_hash": "14994306c3c38faa2d1b526429aa3862a06d3514afc12ae8122b234006ffc9c5",
       "source": "official"
     },
     {
@@ -11550,7 +11688,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a2bc2c5526e14164db7c1dbd61784ce26366e86bb0e29e97f2a3feea16cba954",
+      "source_hash": "ee5176f8b2e52ec6061f1869247d56475a08531027242dfae4f1cb7608c0051b",
       "source": "official"
     },
     {
@@ -11597,7 +11735,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a6d1c3eb585fff1b8ca2fdbd986a84b3dd750bc7c301edbe433a179dedba7916",
+      "source_hash": "243936a8490538e8f99ed05e46f4e7a43cdfed1484388fc6f9ba19c22809a3d9",
       "source": "official"
     },
     {
@@ -11636,7 +11774,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "991afd0a5ae2686e0dd22a4d7af4b16103971652ef962089f08a7445a30af980",
+      "source_hash": "9ff09fe75a6cfd4a3e73ea9e7b9d536247dc4d97bfb61405e5c0cd0c9f3b7621",
       "source": "official"
     },
     {
@@ -11675,7 +11813,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "e35b3433348836ad2d902c0548780ca39ef1b73225c2de4ec58b0e0977b2cfac",
+      "source_hash": "ea2d6f046dea984e5de31178ca6c39e3a48a1d1e20ec642b5cdcd0214403eb23",
       "source": "official"
     },
     {
@@ -11717,7 +11855,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2084ccbff9956e28ca104ea15409e841b4673352ea5ca5c674acea94dd476407",
+      "source_hash": "745cbd2b5ac2d97eff57e73d89c2b9fac3c898460532098b91cb69467e1ec29f",
       "source": "official",
       "sdk_methods": [
         "MigrationExchange"
@@ -11761,7 +11899,7 @@
       "response_format": "json",
       "sensitive_response": true,
       "unsupported_reason": "OAuth and OpenID endpoints require their own authentication flow",
-      "source_hash": "145493eca65dc7e35a5e1362d17bae1a8771aa0da00813ef6f9e04f16d478441",
+      "source_hash": "1b73f74eaf2ff040aac54ea297f38151ccfa7000d101500cf27b5fbc5c705292",
       "source": "official"
     },
     {
@@ -11813,7 +11951,7 @@
       "response_format": "json",
       "sensitive_response": true,
       "unsupported_reason": "OAuth and OpenID endpoints require their own authentication flow",
-      "source_hash": "5b56a6e161ad48dec62867e04c7aef1757bfc091d8cd888ed707eb57bc239cf5",
+      "source_hash": "16ad0031a1e966276c6e1e6f3dcc771dce5ca225e7fa654af9a78cfb902d9669",
       "source": "official"
     },
     {
@@ -11847,7 +11985,7 @@
       "response_format": "json",
       "sensitive_response": true,
       "unsupported_reason": "OAuth and OpenID endpoints require their own authentication flow",
-      "source_hash": "72f60f6d034ccf65da3b2f95a7fbf3d9071ebb858e15fa57310ccf0adc9a5bd3",
+      "source_hash": "74e9117e36135ec232363ae991612515b657f7211a436911f6b95b7db83f8a39",
       "source": "official"
     },
     {
@@ -11887,7 +12025,7 @@
       "response_format": "json",
       "sensitive_response": true,
       "unsupported_reason": "OAuth and OpenID endpoints require their own authentication flow",
-      "source_hash": "a92d2bb11dd79975ad63b3b31fb62e3f8430edb8d0470730c99eed42997a8966",
+      "source_hash": "86990b1fe17b4ec7781abca344368f8423976e5409b73496d7e837f3490e79f8",
       "source": "official"
     },
     {
@@ -11921,7 +12059,7 @@
       "response_format": "json",
       "sensitive_response": true,
       "unsupported_reason": "OAuth and OpenID endpoints require their own authentication flow",
-      "source_hash": "66d6949a7bd195257be54bcb41056c9ac9a4f3189630635fbec154781d3181a5",
+      "source_hash": "602683b8b6de142014a11110835bc4a81a41c120e2213df631164aaa88076ee3",
       "source": "official"
     },
     {
@@ -11973,7 +12111,7 @@
       "response_format": "json",
       "sensitive_response": true,
       "unsupported_reason": "OAuth and OpenID endpoints require their own authentication flow",
-      "source_hash": "7ab91c89d1987d9c8bcbb6f043f3c6a2c2ceca1d9f6f1d999afdadfa110f4b89",
+      "source_hash": "4bf76f846a3caa339adfcdbaf80b5b04cc9f567f9a4215ce082e52ff7e9503a3",
       "source": "official"
     },
     {
@@ -12021,7 +12159,7 @@
       "response_format": "json",
       "sensitive_response": true,
       "unsupported_reason": "OAuth and OpenID endpoints require their own authentication flow",
-      "source_hash": "da76b0c586dc17882159fa6612f4ac333ee1fc14091a4683ed388f1fd03b9331",
+      "source_hash": "39c6f92fe8052ffc670500b49f04ab25552da035405972dc1f7651ee3ab9adca",
       "source": "official"
     },
     {
@@ -12044,7 +12182,7 @@
       "response_format": "json",
       "sensitive_response": true,
       "unsupported_reason": "OAuth and OpenID endpoints require their own authentication flow",
-      "source_hash": "2e5f32785d146dcd13e0343c78616f8cd9bea490b09a205bd3b52bb3544e3008",
+      "source_hash": "25c017c08bbcac799832e4c9e3566ac49dd477057c8533ff84f51b7d6d12f574",
       "source": "official",
       "sdk_methods": [
         "GetOpenIDConnectUserInfo",
@@ -12087,7 +12225,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "c803bd3d096c8671b2e9ce6d178eaa69f3a78f2e206566457ee9067dbd211470",
+      "source_hash": "cd8b994fe091c7d241c0b5b45b10e4ea446b8e163e4f989d024e705b830834e3",
       "source": "official",
       "sdk_methods": [
         "AddPin",
@@ -12125,7 +12263,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "50616cbe4001c129612e11214d4bc1ac59b9d1298e21338575535efb916a8aed",
+      "source_hash": "50df4634c3d8baec5dbde90e0a7b666c88730f960a0c201e4e5a8722310315b0",
       "source": "official",
       "sdk_methods": [
         "ListPins",
@@ -12168,7 +12306,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2c85fb9fc6716f26a8a2a8ee8c0419bcc58e7f1611ddce90524005636640f543",
+      "source_hash": "1224e30303d172ce35e1bfb91396da01b65696ed5d387d0d53bd00594dc9373c",
       "source": "official",
       "sdk_methods": [
         "RemovePin",
@@ -12219,7 +12357,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "32db85a87b243059ba72affabfc62c24b457235aa6eda18f9d07b36854b09e8c",
+      "source_hash": "6efac6128fb05c6f218b837407f7c6fb0edca6dc27ba3cc64b68ec14ab5cc696",
       "source": "official",
       "sdk_methods": [
         "AddReaction",
@@ -12269,7 +12407,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "bc94fdac7ccdf6a3efb3db9fe5560c7ed641d18ed6f04202f9bd928740d31d1d",
+      "source_hash": "bae3a2637be00fad54a0b4a006636064a55edbc499bc41f51c1c73218d27c000",
       "source": "official",
       "sdk_methods": [
         "GetReactions",
@@ -12329,7 +12467,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ae14c1dea5253202d9c299a96a3bb09831d2bdcffc8382df950200f3b22ccb99",
+      "source_hash": "05b23f53a898d38348c40c1e82b8f49e6be98c0643e8eaef11999a8f4c799764",
       "source": "official",
       "sdk_methods": [
         "ListReactions",
@@ -12384,7 +12522,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f721f601a16dd3428f26288a3f7c8e6729856f1eb7ea635197d3c658d62a487e",
+      "source_hash": "0d4b6fbd0653725f9f69e6bd06c1898850ebb9a04c14394da9c0aab91347cca1",
       "source": "official",
       "sdk_methods": [
         "RemoveReaction",
@@ -12438,7 +12576,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "5160d78d94e98950493403bf304252e183457f8bf273af79a9ecac6cc197771d",
+      "source_hash": "17f57d32f0b1b5b708167584443b56ad77727435374926e6da5f567d46d5dfe8",
       "source": "official",
       "sdk_methods": [
         "AddChannelReminder",
@@ -12480,7 +12618,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f8b48b593e7b0530e4793e01bfe724e777a736db11d3ac8eeb2b6dad3584639d",
+      "source_hash": "39c79e00d5fb4ece3d0499314bd2017dcb4e14c7c7f3cf3745de1f749085682d",
       "source": "official"
     },
     {
@@ -12516,7 +12654,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "784889bf43a56bfe742f075a56457ce07ac3a69c78a85a311534cbd5e7c3fce8",
+      "source_hash": "c186715d7d14349d08cfa28bd9b2548126d528e25a85f3c6b94a8d58d8d4c5f6",
       "source": "official",
       "sdk_methods": [
         "DeleteReminder",
@@ -12555,7 +12693,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "7a776170269b8213d97cfc9d55d07203c687bef312d0cd366e214c5d6f47d5ca",
+      "source_hash": "bb4eea97cc7da7042b13ef0db790bd87a00603acdbc5dc21d44585aefdb4f7bd",
       "source": "official"
     },
     {
@@ -12582,7 +12720,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "51e5a38e0f0b7a0521f77082f43a36ed45d7daf384d24432490c6e07fc8381ac",
+      "source_hash": "bdacf77b8fd1311e61cd8ee6ee7e9a0019bf2f9fda54cef18b411ff77b6fbe2d",
       "source": "official",
       "sdk_methods": [
         "ListReminders",
@@ -12613,7 +12751,7 @@
       "authentication": "bearer",
       "response_format": "json",
       "sensitive_response": true,
-      "source_hash": "a2dc46e7edbfcd5a12cec05303c7a2f030c402f7736e457e3a1670703a2c5b30",
+      "source_hash": "3f6febfded7d8832ad3ce7e576044b870c4975bf3f8f6b5d57c7b42c963f6362",
       "source": "official",
       "sdk_methods": [
         "ConnectRTM",
@@ -12669,7 +12807,7 @@
       "deprecated": true,
       "sensitive_response": true,
       "unsupported_reason": "Slack documents this endpoint as deprecated or retired",
-      "source_hash": "8d2ada0ed8ff27c7abff3d986cd848ea9b1dfb20245e99d6e23c6074513ede72",
+      "source_hash": "77692fcdd21382433cd7cc57a019fa1aa0370a59ddb9672a64b0c07ad4c5fc5f",
       "source": "official",
       "sdk_methods": [
         "StartRTM",
@@ -12732,7 +12870,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "bb040186f9ef734f320d0c4e4d6317278743f3b9253d021dbd115550bd0af481",
+      "source_hash": "ac661db5f5507f7a3b8b9abcb1b3784be73eeaf2adb554a4c60510e3f3e073ec",
       "source": "official",
       "sdk_methods": [
         "Search",
@@ -12795,7 +12933,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "d76c0e0ef54d7e95719300145c60d88365a57040607a2be684a4d064e19285d2",
+      "source_hash": "2aca080e2aba4a76c5c92a34a59c12b1d298bf638a420cc90681785f3bd9feed",
       "source": "official",
       "sdk_methods": [
         "SearchFiles",
@@ -12863,7 +13001,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "552df8141bed376a170b36d03ce86766127bce7b817e5577ea36c1251af66984",
+      "source_hash": "f548d061cbf0f696738d8133ea73a886c3574684ed9e379bbc6c719d5621f474",
       "source": "official",
       "sdk_methods": [
         "SearchMessages",
@@ -12909,7 +13047,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "48ecf3c84d3dd6450e262078eb0a477ea45c3022f5c3d27b23c6ea9da42059ed",
+      "source_hash": "f09c3044211906d05d2f2f36851c936db9e536c03755dabf3db85d0bc2194b78",
       "source": "official",
       "sdk_methods": [
         "DeleteListAccess",
@@ -12960,7 +13098,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "542fb230d13499db441823ed53d4645566c26c146bbdaae3d3deb419549f7a9c",
+      "source_hash": "3734641ab206495afb40f15b557fefb3d3acc4f02599799ed4ebc57364ef06fd",
       "source": "official",
       "sdk_methods": [
         "SetListAccess",
@@ -13019,7 +13157,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a70ba8b9655381628eb2fe800e81b5de963eea34e763f0c342fdbf9812f5b6b2",
+      "source_hash": "e5bfe1908121d7a0b08d79e90cf3a3c9c948f29d789837c0dc23a4c99ff51b94",
       "source": "official",
       "sdk_methods": [
         "CreateList",
@@ -13081,7 +13219,7 @@
       "authentication": "bearer",
       "response_format": "json",
       "sensitive_response": true,
-      "source_hash": "8b3b884a7744560583ad1f466e205037bc04c7dd85dfc8583900b160c1ac9667",
+      "source_hash": "33d77f68f1f6c7fb845261b55758d6c6f92b1e58361d58b1d34bdd12c47496ff",
       "source": "official",
       "sdk_methods": [
         "GetListDownload",
@@ -13136,7 +13274,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "8dcb041cb39a631a9d2b5aa768b774771d01445055bc2989f543287779ad690a",
+      "source_hash": "1b83d448af0777be988904e85d58c682ad6ebffbe30484435bb5a5e4ff17a86d",
       "source": "official",
       "sdk_methods": [
         "StartListDownload",
@@ -13184,7 +13322,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "c440ffc69deb9353ded54a13b996ea7a7ae345d054d9c4e94a046bf3aacc5665",
+      "source_hash": "1dc61817b2ff178376697ffe23c2833b332e5e7e98a98540196ebdc89260f1a6",
       "source": "official",
       "sdk_methods": [
         "CreateListItem",
@@ -13229,7 +13367,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "bcea3c5aa8283b8cf883f01dacb15d6a347817304daeff5a2db0f6e8fb7707c8",
+      "source_hash": "eb0cf718c6d914de679f49971538bf0f780ad474115a3cabb24e18798047f2af",
       "source": "official",
       "sdk_methods": [
         "DeleteListItem",
@@ -13274,7 +13412,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "1d7759ad620208b99579f099ea8e00ebf691831949a1a8280fe0a21904bee725",
+      "source_hash": "8dd51ebff6e902962fcb6e2867712fb216c910056cb06ff89ff5f6838439ce78",
       "source": "official",
       "sdk_methods": [
         "DeleteListItems",
@@ -13324,7 +13462,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3185f8cdd2b126f004f51ce72e6db3d25d620b3de67ee153c5b3fb02febaeac5",
+      "source_hash": "1cfc504432eda96800f30178fc2cb25a45f650bc54de64666ac6d274b694e96c",
       "source": "official",
       "sdk_methods": [
         "GetListItemInfo",
@@ -13380,7 +13518,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "148adb6c62dcc8d40acc4e2c27c6b93b19b9bb1d5e67ce1e2389542589582145",
+      "source_hash": "326760b56beb4861f9ccba6eda4a0aed35380226525f9a87cba202fa14b7ec5c",
       "source": "official",
       "sdk_methods": [
         "GetListItems",
@@ -13425,7 +13563,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "9fbef8e43f75a55359515e33604b6eead32312d0673fc3f26cd56f5b77faa55b",
+      "source_hash": "88f77107874f90287f9af743043b7ac92de6fd97a2ebc92c9a18142ac1ab91b4",
       "source": "official",
       "sdk_methods": [
         "UpdateListItems",
@@ -13475,7 +13613,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "9781e3d61eb2555495668c47017d3b2f2fb5b500308f9d2a193980e80d75aafc",
+      "source_hash": "7c26ad64550a533a39b8641cf93d396395c04673b5bdcc513773776d64f73414",
       "source": "official",
       "sdk_methods": [
         "UpdateList",
@@ -13537,7 +13675,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "38e3bb5a792ae4a1212ea68fd40e37c69bc2fb8c93268cc8d0bebe9c2bae0bc7",
+      "source_hash": "a1af691dcf818a854dc373baaa3865cb445deca9a25c276568c6e660b82895e9",
       "source": "official",
       "sdk_methods": [
         "CreateSlackbotSkill",
@@ -13576,7 +13714,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "723d1c32b6cd4ad6a8a913c474d8f27296e0ea5c3eb8d8e70187953ed762b0a5",
+      "source_hash": "4a7e6d299c32e6192543020a508bfd281886ae807b6199dc0603948a0f2d4875",
       "source": "official",
       "sdk_methods": [
         "DeleteSlackbotSkill",
@@ -13615,7 +13753,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "b4f1e833819a42f44f2511badfc4eab8507afd37e075edaf8db51c7cdbcd1290",
+      "source_hash": "da4184c8c64a9b18dd77fe8f91b4a0862c3fae224666e5c6473aad655cbd0482",
       "source": "official",
       "sdk_methods": [
         "GetSlackbotSkillInfo",
@@ -13654,7 +13792,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "aeb994ba8d8a50578e38a666f61d28cd0d9e486e144fadd71dfa6984ecd77e19",
+      "source_hash": "48e34a6eee392700ddb167aa0c3ae83025217efe8b31e1274b9ae1a785a0f966",
       "source": "official",
       "sdk_methods": [
         "AddSlackbotSkillToLibrary",
@@ -13693,7 +13831,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "49057462c4784a4bc5bd603cab3a64eb1c0c392fdbed356af9f796f080674744",
+      "source_hash": "7f2c48f1a4e006b38e5348f098ba1420e6f0ace17e8ce3d7f6d87450b58dd1e4",
       "source": "official",
       "sdk_methods": [
         "RemoveSlackbotSkillFromLibrary",
@@ -13742,7 +13880,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "fd7261ae6f5625efae13837b7c2466f4dd072490087a3de09ac90b96f321a8c7",
+      "source_hash": "624922651eece58ff928b63d08e68ee9988c606a96e611b228638d470117ba14",
       "source": "official",
       "sdk_methods": [
         "ListSlackbotSkills",
@@ -13805,7 +13943,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "52413c4d298db94b4c914ab5fb1e3f36dc33c5c413174ac6a994247509d4977b",
+      "source_hash": "5b9db42bbec334cfed6dbc7f7372cc58c0db5a5dad65dd8f20e21c3c23d3a93d",
       "source": "official",
       "sdk_methods": [
         "UpdateSlackbotSkill",
@@ -13851,7 +13989,7 @@
       "response_format": "json",
       "deprecated": true,
       "unsupported_reason": "Slack documents this endpoint as deprecated or retired",
-      "source_hash": "ef676885d6c8f84674bb1a7a5eb68e41876430e43ef1d8d7fa1a38fd689f5257",
+      "source_hash": "c5b152ecf56547ae94e65b017316a5f1ed5ed359f643f69b796ab0435f3c64d1",
       "source": "official",
       "sdk_methods": [
         "AddStar",
@@ -13902,7 +14040,7 @@
       "response_format": "json",
       "deprecated": true,
       "unsupported_reason": "Slack documents this endpoint as deprecated or retired",
-      "source_hash": "92ee3fe2fbcdea854366a4f7d712835ee97effb909f515b60cd8b0a5b9424c33",
+      "source_hash": "2659d2283c8d377d5449810e26331f57d48f8c67aec58e08a2db16f7703ac30f",
       "source": "official",
       "sdk_methods": [
         "GetStarred",
@@ -13953,7 +14091,7 @@
       "response_format": "json",
       "deprecated": true,
       "unsupported_reason": "Slack documents this endpoint as deprecated or retired",
-      "source_hash": "40d956d19cb3f0990155c9618729e2169ef438d3b271ab4d5e9dd751fe90b8c1",
+      "source_hash": "32910a81e8a6a690b0476fae9bf753db7f2c45843811ccd0fd933ccc7a469f0e",
       "source": "official",
       "sdk_methods": [
         "RemoveStar",
@@ -14006,7 +14144,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "34beb8f7b54298ca228c9265fe4c3dc4f4733a653981aad320ba91b8ca57ba7b",
+      "source_hash": "7a6b6d8096cb94f10c841995d39a8abdec5bb6d1115669997810e09733e06b40",
       "source": "official",
       "sdk_methods": [
         "GetAccessLogs",
@@ -14049,7 +14187,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ccd102b0ba39c3b71d26d3d38859959444a6d1564259d8216cb671caa830612b",
+      "source_hash": "9624fba978734b7da05d99f30b5fa32003d87680c2a4bd49d67778e696686ad2",
       "source": "official",
       "sdk_methods": [
         "GetBillableInfo",
@@ -14077,7 +14215,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "249cde1c20df45f516dc96a97d9d49a0fde9558724131586bff56da761eaffa9",
+      "source_hash": "88c867ec7f3b80e05307cd0e7717acfe2db087872242667499932c25afdb8dcf",
       "source": "official"
     },
     {
@@ -14107,7 +14245,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ad59588587310d9f6f7378b040f0001b8a44c2ad7625eda0128c5bb51cfbe5b7",
+      "source_hash": "05d3db2c9aa948e9efceae301e149e96979f3ef24ae36d7f20fc963fb1539e0d",
       "source": "official"
     },
     {
@@ -14162,7 +14300,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "f74469d91a8ec9fc50b8b7294b174c90251b9aa6bf366e302add7ee2195afbaa",
+      "source_hash": "58f6e9f4155999428168166bf3c7724df8b8d0a089c0791c506fa4e53517382b",
       "source": "official"
     },
     {
@@ -14202,7 +14340,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "d551e3b474ea366c7ff910a88682c071d9cb35211221edf83bfb1b12ca7f5c7d",
+      "source_hash": "de6d63131a4c0d0078658040a30e495590c863bebed28270137b7e0303cba780",
       "source": "official",
       "sdk_methods": [
         "GetOtherTeamInfo",
@@ -14261,7 +14399,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "837c33b3251a20aaf5cdb9fae1e360e08c23d770dbf525858180674112093b55",
+      "source_hash": "9e84902cdb2365e30ad2714601bbc95eedb40f0a3970740f40a976266ca52abe",
       "source": "official"
     },
     {
@@ -14285,7 +14423,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0109e2e12e88709c584dbe78dfec0bd056765ce1b744ad2cbf6b688c26e02be0",
+      "source_hash": "515d6d8e6c20fcacdcc2ff23cb59f6afd74185b7468cfb2e2d791d0a75e4cfcf",
       "source": "official"
     },
     {
@@ -14315,7 +14453,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "4ca59bbcdde2317225d1020ae48a3eac057428df53b2da23c60bbea5e04ca186",
+      "source_hash": "6b68a30c3444c38b3db29a94a80799127c236d3dff54cf78a93e3476f964a78c",
       "source": "official",
       "sdk_methods": [
         "GetTeamProfile",
@@ -14346,7 +14484,7 @@
       "authentication": "bearer",
       "response_format": "json",
       "sensitive_response": true,
-      "source_hash": "b9059bc6c03bff3d9f1c4824a7b31c07a3434bde538bfaad22d239e4682825c8",
+      "source_hash": "c85ccf71f160f615a20a95d1e68d8b4fc16c9d4d666d4807b9aabb189ee43807",
       "source": "official",
       "sdk_methods": [
         "RotateTokens",
@@ -14413,7 +14551,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "7041d01f35f4caac00fd83379291dc710ba6626981de4a244a8fe0b9d282605b",
+      "source_hash": "35eaae3f776510f41afb5e654191b792fa3189914f7e5a170cc38014a133ef2a",
       "source": "official",
       "sdk_methods": [
         "CreateUserGroup",
@@ -14458,7 +14596,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a481fddf95710d668fa69b61ad4f32a71db0b45691b5a48018bdd6e6c857b340",
+      "source_hash": "2848ba7dd0e2fdeceb89cb9c8cc5a955f75cc128747fbd35d6e89518a6e429c3",
       "source": "official",
       "sdk_methods": [
         "DisableUserGroup",
@@ -14505,7 +14643,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6479d14418a527fbeaef71db02b0d9470a50bf4f94bfe25c186ce86a9a6d2169",
+      "source_hash": "2955a81721c3e03d091dcfdc508151316381d21d8668811117943fdad2b9dcb4",
       "source": "official",
       "sdk_methods": [
         "EnableUserGroup",
@@ -14551,7 +14689,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "2acbca119fd49c84612f554ecc2b71889aea07e6feaef9e26276e32e22778964",
+      "source_hash": "cbe8d2de39a1124acb842de318f8c99d4e77d9ad0ae4d69230112653aabb877f",
       "source": "official",
       "sdk_methods": [
         "GetUserGroups",
@@ -14620,7 +14758,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "5c5828fcb60310995af9aef0e0fdf611d66eddb03b6b1cadd3c5e0cce67e90cc",
+      "source_hash": "f58db8d12002cb3bcc8f63d5c54413b3279ed6d22960543d3ffbda3496b78c6a",
       "source": "official",
       "sdk_methods": [
         "UpdateUserGroup",
@@ -14666,7 +14804,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3ef57dd6075b35ce1541e355631638ecdc5a83ce0739506fd4a1b527d1eaa1de",
+      "source_hash": "e9050832bc6b65491be71016468f45f6ba6c87d54da565107c94b9a5eecbd72b",
       "source": "official",
       "sdk_methods": [
         "GetUserGroupMembers",
@@ -14727,7 +14865,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "df8cc55163f51b66396d3b97efabdfc3593b3e913fc264bcc45433151d2b4fa3",
+      "source_hash": "68bde20ade7fd3d6d4ef1080095a633257412ce0d9f60aa7571fb4c98c41e4bc",
       "source": "official",
       "sdk_methods": [
         "UpdateUserGroupMembers",
@@ -14739,13 +14877,13 @@
     {
       "name": "users.admin.invite",
       "description": "Endpoint referenced by the pinned Go SDK; not indexed in Slack's current method documentation.",
-      "url": "https://github.com/slack-go/slack/tree/v0.35.0/admin.go",
+      "url": "https://github.com/slack-go/slack/tree/v0.36.0/admin.go",
       "read_only": false,
       "pagination": "unknown",
       "authentication": "bearer",
       "response_format": "json",
       "unsupported_reason": "SDK endpoint is absent from Slack's current method index; its request contract needs review",
-      "source_hash": "482ae618ed5704ee440031133143f7bc14c592a8e8642704cdd0b863bd22a37f",
+      "source_hash": "7aee40ced780831d5e8c3de4a889e752a681355485e007aa22c7242eea33a78c",
       "source": "sdk",
       "sdk_methods": [
         "InviteGuest",
@@ -14759,13 +14897,13 @@
     {
       "name": "users.admin.sendSSOBind",
       "description": "Endpoint referenced by the pinned Go SDK; not indexed in Slack's current method documentation.",
-      "url": "https://github.com/slack-go/slack/tree/v0.35.0/admin.go",
+      "url": "https://github.com/slack-go/slack/tree/v0.36.0/admin.go",
       "read_only": false,
       "pagination": "unknown",
       "authentication": "bearer",
       "response_format": "json",
       "unsupported_reason": "SDK endpoint is absent from Slack's current method index; its request contract needs review",
-      "source_hash": "482ae618ed5704ee440031133143f7bc14c592a8e8642704cdd0b863bd22a37f",
+      "source_hash": "7aee40ced780831d5e8c3de4a889e752a681355485e007aa22c7242eea33a78c",
       "source": "sdk",
       "sdk_methods": [
         "SendSSOBindingEmail",
@@ -14775,13 +14913,13 @@
     {
       "name": "users.admin.setInactive",
       "description": "Endpoint referenced by the pinned Go SDK; not indexed in Slack's current method documentation.",
-      "url": "https://github.com/slack-go/slack/tree/v0.35.0/admin.go",
+      "url": "https://github.com/slack-go/slack/tree/v0.36.0/admin.go",
       "read_only": false,
       "pagination": "unknown",
       "authentication": "bearer",
       "response_format": "json",
       "unsupported_reason": "SDK endpoint is absent from Slack's current method index; its request contract needs review",
-      "source_hash": "482ae618ed5704ee440031133143f7bc14c592a8e8642704cdd0b863bd22a37f",
+      "source_hash": "7aee40ced780831d5e8c3de4a889e752a681355485e007aa22c7242eea33a78c",
       "source": "sdk",
       "sdk_methods": [
         "DisableUser",
@@ -14791,13 +14929,13 @@
     {
       "name": "users.admin.setRegular",
       "description": "Endpoint referenced by the pinned Go SDK; not indexed in Slack's current method documentation.",
-      "url": "https://github.com/slack-go/slack/tree/v0.35.0/admin.go",
+      "url": "https://github.com/slack-go/slack/tree/v0.36.0/admin.go",
       "read_only": false,
       "pagination": "unknown",
       "authentication": "bearer",
       "response_format": "json",
       "unsupported_reason": "SDK endpoint is absent from Slack's current method index; its request contract needs review",
-      "source_hash": "482ae618ed5704ee440031133143f7bc14c592a8e8642704cdd0b863bd22a37f",
+      "source_hash": "7aee40ced780831d5e8c3de4a889e752a681355485e007aa22c7242eea33a78c",
       "source": "sdk",
       "sdk_methods": [
         "SetRegular",
@@ -14807,13 +14945,13 @@
     {
       "name": "users.admin.setRestricted",
       "description": "Endpoint referenced by the pinned Go SDK; not indexed in Slack's current method documentation.",
-      "url": "https://github.com/slack-go/slack/tree/v0.35.0/admin.go",
+      "url": "https://github.com/slack-go/slack/tree/v0.36.0/admin.go",
       "read_only": false,
       "pagination": "unknown",
       "authentication": "bearer",
       "response_format": "json",
       "unsupported_reason": "SDK endpoint is absent from Slack's current method index; its request contract needs review",
-      "source_hash": "482ae618ed5704ee440031133143f7bc14c592a8e8642704cdd0b863bd22a37f",
+      "source_hash": "7aee40ced780831d5e8c3de4a889e752a681355485e007aa22c7242eea33a78c",
       "source": "sdk",
       "sdk_methods": [
         "SetRestricted",
@@ -14823,13 +14961,13 @@
     {
       "name": "users.admin.setUltraRestricted",
       "description": "Endpoint referenced by the pinned Go SDK; not indexed in Slack's current method documentation.",
-      "url": "https://github.com/slack-go/slack/tree/v0.35.0/admin.go",
+      "url": "https://github.com/slack-go/slack/tree/v0.36.0/admin.go",
       "read_only": false,
       "pagination": "unknown",
       "authentication": "bearer",
       "response_format": "json",
       "unsupported_reason": "SDK endpoint is absent from Slack's current method index; its request contract needs review",
-      "source_hash": "482ae618ed5704ee440031133143f7bc14c592a8e8642704cdd0b863bd22a37f",
+      "source_hash": "7aee40ced780831d5e8c3de4a889e752a681355485e007aa22c7242eea33a78c",
       "source": "sdk",
       "sdk_methods": [
         "SetUltraRestricted",
@@ -14897,7 +15035,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "a08d547e8a7e151a3817e2d7230ff4cb9db63b5461de4decd9e9379cfd83ad37",
+      "source_hash": "e4b9081718e4bf5d2b73883c81d8e68f53572e09f98707f6dac9f272d9892061",
       "source": "official",
       "sdk_methods": [
         "GetConversationsForUser",
@@ -14922,7 +15060,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "3c75d3b801edccd2b71dbef96c6cf15bdfb46f4afd35de0c767913ed86c6d119",
+      "source_hash": "848a1628e948719c34210fa88bf9a55e5d3f095d208a739b2eed9496d85970a0",
       "source": "official",
       "sdk_methods": [
         "DeleteUserPhoto",
@@ -14959,7 +15097,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "6759546e96c38eba687da1fb3a72028a10ae8d0ed033d55a43e144f7a3e550ec",
+      "source_hash": "3637385db99bae681eaefe6532b952b0b7443c5de70ba8b35ade230a63413e09",
       "source": "official"
     },
     {
@@ -14989,7 +15127,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "b36a213c88ce6c555b93ca55dd55ce50aee8d929c5fc915b08f08b01b9f1835d",
+      "source_hash": "00d430dac2091ccbe9ca00cbba3d517cc376edc27bacca493270584c4214222b",
       "source": "official",
       "sdk_methods": [
         "GetUserPresence",
@@ -15014,7 +15152,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "51413d2455ac8fda15a715a514b4ad789b15c3499ccbe069dd150201b6121f30",
+      "source_hash": "49e49920f3d77e9353759858f7fe9bd4bb133a9f9e1d1e1894d3de71e5331291",
       "source": "official",
       "sdk_methods": [
         "GetUserIdentity",
@@ -15052,7 +15190,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "b31587005e27705ad2bf6a56f8479a9d81de8f3d6aae1a3d1db3e63a1c385d20",
+      "source_hash": "d6e8d68c4b701a55052ef771af91ad4072192adf6085a73ecce242fdb809d15e",
       "source": "official",
       "sdk_methods": [
         "GetUserInfo",
@@ -15100,7 +15238,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "56d9a4b4a1d07d4ed1317b482ab1b4548d540061d22c54fbed75a4c1b544f94c",
+      "source_hash": "e4b3f91b99f9a6e61189c22938ba3f2bb48eae1755cc53133465e4fb9685e9bc",
       "source": "official",
       "sdk_methods": [
         "GetUsers",
@@ -15139,7 +15277,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "9869cce5368e5e02b6cec42f5be626aba3b30aa3787ce8f780a8857af878548e",
+      "source_hash": "e8b8e3517c0eae39592972aacc0a8c3790dddfa149d1adfd0d79135b25f74133",
       "source": "official",
       "sdk_methods": [
         "GetUserByEmail",
@@ -15149,13 +15287,13 @@
     {
       "name": "users.prefs.get",
       "description": "Endpoint referenced by the pinned Go SDK; not indexed in Slack's current method documentation.",
-      "url": "https://github.com/slack-go/slack/tree/v0.35.0/info.go",
+      "url": "https://github.com/slack-go/slack/tree/v0.36.0/info.go",
       "read_only": false,
       "pagination": "unknown",
       "authentication": "bearer",
       "response_format": "json",
       "unsupported_reason": "SDK endpoint is absent from Slack's current method index; its request contract needs review",
-      "source_hash": "482ae618ed5704ee440031133143f7bc14c592a8e8642704cdd0b863bd22a37f",
+      "source_hash": "7aee40ced780831d5e8c3de4a889e752a681355485e007aa22c7242eea33a78c",
       "source": "sdk",
       "sdk_methods": [
         "GetUserPrefs",
@@ -15167,13 +15305,13 @@
     {
       "name": "users.prefs.set",
       "description": "Endpoint referenced by the pinned Go SDK; not indexed in Slack's current method documentation.",
-      "url": "https://github.com/slack-go/slack/tree/v0.35.0/info.go",
+      "url": "https://github.com/slack-go/slack/tree/v0.36.0/info.go",
       "read_only": false,
       "pagination": "unknown",
       "authentication": "bearer",
       "response_format": "json",
       "unsupported_reason": "SDK endpoint is absent from Slack's current method index; its request contract needs review",
-      "source_hash": "482ae618ed5704ee440031133143f7bc14c592a8e8642704cdd0b863bd22a37f",
+      "source_hash": "7aee40ced780831d5e8c3de4a889e752a681355485e007aa22c7242eea33a78c",
       "source": "sdk",
       "sdk_methods": [
         "MuteChat",
@@ -15212,7 +15350,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "431e8c33a7c65f926515cc38cd14f1452b4f847109a5f3b80450cef330d2d0f3",
+      "source_hash": "7888bab4466124ea9ac6f9188d254594aabce151e85a22dd67cd111ada837002",
       "source": "official",
       "sdk_methods": [
         "GetUserProfile",
@@ -15256,7 +15394,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "9ae85d1749bc3321746ed05c28b4ae5fb7b14c965802a5cfcc18859d9e6d75bf",
+      "source_hash": "1b6a2c3e8100b768dd848156c225e79d61e5302045b5c192e622aa607d0f2868",
       "source": "official",
       "sdk_methods": [
         "SetUserCustomFields",
@@ -15297,7 +15435,7 @@
       "response_format": "json",
       "deprecated": true,
       "unsupported_reason": "Slack documents this endpoint as deprecated or retired",
-      "source_hash": "3acf8e6a54e92eba9028c95234290651ce40039485c3d64f6fe4e49716894725",
+      "source_hash": "b7f523db64005a8dd994dc1aa8adbc56cc5cb6a9d81ae428976a2844ed8c69ed",
       "source": "official"
     },
     {
@@ -15336,7 +15474,7 @@
       "authentication": "bearer",
       "response_format": "json",
       "unsupported_reason": "requires a multipart file upload; use the typed SDK operation",
-      "source_hash": "ef0b58e28907aacf2a1b06858fff8fd92b4d802bbbddb09c4f6e79a69a71850e",
+      "source_hash": "a461fb838717973e22ddbef959b6787ffbf828707db1e882b05f75426d8324c6",
       "source": "official",
       "sdk_methods": [
         "SetUserPhoto",
@@ -15375,7 +15513,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "d8eca275f00756d4d95c754c08173891f79c9856561e2a90dd0cb21f9943a120",
+      "source_hash": "df2d0a0d430a8cc05f21669928028df7e86441151fea13cc3833a59213643d16",
       "source": "official",
       "sdk_methods": [
         "SetUserPresence",
@@ -15411,7 +15549,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ce70d48f3847fcf8de3c7c4cfb390e244c621b4edf1d967b16664e13a210ef4e",
+      "source_hash": "e8fd6b137463b34907f50f6f16f03b3711cd8b6926ed8365590f9ca67a36f05e",
       "source": "official",
       "sdk_methods": [
         "OpenView",
@@ -15455,7 +15593,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "e8a8e35840c40b37d36117a7cf036cef844718f55db1b088bbca0ca63fdce5f6",
+      "source_hash": "a92e87a2925201968d45b46f405414b5939f2367a56789d554428a274e5c6078",
       "source": "official",
       "sdk_methods": [
         "PublishView",
@@ -15491,7 +15629,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "100d4321354410caa12b0b6483b19974cd5e2943436db311479ff6f007f704e8",
+      "source_hash": "a37eb067b338fb7f45454bf7621a4b9706ff56bf94d8e98cd6f6f75446b874dc",
       "source": "official",
       "sdk_methods": [
         "PushView",
@@ -15533,7 +15671,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "0c6c4e7d9146cd42c6e5d5604dbb19750f1a935256c08fe32c60e66b283a2c96",
+      "source_hash": "1ae199079df08772f63935bdbfa8b6f9ef14f598dfad65d5a4acdec431c9f70e",
       "source": "official",
       "sdk_methods": [
         "UpdateView",
@@ -15578,7 +15716,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "82417d10398897f9bcbc81f80d2ef028b8b28c6c058621d9213306d62b947e5c",
+      "source_hash": "c32d3f46db0a1fcb6528a97af4ce376394c805908dda7dab913cf46a0494a291",
       "source": "official",
       "sdk_methods": [
         "WorkflowsFeaturedAdd"
@@ -15616,7 +15754,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "cc94dedfef8be1a15f517987dd060fc4d37c461df70d58b8fa58c9799e77f483",
+      "source_hash": "d3c562b7230a144ff3efdb330e931c4093f223ecb984b84d5f8148c57a92728e",
       "source": "official",
       "sdk_methods": [
         "WorkflowsFeaturedList"
@@ -15660,7 +15798,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "137a5dff3cde5f40bf9acca7d7716c58634d1597832c51a8f3b57b91fd47de00",
+      "source_hash": "f231e25bbe6ac8bbf39762ad15cac76786128150fb4e66c829dd8c15eca44d65",
       "source": "official",
       "sdk_methods": [
         "WorkflowsFeaturedRemove"
@@ -15704,7 +15842,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "1e4fabe43b4a0c1c5614dc2660c47804060ec796e3082c6236d27f9b3163f9ee",
+      "source_hash": "3187be13608fd3829578f1dcd2667ae67e186deec78e906badb50522c1bcb284",
       "source": "official",
       "sdk_methods": [
         "WorkflowsFeaturedSet"
@@ -15755,7 +15893,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "b3cc1da6361398fce2294a47bd5e576862d154fc5fff0247cfe67fa6537ab5f9",
+      "source_hash": "580e8234a96deaa22545a0c28e8b987e4fccb3e87a4b165ca8cec8604ac2c942",
       "source": "official",
       "sdk_methods": [
         "WorkflowsTriggersPermissionsAdd"
@@ -15790,7 +15928,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ddc2062280bf62671aa71b2657ce291fbc5d89ef855df805a01695f72ff1f67e",
+      "source_hash": "0a0fbd40ed89602b5a16cd605bc5935511acd6377cbce4bb7e97f28f7bd37173",
       "source": "official",
       "sdk_methods": [
         "WorkflowsTriggersPermissionsList"
@@ -15841,7 +15979,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "ff418d3555d2444c4cba700aabad3e74772f7f173f460451de0b0d66bbdcc99d",
+      "source_hash": "2976f074fce925f18ef2ed608a9adc97e999213112a7a31e090a1b2dae244167",
       "source": "official",
       "sdk_methods": [
         "WorkflowsTriggersPermissionsRemove"
@@ -15898,7 +16036,7 @@
       ],
       "authentication": "bearer",
       "response_format": "json",
-      "source_hash": "007e65548728a7df47773f4a23681e882ec81df68651b56e03ea670ef4cb014f",
+      "source_hash": "5855ee9deaf589c931810114a445307909ee59be9417a04b5f66d97b034abdad",
       "source": "official",
       "sdk_methods": [
         "WorkflowsTriggersPermissionsSet"

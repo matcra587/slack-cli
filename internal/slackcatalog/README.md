@@ -2,7 +2,7 @@
 
 This package records request metadata from Slack's official method pages and the public client methods in the pinned Go SDK. It supports API discovery and conservative execution decisions. It is not a mock Slack service or proof that an endpoint works with a particular account.
 
-The snapshot contains 355 official method pages and 10 additional endpoint names found in slack-go/slack v0.35.0. The SDK inventory lists all 480 exported `*Client` methods, including aliases, configuration helpers, pagination constructors, and non-Web-API operations. Those counts describe different surfaces and should not be compared as a coverage percentage.
+The snapshot contains 357 official method pages and 10 additional endpoint names found in slack-go/slack v0.36.0. The SDK inventory lists all 514 exported `*Client` methods, including aliases, configuration helpers, pagination constructors, and non-Web-API operations. Those counts describe different surfaces and should not be compared as a coverage percentage.
 
 Tests compare the inventory with the SDK version in `go.mod` and the compiled SDK method set. They also check that the public `api.Client` preserves every native method's arguments and results. An SDK upgrade therefore requires reviewing and refreshing the inventory.
 
@@ -25,7 +25,7 @@ Run from the repository root with the pinned toolchain:
 ```sh
 mise exec go -- go run ./internal/cmd/slackcatalog \
   -sdk-dir "$(mise exec go -- go list -m -f '{{.Dir}}' github.com/slack-go/slack)" \
-  -sdk-version v0.35.0
+  -sdk-version v0.36.0
 ```
 
 Downloads use six workers, a 20-second request timeout, a five-minute overall timeout, an HTTPS origin restriction, and a source-size limit. A failed download or parse stops generation before replacing output files.

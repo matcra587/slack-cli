@@ -13,6 +13,7 @@ depends = [
   "rumdl",
   "shell:check",
   "mise:check",
+  "test:workflows",
   "vet",
   "test",
 ]
@@ -56,6 +57,10 @@ run = "go test -v -race -cover ./..."
 [tasks."test:integration"]
 description = "Run integration tests"
 run = "go test -v -tags=integration ./tests/integration -count=1 -timeout 300s"
+
+[tasks."test:workflows"]
+description = "Test release CI gates without GitHub access"
+run = "bash tests/workflows/await-ci.sh"
 
 [tasks."test:live"]
 description = "Run explicitly approved isolated Slack fixtures with identity checks and exact cleanup (no everyday defaults)"
@@ -102,7 +107,7 @@ run = "go tool govulncheck ./..."
 
 [tasks."shell:check"]
 description = "Check shell scripts and sourced helpers with ShellCheck"
-run = "shellcheck -x docs/install.sh mise/lib/*.sh mise/tasks/*"
+run = "shellcheck -x docs/install.sh mise/lib/*.sh mise/tasks/* tests/workflows/*.sh"
 
 [tasks."mise:check"]
 description = "Check mise formatting and task definitions in both environments"

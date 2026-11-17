@@ -3,16 +3,82 @@ name: ci
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches:
+      - main
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Keep a gate run for each main commit available to the release workflow.
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 permissions: {}
 
 jobs:
+  gate:
+    name: Release gate
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash --noprofile --norc -euo pipefail {0}
+    steps:
+      - name: Checkout
+        # @clover: constraint=major tags=checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install mise
+        # @clover: constraint=major tags=mise-action
+        uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          # clover: provider=github repository=jdx/mise constraint=major
+          version: '2026.11.9'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          install_args: --locked
+          cache: false
+
+      - name: Compute cache date
+        id: cache-date
+        run: |
+          cache_date="$(date -u +%F)"
+          echo "date=${cache_date}" >>"${GITHUB_OUTPUT}"
+
+      # Cache validation work; release artifacts are rebuilt without this cache.
+      - name: Restore Go caches
+        # @clover: constraint=major tags=cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key: go-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum', 'mise/mise.lock') }}-${{ steps.cache-date.outputs.date }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum', 'mise/mise.lock') }}-
+            go-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Run CI gate
+        env:
+          GOFLAGS: -count=1
+        run: mise run ci
+
+      - name: Run race tests
+        env:
+          GOFLAGS: -count=1
+        run: mise run test:race
+
+      - name: Cross-platform build check
+        run: mise run release:build
+
   go-ci:
     name: Go CI
+    if: github.event_name == 'pull_request'
     # @clover: constraint=major tag-prefix=go-ci/ tags=actions
     uses: matcra587/github-actions/.github/workflows/go-ci.yml@9e87045cb838afd0d6a65ebff3ae2d50fa7e8887 # go-ci/v0.3.2
     permissions:
@@ -20,9 +86,11 @@ jobs:
     with:
       # clover: provider=github repository=golangci/golangci-lint constraint=major
       golangci-version: v2.15.0
+      test-args: '-shuffle=on -count=1 ./...'
 
   md-lint:
     name: Markdown lint
+    if: github.event_name == 'pull_request'
     # @clover: constraint=major tag-prefix=go-ci/ tags=actions
     uses: matcra587/github-actions/.github/workflows/md-lint.yml@9e87045cb838afd0d6a65ebff3ae2d50fa7e8887 # go-ci/v0.3.2
     permissions:

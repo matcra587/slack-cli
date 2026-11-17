@@ -8,6 +8,10 @@ The agent surface uses [docent](https://github.com/matcra587/docent) to serve
 embedded runbooks, command discovery, and exported skills without credentials.
 The embedded guides are the workflow authority.
 
+The `slack-cli` plugin includes the
+[Slack CLI skill](https://github.com/matcra587/slack-cli/blob/main/skills/slack-how-to/SKILL.md).
+This skill uses the guides and command schema from the installed CLI.
+
 `agent guide`, `agent schema`, and `agent export` results and failures use
 `agent` as the workspace label, including invalid arguments and flag
 combinations. They do not select a configured workspace.

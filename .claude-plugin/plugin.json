@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "slack-cli",
+  "description": "Slack CLI procedures through the installed slick guides and command schema.",
+  "version": "0.1.0",
+  "license": "MIT",
+  "author": {
+    "name": "matcra587",
+    "url": "https://github.com/matcra587"
+  },
+  "homepage": "https://matcra587.github.io/slack-cli/",
+  "keywords": [],
+  "repository": "https://github.com/matcra587/slack-cli"
+}

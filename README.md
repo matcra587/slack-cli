@@ -21,6 +21,19 @@ Homebrew, `go install`, pre-built binaries, and source builds.
 The examples below assume `slick` is on `PATH`. Run `slick <command> --help`
 for the full flag list and any short forms.
 
+## Agent plugin
+
+The `slack-cli` plugin includes the [Slack CLI skill](skills/slack-how-to/SKILL.md).
+The skill uses the guides and command schema from the installed `slick` CLI.
+
+In Claude Code, install the plugin from the marketplace:
+
+```text
+/plugin install slack-cli --marketplace matcra587/mattc-marketplace
+```
+
+In Codex, select `slack-cli` from the same marketplace.
+
 ## Quick start
 
 ```sh

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gechr/clog"
 	"github.com/matcra587/slack-cli/api"
 	clioutput "github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
@@ -20,7 +21,7 @@ func newReactionWatchCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 		Use: "watch", Short: "Wait for an emoji reaction on a message", Args: cobra.NoArgs,
 		Long:    "Wait until a message has the requested emoji reaction. Existing matches succeed immediately. Use --timeout to bound the wait. A user filter succeeds only when Slack includes that user in the reaction response.",
 		Example: "  slick react watch --channel C123 --timestamp 1746284582.123456 --emoji :+1: --timeout 10m --output=json",
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) (resultErr error) {
 			ctx, profile, _, err := cliruntime.CommandContext(cmd, runtime)
 			if err != nil {
 				return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
@@ -35,6 +36,8 @@ func newReactionWatchCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 			if interval < time.Second {
 				return clioutput.WriteCommandError(ctx, clioutput.ValidationCLIError("watch interval must be at least 1s"))
 			}
+			ctx.ReportProgramStatus(clog.ProgramStateWorking, "", "Waiting for a Slack reaction")
+			defer func() { ctx.FinishProgramStatus(resultErr) }()
 			client, err := slackclient.Client(cmd, profile, runtime)
 			if err != nil {
 				return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))

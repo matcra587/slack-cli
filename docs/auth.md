@@ -206,6 +206,11 @@ fills `team_id` / `team_name` from the response. Pass `--team-id` /
 
 ### OAuth flow
 
+In human terminal sessions, supporting terminals show sign-in progress and
+the wait for Slack approval in their status area. Status reports use stderr;
+JSON, compact, and redirected output omit them. Cancellation returns the
+status to idle, and completion is reported after credentials and config are saved.
+
 OAuth exchange and saved-token refresh reject redirects by default. Replies
 need an explicit, consistent acknowledgement, a nonempty token without
 whitespace, and valid whole-second expiry values. Negative, null or

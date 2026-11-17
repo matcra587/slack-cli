@@ -196,6 +196,10 @@ Compact output contains those fields directly. A deadline returns exit 7; a
 canceled command returns exit 6. Both use the common machine failure envelope.
 Progress and diagnostics belong on stderr, so stdout can feed another command.
 
+In human terminal sessions, supporting terminals show the watch's activity,
+completion, or failure in their status area. Cancellation returns it to idle.
+These stderr reports are omitted for JSON, compact, and redirected output.
+
 Slack can omit reacting users even when it returns the correct reaction count.
 A user-filtered watch may therefore time out without proving that user has not
 reacted. Polling can also miss a reaction added and removed between requests.

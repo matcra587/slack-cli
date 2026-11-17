@@ -24,6 +24,7 @@ import (
 
 	"charm.land/huh/v2"
 	clibtheme "github.com/gechr/clib/theme"
+	"github.com/gechr/clog"
 	"github.com/gechr/clog/fx"
 	xfilepath "github.com/gechr/x/filepath"
 	"github.com/gechr/x/shell"
@@ -250,7 +251,7 @@ func NewCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	return authCmd
 }
 
-func runAuthLogin(cmd *cobra.Command, runtime *cliruntime.RootRuntime, input loginInput) error {
+func runAuthLogin(cmd *cobra.Command, runtime *cliruntime.RootRuntime, input loginInput) (resultErr error) {
 	if input.WorkspaceName == "" {
 		flagWorkspace, _ := cmd.Root().PersistentFlags().GetString("workspace")
 		input.WorkspaceName = flagWorkspace
@@ -291,6 +292,10 @@ func runAuthLogin(cmd *cobra.Command, runtime *cliruntime.RootRuntime, input log
 	}
 	if cliruntime.DryRun(cmd) {
 		return ctx.WriteResult("auth.login", WorkspaceData{Workspace: input.WorkspaceName, DryRun: true})
+	}
+	if input.AuthMethod == "oauth" {
+		ctx.ReportProgramStatus(clog.ProgramStateWorking, "", "Starting Slack sign-in")
+		defer func() { ctx.FinishProgramStatus(resultErr) }()
 	}
 	switch input.AuthMethod {
 	case "oauth":
@@ -789,6 +794,7 @@ func completeOAuthLogin(reqCtx context.Context, ctx *clioutput.CommandContext, r
 		if err := taskCtx.Err(); err != nil {
 			return err
 		}
+		ctx.ReportProgramStatus(clog.ProgramStateBlocked, clog.ProgramStatusKindAuth, "Waiting for Slack approval")
 		_ = openURL(authorizeURL)
 		var callback oauthCallbackResult
 		select {
@@ -823,6 +829,7 @@ func completeOAuthLogin(reqCtx context.Context, ctx *clioutput.CommandContext, r
 	// fresh request timeout while still honoring the original caller.
 	exchangeCtx, cancelExchange := context.WithTimeout(signalCtx, exchangeTimeout)
 	defer cancelExchange()
+	ctx.ReportProgramStatus(clog.ProgramStateWorking, "", "Completing Slack sign-in")
 	response, err := oauthExchangeCode(exchangeCtx, runtime, input.ClientID, callback.Code, redirectURL.String(), verifier)
 	if contextErr := exchangeCtx.Err(); contextErr != nil {
 		return false, contextErr

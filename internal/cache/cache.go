@@ -11,6 +11,7 @@ import (
 	"time"
 
 	xfilepath "github.com/gechr/x/filepath"
+	xos "github.com/gechr/x/os"
 )
 
 const DefaultTTL = 24 * time.Hour
@@ -109,21 +110,9 @@ func Write(profile, resource string, data json.RawMessage) (Entry, error) {
 	if err != nil {
 		return Entry{}, err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*")
-	if err != nil {
-		return Entry{}, err
-	}
-	defer func() {
-		_ = os.Remove(tmp.Name())
-	}()
-	if _, err := tmp.Write(body); err != nil {
-		_ = tmp.Close()
-		return Entry{}, err
-	}
-	if err := tmp.Close(); err != nil {
-		return Entry{}, err
-	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
+	// Cache data is reconstructible. Keep atomic replacement and private modes
+	// without syncing, and replace a leaf symlink rather than its target.
+	if err := xos.AtomicWrite(path, body, 0o600, xos.WithNoFollow(), xos.WithNoSync()); err != nil {
 		return Entry{}, err
 	}
 	return entry, nil

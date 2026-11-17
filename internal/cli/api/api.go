@@ -13,6 +13,7 @@ import (
 	publicapi "github.com/matcra587/slack-cli/api"
 	"github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
+	"github.com/matcra587/slack-cli/internal/cli/slackclient"
 	"github.com/matcra587/slack-cli/internal/slackcatalog"
 	slackgo "github.com/slack-go/slack"
 	"github.com/spf13/cobra"
@@ -125,7 +126,7 @@ func runCall(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts *callOpti
 	}
 	ctx, profile, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
-		return output.WriteCommandError(ctx, output.ValidationCLIError("cannot resolve selected workspace"))
+		return cliruntime.WriteRuntimeError(runtime, output.ValidationCLIError("cannot resolve selected workspace"))
 	}
 	if runtime.TokenResolver == nil {
 		return output.WriteCommandError(ctx, output.AuthCLIError("no credential resolver is available"))
@@ -136,12 +137,15 @@ func runCall(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts *callOpti
 	}
 	token, err := runtime.TokenResolver.ResolveToken(cmd.Context(), profile)
 	if err != nil {
-		return output.WriteCommandError(ctx, output.AuthCLIError("cannot resolve selected workspace credentials"))
+		return output.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
+	}
+	if strings.TrimSpace(token) == "" {
+		return output.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), errors.New("empty selected credential")))
 	}
 	noThrottle, _ := cmd.Flags().GetBool("no-throttle")
 	client, err := publicapi.NewClientWithContext(cmd.Context(), publicapi.ClientOptions{AuthToken: token, APIURL: runtime.SlackBaseURL, HTTPClient: runtime.HTTPClient, NoThrottle: noThrottle})
 	if err != nil {
-		return output.WriteCommandError(ctx, output.AuthCLIError("cannot initialize Slack API client"))
+		return output.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
 	}
 	var file *responseFile
 	if opts.outputFile != "" {

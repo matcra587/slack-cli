@@ -42,7 +42,7 @@ func (d MethodsData) WritePlain(ctx *output.CommandContext, _ string, _ *output.
 		if reason := unsupported(method); reason != "" {
 			policy = "unavailable: " + reason
 		}
-		if _, err := fmt.Fprintf(ctx.OutWriter(), "%s\t%s\t%s\n", method.Name, policy, method.Description); err != nil {
+		if err := ctx.WriteString(fmt.Sprintf("%s\t%s\t%s\n", method.Name, policy, method.Description)); err != nil {
 			return err
 		}
 	}
@@ -50,9 +50,11 @@ func (d MethodsData) WritePlain(ctx *output.CommandContext, _ string, _ *output.
 }
 
 func (d MethodData) WritePlain(ctx *output.CommandContext, _ string, _ *output.Pagination) error {
-	encoder := json.NewEncoder(ctx.OutWriter())
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(d.Method)
+	body, err := json.MarshalIndent(d.Method, "", "  ")
+	if err != nil {
+		return err
+	}
+	return ctx.WriteString(string(body))
 }
 
 func (d CallData) WritePlain(ctx *output.CommandContext, _ string, _ *output.Pagination) error {

@@ -52,16 +52,18 @@ fi
 
 # --- OS / arch detection --------------------------------------------------
 
-case "$(uname -s)" in
+os_name="$(uname -s)"
+case "$os_name" in
     Linux)  OS=linux ;;
     Darwin) OS=darwin ;;
-    *) die "unsupported OS: $(uname -s). See https://matcra587.github.io/slack-cli/installation/ for alternatives." ;;
+    *) die "unsupported OS: $os_name. See https://matcra587.github.io/slack-cli/installation/ for alternatives." ;;
 esac
 
-case "$(uname -m)" in
+arch_name="$(uname -m)"
+case "$arch_name" in
     x86_64|amd64)   ARCH=amd64 ;;
     aarch64|arm64)  ARCH=arm64 ;;
-    *) die "unsupported architecture: $(uname -m). See https://matcra587.github.io/slack-cli/installation/ for alternatives." ;;
+    *) die "unsupported architecture: $arch_name. See https://matcra587.github.io/slack-cli/installation/ for alternatives." ;;
 esac
 
 # Reject combinations the release pipeline doesn't build.

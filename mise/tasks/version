@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# [MISE] description="Print build version info"
+# [MISE] quiet=true
+set -euo pipefail
+
+# shellcheck source=mise/lib/build-env.sh
+source mise/lib/build-env.sh
+
+version="$(slack_version)"
+commit="$(slack_commit)"
+branch="$(slack_branch)"
+build_time="$(slack_build_time)"
+build_by="$(slack_build_by)"
+go_version="$(go version)"
+
+cat <<EOF
+Version:    $version
+Commit:     $commit
+Branch:     $branch
+Built:      $build_time
+Built by:   $build_by
+Go version: $go_version
+EOF

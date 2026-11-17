@@ -1,0 +1,3 @@
+# Check failures hidden inside command and process substitutions as well.
+enable=check-extra-masked-returns
+enable=check-set-e-suppressed

@@ -1,0 +1,4 @@
+# Select configuration before mise discovers project fragments.
+env = ["development"]
+env_conf_d = true
+auto_env = true

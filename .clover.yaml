@@ -8,7 +8,7 @@ paths:
     - "**/testdata/**"
     - "**/*_test.go"
     - "go.sum"
-    - "mise.lock"
+    - "mise/**/mise*.lock"
     - "**/.env*"
     - "**/secrets/**"
     - "**/credentials/**"

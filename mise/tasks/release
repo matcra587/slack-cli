@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# [MISE] description="Validate, tag and push a release"
+# [USAGE] arg "<version>" help="Release version, with or without the leading v"
+# [USAGE] flag "--dry-run" help="Validate without creating or pushing a tag"
+# [USAGE] unknown_flags "error"
+set -euo pipefail
+
+fail() {
+	printf 'release failed: %s\n' "$*" >&2
+	exit 1
+}
+
+dry_run=0
+if [[ "${usage_dry_run:-false}" == "true" ]]; then
+	dry_run=1
+fi
+
+# Usage treats an attached boolean value as presence of the flag.
+# Require the documented flag form before any release operation.
+for arg in "$@"; do
+	case "$arg" in
+	--dry-run=*) fail "use --dry-run without an attached value" ;;
+	esac
+done
+
+version="${usage_version:?version is required}"
+tag="${version#v}"
+tag="v${tag}"
+
+if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+	fail "version must match vMAJOR.MINOR.PATCH"
+fi
+
+# Check local state before contacting the remote.
+branch="$(git branch --show-current)"
+if [[ "$branch" != "main" ]]; then
+	fail "must release from main, currently on ${branch:-detached HEAD}"
+fi
+
+if ! working_tree="$(git status --porcelain)"; then
+	fail "cannot inspect the working tree"
+fi
+if [[ -n "$working_tree" ]]; then
+	fail "working tree must be clean"
+fi
+
+# A failed fetch and an expired timeout need different diagnostics.
+fetch_status=0
+timeout 60s git fetch --tags origin \
+	+refs/heads/main:refs/remotes/origin/main || fetch_status=$?
+case "$fetch_status" in
+0) ;;
+124) fail "timed out fetching origin/main and tags" ;;
+*) fail "cannot fetch origin/main and tags (git fetch exited ${fetch_status})" ;;
+esac
+
+head_sha="$(git rev-parse HEAD)"
+origin_sha="$(git rev-parse origin/main)"
+if [[ "$head_sha" != "$origin_sha" ]]; then
+	fail "main must be up to date with origin/main"
+fi
+
+if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+	fail "local tag already exists: ${tag}"
+fi
+
+remote_tag_status=0
+timeout 30s git ls-remote --exit-code --tags origin \
+	"refs/tags/${tag}" >/dev/null 2>&1 || remote_tag_status=$?
+case "$remote_tag_status" in
+0)
+	fail "remote tag already exists: ${tag}"
+	;;
+2)
+	;;
+124)
+	fail "timed out checking remote tag: ${tag}"
+	;;
+*)
+	fail "could not check remote tag ${tag} (git ls-remote exited ${remote_tag_status})"
+	;;
+esac
+
+# All checks must succeed before either release action below.
+mise run ci
+mise run release:check
+
+if ((dry_run)); then
+	echo "dry run: would create annotated tag ${tag} at ${head_sha}"
+	echo "dry run: would push ${tag} to origin"
+	exit 0
+fi
+
+git tag -a "$tag" -m "$tag"
+git push origin "$tag"
+
+echo "release tag pushed: ${tag}"
+echo "GitHub Actions release workflow will run for ${tag}."

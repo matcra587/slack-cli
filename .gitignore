@@ -26,3 +26,12 @@ Thumbs.db
 
 # MkDocs build output (docs are built in CI via squidfunk/mkdocs-material image).
 /site/
+
+# Personal mise configuration and lockfiles.
+.miserc.local.toml
+mise.local.toml
+mise.local.lock
+mise.*.local.toml
+mise.*.local.lock
+/mise/**/*.local.toml
+/mise/**/*.local.lock

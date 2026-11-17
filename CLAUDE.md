@@ -11,15 +11,23 @@ blind mutation retries.
 
 ## Local Workflow
 
-- Tasks are defined in `tasks.toml` and `.mise/tasks/`.
+- Tasks are defined in `mise/conf.d/tasks.development.toml` and `mise/tasks/`.
 - List tasks with `mise tasks`.
 - Run the main check with `mise run check`.
+- Run `mise run shell:check` for shell tasks, shared helpers, and the installer.
+- Run `mise run mise:check` for mise formatting and task definitions.
 - Run all uncached tests with `mise run test:all`.
 - Validate release config with `mise run release:check`.
 - Validate workflows with `actionlint -color .github/workflows/*.yml`.
 - Validate workflow security with
   `zizmor --persona pedantic --offline --no-progress --color never .github/`.
-- Project tools are pinned through `.mise.toml` and `mise.lock`.
+- Project tools are pinned through `mise/conf.d/tools*.toml` and `mise/mise.lock`.
+- Use mise 2026.11.9 or later. `.miserc.toml` selects development by default.
+- Use `mise -E production exec -- go build ./cmd/slick` for a build with the
+  shared compiler. Production does not load project developer tools or tasks.
+- Install project tools with `mise install --locked`.
+- Tool requests use `latest`; `mise/mise.lock` records the resolved versions.
+  Use `mise lock --bump` to update them, then review the lockfile and run checks.
 - Markdown lint configuration is in `.rumdl.toml`; fixture Markdown under
   `testdata/**` is excluded there.
 

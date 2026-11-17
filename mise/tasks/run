@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# [MISE] description="Build and run"
+# [MISE] alias="r"
+# [MISE] depends=["build"]
+# [MISE] raw_args=true
+set -euo pipefail
+
+# shellcheck source=mise/lib/build-env.sh
+source mise/lib/build-env.sh
+
+binary_path="$(slack_binary_path)"
+
+exec "$binary_path" "$@"

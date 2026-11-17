@@ -72,7 +72,7 @@ local govulncheck = (Builtins.go_vuln_check) {
 
 local shellcheck = (Builtins.shellcheck) {
     match_any = null
-    glob = List("**/*.sh", ".mise/tasks/build", ".mise/tasks/install", ".mise/tasks/version", ".mise/tasks/deps-update", ".mise/tasks/release")
+    glob = List("**/*.sh", "mise/tasks/*")
     check = "shellcheck -x {{ files }}"
 }
 

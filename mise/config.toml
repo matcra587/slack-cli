@@ -1,0 +1,19 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+min_version = "2026.11.9"
+
+[settings]
+lockfile = true
+# Development and production share this lockfile but select different tools.
+lockfile_auto_prune = false
+lockfile_platforms = ["linux-x64", "macos-arm64", "macos-x64"]
+# Keep installed slick binaries independent of the selected Go version.
+go.set_gobin = false
+
+[tool_config]
+locked = true
+
+[env]
+GOTOOLCHAIN = "local"
+MODULE = "github.com/matcra587/slack-cli"
+BINARY_NAME = "slick"
+DIST_DIR = "./dist"

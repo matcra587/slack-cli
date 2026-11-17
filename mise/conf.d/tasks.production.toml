@@ -1,0 +1,5 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+# Production builds use the shared Go compiler without developer tasks.
+# This also excludes executable file tasks from the default directories.
+[task_config]
+includes = []

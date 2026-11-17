@@ -1,0 +1,15 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+
+[env]
+HK_MISE = 1
+
+[tools]
+actionlint = "latest"
+goreleaser = "latest"
+cosign = "latest"
+zizmor = "latest"
+rumdl = "latest"
+hk = "latest"
+pkl = "latest"
+shellcheck = "latest"
+uv = "latest"

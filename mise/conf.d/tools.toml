@@ -1,0 +1,4 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+# Shared compiler for development and production builds.
+[tools]
+go = "latest"

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# [MISE] description="Install the binary to GOBIN or GOPATH/bin"
+set -euo pipefail
+
+# shellcheck source=mise/lib/build-env.sh
+source mise/lib/build-env.sh
+
+ldflags="$(slack_ldflags)"
+
+go install -ldflags "$ldflags" ./cmd/slick

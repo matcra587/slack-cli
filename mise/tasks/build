@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# [MISE] description="Build the binary"
+# [MISE] alias="b"
+# [MISE] lock="{{ config_root }}/dist"
+set -euo pipefail
+
+# shellcheck source=mise/lib/build-env.sh
+source mise/lib/build-env.sh
+
+ldflags="$(slack_ldflags)"
+binary_path="$(slack_binary_path)"
+
+mkdir -p "${DIST_DIR:?DIST_DIR is required}"
+go build -ldflags "$ldflags" -o "$binary_path" ./cmd/slick

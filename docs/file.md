@@ -142,6 +142,10 @@ If that lookup fails, `permalink` stays absent.
 
 ## Upload failures and recovery
 
+Human terminal sessions show the upload phases through
+[terminal status](index.md#terminal-status).
+The status remains active until Slack completes the upload and slick writes the result.
+
 The upload has three steps: `prepare` gets a URL and file ID, `transfer` sends
 the bytes, and `complete` finalizes the file. Failures during these steps keep
 the normal error type and exit code. They also include `details.stage` and,

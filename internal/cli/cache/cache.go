@@ -285,7 +285,7 @@ func addFlags(cmd *cobra.Command, opts *Options) {
 	cmd.Flags().IntVarP(&opts.MaxPages, "max-pages", "N", defaultMaxPages, "Maximum Slack pages to fetch (nonpositive uses 20)")
 }
 
-func runUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Options) error {
+func runUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Options) (resultErr error) {
 	ctx, profile, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
@@ -296,8 +296,22 @@ func runUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Options)
 	if cliruntime.DryRun(cmd) {
 		return ctx.WriteResult("cache.users", PreviewData{Profile: profile.Name, Resource: "users", DryRun: true})
 	}
+	started := false
+	defer func() {
+		if started {
+			ctx.FinishProgramStatus(resultErr)
+		}
+	}()
 	data, fromCache, fetchedAt, err := readOrFetch(profile.Name, "users", opts.TTL(), opts.Refresh, func() (json.RawMessage, error) {
-		return fetchUsers(cmd, runtime, profile, opts)
+		started = true
+		ctx.ReportProgramStatus(clog.ProgramStateWorking, "", "Fetching user metadata")
+		data, err := fetchUsers(cmd, runtime, profile, opts, func(page int) {
+			ctx.ReportProgramStatus(clog.ProgramStateWorking, "", fmt.Sprintf("Fetching users page %d", page))
+		})
+		if err == nil {
+			ctx.ReportProgramStatus(clog.ProgramStateWorking, "", "Saving metadata cache")
+		}
+		return data, err
 	})
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, cliErrorFromCacheError(cmd.Context(), err))
@@ -316,7 +330,7 @@ func runUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Options)
 	})
 }
 
-func runChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Options) error {
+func runChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Options) (resultErr error) {
 	ctx, profile, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
@@ -327,8 +341,22 @@ func runChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts Optio
 	if cliruntime.DryRun(cmd) {
 		return ctx.WriteResult("cache.channels", PreviewData{Profile: profile.Name, Resource: "channels", DryRun: true})
 	}
+	started := false
+	defer func() {
+		if started {
+			ctx.FinishProgramStatus(resultErr)
+		}
+	}()
 	data, fromCache, fetchedAt, err := readOrFetch(profile.Name, "channels", opts.TTL(), opts.Refresh, func() (json.RawMessage, error) {
-		return fetchChannels(cmd, runtime, profile, opts)
+		started = true
+		ctx.ReportProgramStatus(clog.ProgramStateWorking, "", "Fetching channel metadata")
+		data, err := fetchChannels(cmd, runtime, profile, opts, func(page int) {
+			ctx.ReportProgramStatus(clog.ProgramStateWorking, "", fmt.Sprintf("Fetching channels page %d", page))
+		})
+		if err == nil {
+			ctx.ReportProgramStatus(clog.ProgramStateWorking, "", "Saving metadata cache")
+		}
+		return data, err
 	})
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, cliErrorFromCacheError(cmd.Context(), err))
@@ -411,7 +439,7 @@ func validCachedPayload(resource string, data json.RawMessage) bool {
 	return json.Unmarshal(data, target) == nil
 }
 
-func fetchUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile config.WorkspaceProfile, opts Options) (json.RawMessage, error) {
+func fetchUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile config.WorkspaceProfile, opts Options, report func(int)) (json.RawMessage, error) {
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
 		return nil, fetchError{err: slackclient.CLIError(cmd.Context(), err)}
@@ -419,14 +447,14 @@ func fetchUsers(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile con
 	if err := cliscope.Require(cmd.Context(), client, cliscope.AllOf("users:read")); err != nil {
 		return nil, fetchError{err: clioutput.CliErrorFromSlack(cmd.Context(), err, "")}
 	}
-	users, truncated, err := drainUsers(cmd.Context(), client, opts)
+	users, truncated, err := drainUsers(cmd.Context(), client, opts, report)
 	if err != nil {
 		return nil, err
 	}
 	return marshalPayload(usersPayload{Users: users, Truncated: truncated})
 }
 
-func fetchChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile config.WorkspaceProfile, opts Options) (json.RawMessage, error) {
+func fetchChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile config.WorkspaceProfile, opts Options, report func(int)) (json.RawMessage, error) {
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
 		return nil, fetchError{err: slackclient.CLIError(cmd.Context(), err)}
@@ -435,17 +463,18 @@ func fetchChannels(cmd *cobra.Command, runtime *cliruntime.RootRuntime, profile 
 	if err := cliscope.Require(cmd.Context(), client, clichannel.ConversationReadScopeRequirement(types)); err != nil {
 		return nil, fetchError{err: clioutput.CliErrorFromSlack(cmd.Context(), err, "")}
 	}
-	channels, truncated, err := drainChannels(cmd.Context(), client, opts, types)
+	channels, truncated, err := drainChannels(cmd.Context(), client, opts, types, report)
 	if err != nil {
 		return nil, err
 	}
 	return marshalPayload(channelsPayload{Channels: channels, Truncated: truncated})
 }
 
-func drainUsers(ctx context.Context, client *slackgo.Client, opts Options) ([]clioutput.User, bool, error) {
+func drainUsers(ctx context.Context, client *slackgo.Client, opts Options, report func(int)) ([]clioutput.User, bool, error) {
 	pager := client.GetUsersPaginated(slackgo.GetUsersOptionLimit(normalizePageSize(opts.PageSize)))
 	users := []clioutput.User{}
-	for range normalizeMaxPages(opts.MaxPages) {
+	for pageIndex := range normalizeMaxPages(opts.MaxPages) {
+		report(pageIndex + 1)
 		page, err := pager.Next(ctx)
 		if pager.Done(err) {
 			return users, false, nil
@@ -462,10 +491,11 @@ func drainUsers(ctx context.Context, client *slackgo.Client, opts Options) ([]cl
 	return users, true, nil
 }
 
-func drainChannels(ctx context.Context, client *slackgo.Client, opts Options, types []string) ([]clioutput.Channel, bool, error) {
+func drainChannels(ctx context.Context, client *slackgo.Client, opts Options, types []string, report func(int)) ([]clioutput.Channel, bool, error) {
 	channels := []clioutput.Channel{}
 	cursor := ""
-	for range normalizeMaxPages(opts.MaxPages) {
+	for pageIndex := range normalizeMaxPages(opts.MaxPages) {
+		report(pageIndex + 1)
 		page, nextCursor, err := client.GetConversationsContext(ctx, &slackgo.GetConversationsParameters{
 			Types:           types,
 			Limit:           normalizePageSize(opts.PageSize),

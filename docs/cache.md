@@ -66,6 +66,10 @@ the supported metadata fields.
 
 ## cache users / cache channels
 
+In human terminal sessions, cache fetches show page and save activity through
+[terminal status](index.md#terminal-status).
+Fresh cache hits and dry runs omit these reports.
+
 Prime the cache (or read it back if fresh). Both commands accept the same
 flags.
 

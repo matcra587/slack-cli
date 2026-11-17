@@ -12,12 +12,26 @@ import (
 // forced colors never enable reports in pipes or machine output modes.
 // Callers supply fixed descriptions rather than Slack or credential data.
 func (c *CommandContext) ReportProgramStatus(state clog.ProgramState, kind clog.ProgramStatusKind, message string) {
+	c.reportProgramStatus(clog.ProgramStatus{State: state, Kind: kind, Message: message})
+}
+
+// ReportProgramProgress reports completed items in a batch with a known size.
+// Unknown totals use a working report without a percentage.
+func (c *CommandContext) ReportProgramProgress(message string, completed, total int) {
+	status := clog.ProgramStatus{State: clog.ProgramStateWorking, Message: message}
+	if total > 0 {
+		status.HasProgress = true
+		status.Progress = int(float64(max(0, min(completed, total))) * 100 / float64(total))
+	}
+	c.reportProgramStatus(status)
+}
+
+func (c *CommandContext) reportProgramStatus(status clog.ProgramStatus) {
 	if c.Mode != RenderModePlain || !c.IsTTY || c.StderrLog == nil {
 		return
 	}
-	c.StderrLog.SetProgramStatus(clog.ProgramStatus{
-		State: state, Kind: kind, App: "slick", Title: c.Command, Message: message,
-	})
+	status.App, status.Title = "slick", c.Command
+	c.StderrLog.SetProgramStatus(status)
 }
 
 // FinishProgramStatus resolves a started report after the complete command,

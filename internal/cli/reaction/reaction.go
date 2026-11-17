@@ -149,7 +149,7 @@ func newReactionListCommand(runtime *cliruntime.RootRuntime) *cobra.Command {
 	return cmd
 }
 
-func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, action string, dryRun bool) error {
+func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, action string, dryRun bool) (resultErr error) {
 	ctx, profile, _, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
@@ -181,6 +181,10 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 		return ctx.WriteResult("react."+action, Data{Mutations: mutations, Target: target})
 	}
 
+	if len(emojis) > 1 {
+		ctx.ReportProgramProgress("Applying Slack reactions", 0, len(emojis))
+		defer func() { ctx.FinishProgramStatus(resultErr) }()
+	}
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
@@ -214,6 +218,9 @@ func runReactionMutation(cmd *cobra.Command, runtime *cliruntime.RootRuntime, ac
 			Emoji:      emoji,
 			ChannelRef: channelRef,
 		})
+		if len(emojis) > 1 {
+			ctx.ReportProgramProgress("Applying Slack reactions", index+1, len(emojis))
+		}
 	}
 	return ctx.WriteResult("react."+action, Data{Mutations: mutations, Target: target})
 }

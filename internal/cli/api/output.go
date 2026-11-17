@@ -57,19 +57,22 @@ func (d MethodData) WritePlain(ctx *output.CommandContext, _ string, _ *output.P
 
 func (d CallData) WritePlain(ctx *output.CommandContext, _ string, _ *output.Pagination) error {
 	if d.OutputFile != "" {
-		_, err := fmt.Fprintln(ctx.OutWriter(), "Saved response to", d.OutputFile)
-		return err
+		return ctx.WriteString("Saved response to " + d.OutputFile)
 	}
+	var value any
 	if d.DryRun {
-		_, err := fmt.Fprintf(ctx.OutWriter(), "Dry run: %s\n", d.Method)
-		if err != nil {
+		if err := ctx.WriteString("Dry run: " + d.Method); err != nil {
 			return err
 		}
-		return json.NewEncoder(ctx.OutWriter()).Encode(d.Parameters)
+		value = d.Parameters
+	} else if d.Pages != nil {
+		value = d
+	} else {
+		return ctx.WriteString(string(d.Response))
 	}
-	if d.Pages != nil {
-		return json.NewEncoder(ctx.OutWriter()).Encode(d)
+	body, err := json.Marshal(value)
+	if err != nil {
+		return err
 	}
-	_, err := fmt.Fprintln(ctx.OutWriter(), string(d.Response))
-	return err
+	return ctx.WriteString(string(body))
 }

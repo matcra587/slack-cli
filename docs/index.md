@@ -113,6 +113,24 @@ HTTP status and event summaries. They omit request payloads, response headers
 and bodies, and unknown diagnostic text, which can contain credentials, message
 content, or signed URLs. Machine results keep the same stdout format.
 
+### Terminal status
+
+In human terminal sessions, slick uses OSC 7501 to report long operations.
+Terminals that support this protocol can show activity, completion, and errors.
+Reports use stderr. JSON, compact, redirected output, and dry runs omit them.
+
+*   File uploads report preparation, data transfer, and completion phases.
+*   Cache fetches report pages and cache publication. Warm cache reads omit status.
+*   Paginated API calls report the current page without a percentage.
+*   Multi-emoji reaction commands report progress from completed items.
+*   OAuth sign-in and reaction watches report their current activity.
+
+Completion appears after the command writes its result.
+Cancellation returns the status to idle.
+A wait for Slack or a rate limit remains working.
+Only a wait for user action uses blocked status.
+Status text omits credentials, message content, filenames, and workspace details.
+
 ## Exit codes
 
 | Code | Meaning |

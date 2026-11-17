@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
+	"strconv"
 	"strings"
 
+	"github.com/gechr/clog"
 	publicapi "github.com/matcra587/slack-cli/api"
 	"github.com/matcra587/slack-cli/internal/cli/output"
 	cliruntime "github.com/matcra587/slack-cli/internal/cli/runtime"
@@ -84,7 +86,7 @@ func unsupported(method slackcatalog.Method) string {
 	return ""
 }
 
-func runCall(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts *callOptions, name string) error {
+func runCall(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts *callOptions, name string) (resultErr error) {
 	local := cliruntime.LocalContext(cmd, runtime, "")
 	fail := func(message string) error { return output.WriteCommandError(local, output.ValidationCLIError(message)) }
 	method, known := slackcatalog.Lookup(name)
@@ -128,6 +130,10 @@ func runCall(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts *callOpti
 	if runtime.TokenResolver == nil {
 		return output.WriteCommandError(ctx, output.AuthCLIError("no credential resolver is available"))
 	}
+	if opts.paginate {
+		ctx.ReportProgramStatus(clog.ProgramStateWorking, "", "Reading Slack API pages")
+		defer func() { ctx.FinishProgramStatus(resultErr) }()
+	}
 	token, err := runtime.TokenResolver.ResolveToken(cmd.Context(), profile)
 	if err != nil {
 		return output.WriteCommandError(ctx, output.AuthCLIError("cannot resolve selected workspace credentials"))
@@ -145,7 +151,9 @@ func runCall(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts *callOpti
 		}
 		defer file.cleanup()
 	}
-	data, callErr := callPages(cmd, client, method, params, opts)
+	data, callErr := callPages(cmd, client, method, params, opts, func(page int) {
+		ctx.ReportProgramStatus(clog.ProgramStateWorking, "", "Reading Slack API page "+strconv.Itoa(page))
+	})
 	if callErr != nil {
 		cliErr := safeCallError(cmd, callErr)
 		if data.CompletedPages > 0 {

@@ -44,6 +44,9 @@ are rejected before sending a request.
 
 ## Pagination and response files
 
+In human terminal sessions, paginated calls show the current page through
+[terminal status](index.md#terminal-status).
+
 `--paginate` fetches pages only for reviewed read methods with documented
 pagination. `--max-pages` defaults to 10 and accepts 1 through 1000.
 

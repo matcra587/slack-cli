@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func callPages(cmd *cobra.Command, client *publicapi.Client, method slackcatalog.Method, parameters map[string]any, opts *callOptions) (CallData, error) {
+func callPages(cmd *cobra.Command, client *publicapi.Client, method slackcatalog.Method, parameters map[string]any, opts *callOptions, report func(int)) (CallData, error) {
 	data := CallData{Method: method.Name}
 	params := maps.Clone(parameters)
 	if !opts.paginate {
@@ -28,7 +28,8 @@ func callPages(cmd *cobra.Command, client *publicapi.Client, method slackcatalog
 			params["cursor"] = method.CursorInitial
 		}
 	}
-	for range opts.maxPages {
+	for pageIndex := range opts.maxPages {
+		report(pageIndex + 1)
 		cursor, _ := params["cursor"].(string)
 		if cursor != "" {
 			seen[cursor] = true

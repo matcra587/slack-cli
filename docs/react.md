@@ -15,6 +15,10 @@ in API requests, results, and previews.
 
 ## react add / react remove
 
+In human terminal sessions, multi-emoji changes show progress through
+[terminal status](index.md#terminal-status).
+Progress counts completed changes. A failed item stops the batch and leaves later items unattempted.
+
 === "Single emoji"
 
     Add or remove one reaction:

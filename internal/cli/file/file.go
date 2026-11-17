@@ -140,7 +140,7 @@ type uploadOptions struct {
 	DryRun   bool
 }
 
-func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadOptions) error {
+func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadOptions) (resultErr error) {
 	ctx, profile, attribution, err := cliruntime.CommandContext(cmd, runtime)
 	if err != nil {
 		return cliruntime.WriteRuntimeError(runtime, clioutput.ValidationCLIError(err.Error()))
@@ -179,6 +179,8 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 		data.ChannelRef = slackmeta.ResolveConversation(cmd.Context(), nil, profile.Name, channel)
 		return ctx.WriteResult("file.upload", data)
 	}
+	ctx.ReportProgramStatus(clog.ProgramStateWorking, "", "Preparing file upload")
+	defer func() { ctx.FinishProgramStatus(resultErr) }()
 	client, err := slackclient.Client(cmd, profile, runtime)
 	if err != nil {
 		return clioutput.WriteCommandError(ctx, slackclient.CLIError(cmd.Context(), err))
@@ -199,7 +201,9 @@ func runUpload(cmd *cobra.Command, runtime *cliruntime.RootRuntime, opts uploadO
 	} else {
 		params.InitialComment = opts.Message
 	}
-	file, err := uploadFile(cmd.Context(), client, params)
+	file, err := uploadFile(cmd.Context(), client, params, func(message string) {
+		ctx.ReportProgramStatus(clog.ProgramStateWorking, "", message)
+	})
 	if err != nil {
 		cliErr := clioutput.CliErrorFromSlack(cmd.Context(), err, "")
 		if progress, ok := errors.AsType[*uploadFailure](err); ok {

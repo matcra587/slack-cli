@@ -9,7 +9,7 @@ import (
 
 // Keep the acknowledged file ID through each step. A failed completion reply
 // does not prove whether Slack completed the upload, so never retry or delete it.
-func uploadFile(ctx context.Context, client *slackgo.Client, params slackgo.UploadFileParameters) (*slackgo.FileSummary, error) {
+func uploadFile(ctx context.Context, client *slackgo.Client, params slackgo.UploadFileParameters, report func(string)) (*slackgo.FileSummary, error) {
 	prepared, err := client.GetUploadURLExternalContext(ctx, slackgo.GetUploadURLExternalParameters{
 		FileName:    params.Filename,
 		FileSize:    params.FileSize,
@@ -23,6 +23,7 @@ func uploadFile(ctx context.Context, client *slackgo.Client, params slackgo.Uplo
 		return nil, &uploadFailure{stage: "prepare", cause: errors.New("slack did not acknowledge upload preparation")}
 	}
 	id := prepared.FileID
+	report("Uploading file data")
 	if err := client.UploadToURL(ctx, slackgo.UploadToURLParameters{
 		UploadURL: prepared.UploadURL,
 		Reader:    params.Reader,
@@ -32,6 +33,7 @@ func uploadFile(ctx context.Context, client *slackgo.Client, params slackgo.Uplo
 	}); err != nil {
 		return nil, &uploadFailure{stage: "transfer", fileID: id, cause: err}
 	}
+	report("Completing file upload")
 	completed, err := client.CompleteUploadExternalContext(ctx, slackgo.CompleteUploadExternalParameters{
 		Files:           []slackgo.FileSummary{{ID: id, Title: params.Title}},
 		Channel:         params.Channel,

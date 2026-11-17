@@ -61,7 +61,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
-        run: bash mise/lib/await-ci.sh
+        run: mise -E development run await-ci
 
       - name: Check GoReleaser configuration
         if: steps.release-state.outputs.exists != 'true'

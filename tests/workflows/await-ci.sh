@@ -95,7 +95,7 @@ run_case() {
 			CI_GATE_SCENARIO="$scenario" \
 			GITHUB_REPOSITORY=example/slack-cli \
 			TAG_NAME=v9.9.9 \
-			bash "$repository_root/mise/lib/await-ci.sh" 2>&1
+			bash "$repository_root/mise/tasks/await-ci" 2>&1
 	)" || status=$?
 
 	if [[ "$status" != "$expected_status" || "$output" != *"$expected_message"* ]]; then

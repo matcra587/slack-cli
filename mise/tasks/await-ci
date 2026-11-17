@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Require successful main-push CI for the exact commit being released.
+# [MISE] description="Wait for successful main-push CI for a release tag"
 set -euo pipefail
 
 sha="$(git rev-parse --verify "${TAG_NAME:?TAG_NAME is required}^{commit}")"

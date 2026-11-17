@@ -27,14 +27,12 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Install cosign
-        # @clover: constraint=major tags=cosign-installer
-        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
-
       - name: Install mise
         # @clover: constraint=major tags=mise-action
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
+          # clover: provider=github repository=jdx/mise constraint=major
+          version: '2026.11.9'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           install_args: --locked
           cache: false
@@ -56,13 +54,7 @@ jobs:
 
       - name: Run GoReleaser
         if: steps.release-state.outputs.exists != 'true'
-        # @clover: constraint=major tags=goreleaser-action
-        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
-        with:
-          distribution: goreleaser
-          # clover: provider=github repository=goreleaser/goreleaser constraint=major
-          version: v2.20.2
-          args: release --clean
+        run: mise exec -- goreleaser release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
